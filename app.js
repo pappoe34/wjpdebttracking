@@ -8849,7 +8849,7 @@ function initAllButtonHandlers() {
 // ── ONBOARDING SYSTEM (Global Scope) ──────────────────────────
 window.checkOnboarding = function() {
     const onboardingComplete = localStorage.getItem('wjp_onboarding_complete');
-    if (!onboardingComplete) {
+    if (!onboardingComplete && !(document.getElementById("landing-page") && (!window.netlifyIdentity || !window.netlifyIdentity.currentUser()))) {
         window.showOnboardingModal();
     }
 };
