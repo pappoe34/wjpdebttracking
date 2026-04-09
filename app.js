@@ -9359,6 +9359,15 @@ function showWelcomeToast(user) {
 
 (function initAuth() {
   let attempts = 0;
+  let authHandled = false;
+
+  function onUserLogin(u) {
+    if (authHandled) return;
+    authHandled = true;
+    hideAuthGate();
+    loadUserData(u);
+    showWelcomeToast(u);
+  }
 
   function tryInit() {
     const ni = window.netlifyIdentity;
@@ -9367,33 +9376,43 @@ function showWelcomeToast(user) {
       return;
     }
 
-    const user = ni.currentUser();
-    if (user) {
-      hideAuthGate();
-      loadUserData(user);
-    } else {
-      showAuthGate();
-      const lastEmail = window._origGetItem ? window._origGetItem('wjp_last_user_email') : localStorage.getItem('wjp_last_user_email');
-      const lastName = window._origGetItem ? window._origGetItem('wjp_last_user_name') : localStorage.getItem('wjp_last_user_name');
-      if (lastEmail) {
-        const emailInput = document.getElementById('auth-email');
-        if (emailInput) emailInput.value = lastEmail;
-        const subtitle = document.querySelector('.auth-subtitle');
-        if (subtitle && lastName) subtitle.textContent = 'Welcome back, ' + lastName;
-      }
-    }
-
-    ni.on('login', (u) => {
-      hideAuthGate();
-      loadUserData(u);
-      showWelcomeToast(u);
-    });
+    // Attach event listeners FIRST, before any init
+    ni.on('login', onUserLogin);
 
     ni.on('logout', () => {
+      authHandled = false;
       showAuthGate();
       clearUserSession();
     });
 
+    // Handle the 'init' event — fires after widget processes URL hash tokens
+    ni.on('init', (u) => {
+      if (u) {
+        onUserLogin(u);
+      } else if (!authHandled) {
+        showAuthGate();
+        // Show "welcome back" hint for returning users
+        const lastEmail = window._origGetItem ? window._origGetItem('wjp_last_user_email') : localStorage.getItem('wjp_last_user_email');
+        const lastName = window._origGetItem ? window._origGetItem('wjp_last_user_name') : localStorage.getItem('wjp_last_user_name');
+        if (lastEmail) {
+          const emailInput = document.getElementById('auth-email');
+          if (emailInput) emailInput.value = lastEmail;
+          const subtitle = document.querySelector('.auth-subtitle');
+          if (subtitle && lastName) subtitle.textContent = 'Welcome back, ' + lastName;
+        }
+      }
+    });
+
+    // Force widget to initialize and process any hash tokens (OAuth redirects)
+    ni.init();
+
+    // Also check currentUser immediately (for already-logged-in sessions)
+    const user = ni.currentUser();
+    if (user && !authHandled) {
+      onUserLogin(user);
+    }
+
+    // Wire logout button
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) logoutBtn.addEventListener('click', () => ni.logout());
   }
