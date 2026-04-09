@@ -20,6 +20,177 @@
 </head>
 <body class="dark">
 
+<div id="landing-page">
+  <style>
+    #landing-page {
+      position: fixed;
+      inset: 0;
+      z-index: 99998;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(135deg, #060d18 0%, #0a1124 50%, #080f1f 100%);
+      color: var(--text-1, #e8edf4);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .lp-nav { position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 2.5rem; background: rgba(6,13,24,0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,210,180,0.08); }
+    .lp-brand { display: flex; align-items: center; gap: 10px; font-size: 1.4rem; font-weight: 700; color: var(--text-1, #e8edf4); letter-spacing: 0.02em; }
+    .lp-brand i { color: var(--accent, #00d2b4); font-size: 1.5rem; }
+    .lp-nav-right { display: flex; align-items: center; gap: 2rem; }
+    .lp-login-link { color: rgba(232,237,244,0.6); text-decoration: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: color 0.3s; letter-spacing: 0.08em; text-transform: uppercase; }
+    .lp-login-link:hover { color: var(--accent, #00d2b4); }
+    .lp-nav-cta { background: var(--accent, #00d2b4); color: #000; padding: 0.7rem 1.5rem; border-radius: 50px; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.3s; }
+    .lp-nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,210,180,0.3); }
+
+    .lp-hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6rem 2rem 8rem; text-align: center; position: relative; }
+    .lp-hero::before { content: ''; position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%); width: 700px; height: 700px; background: radial-gradient(circle, rgba(0,210,180,0.06) 0%, transparent 65%); filter: blur(80px); pointer-events: none; }
+    .lp-hero-inner { position: relative; z-index: 1; max-width: 860px; }
+    .lp-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,210,180,0.08); border: 1px solid rgba(0,210,180,0.15); padding: 0.5rem 1.25rem; border-radius: 50px; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent, #00d2b4); margin-bottom: 2.5rem; animation: lpFadeUp 0.8s ease 0.1s both; }
+    .lp-badge i { font-size: 0.85rem; }
+    .lp-h1 { font-size: clamp(2.8rem, 7vw, 5.5rem); font-weight: 300; line-height: 1.08; margin-bottom: 1.5rem; animation: lpFadeUp 0.8s ease 0.25s both; letter-spacing: -0.02em; }
+    .lp-h1 em { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; color: var(--accent, #00d2b4); }
+    .lp-sub { font-size: clamp(1rem, 1.8vw, 1.25rem); color: rgba(232,237,244,0.5); line-height: 1.7; margin-bottom: 2.5rem; animation: lpFadeUp 0.8s ease 0.4s both; max-width: 640px; margin-left: auto; margin-right: auto; }
+    .lp-hero-cta { display: inline-block; background: var(--accent, #00d2b4); color: #000; padding: 1rem 2.25rem; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.3s; animation: lpFadeUp 0.8s ease 0.55s both; }
+    .lp-hero-cta:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,210,180,0.35); }
+
+    .lp-chat { position: absolute; bottom: 3rem; left: 50%; transform: translateX(-50%); width: 90%; max-width: 560px; animation: lpFadeUp 0.8s ease 0.7s both; }
+    .lp-chat-bar { display: flex; align-items: center; background: rgba(14,23,38,0.55); border: 1px solid rgba(0,210,180,0.12); border-radius: 50px; padding: 0.9rem 1.25rem; backdrop-filter: blur(20px); box-shadow: 0 8px 40px rgba(0,0,0,0.25); gap: 12px; }
+    .lp-chat-bar input { flex: 1; background: none; border: none; color: var(--text-1, #e8edf4); font-size: 0.95rem; outline: none; font-family: inherit; }
+    .lp-chat-bar input::placeholder { color: rgba(232,237,244,0.3); }
+    .lp-chat-send { width: 38px; height: 38px; border-radius: 50%; background: var(--accent, #00d2b4); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.3s; }
+    .lp-chat-send:hover { transform: scale(1.1); }
+    .lp-chat-send i { color: #000; font-size: 1rem; }
+    .lp-chat-label { text-align: center; margin-top: 0.75rem; font-size: 0.75rem; color: rgba(232,237,244,0.3); letter-spacing: 0.06em; }
+
+    .lp-trust { padding: 4rem 2rem; text-align: center; border-top: 1px solid rgba(0,210,180,0.06); background: rgba(6,13,24,0.5); }
+    .lp-trust-tag { font-size: 1.25rem; font-weight: 500; color: rgba(232,237,244,0.7); margin-bottom: 2.5rem; letter-spacing: -0.01em; }
+    .lp-trust-row { display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; max-width: 900px; margin: 0 auto; }
+    .lp-trust-pill { display: flex; align-items: center; gap: 10px; background: rgba(0,210,180,0.05); border: 1px solid rgba(0,210,180,0.1); border-radius: 50px; padding: 0.6rem 1.25rem; }
+    .lp-trust-pill i { color: var(--accent, #00d2b4); font-size: 1.1rem; }
+    .lp-trust-pill span { font-size: 0.85rem; font-weight: 500; color: rgba(232,237,244,0.7); }
+
+    .lp-features { padding: 6rem 2rem; max-width: 1100px; margin: 0 auto; width: 100%; }
+    .lp-feat-head { text-align: center; margin-bottom: 3.5rem; }
+    .lp-feat-head h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 600; letter-spacing: -0.02em; }
+    .lp-feat-head p { color: rgba(232,237,244,0.4); margin-top: 0.75rem; font-size: 1rem; }
+    .lp-feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+    .lp-feat-card { background: rgba(14,23,38,0.35); border: 1px solid rgba(0,210,180,0.08); border-radius: 16px; padding: 2rem 1.75rem; transition: all 0.35s; }
+    .lp-feat-card:hover { transform: translateY(-6px); border-color: rgba(0,210,180,0.25); box-shadow: 0 20px 50px rgba(0,210,180,0.08); background: rgba(14,23,38,0.5); }
+    .lp-feat-icon { width: 52px; height: 52px; background: rgba(0,210,180,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--accent, #00d2b4); margin-bottom: 1.25rem; }
+    .lp-feat-card h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.6rem; }
+    .lp-feat-card p { font-size: 0.9rem; color: rgba(232,237,244,0.45); line-height: 1.6; }
+
+    .lp-bottom { padding: 5rem 2rem; text-align: center; background: linear-gradient(180deg, transparent 0%, rgba(0,210,180,0.03) 100%); border-top: 1px solid rgba(0,210,180,0.06); }
+    .lp-bottom h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 600; margin-bottom: 1rem; }
+    .lp-bottom p { color: rgba(232,237,244,0.4); margin-bottom: 2rem; font-size: 1rem; }
+    .lp-bottom-cta { display: inline-block; background: var(--accent, #00d2b4); color: #000; padding: 1.1rem 2.5rem; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; font-size: 1rem; letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.3s; }
+    .lp-bottom-cta:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,210,180,0.35); }
+
+    .lp-footer { padding: 2rem; text-align: center; border-top: 1px solid rgba(0,210,180,0.06); color: rgba(232,237,244,0.25); font-size: 0.8rem; }
+    .lp-footer a { color: rgba(232,237,244,0.3); text-decoration: none; margin: 0 1rem; transition: color 0.3s; }
+    .lp-footer a:hover { color: var(--accent, #00d2b4); }
+
+    @keyframes lpFadeUp { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .lp-nav { padding: 1rem 1.25rem; }
+      .lp-hero { padding: 4rem 1.5rem 7rem; }
+      .lp-feat-grid { grid-template-columns: 1fr; }
+      .lp-trust-row { gap: 1rem; }
+      .lp-trust-pill { padding: 0.5rem 1rem; }
+      .lp-chat { width: 92%; bottom: 2rem; }
+    }
+  </style>
+
+  <nav class="lp-nav">
+    <div class="lp-brand"><i class="ph-fill ph-wallet"></i> WJP Debt</div>
+    <div class="lp-nav-right">
+      <a class="lp-login-link" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate();">Log In</a>
+      <button class="lp-nav-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate();">Get Started &rarr;</button>
+    </div>
+  </nav>
+
+  <section class="lp-hero">
+    <div class="lp-hero-inner">
+      <div class="lp-badge"><i class="ph-fill ph-lightning"></i> AI-Powered Debt Elimination Engine</div>
+      <h1 class="lp-h1"><em>Master</em> your debt.</h1>
+      <p class="lp-sub">Your AI-powered financial co-pilot. Track spending, eliminate debt, and build wealth &mdash; all in one place.</p>
+      <button class="lp-hero-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate();">Get Started &rarr;</button>
+    </div>
+    <div class="lp-chat">
+      <div class="lp-chat-bar">
+        <input type="text" id="lp-chat-input" placeholder="How fast can I pay off my credit card?" readonly>
+        <button class="lp-chat-send" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate();"><i class="ph-bold ph-arrow-up"></i></button>
+      </div>
+      <div class="lp-chat-label">Track everything. Ask anything.</div>
+    </div>
+  </section>
+
+  <section class="lp-trust">
+    <div class="lp-trust-tag">Everything you need to become debt-free</div>
+    <div class="lp-trust-row">
+      <div class="lp-trust-pill"><i class="ph-fill ph-brain"></i><span>AI Strategy</span></div>
+      <div class="lp-trust-pill"><i class="ph-fill ph-chart-line-up"></i><span>Real-Time Tracking</span></div>
+      <div class="lp-trust-pill"><i class="ph-fill ph-lightbulb"></i><span>Smart Analysis</span></div>
+      <div class="lp-trust-pill"><i class="ph-fill ph-shield-check"></i><span>Bank-Level Security</span></div>
+    </div>
+  </section>
+
+  <section class="lp-features">
+    <div class="lp-feat-head">
+      <h2>Powerful features, built for you</h2>
+      <p>Tools that work together to accelerate your path to financial freedom</p>
+    </div>
+    <div class="lp-feat-grid">
+      <div class="lp-feat-card">
+        <div class="lp-feat-icon"><i class="ph-fill ph-rocket-launch"></i></div>
+        <h3>AI Debt Strategy</h3>
+        <p>Our Evergreen Algorithm analyzes your finances and builds a personalized debt elimination plan tailored to your goals.</p>
+      </div>
+      <div class="lp-feat-card">
+        <div class="lp-feat-icon"><i class="ph-fill ph-piggy-bank"></i></div>
+        <h3>Smart Budgeting</h3>
+        <p>AI-powered budgeting that learns your spending patterns and helps you save more without sacrificing your lifestyle.</p>
+      </div>
+      <div class="lp-feat-card">
+        <div class="lp-feat-icon"><i class="ph-fill ph-trend-up"></i></div>
+        <h3>Credit Building</h3>
+        <p>Watch your credit score climb with personalized strategies and real-time insights into what impacts your creditworthiness.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-bottom">
+    <h2>Ready to take control?</h2>
+    <p>Join thousands eliminating debt smarter with AI</p>
+    <button class="lp-bottom-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate();">Get Started &mdash; It's Free &rarr;</button>
+  </section>
+
+  <footer class="lp-footer">
+    <div>&copy; 2026 WJP Financial. All rights reserved.</div>
+    <div style="margin-top:0.75rem;"><a href="#privacy">Privacy</a><a href="#terms">Terms</a><a href="#contact">Contact</a></div>
+  </footer>
+
+  <script>
+    // Typing animation for chat input placeholder
+    (function() {
+      const phrases = [
+        'How fast can I pay off my credit card?',
+        "What's the best debt payoff strategy for me?",
+        'Show me my spending breakdown this month...',
+        'How much can I save by refinancing?'
+      ];
+      let idx = 0;
+      const el = document.getElementById('lp-chat-input');
+      if (el) setInterval(() => { idx = (idx + 1) % phrases.length; el.placeholder = phrases[idx]; }, 3000);
+    })();
+  </script>
+</div>
+
+
+
+
   <div class="app-wrapper">
     <!-- SIDEBAR -->
     <aside class="sidebar">
