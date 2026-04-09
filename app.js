@@ -9112,80 +9112,295 @@ window.completeOnboarding = function(message) {
 };
 
 
+// ============================================================================
+// AUTH GATE FUNCTIONS - Netlify Identity Integration
+// ============================================================================
+
 function showAuthGate() {
-    const gate = document.getElementById('auth-gate');
-    const app = document.querySelector('.app-wrapper');
-    if (gate) gate.style.display = 'block';
-    if (app) app.style.display = 'none';
+  const gate = document.getElementById('auth-gate');
+  const app = document.querySelector('.app-wrapper');
+  if (gate) { gate.style.display = 'flex'; setTimeout(() => { gate.style.opacity = '1'; }, 10); }
+  if (app) app.style.display = 'none';
 }
 
 function hideAuthGate() {
-    const gate = document.getElementById('auth-gate');
-    const app = document.querySelector('.app-wrapper');
-    if (gate) gate.style.display = 'none';
-    if (app) app.style.display = 'flex';
+  const gate = document.getElementById('auth-gate');
+  const app = document.querySelector('.app-wrapper');
+  if (gate) { gate.style.opacity = '0'; setTimeout(() => { gate.style.display = 'none'; }, 300); }
+  if (app) app.style.display = 'flex';
 }
 
 function switchAuthTab(tab) {
-    const loginForm = document.getElementById('auth-login-form');
-    const signupForm = document.getElementById('auth-signup-form');
-    const loginTab = document.getElementById('auth-tab-login');
-    const signupTab = document.getElementById('auth-tab-signup');
-    if (tab === 'login') {
-        if (loginForm) loginForm.style.display = 'block';
-        if (signupForm) signupForm.style.display = 'none';
-        if (loginTab) { loginTab.style.background = 'var(--accent)'; loginTab.style.color = '#0a0a0a'; }
-        if (signupTab) { signupTab.style.background = 'transparent'; signupTab.style.color = 'var(--text-3)'; }
+  const loginTab = document.getElementById('auth-tab-login');
+  const signupTab = document.getElementById('auth-tab-signup');
+  const loginForm = document.getElementById('auth-login-form');
+  const signupForm = document.getElementById('auth-signup-form');
+  if (tab === 'login') {
+    loginTab.classList.add('active'); signupTab.classList.remove('active');
+    loginForm.classList.add('active'); signupForm.classList.remove('active');
+  } else {
+    signupTab.classList.add('active'); loginTab.classList.remove('active');
+    signupForm.classList.add('active'); loginForm.classList.remove('active');
+  }
+  clearAuthErrors();
+}
+
+function clearAuthErrors() {
+  ['auth-error', 'auth-signup-error'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('show'); el.textContent = ''; }
+  });
+}
+
+function showAuthError(msg, isSignup) {
+  const el = document.getElementById(isSignup ? 'auth-signup-error' : 'auth-error');
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+
+function showAuthSuccess(msg, isSignup) {
+  const el = document.getElementById(isSignup ? 'auth-signup-error' : 'auth-error');
+  if (el) {
+    el.textContent = msg;
+    el.classList.add('show');
+    el.style.background = 'rgba(0,200,150,0.1)';
+    el.style.borderColor = 'rgba(0,200,150,0.3)';
+    el.style.color = '#6bcf7f';
+  }
+}
+// ---------- EMAIL LOGIN (programmatic via gotrue-js) ----------
+async function handleEmailLogin() {
+  const email = document.getElementById('auth-email')?.value.trim();
+  const password = document.getElementById('auth-password')?.value;
+  const btn = document.getElementById('auth-login-btn');
+
+  if (!email) { showAuthError('Please enter your email address'); return; }
+  if (!password) { showAuthError('Please enter your password'); return; }
+
+  clearAuthErrors();
+  if (btn) { btn.classList.add('loading'); btn.disabled = true; }
+
+  try {
+    const gotrue = window.netlifyIdentity?.gotrue;
+    if (!gotrue) throw new Error('Auth service not loaded yet. Please refresh.');
+
+    const user = await gotrue.login(email, password, true);
+    hideAuthGate();
+    loadUserData(user);
+    showWelcomeToast(user);
+  } catch (e) {
+    const msg = e?.json?.error_description || e?.message || 'Login failed. Check your credentials.';
+    showAuthError(msg);
+  } finally {
+    if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+  }
+}
+
+// ---------- EMAIL SIGNUP ----------
+async function handleEmailSignup() {
+  const name = document.getElementById('auth-name')?.value.trim();
+  const email = document.getElementById('auth-signup-email')?.value.trim();
+  const password = document.getElementById('auth-signup-password')?.value;
+  const btn = document.getElementById('auth-signup-btn');
+
+  if (!name) { showAuthError('Please enter your full name', true); return; }
+  if (!email) { showAuthError('Please enter your email address', true); return; }
+  if (!password || password.length < 8) { showAuthError('Password must be at least 8 characters', true); return; }
+
+  clearAuthErrors();
+  if (btn) { btn.classList.add('loading'); btn.disabled = true; }
+
+  try {
+    const gotrue = window.netlifyIdentity?.gotrue;
+    if (!gotrue) throw new Error('Auth service not loaded yet. Please refresh.');
+
+    const user = await gotrue.signup(email, password, { full_name: name });
+    if (user.confirmed_at) {
+      hideAuthGate();
+      loadUserData(user);
+      showWelcomeToast(user);
     } else {
-        if (loginForm) loginForm.style.display = 'none';
-        if (signupForm) signupForm.style.display = 'block';
-        if (signupTab) { signupTab.style.background = 'var(--accent)'; signupTab.style.color = '#0a0a0a'; }
-        if (loginTab) { loginTab.style.background = 'transparent'; loginTab.style.color = 'var(--text-3)'; }
+      showAuthSuccess('Account created! Check your email to confirm.', true);
     }
+  } catch (e) {
+    const msg = e?.json?.error_description || e?.json?.msg || e?.message || 'Signup failed.';
+    showAuthError(msg, true);
+  } finally {
+    if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+  }
 }
 
-function handleEmailLogin() {
-    const email = document.getElementById('auth-email')?.value;
-    const password = document.getElementById('auth-password')?.value;
-    const errEl = document.getElementById('auth-error');
-    if (!email || !password) { if (errEl) { errEl.textContent = 'Please enter email and password.'; errEl.style.display = 'block'; } return; }
-    const ni = window.netlifyIdentity;
-    if (!ni) { if (errEl) { errEl.textContent = 'Auth not loaded yet. Please refresh.'; errEl.style.display = 'block'; } return; }
-    ni.login({ email, password }).catch(err => { if (errEl) { errEl.textContent = err.message || 'Login failed.'; errEl.style.display = 'block'; } });
-}
-
-function handleEmailSignup() {
-    const name = document.getElementById('auth-name')?.value;
-    const email = document.getElementById('auth-signup-email')?.value;
-    const password = document.getElementById('auth-signup-password')?.value;
-    const errEl = document.getElementById('auth-signup-error');
-    if (!email || !password) { if (errEl) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'block'; } return; }
-    const ni = window.netlifyIdentity;
-    if (!ni) { if (errEl) { errEl.textContent = 'Auth not loaded yet. Please refresh.'; errEl.style.display = 'block'; } return; }
-    ni.signup({ email, password, user_metadata: { full_name: name } }).catch(err => { if (errEl) { errEl.textContent = err.message || 'Sign up failed.'; errEl.style.display = 'block'; } });
-}
-
+// ---------- GOOGLE OAUTH ----------
 function handleGoogleAuth() {
-    const ni = window.netlifyIdentity;
-    if (ni) { ni.open('login'); }
+  window.location.href = '/.netlify/identity/authorize?provider=google';
 }
+
+// ---------- FORGOT PASSWORD ----------
+async function handleForgotPassword() {
+  const email = document.getElementById('auth-email')?.value.trim();
+  if (!email) { showAuthError('Enter your email first, then click Forgot password'); return; }
+
+  try {
+    const gotrue = window.netlifyIdentity?.gotrue;
+    if (!gotrue) throw new Error('Auth service not loaded.');
+    await gotrue.requestPasswordRecovery(email);
+    showAuthSuccess('Password reset link sent to ' + email);
+  } catch (e) {
+    showAuthError(e?.message || 'Failed to send reset email.');
+  }
+}
+
+// ---------- PASSWORD VISIBILITY TOGGLE ----------
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const wrapper = input.closest('.auth-password-wrapper');
+  const icon = wrapper?.querySelector('.auth-password-toggle i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) icon.className = 'ph-fill ph-eye-slash';
+  } else {
+    input.type = 'password';
+    if (icon) icon.className = 'ph-fill ph-eye';
+  }
+}
+
+// ---------- PASSWORD STRENGTH METER ----------
+function updatePasswordStrength(pw) {
+  const bar = document.getElementById('auth-strength-bar');
+  if (!bar || !pw) { if (bar) bar.className = 'auth-password-strength-bar'; return; }
+
+  const score = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/, /.{12,}/]
+    .reduce((s, r) => s + (r.test(pw) ? 1 : 0), 0);
+
+  const cls = score <= 1 ? 'weak' : score === 2 ? 'medium' : score === 3 ? 'strong' : 'very-strong';
+  bar.className = 'auth-password-strength-bar ' + cls;
+}
+// ============================================================================
+// USER-SCOPED LOCALSTORAGE
+// ============================================================================
+
+let _currentUserId = null;
+
+function getUserStorageKey(key) {
+  return _currentUserId ? `wjp_${_currentUserId}_${key}` : `wjp_${key}`;
+}
+
+function loadUserData(user) {
+  if (!user) return;
+  _currentUserId = user.id;
+
+  if (!window._origGetItem) {
+    window._origGetItem = localStorage.getItem.bind(localStorage);
+    window._origSetItem = localStorage.setItem.bind(localStorage);
+
+    localStorage.getItem = function(key) {
+      if (key.startsWith('wjp_') && _currentUserId && !key.startsWith('wjp_' + _currentUserId)) {
+        const base = key.replace(/^wjp_/, '');
+        const scoped = `wjp_${_currentUserId}_${base}`;
+        const val = window._origGetItem(scoped);
+        if (val !== null) return val;
+        const generic = window._origGetItem(key);
+        if (generic !== null) {
+          window._origSetItem(scoped, generic);
+          return generic;
+        }
+        return null;
+      }
+      return window._origGetItem(key);
+    };
+
+    localStorage.setItem = function(key, val) {
+      if (key.startsWith('wjp_') && _currentUserId && !key.startsWith('wjp_' + _currentUserId)) {
+        const base = key.replace(/^wjp_/, '');
+        return window._origSetItem(`wjp_${_currentUserId}_${base}`, val);
+      }
+      return window._origSetItem(key, val);
+    };
+  }
+
+  const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+  const nameEl = document.getElementById('sidebar-user-name');
+  const emailEl = document.getElementById('sidebar-user-email');
+  const initialsEl = document.getElementById('sidebar-user-initials');
+  if (nameEl) nameEl.textContent = fullName;
+  if (emailEl) emailEl.textContent = user.email || '';
+  if (initialsEl) {
+    const parts = fullName.split(' ');
+    initialsEl.textContent = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
+      : fullName.slice(0,2).toUpperCase();
+  }
+
+  window._origSetItem('wjp_last_user_email', user.email || '');
+  window._origSetItem('wjp_last_user_name', fullName);
+
+  const themePref = localStorage.getItem('budget-theme');
+  if (themePref) {
+    document.body.classList.remove('light', 'dark');
+    document.body.classList.add(themePref);
+  }
+}
+
+function clearUserSession() {
+  _currentUserId = null;
+}
+
+function showWelcomeToast(user) {
+  const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--card);color:var(--text-1);padding:16px 24px;border-radius:12px;border:1px solid var(--border);z-index:10000;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,0.3);animation:fadeIn 0.3s ease;';
+  toast.innerHTML = '<span style="color:var(--accent);font-weight:700;">Welcome back</span>, ' + name + '!';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+// ============================================================================
+// INIT AUTH (IIFE)
+// ============================================================================
 
 (function initAuth() {
-    function tryInit() {
-        const ni = window.netlifyIdentity;
-        if (!ni) { setTimeout(tryInit, 500); return; }
-        const user = ni.currentUser();
-        if (user) { hideAuthGate(); } else { showAuthGate(); }
-        ni.on('login', (u) => {
-            hideAuthGate();
-            const nameEl = document.getElementById('sidebar-user-name');
-            const emailEl = document.getElementById('sidebar-user-email');
-            if (nameEl) nameEl.textContent = u.user_metadata?.full_name || u.email.split('@')[0];
-            if (emailEl) emailEl.textContent = u.email;
-        });
-        ni.on('logout', () => { showAuthGate(); });
-        const logoutBtn = document.getElementById('btn-logout');
-        if (logoutBtn) logoutBtn.addEventListener('click', () => ni.logout());
-    };
-    setTimeout(tryInit, 500);
+  let attempts = 0;
+
+  function tryInit() {
+    const ni = window.netlifyIdentity;
+    if (!ni) {
+      if (++attempts < 50) setTimeout(tryInit, 100);
+      return;
+    }
+
+    const user = ni.currentUser();
+    if (user) {
+      hideAuthGate();
+      loadUserData(user);
+    } else {
+      showAuthGate();
+      const lastEmail = window._origGetItem ? window._origGetItem('wjp_last_user_email') : localStorage.getItem('wjp_last_user_email');
+      const lastName = window._origGetItem ? window._origGetItem('wjp_last_user_name') : localStorage.getItem('wjp_last_user_name');
+      if (lastEmail) {
+        const emailInput = document.getElementById('auth-email');
+        if (emailInput) emailInput.value = lastEmail;
+        const subtitle = document.querySelector('.auth-subtitle');
+        if (subtitle && lastName) subtitle.textContent = 'Welcome back, ' + lastName;
+      }
+    }
+
+    ni.on('login', (u) => {
+      hideAuthGate();
+      loadUserData(u);
+      showWelcomeToast(u);
+    });
+
+    ni.on('logout', () => {
+      showAuthGate();
+      clearUserSession();
+    });
+
+    const logoutBtn = document.getElementById('btn-logout');
+    if (logoutBtn) logoutBtn.addEventListener('click', () => ni.logout());
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryInit);
+  } else {
+    tryInit();
+  }
 })();
