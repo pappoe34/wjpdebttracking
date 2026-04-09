@@ -8856,7 +8856,7 @@ window.checkOnboarding = function() {
 
 window.showOnboardingModal = function() {
     const modal = document.getElementById('onboarding-modal');
-    if (modal) {
+    if (modal && window.netlifyIdentity && window.netlifyIdentity.currentUser()) {
         modal.classList.add('active');
         modal.style.display = '';
     }
