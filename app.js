@@ -9110,3 +9110,82 @@ window.completeOnboarding = function(message) {
         setTimeout(() => { if (typeof updateUI === 'function') updateUI(); }, 100);
     }, 800);
 };
+
+
+function showAuthGate() {
+    const gate = document.getElementById('auth-gate');
+    const app = document.querySelector('.app-wrapper');
+    if (gate) gate.style.display = 'block';
+    if (app) app.style.display = 'none';
+}
+
+function hideAuthGate() {
+    const gate = document.getElementById('auth-gate');
+    const app = document.querySelector('.app-wrapper');
+    if (gate) gate.style.display = 'none';
+    if (app) app.style.display = 'flex';
+}
+
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('auth-login-form');
+    const signupForm = document.getElementById('auth-signup-form');
+    const loginTab = document.getElementById('auth-tab-login');
+    const signupTab = document.getElementById('auth-tab-signup');
+    if (tab === 'login') {
+        if (loginForm) loginForm.style.display = 'block';
+        if (signupForm) signupForm.style.display = 'none';
+        if (loginTab) { loginTab.style.background = 'var(--accent)'; loginTab.style.color = '#0a0a0a'; }
+        if (signupTab) { signupTab.style.background = 'transparent'; signupTab.style.color = 'var(--text-3)'; }
+    } else {
+        if (loginForm) loginForm.style.display = 'none';
+        if (signupForm) signupForm.style.display = 'block';
+        if (signupTab) { signupTab.style.background = 'var(--accent)'; signupTab.style.color = '#0a0a0a'; }
+        if (loginTab) { loginTab.style.background = 'transparent'; loginTab.style.color = 'var(--text-3)'; }
+    }
+}
+
+function handleEmailLogin() {
+    const email = document.getElementById('auth-email')?.value;
+    const password = document.getElementById('auth-password')?.value;
+    const errEl = document.getElementById('auth-error');
+    if (!email || !password) { if (errEl) { errEl.textContent = 'Please enter email and password.'; errEl.style.display = 'block'; } return; }
+    const ni = window.netlifyIdentity;
+    if (!ni) { if (errEl) { errEl.textContent = 'Auth not loaded yet. Please refresh.'; errEl.style.display = 'block'; } return; }
+    ni.login({ email, password }).catch(err => { if (errEl) { errEl.textContent = err.message || 'Login failed.'; errEl.style.display = 'block'; } });
+}
+
+function handleEmailSignup() {
+    const name = document.getElementById('auth-name')?.value;
+    const email = document.getElementById('auth-signup-email')?.value;
+    const password = document.getElementById('auth-signup-password')?.value;
+    const errEl = document.getElementById('auth-signup-error');
+    if (!email || !password) { if (errEl) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'block'; } return; }
+    const ni = window.netlifyIdentity;
+    if (!ni) { if (errEl) { errEl.textContent = 'Auth not loaded yet. Please refresh.'; errEl.style.display = 'block'; } return; }
+    ni.signup({ email, password, user_metadata: { full_name: name } }).catch(err => { if (errEl) { errEl.textContent = err.message || 'Sign up failed.'; errEl.style.display = 'block'; } });
+}
+
+function handleGoogleAuth() {
+    const ni = window.netlifyIdentity;
+    if (ni) { ni.open('login'); }
+}
+
+(function initAuth() {
+    function tryInit() {
+        const ni = window.netlifyIdentity;
+        if (!ni) { setTimeout(tryInit, 500); return; }
+        const user = ni.currentUser();
+        if (user) { hideAuthGate(); } else { showAuthGate(); }
+        ni.on('login', (u) => {
+            hideAuthGate();
+            const nameEl = document.getElementById('sidebar-user-name');
+            const emailEl = document.getElementById('sidebar-user-email');
+            if (nameEl) nameEl.textContent = u.user_metadata?.full_name || u.email.split('@')[0];
+            if (emailEl) emailEl.textContent = u.email;
+        });
+        ni.on('logout', () => { showAuthGate(); });
+        const logoutBtn = document.getElementById('btn-logout');
+        if (logoutBtn) logoutBtn.addEventListener('click', () => ni.logout());
+    };
+    setTimeout(tryInit, 500);
+})();
