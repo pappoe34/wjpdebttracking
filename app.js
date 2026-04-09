@@ -9116,7 +9116,18 @@ window.completeOnboarding = function(message) {
 // AUTH GATE FUNCTIONS - Netlify Identity Integration
 // ============================================================================
 
+function showLandingPage() {
+  const lp = document.getElementById('landing-page');
+  if (lp) lp.style.display = 'flex';
+}
+
+function hideLandingPage() {
+  const lp = document.getElementById('landing-page');
+  if (lp) lp.style.display = 'none';
+}
+
 function showAuthGate() {
+  hideLandingPage();
   const gate = document.getElementById('auth-gate');
   const app = document.querySelector('.app-wrapper');
   if (gate) { gate.style.display = 'flex'; setTimeout(() => { gate.style.opacity = '1'; }, 10); }
@@ -9124,6 +9135,7 @@ function showAuthGate() {
 }
 
 function hideAuthGate() {
+  hideLandingPage();
   const gate = document.getElementById('auth-gate');
   const app = document.querySelector('.app-wrapper');
   if (gate) { gate.style.opacity = '0'; setTimeout(() => { gate.style.display = 'none'; }, 300); }
@@ -9167,22 +9179,18 @@ function showAuthSuccess(msg, isSignup) {
     el.style.color = '#6bcf7f';
   }
 }
-// ---------- EMAIL LOGIN (programmatic via gotrue-js) ----------
+// ---------- EMAIL LOGIN ----------
 async function handleEmailLogin() {
   const email = document.getElementById('auth-email')?.value.trim();
   const password = document.getElementById('auth-password')?.value;
   const btn = document.getElementById('auth-login-btn');
-
   if (!email) { showAuthError('Please enter your email address'); return; }
   if (!password) { showAuthError('Please enter your password'); return; }
-
   clearAuthErrors();
   if (btn) { btn.classList.add('loading'); btn.disabled = true; }
-
   try {
     const gotrue = window.netlifyIdentity?.gotrue;
     if (!gotrue) throw new Error('Auth service not loaded yet. Please refresh.');
-
     const user = await gotrue.login(email, password, true);
     hideAuthGate();
     loadUserData(user);
@@ -9201,18 +9209,14 @@ async function handleEmailSignup() {
   const email = document.getElementById('auth-signup-email')?.value.trim();
   const password = document.getElementById('auth-signup-password')?.value;
   const btn = document.getElementById('auth-signup-btn');
-
   if (!name) { showAuthError('Please enter your full name', true); return; }
   if (!email) { showAuthError('Please enter your email address', true); return; }
   if (!password || password.length < 8) { showAuthError('Password must be at least 8 characters', true); return; }
-
   clearAuthErrors();
   if (btn) { btn.classList.add('loading'); btn.disabled = true; }
-
   try {
     const gotrue = window.netlifyIdentity?.gotrue;
     if (!gotrue) throw new Error('Auth service not loaded yet. Please refresh.');
-
     const user = await gotrue.signup(email, password, { full_name: name });
     if (user.confirmed_at) {
       hideAuthGate();
@@ -9229,16 +9233,13 @@ async function handleEmailSignup() {
   }
 }
 
-// ---------- GOOGLE OAUTH ----------
 function handleGoogleAuth() {
   window.location.href = '/.netlify/identity/authorize?provider=google';
 }
 
-// ---------- FORGOT PASSWORD ----------
 async function handleForgotPassword() {
   const email = document.getElementById('auth-email')?.value.trim();
   if (!email) { showAuthError('Enter your email first, then click Forgot password'); return; }
-
   try {
     const gotrue = window.netlifyIdentity?.gotrue;
     if (!gotrue) throw new Error('Auth service not loaded.');
@@ -9249,7 +9250,6 @@ async function handleForgotPassword() {
   }
 }
 
-// ---------- PASSWORD VISIBILITY TOGGLE ----------
 function togglePasswordVisibility(inputId) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -9264,14 +9264,11 @@ function togglePasswordVisibility(inputId) {
   }
 }
 
-// ---------- PASSWORD STRENGTH METER ----------
 function updatePasswordStrength(pw) {
   const bar = document.getElementById('auth-strength-bar');
   if (!bar || !pw) { if (bar) bar.className = 'auth-password-strength-bar'; return; }
-
   const score = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/, /.{12,}/]
     .reduce((s, r) => s + (r.test(pw) ? 1 : 0), 0);
-
   const cls = score <= 1 ? 'weak' : score === 2 ? 'medium' : score === 3 ? 'strong' : 'very-strong';
   bar.className = 'auth-password-strength-bar ' + cls;
 }
@@ -9281,43 +9278,32 @@ function updatePasswordStrength(pw) {
 
 let _currentUserId = null;
 
-function getUserStorageKey(key) {
-  return _currentUserId ? `wjp_${_currentUserId}_${key}` : `wjp_${key}`;
-}
-
 function loadUserData(user) {
   if (!user) return;
   _currentUserId = user.id;
-
   if (!window._origGetItem) {
     window._origGetItem = localStorage.getItem.bind(localStorage);
     window._origSetItem = localStorage.setItem.bind(localStorage);
-
     localStorage.getItem = function(key) {
       if (key.startsWith('wjp_') && _currentUserId && !key.startsWith('wjp_' + _currentUserId)) {
         const base = key.replace(/^wjp_/, '');
-        const scoped = `wjp_${_currentUserId}_${base}`;
+        const scoped = 'wjp_' + _currentUserId + '_' + base;
         const val = window._origGetItem(scoped);
         if (val !== null) return val;
         const generic = window._origGetItem(key);
-        if (generic !== null) {
-          window._origSetItem(scoped, generic);
-          return generic;
-        }
+        if (generic !== null) { window._origSetItem(scoped, generic); return generic; }
         return null;
       }
       return window._origGetItem(key);
     };
-
     localStorage.setItem = function(key, val) {
       if (key.startsWith('wjp_') && _currentUserId && !key.startsWith('wjp_' + _currentUserId)) {
         const base = key.replace(/^wjp_/, '');
-        return window._origSetItem(`wjp_${_currentUserId}_${base}`, val);
+        return window._origSetItem('wjp_' + _currentUserId + '_' + base, val);
       }
       return window._origSetItem(key, val);
     };
   }
-
   const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
   const nameEl = document.getElementById('sidebar-user-name');
   const emailEl = document.getElementById('sidebar-user-email');
@@ -9330,10 +9316,8 @@ function loadUserData(user) {
       ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
       : fullName.slice(0,2).toUpperCase();
   }
-
   window._origSetItem('wjp_last_user_email', user.email || '');
   window._origSetItem('wjp_last_user_name', fullName);
-
   const themePref = localStorage.getItem('budget-theme');
   if (themePref) {
     document.body.classList.remove('light', 'dark');
@@ -9341,9 +9325,7 @@ function loadUserData(user) {
   }
 }
 
-function clearUserSession() {
-  _currentUserId = null;
-}
+function clearUserSession() { _currentUserId = null; }
 
 function showWelcomeToast(user) {
   const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
@@ -9354,7 +9336,7 @@ function showWelcomeToast(user) {
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 // ============================================================================
-// INIT AUTH (IIFE)
+// INIT AUTH (IIFE) — Shows landing page for new visitors, auth gate via CTA
 // ============================================================================
 
 (function initAuth() {
@@ -9376,43 +9358,31 @@ function showWelcomeToast(user) {
       return;
     }
 
-    // Attach event listeners FIRST, before any init
     ni.on('login', onUserLogin);
 
     ni.on('logout', () => {
       authHandled = false;
-      showAuthGate();
+      showLandingPage();
       clearUserSession();
     });
 
-    // Handle the 'init' event — fires after widget processes URL hash tokens
     ni.on('init', (u) => {
       if (u) {
         onUserLogin(u);
       } else if (!authHandled) {
-        showAuthGate();
-        // Show "welcome back" hint for returning users
-        const lastEmail = window._origGetItem ? window._origGetItem('wjp_last_user_email') : localStorage.getItem('wjp_last_user_email');
-        const lastName = window._origGetItem ? window._origGetItem('wjp_last_user_name') : localStorage.getItem('wjp_last_user_name');
-        if (lastEmail) {
-          const emailInput = document.getElementById('auth-email');
-          if (emailInput) emailInput.value = lastEmail;
-          const subtitle = document.querySelector('.auth-subtitle');
-          if (subtitle && lastName) subtitle.textContent = 'Welcome back, ' + lastName;
-        }
+        // No user — show the landing page (not auth gate)
+        // The landing page CTAs call showAuthGate() when user clicks Get Started / Log In
+        showLandingPage();
       }
     });
 
-    // Force widget to initialize and process any hash tokens (OAuth redirects)
     ni.init();
 
-    // Also check currentUser immediately (for already-logged-in sessions)
     const user = ni.currentUser();
     if (user && !authHandled) {
       onUserLogin(user);
     }
 
-    // Wire logout button
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) logoutBtn.addEventListener('click', () => ni.logout());
   }
