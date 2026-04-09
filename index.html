@@ -101,7 +101,118 @@
       .lp-trust-pill { padding: 0.5rem 1rem; }
       .lp-chat { width: 92%; bottom: 2rem; }
     }
-  </style>
+  
+    /* ===== BACKGROUND ORBS ===== */
+    .lp-bg-orbs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+    .lp-orb {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.35;
+      animation: lp-float 12s ease-in-out infinite alternate;
+    }
+    .lp-orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, #00e89d 0%, transparent 70%); top: -10%; left: -8%; animation-delay: 0s; }
+    .lp-orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, #0a6e5c 0%, transparent 70%); top: 30%; right: -5%; animation-delay: -4s; }
+    .lp-orb-3 { width: 350px; height: 350px; background: radial-gradient(circle, #00c9ff 0%, transparent 70%); bottom: 20%; left: 15%; animation-delay: -8s; opacity: 0.2; }
+    .lp-orb-4 { width: 300px; height: 300px; background: radial-gradient(circle, #00e89d 0%, transparent 70%); bottom: -5%; right: 20%; animation-delay: -2s; opacity: 0.25; }
+    .lp-orb-5 { width: 250px; height: 250px; background: radial-gradient(circle, #7b61ff 0%, transparent 70%); top: 55%; left: 50%; animation-delay: -6s; opacity: 0.15; }
+    @keyframes lp-float {
+      0% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -20px) scale(1.05); }
+      66% { transform: translate(-20px, 15px) scale(0.95); }
+      100% { transform: translate(15px, -30px) scale(1.02); }
+    }
+
+    /* ===== GRID PATTERN OVERLAY ===== */
+    .lp-grid-overlay {
+      position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+    }
+
+    /* ===== GLASSMORPHIC ICONS ===== */
+    .lp-trust-pill {
+      background: rgba(255,255,255,0.06) !important;
+      backdrop-filter: blur(16px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+      border: 1px solid rgba(255,255,255,0.12) !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+      transition: all 0.3s ease !important;
+    }
+    .lp-trust-pill:hover {
+      background: rgba(255,255,255,0.1) !important;
+      border-color: rgba(0,232,157,0.3) !important;
+      box-shadow: 0 8px 32px rgba(0,232,157,0.15), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+      transform: translateY(-2px) !important;
+    }
+    .lp-trust-pill ph-icon, .lp-trust-pill i {
+      background: linear-gradient(135deg, #00e89d, #00c9ff) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+      filter: drop-shadow(0 0 6px rgba(0,232,157,0.4)) !important;
+    }
+
+    /* ===== GLASSMORPHIC FEATURE CARDS ===== */
+    .lp-feat-card {
+      background: rgba(255,255,255,0.04) !important;
+      backdrop-filter: blur(20px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+      transition: all 0.4s ease !important;
+    }
+    .lp-feat-card:hover {
+      background: rgba(255,255,255,0.08) !important;
+      border-color: rgba(0,232,157,0.25) !important;
+      box-shadow: 0 12px 48px rgba(0,232,157,0.1), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+      transform: translateY(-4px) !important;
+    }
+    .lp-feat-icon {
+      width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,232,157,0.08) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid rgba(0,232,157,0.2) !important;
+      box-shadow: 0 4px 16px rgba(0,232,157,0.1), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    }
+    .lp-feat-icon i {
+      background: linear-gradient(135deg, #00e89d, #00c9ff) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+    }
+
+    /* ===== GLASSMORPHIC CHAT INPUT ===== */
+    .lp-chat {
+      background: rgba(255,255,255,0.05) !important;
+      backdrop-filter: blur(20px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    }
+
+    /* ===== GLASSMORPHIC NAV ===== */
+    .lp-nav {
+      background: rgba(15,23,35,0.6) !important;
+      backdrop-filter: blur(20px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+      border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    }
+
+    /* Ensure content sits above orbs */
+    .lp-nav, .lp-hero, .lp-trust, .lp-features, .lp-bottom, .lp-footer, .lp-chat { position: relative; z-index: 1; }
+</style>
+
+  <!-- Background visuals -->
+  <div class="lp-bg-orbs">
+    <div class="lp-orb lp-orb-1"></div>
+    <div class="lp-orb lp-orb-2"></div>
+    <div class="lp-orb lp-orb-3"></div>
+    <div class="lp-orb lp-orb-4"></div>
+    <div class="lp-orb lp-orb-5"></div>
+  </div>
+  <div class="lp-grid-overlay"></div>
 
   <nav class="lp-nav">
     <div class="lp-brand"><i class="ph-fill ph-wallet"></i> WJP Debt</div>
