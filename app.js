@@ -9343,12 +9343,12 @@ function loadUserData(user) {
   var sidebarInitials = document.getElementById('sidebar-user-initials');
   if (sidebarInitials) sidebarInitials.textContent = initials;
 
-  // Update header elements (by ID)
-  var headerName = document.getElementById('header-user-name');
-  if (headerName) headerName.textContent = fullName || '';
+  // Update settings page elements (by ID)
+  var settingsName = document.getElementById('settings-user-name');
+  if (settingsName) settingsName.textContent = fullName || 'User';
 
-  var headerAvatar = document.getElementById('header-user-avatar');
-  if (headerAvatar) headerAvatar.textContent = initials;
+  var settingsAvatar = document.getElementById('settings-user-avatar');
+  if (settingsAvatar) settingsAvatar.textContent = initials;
 
   // Update elements by class (fallback)
   document.querySelectorAll('.user-name').forEach(function(el) {
