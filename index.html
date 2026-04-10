@@ -415,7 +415,7 @@
             <div class="notification-panel" id="notification-panel">
               <div class="notification-header">
                 <h3>Notifications</h3>
-                <button id="btn-clear-notifications">Clear All</button>
+                <button id="btn-clear-notifications" aria-label="Clear notifications">Clear All</button>
               </div>
               <div class="notification-list">
                   <div class="notification-item unread">
@@ -444,7 +444,7 @@
                 </div>
               </div>
               <div class="notification-footer">
-                <a role="button" tabindex="0" id="link-see-all-activity">See All Activity</a>
+                <a role="button" tabindex="0" id="link-see-all-activity" aria-label="See all activity">See All Activity</a>
               </div>
             </div>
           </div>
@@ -516,9 +516,9 @@
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div class="ai-focus-label">Payoff Projection</div>
                         <div class="chart-style-switcher" id="ai-chart-switcher">
-                            <button class="style-btn active" data-style="line" title="Trajectory Line"><i class="ph ph-chart-line"></i></button>
-                            <button class="style-btn" data-style="bar" title="Monthly Comparison"><i class="ph ph-chart-bar"></i></button>
-                            <button class="style-btn" data-style="area" title="Impact Area"><i class="ph ph-chart-line-up"></i></button>
+                            <button class="style-btn active" data-style="line" aria-label="Line chart" title="Trajectory Line"><i class="ph ph-chart-line"></i></button>
+                            <button class="style-btn" data-style="bar" aria-label="Bar chart" title="Monthly Comparison"><i class="ph ph-chart-bar"></i></button>
+                            <button class="style-btn" data-style="area" aria-label="Area chart" title="Impact Area"><i class="ph ph-chart-line-up"></i></button>
                         </div>
                         <div class="badge badge-accent" id="payoff-early-badge" style="height:fit-content; background:var(--card-2); display:none;"></div>
                     </div>
@@ -542,9 +542,9 @@
                     <div class="time-btn active" data-time="monthly">Monthly</div>
                   </div>
                   <div class="chart-style-switcher" id="spending-chart-switcher" style="margin-left:auto;">
-                    <button class="style-btn active" data-style="bar" title="Bar Chart"><i class="ph ph-chart-bar"></i></button>
-                    <button class="style-btn" data-style="line" title="Line Chart"><i class="ph ph-chart-line"></i></button>
-                    <button class="style-btn" data-style="pie" title="Pie Chart"><i class="ph ph-chart-pie"></i></button>
+                    <button class="style-btn active" data-style="bar" aria-label="Bar chart" title="Bar Chart"><i class="ph ph-chart-bar"></i></button>
+                    <button class="style-btn" data-style="line" aria-label="Line chart" title="Line Chart"><i class="ph ph-chart-line"></i></button>
+                    <button class="style-btn" data-style="pie" aria-label="Pie chart" title="Pie Chart"><i class="ph ph-chart-pie"></i></button>
                   </div>
                   <div class="icon-btn" id="btn-add-txn-dash" style="width:28px;height:28px; background:var(--accent-dim); color:var(--accent); border:1px solid var(--border-accent);" title="Add Transaction">
                     <i class="ph ph-plus"></i>
@@ -2120,7 +2120,7 @@
             <div class="card" style="padding:24px; min-height:650px; display:flex; flex-direction:column; overflow:hidden;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                 <div style="display:flex; align-items:center; gap:16px;">
-                  <h3 id="cal-month-year" style="font-size:24px; font-weight:900; margin:0; letter-spacing:-0.5px;">October 2023</h3>
+                  <h2 id="cal-month-year" style="font-size:24px; font-weight:900; margin:0; letter-spacing:-0.5px;">October 2023</h2>
                   <div style="display:flex; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:4px;">
                     <button id="btn-cal-prev" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;"><i class="ph ph-caret-left"></i></button>
                     <button id="btn-cal-next" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;"><i class="ph ph-caret-right"></i></button>
@@ -2308,7 +2308,7 @@
                    </div>
                    <div class="badge" style="background:transparent; border:1px solid rgba(0,212,168,0.2); color:var(--accent); font-size:8px;">FEED</div>
                  </div>
-                 <h3 style="font-size:20px; font-weight:700; margin-bottom:24px;">Recent Insights</h3>
+                 <h2 style="font-size:20px; font-weight:700; margin-bottom:24px;">Recent Insights</h2>
                  
                  <div style="margin-bottom:24px;">
                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -2956,7 +2956,7 @@
                 <div class="sjc-icon-blob"><i class="ph-fill ph-user"></i></div>
                 <div class="badge" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-3); font-size:8px;">STEP 01</div>
               </div>
-              <h3 class="sjc-title">Your Identity</h3>
+              <h2 class="sjc-title">Your Identity</h2>
               <p class="sjc-desc">Ensure your profile details are accurate for personalized reports and secure communications.</p>
               <button class="btn btn-primary sjc-btn" id="btn-settings-profile">CONFIGURE PROFILE <i class="ph ph-arrow-right"></i></button>
             </div>
