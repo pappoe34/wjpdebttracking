@@ -9149,8 +9149,8 @@ function switchAuthTab(tab) {
   const authTabs = gate.querySelector('.auth-tabs');
   const loginTab = authTabs ? authTabs.children[0] : null;
   const signupTab = authTabs ? authTabs.children[1] : null;
-  const loginForm = document.getElementById('auth-login-form');
-  const signupForm = document.getElementById('auth-signup-form');
+  const loginForm = gate.querySelector('[id="auth-login-form"]');
+  const signupForm = gate.querySelector('[id="auth-signup-form"]');
   if (tab === 'login') {
     if (loginTab) { loginTab.classList.add('active'); }
     if (signupTab) { signupTab.classList.remove('active'); }
@@ -9162,7 +9162,7 @@ function switchAuthTab(tab) {
     if (signupForm) { signupForm.className = 'auth-form active'; signupForm.style.display = ''; }
     if (loginForm) { loginForm.className = 'auth-form'; loginForm.style.display = ''; }
   }
-  clearAuthErrors();
+  if (typeof clearAuthErrors === 'function') clearAuthErrors();
 }
 
 function clearAuthErrors() {
