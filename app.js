@@ -5044,8 +5044,13 @@ function initAdvisorPageLogic() {
     // ── 11a. Logout Function ──────────────────────────────────
     window.performLogout = function() {
         try { saveState(); } catch(e) {}
-        localStorage.clear();
-        sessionStorage.clear();
+        // Clear app data but preserve Netlify Identity session
+    var gotrueData = localStorage.getItem('gotrue.user');
+    var clearKeys = [];
+    for (var ci = 0; ci < localStorage.length; ci++) clearKeys.push(localStorage.key(ci));
+    clearKeys.forEach(function(k) { if (k !== 'gotrue.user') localStorage.removeItem(k); });
+    sessionStorage.clear();
+    if (gotrueData) localStorage.setItem('gotrue.user', gotrueData);
         window.location.reload();
     };
 
