@@ -9415,9 +9415,13 @@ function showWelcomeToast(user) {
       if (u) {
         onUserLogin(u);
       } else if (!authHandled) {
-        // No user — show the landing page (not auth gate)
-        // The landing page CTAs call showAuthGate() when user clicks Get Started / Log In
-        showLandingPage();
+        // Check if returning user (has signed in before)
+        var lastEmail = localStorage.getItem('wjp_last_user_email');
+        if (lastEmail) {
+          showAuthGate('login');
+        } else {
+          showLandingPage();
+        }
       }
     });
 
