@@ -9312,20 +9312,52 @@ function loadUserData(user) {
       return window._origSetItem(key, val);
     };
   }
-  const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  const nameEl = document.getElementById('sidebar-user-name');
-  const emailEl = document.getElementById('sidebar-user-email');
-  const initialsEl = document.getElementById('sidebar-user-initials');
-  if (nameEl) nameEl.textContent = fullName;
-  if (emailEl) emailEl.textContent = user.email || '';
-  if (initialsEl) {
-    const parts = fullName.split(' ');
-    initialsEl.textContent = parts.length >= 2
-      ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
-      : fullName.slice(0,2).toUpperCase();
+  // Get user display info
+  var fullName = '';
+  if (user.user_metadata && user.user_metadata.full_name) {
+    fullName = user.user_metadata.full_name;
+  } else if (user.email) {
+    fullName = user.email.split('@')[0];
   }
-  window._origSetItem('wjp_last_user_email', user.email || '');
-  window._origSetItem('wjp_last_user_name', fullName);
+
+  // Calculate initials
+  var initials = '?';
+  if (fullName) {
+    var parts = fullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    } else if (parts.length === 1 && parts[0].length > 0) {
+      initials = parts[0][0].toUpperCase();
+    }
+  }
+
+  // Update sidebar elements (by ID)
+  var sidebarName = document.getElementById('sidebar-user-name');
+  if (sidebarName) sidebarName.textContent = fullName || 'User';
+
+  var sidebarInitials = document.getElementById('sidebar-user-initials');
+  if (sidebarInitials) sidebarInitials.textContent = initials;
+
+  // Update header elements (by ID)
+  var headerName = document.getElementById('header-user-name');
+  if (headerName) headerName.textContent = fullName || '';
+
+  var headerAvatar = document.getElementById('header-user-avatar');
+  if (headerAvatar) headerAvatar.textContent = initials;
+
+  // Update elements by class (fallback)
+  document.querySelectorAll('.user-name').forEach(function(el) {
+    if (!el.id) el.textContent = fullName || 'User';
+  });
+  document.querySelectorAll('.user-avatar').forEach(function(el) {
+    if (!el.id) el.textContent = initials;
+  });
+
+  // Store for later use
+  try {
+    window._origSetItem('wjp_last_user_email', user.email || '');
+    window._origSetItem('wjp_last_user_name', fullName || '');
+  } catch(e) {}
   const themePref = localStorage.getItem('budget-theme');
   if (themePref) {
     document.body.classList.remove('light', 'dark');
