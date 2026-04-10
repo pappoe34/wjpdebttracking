@@ -3788,3 +3788,13 @@ body.light .theme-toggle .toggle-thumb {
   .ob-form-panel { padding: 32px 20px; border-left: none; }
   .ob-glass { padding: 28px 20px; }
 }
+
+
+/* Global tap target min-size (a11y) */
+button.icon-btn,
+.style-btn,
+.btn-chip,
+.icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
