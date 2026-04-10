@@ -7,7 +7,7 @@ const defaultState = {
     balances: { monthlyIncome: 0, availableCashflow: 0 },
     debts: [],
     budget: {
-        savingsRatio: 0,hz
+        savingsRatio: 0,
         contribution: 0,
         targetGoal: 0,
         frequency: 'monthly',
