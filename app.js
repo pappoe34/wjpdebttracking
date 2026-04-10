@@ -9128,11 +9128,11 @@ function hideLandingPage() {
 
 function showAuthGate(tab) {
   hideLandingPage();
+  switchAuthTab(tab || 'login');
   const gate = document.getElementById('auth-gate');
   const app = document.querySelector('.app-wrapper');
   if (gate) { gate.style.display = 'flex'; setTimeout(() => { gate.style.opacity = '1'; }, 10); }
   if (app) app.style.display = 'none';
-  if (tab) switchAuthTab(tab);
 }
 
 function hideAuthGate() {
