@@ -447,10 +447,6 @@
                 <a href="#" id="link-see-all-activity">See All Activity</a>
               </div>
             </div>
-          <div class="header-user-profile" id="header-user-profile" style="display:flex;align-items:center;gap:8px;margin-left:8px;cursor:pointer;" onclick="document.querySelector('[data-page=settings]').click()">
-            <div id="header-user-avatar" style="width:32px;height:32px;border-radius:50%;background:var(--accent-primary, #6366f1);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">?</div>
-            <span id="header-user-name" style="font-size:14px;font-weight:500;color:var(--text-primary, #e2e8f0);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-          </div>
           </div>
           <button class="btn-new" id="btn-sync-bank" style="background:var(--card-2); color:var(--text); border:1px solid var(--border); margin-right:8px;">
             <i class="ph ph-arrows-left-right" style="color:var(--accent);"></i> Sync Bank
@@ -3120,9 +3116,9 @@
           <!-- Bottom Footer elements -->
           <div class="reveal reveal-2" style="border-top:1px solid var(--border); padding-top:24px; padding-bottom:60px; max-width:900px; display:flex; justify-content:space-between; align-items:center;">
              <div style="display:flex; align-items:center; gap:12px;">
-                 <img src="https://i.pravatar.cc/150?u=marcuswarren" alt="Marcus Warren" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
-                 <div>
-                     <div style="font-size:12px; font-weight:700;">Marcus Warren</div>
+                     <div id="settings-user-avatar" style="width:36px; height:36px; border-radius:50%; background:var(--accent-primary, #6366f1); color:white; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600;">?</div>
+                     <div>
+                         <div id="settings-user-name" style="font-size:12px; font-weight:700;">User</div>
                      <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.05em;">PREMIUM MEMBER</div>
                  </div>
              </div>
