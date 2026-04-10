@@ -7,7 +7,7 @@ const defaultState = {
     balances: { monthlyIncome: 0, availableCashflow: 0 },
     debts: [],
     budget: {
-        savingsRatio: 0,
+        savingsRatio: 0,hz
         contribution: 0,
         targetGoal: 0,
         frequency: 'monthly',
@@ -9126,12 +9126,13 @@ function hideLandingPage() {
   if (lp) lp.style.display = 'none';
 }
 
-function showAuthGate() {
+function showAuthGate(tab) {
   hideLandingPage();
   const gate = document.getElementById('auth-gate');
   const app = document.querySelector('.app-wrapper');
   if (gate) { gate.style.display = 'flex'; setTimeout(() => { gate.style.opacity = '1'; }, 10); }
   if (app) app.style.display = 'none';
+  if (tab) switchAuthTab(tab);
 }
 
 function hideAuthGate() {
