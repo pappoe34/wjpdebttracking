@@ -242,8 +242,8 @@
   <nav class="lp-nav">
     <div class="lp-brand"><i class="ph-fill ph-wallet"></i> WJP Debt</div>
     <div class="lp-nav-right">
-      <a class="lp-login-link" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate(); switchAuthTab('login');">Log In</a>
-      <button class="lp-nav-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate(); switchAuthTab('signup');">Get Started &rarr;</button>
+      <a class="lp-login-link" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('login');">Log In</a>
+      <button class="lp-nav-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &rarr;</button>
     </div>
   </nav>
 
@@ -252,12 +252,12 @@
       <div class="lp-badge"><i class="ph-fill ph-lightning"></i> AI-Powered Debt Elimination Engine</div>
       <h1 class="lp-h1"><em>Master</em> your debt.</h1>
       <p class="lp-sub">Your AI-powered financial co-pilot. Track spending, eliminate debt, and build wealth &mdash; all in one place.</p>
-      <button class="lp-hero-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate(); switchAuthTab('signup');">Get Started &rarr;</button>
+      <button class="lp-hero-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &rarr;</button>
     </div>
     <div class="lp-chat">
       <div class="lp-chat-bar">
         <input type="text" id="lp-chat-input" placeholder="How fast can I pay off my credit card?" readonly>
-        <button class="lp-chat-send" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate(); switchAuthTab('signup');"><i class="ph-bold ph-arrow-up"></i></button>
+        <button class="lp-chat-send" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');"><i class="ph-bold ph-arrow-up"></i></button>
       </div>
       <div class="lp-chat-label">Track everything. Ask anything.</div>
     </div>
@@ -300,7 +300,7 @@
   <section class="lp-bottom">
     <h2>Ready to take control?</h2>
     <p>Join thousands eliminating debt smarter with AI</p>
-    <button class="lp-bottom-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate(); switchAuthTab('signup');">Get Started &mdash; It's Free &rarr;</button>
+    <button class="lp-bottom-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &mdash; It's Free &rarr;</button>
   </section>
 
   <footer class="lp-footer">
