@@ -9442,3 +9442,21 @@ function showWelcomeToast(user) {
     tryInit();
   }
 })();
+
+
+// ══════════════════════════════════════════════════════════════
+//  ONBOARDING — Skip & Start Functions
+// ══════════════════════════════════════════════════════════════
+
+window.skipOnboarding = function() {
+    const obModal = document.getElementById('onboarding-modal');
+    if (obModal) obModal.style.display = 'none';
+    navigateSPA('dashboard');
+};
+
+window.startOnboarding = function() {
+    const obModal = document.getElementById('onboarding-modal');
+    if (obModal) obModal.style.display = 'none';
+    const obPage = document.getElementById('onboarding-page');
+    if (obPage) obPage.style.display = 'block';
+};
