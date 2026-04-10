@@ -9144,18 +9144,23 @@ function hideAuthGate() {
 }
 
 function switchAuthTab(tab) {
-  const loginTab = document.getElementById('auth-tab-login');
-  const signupTab = document.getElementById('auth-tab-signup');
+  const gate = document.getElementById('auth-gate');
+  if (!gate) return;
+  const authTabs = gate.querySelector('.auth-tabs');
+  const loginTab = authTabs ? authTabs.children[0] : null;
+  const signupTab = authTabs ? authTabs.children[1] : null;
   const loginForm = document.getElementById('auth-login-form');
   const signupForm = document.getElementById('auth-signup-form');
   if (tab === 'login') {
-    loginTab.classList.add('active'); signupTab.classList.remove('active');
-    loginForm.className = 'auth-form active'; loginForm.style.display = '';
-    signupForm.className = 'auth-form'; signupForm.style.display = '';
+    if (loginTab) { loginTab.classList.add('active'); }
+    if (signupTab) { signupTab.classList.remove('active'); }
+    if (loginForm) { loginForm.className = 'auth-form active'; loginForm.style.display = ''; }
+    if (signupForm) { signupForm.className = 'auth-form'; signupForm.style.display = ''; }
   } else {
-    signupTab.classList.add('active'); loginTab.classList.remove('active');
-    signupForm.className = 'auth-form active'; signupForm.style.display = '';
-    loginForm.className = 'auth-form'; loginForm.style.display = '';
+    if (signupTab) { signupTab.classList.add('active'); }
+    if (loginTab) { loginTab.classList.remove('active'); }
+    if (signupForm) { signupForm.className = 'auth-form active'; signupForm.style.display = ''; }
+    if (loginForm) { loginForm.className = 'auth-form'; loginForm.style.display = ''; }
   }
   clearAuthErrors();
 }
