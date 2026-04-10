@@ -15,8 +15,8 @@
   <link rel="stylesheet" href="style.css?v=17">
   <!-- Use Phosphor icons for aesthetic UI -->
   <!-- UI Libraries -->
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dark">
 
@@ -257,7 +257,7 @@
     <div class="lp-chat">
       <div class="lp-chat-bar">
         <input type="text" id="lp-chat-input" placeholder="How fast can I pay off my credit card?" readonly>
-        <button class="lp-chat-send" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');"><i class="ph-bold ph-arrow-up"></i></button>
+        <button class="lp-chat-send" aria-label="Send message" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');"><i class="ph-bold ph-arrow-up"></i></button>
       </div>
       <div class="lp-chat-label">Track everything. Ask anything.</div>
     </div>
@@ -583,7 +583,7 @@
               <!-- Financial Resilience Card -->
               <div class="card reveal reveal-3" id="dash-financial-resilience" style="margin-top:20px; flex: 1; min-height: 180px; cursor: pointer;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
-                  <h3 style="font-size:14px; font-weight:700;">Financial Resilience</h3>
+                  <h2 style="font-size:14px; font-weight:700;">Financial Resilience</h2>
                   <div class="badge badge-success" id="resilience-score" style="font-size: 10px;">84%</div>
                 </div>
                 
@@ -3461,7 +3461,7 @@
             <div style="font-size:9px; color:var(--text-3); text-transform:uppercase;">Grounded Research Connected</div>
           </div>
         </div>
-        <button class="chat-close" id="ai-chat-close"><i class="ph ph-x"></i></button>
+        <button class="chat-close" id="ai-chat-close" aria-label="Close chat"><i class="ph ph-x"></i></button>
       </div>
 
       <div class="chat-messages" id="chat-messages">
@@ -3477,7 +3477,7 @@
         </div>
         <div class="chat-input-wrap">
           <input type="text" id="chat-input" placeholder="Ask about your strategy...">
-          <button id="chat-send"><i class="ph-fill ph-paper-plane-right"></i></button>
+          <button id="chat-send" aria-label="Send message"><i class="ph-fill ph-paper-plane-right"></i></button>
         </div>
       </div>
     </div>
