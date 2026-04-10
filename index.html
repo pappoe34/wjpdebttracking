@@ -374,9 +374,9 @@
           <span>Support</span>
         </div>
         <div class="sidebar-user" onclick="document.querySelector('[data-page=settings]').click()">
-          <div class="user-avatar">MW</div>
+          <div class="user-avatar" id="sidebar-user-initials">?</div>
           <div class="user-info">
-            <div class="user-name">Marcus Warren</div>
+            <div class="user-name" id="sidebar-user-name">User</div>
             <div class="user-plan">Premium Tier</div>
           </div>
         </div>
@@ -447,6 +447,10 @@
                 <a href="#" id="link-see-all-activity">See All Activity</a>
               </div>
             </div>
+          <div class="header-user-profile" id="header-user-profile" style="display:flex;align-items:center;gap:8px;margin-left:8px;cursor:pointer;" onclick="document.querySelector('[data-page=settings]').click()">
+            <div id="header-user-avatar" style="width:32px;height:32px;border-radius:50%;background:var(--accent-primary, #6366f1);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">?</div>
+            <span id="header-user-name" style="font-size:14px;font-weight:500;color:var(--text-primary, #e2e8f0);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          </div>
           </div>
           <button class="btn-new" id="btn-sync-bank" style="background:var(--card-2); color:var(--text); border:1px solid var(--border); margin-right:8px;">
             <i class="ph ph-arrows-left-right" style="color:var(--accent);"></i> Sync Bank
@@ -4221,3 +4225,4 @@
   <script src="app.js?v=17"></script>
 </body>
 </html>
+
