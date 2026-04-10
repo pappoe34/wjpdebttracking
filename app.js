@@ -9150,10 +9150,12 @@ function switchAuthTab(tab) {
   const signupForm = document.getElementById('auth-signup-form');
   if (tab === 'login') {
     loginTab.classList.add('active'); signupTab.classList.remove('active');
-    loginForm.classList.add('active'); signupForm.classList.remove('active');
+    loginForm.className = 'auth-form active'; loginForm.style.display = '';
+    signupForm.className = 'auth-form'; signupForm.style.display = '';
   } else {
     signupTab.classList.add('active'); loginTab.classList.remove('active');
-    signupForm.classList.add('active'); loginForm.classList.remove('active');
+    signupForm.className = 'auth-form active'; signupForm.style.display = '';
+    loginForm.className = 'auth-form'; loginForm.style.display = '';
   }
   clearAuthErrors();
 }
