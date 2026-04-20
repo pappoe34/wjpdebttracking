@@ -603,11 +603,11 @@
               </div>
             </div>
           </div>
-          <button class="btn-new" id="btn-sync-bank" style="background:var(--card-2); color:var(--text); border:1px solid var(--border); margin-right:8px;">
+          <button class="btn-new" id="btn-sync-bank" style="background:var(--card-2); color:var(--text); border:1px solid var(--border); margin-right:8px;" title="Credentials never shared — read-only tokens only" aria-label="Sync Bank — your credentials are never shared with WJP">
             <i class="ph ph-arrows-left-right" style="color:var(--accent);"></i> Sync Bank
           </button>
           <button class="btn-new" id="btn-new-entry">
-            <i class="ph ph-plus"></i> New Entry
+            <i class="ph ph-plus"></i> Add
           </button>
         </div>
       </header>
@@ -685,7 +685,8 @@
               </div>
 
               <!-- Spending Card -->
-              <div class="card reveal reveal-3">
+              <div class="card reveal reveal-3" id="dash-spending-card" style="position:relative;">
+                <button class="pin-card-btn" data-pin-id="dash-spending-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Spending card"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div class="spending-card-header">
                   <div class="spending-title">
                     <div class="ai-icon" style="width:28px;height:28px;font-size:14px;"><i class="ph ph-trend-up"></i></div>
@@ -736,7 +737,8 @@
               </div>
 
               <!-- Financial Resilience Card -->
-              <div class="card reveal reveal-3" id="dash-financial-resilience" style="margin-top:20px; flex: 1; min-height: 180px; cursor: pointer;">
+              <div class="card reveal reveal-3" id="dash-financial-resilience" style="margin-top:20px; flex: 1; min-height: 180px; cursor: pointer; position:relative;">
+                <button class="pin-card-btn" data-pin-id="dash-financial-resilience" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Resilience card"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
                   <h2 style="font-size:14px; font-weight:700;">Financial Resilience</h2>
                   <div class="badge badge-success" id="resilience-score" style="font-size: 10px;">84%</div>
@@ -768,7 +770,8 @@
             </div>
 
             <div class="dash-right">
-              <div id="upcoming-view-container" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+              <div id="upcoming-view-container" style="flex:1; display:flex; flex-direction:column; min-height:0; position:relative;">
+                <button class="pin-card-btn" data-pin-id="upcoming-view-container" title="Pin to top" style="position:absolute; top:-4px; right:0; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Upcoming Payments"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;" class="reveal reveal-1">
                   <div style="display:flex; align-items:center; gap:10px;">
                     <h3 style="font-size:14px; font-weight:700; margin:0;">Upcoming Payments</h3>
@@ -803,7 +806,8 @@
               </div>
 
               <!-- Credit Score -->
-              <div class="card credit-score-card reveal reveal-5" id="credit-profile-card">
+              <div class="card credit-score-card reveal reveal-5" id="credit-profile-card" style="position:relative;">
+                <button class="pin-card-btn" data-pin-id="credit-profile-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Credit Profile"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
                   <h3 style="font-size:14px; font-weight:700;">Credit Profile</h3>
                   <div class="card-label">EXPERIAN</div>
@@ -873,7 +877,8 @@
           </div>
 
           <!-- Strategy Indicators -->
-          <div class="strategy-indicators reveal reveal-3">
+          <div class="strategy-indicators reveal reveal-3" id="dash-strategy-card" style="position:relative;">
+            <button class="pin-card-btn" data-pin-id="dash-strategy-card" title="Pin to top" style="position:absolute; top:6px; right:6px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Strategy cards"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
             <!-- Snowball -->
             <div class="strategy-card" id="strat-card-snowball" data-strategy="snowball">
               <div class="strat-header">
@@ -918,7 +923,7 @@
           </div>
 
           <!-- Bottom 3 cards -->
-          <div class="dash-stats-row reveal reveal-5">
+          <div class="dash-stats-row reveal reveal-5" id="dash-stats-card">
             <div class="stat-card stat-card-interactive" id="stat-interest-saved">
               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
                 <div class="card-label">Interest Saved</div>
@@ -2157,7 +2162,11 @@
                     </div>
                   </div>
 
-                  <button id="btn-link-bank" class="btn-dashed" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; padding:12px; font-size:12px;"><i class="ph ph-plus"></i> Link New Institution</button>
+                  <div style="margin-bottom:10px; padding:8px 10px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; display:flex; align-items:flex-start; gap:8px;">
+                    <i class="ph-fill ph-shield-check" style="color:var(--accent); font-size:13px; margin-top:1px;"></i>
+                    <span style="font-size:10px; color:var(--text-3); line-height:1.5;">Your bank login is never shared with WJP. When real bank sync is enabled, our partner uses a read-only token you can revoke anytime.</span>
+                  </div>
+                  <button id="btn-link-bank" class="btn-dashed" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; padding:12px; font-size:12px;" aria-describedby="link-bank-security-note" title="Your bank login is never shared. Read-only tokens only."><i class="ph ph-plus"></i> Link New Institution</button>
                 </div>
 
                 <div class="card" style="padding:24px;">
@@ -2169,45 +2178,14 @@
                 </div>
               </div>
 
-              <!-- Right Col: Document Vault -->
+              <!-- Right Col: Per-debt statements (Tier 1.6 — vault replaced) -->
               <div class="card" style="padding:32px; display:flex; flex-direction:column;">
-                
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px;">
-                  <div>
-                    <h2 style="font-size:24px; font-weight:800; margin-bottom:8px;">Document Vault</h2>
-                    <p style="font-size:12px; color:var(--text-3);">AI-Indexed storage for loan agreements & tax records.</p>
-                  </div>
-                  <div style="display:flex; gap:8px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px;">
-                    <button id="btn-docs-grid" class="btn btn-ghost" style="padding:6px 10px; border:none; border-radius:var(--radius-sm);"><i class="ph-fill ph-squares-four" style="font-size:16px;"></i></button>
-                    <button id="btn-docs-list" class="btn btn-primary" style="padding:6px 10px; border:none; border-radius:var(--radius-sm); background:var(--accent); color:#0b0f1a;"><i class="ph-fill ph-list-dashes" style="font-size:16px;"></i></button>
-                  </div>
+                <div style="margin-bottom:20px;">
+                  <h2 style="font-size:22px; font-weight:800; margin-bottom:6px;">Attached Statements</h2>
+                  <p style="font-size:12px; color:var(--text-3); line-height:1.5;">Statements are now attached to each specific debt card. Open the Debts tab, then use a card's <strong style="color:var(--text);">Attach statement</strong> button or three-dot menu.</p>
                 </div>
-
-                <div style="display:flex; gap:12px; margin-bottom:32px;">
-                  <div style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; align-items:center; padding:10px 16px; gap:12px; transition:border 0.3s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-                    <i class="ph ph-magnifying-glass" style="color:var(--text-3); font-size:16px;"></i>
-                    <input type="text" placeholder="Filter vault..." style="background:transparent; border:none; outline:none; color:var(--text); font-size:12px; font-family:'Inter', sans-serif; width:100%;">
-                  </div>
-                  <button id="btn-upload-doc" class="btn btn-primary" style="padding:10px 24px; display:flex; align-items:center; gap:8px; font-size:11px; white-space:nowrap;"><i class="ph ph-upload-simple"></i> UPLOAD FILE</button>
-                  <input id="doc-file-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" style="display:none;" multiple>
-                </div>
-
-                <div id="document-vault-list" style="display:flex; flex-direction:column; gap:8px; flex:1;">
-                  <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 16px; color:var(--text-3); font-size:11px; text-align:center; gap:8px; flex:1;">
-                    <i class="ph ph-folder-open" style="font-size:36px; opacity:0.4; display:block;"></i>
-                    <strong style="color:var(--text-2); font-size:13px;">Vault is empty</strong>
-                    Upload loan agreements, tax records, or bank statements to get started.
-                  </div>
-                </div>
-
-                <div style="margin-top:32px; display:flex; align-items:center; gap:20px;">
-                  <div style="flex:1; height:4px; background:var(--bg); border-radius:2px; display:flex;">
-                    <div id="vault-storage-bar" style="width:0%; background:var(--accent); border-radius:2px;"></div>
-                  </div>
-                  <div style="display:flex; align-items:center; gap:20px; font-size:9px; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">
-                    <span id="vault-storage-text" style="color:var(--text-3);">0 GB OF 10 GB USED</span>
-                    <a role="button" tabindex="0" style="color:var(--accent); text-decoration:none;">UPGRADE STORAGE</a>
-                  </div>
+                <div id="per-debt-attachments-list" style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                  <!-- Populated by renderPerDebtAttachments() -->
                 </div>
               </div>
             </div>
@@ -3226,6 +3204,19 @@
               <button class="btn btn-primary sjc-btn" id="btn-settings-link-account" style="border:1px dashed var(--accent); background:rgba(0,212,168,0.1); color:var(--accent);"><i class="ph ph-plus"></i> LINK NEW ACCOUNT</button>
             </div>
 
+            <!-- Card 6b: Household Mode (Tier 2.3) -->
+            <div class="card settings-journey-card" style="grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; gap:24px; padding:24px;">
+              <div class="sjc-icon-blob"><i class="ph-fill ph-users-three"></i></div>
+              <div style="flex:1;">
+                <h3 class="sjc-title" style="margin-bottom:4px;">Household Mode</h3>
+                <p class="sjc-desc" style="margin-bottom:0;">Plan together without extra billing. Flip this on to rename your profile label to "Household" and prepare for shared budgets. Inviting a partner stays free.</p>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                <div id="toggle-household-mode" class="toggle-switch" role="switch" aria-checked="false" tabindex="0" style="cursor:pointer;"><div class="thumb"></div></div>
+                <div id="household-mode-status" style="font-size:9px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">OFF</div>
+              </div>
+            </div>
+
             <!-- Card 7: Visual Interface -->
             <div class="card settings-journey-card" style="grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; gap:40px; padding:32px;">
               <div style="flex:1;">
@@ -3332,16 +3323,51 @@
   <div class="modal" id="entry-modal">
     <div class="modal-content">
       <div class="modal-header">
-        <div class="modal-title">New Entry</div>
+        <div class="modal-title" id="entry-modal-title">Add</div>
         <div class="modal-close" id="modal-close"><i class="ph ph-x"></i></div>
       </div>
-      
-      <div class="debts-subtabs modal-tabs" style="gap:12px; margin-bottom:24px;">
-        <div class="pill active modal-tab" data-tab="new-debt" style="font-size:11px; padding:6px 12px; cursor:pointer;">New Debt</div>
-        <div class="pill modal-tab" data-tab="new-expense" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Expense</div>
-        <div class="pill modal-tab" data-tab="new-transaction" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Transaction</div>
-        <div class="pill modal-tab" data-tab="new-asset" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Asset</div>
+
+      <!-- STEP 1: Picker (4 tiles) — Tier 1.2 -->
+      <div id="entry-picker-step" style="display:block;">
+        <p style="font-size:12px; color:var(--text-3); margin:0 0 16px; line-height:1.5;">What would you like to add?</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <button type="button" class="entry-tile" data-route="credit-card" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:36px; height:36px; border-radius:10px; background:rgba(0,212,168,0.12); color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-credit-card" style="font-size:18px;"></i></div>
+            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Credit Card</div>
+            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Revolving balance with a credit limit.</div>
+          </button>
+          <button type="button" class="entry-tile" data-route="loan" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:36px; height:36px; border-radius:10px; background:rgba(99,102,241,0.12); color:#818cf8; display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-bank" style="font-size:18px;"></i></div>
+            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Loan</div>
+            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Student, auto, mortgage, personal.</div>
+          </button>
+          <button type="button" class="entry-tile" data-route="bank" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:36px; height:36px; border-radius:10px; background:rgba(245,158,11,0.12); color:#fbbf24; display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-buildings" style="font-size:18px;"></i></div>
+            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Bank Account</div>
+            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Checking or savings to link.</div>
+          </button>
+          <button type="button" class="entry-tile" data-route="transaction" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:36px; height:36px; border-radius:10px; background:rgba(96,165,250,0.12); color:#60a5fa; display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-receipt" style="font-size:18px;"></i></div>
+            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Transaction</div>
+            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Log a payment or purchase.</div>
+          </button>
+        </div>
+        <div style="margin-top:14px; padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; display:flex; align-items:flex-start; gap:8px;">
+          <i class="ph-fill ph-shield-check" style="color:var(--accent); font-size:14px; margin-top:1px;"></i>
+          <span style="font-size:10.5px; color:var(--text-3); line-height:1.5;">Your bank login is never shared with WJP. When real sync is enabled, our partner uses a read-only token you can revoke anytime.</span>
+        </div>
       </div>
+
+      <!-- STEP 2: Form container (hidden until a tile is clicked) -->
+      <div id="entry-form-step" style="display:none;">
+        <button type="button" id="entry-back-to-picker" class="btn btn-ghost" style="padding:6px 10px; font-size:11px; margin-bottom:12px; display:inline-flex; align-items:center; gap:6px;"><i class="ph ph-arrow-left"></i> Back</button>
+
+        <div class="debts-subtabs modal-tabs" style="gap:12px; margin-bottom:24px;">
+          <div class="pill active modal-tab" data-tab="new-debt" style="font-size:11px; padding:6px 12px; cursor:pointer;">New Debt</div>
+          <div class="pill modal-tab" data-tab="new-expense" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Expense</div>
+          <div class="pill modal-tab" data-tab="new-transaction" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Transaction</div>
+          <div class="pill modal-tab" data-tab="new-asset" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Asset</div>
+        </div>
 
       <!-- DEBT FORM -->
       <form id="new-debt-form" class="modal-form active-form">
@@ -3350,8 +3376,23 @@
           <input type="text" id="debt-name" placeholder="e.g. Navient Student Loan" required>
         </div>
         <div class="form-group">
+          <label>Type</label>
+          <select id="debt-type">
+            <option value="loan">Loan</option>
+            <option value="credit card">Credit Card</option>
+            <option value="mortgage">Mortgage</option>
+            <option value="auto">Auto Loan</option>
+            <option value="student">Student Loan</option>
+            <option value="personal">Personal Loan</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Total Balance ($)</label>
           <input type="number" id="debt-balance" placeholder="25000" required min="1" step="any">
+        </div>
+        <div class="form-group" id="debt-limit-group" style="display:none;">
+          <label>Credit Limit ($)</label>
+          <input type="number" id="debt-limit" placeholder="5000" min="0" step="any">
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div class="form-group">
@@ -3362,6 +3403,10 @@
             <label>Min. Monthly Payment ($)</label>
             <input type="number" id="debt-min" placeholder="250" required min="0" step="any">
           </div>
+        </div>
+        <div style="margin-top:8px; padding:8px 10px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; display:flex; align-items:flex-start; gap:8px;">
+          <i class="ph-fill ph-shield-check" style="color:var(--accent); font-size:13px; margin-top:1px;"></i>
+          <span style="font-size:10px; color:var(--text-3); line-height:1.5;">Your bank login is never shared with WJP. Entries stored locally on this device.</span>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
@@ -3456,6 +3501,7 @@
           <button type="submit" class="btn btn-primary">Save Asset</button>
         </div>
       </form>
+      </div><!-- /entry-form-step -->
     </div>
   </div>
 
@@ -4166,6 +4212,29 @@
             </div>
             <button type="submit" class="ob-btn ob-btn-primary" style="margin-top:4px;">Continue →</button>
           </form>
+        </div>
+
+        <!-- STEP 2.5: Topic picker (Tier 2.2) -->
+        <div id="onboarding-step-goals" style="display:none;">
+          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <div class="ob-step-indicator">
+            <div class="ob-step-dot"></div>
+            <div class="ob-step-dot active"></div>
+            <div class="ob-step-dot"></div>
+          </div>
+          <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">What matters most to you?</div>
+          <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:20px;">Pick any that apply — we'll reorder your dashboard to match.</div>
+          <div id="ob-goal-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;">
+            <button type="button" class="ob-goal-chip" data-goal="payoff" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Pay off credit cards fastest</button>
+            <button type="button" class="ob-goal-chip" data-goal="score" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Raise my credit score</button>
+            <button type="button" class="ob-goal-chip" data-goal="emergency" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Build emergency fund</button>
+            <button type="button" class="ob-goal-chip" data-goal="paycheck" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Stop living paycheck to paycheck</button>
+            <button type="button" class="ob-goal-chip" data-goal="partner" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Keep partner in the loop</button>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button type="button" onclick="handleGoalsStep(true)" class="ob-btn" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#f0f4ff;">Skip for now</button>
+            <button type="button" onclick="handleGoalsStep(false)" class="ob-btn ob-btn-primary" style="flex:2;">Continue →</button>
+          </div>
         </div>
 
         <!-- STEP 3: Data Source -->
