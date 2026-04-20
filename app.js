@@ -1320,19 +1320,75 @@ function drawCharts() {
     drawSpendingChart('spendingBarChart');
     drawDualLineChart('mainProjectionChart');
     
-    // Debts Overview charts
-    drawDonut('expenseDonut', [
-        { pct: getPct(exps.housing), color: '#00d4a8' },
-        { pct: getPct(exps.transit), color: '#667eea' },
-        { pct: getPct(exps.food), color: '#ff4d6d' },
-        { pct: getPct(exps.disc), color: '#ffab40' }
-    ]);
-    
+    // ─── Debts Overview: Spending This Month + Expense Categories ───
+    // Both compute from real transactions. If none exist this month,
+    // both show $0 and the donut + legend show an empty state.
+    const _now0 = new Date();
+    const _monthStart = new Date(_now0.getFullYear(), _now0.getMonth(), 1);
+    const _monthEnd   = new Date(_now0.getFullYear(), _now0.getMonth() + 1, 0, 23, 59, 59, 999);
+    const _txnsThisMonth = (appState.transactions || []).filter(t => {
+        const td = new Date(t.date);
+        return td >= _monthStart && td <= _monthEnd && t.amount < 0;
+    });
+    const _spendThisMonth = _txnsThisMonth.reduce((s, t) => s + Math.abs(t.amount), 0);
+
+    // Spending This Month total + sub-label
+    const _fmtMoney0 = (n) => '$' + Math.round(n).toLocaleString();
+    const _spendTotalEl = document.getElementById('debts-spending-month-total');
+    const _spendSubEl   = document.getElementById('debts-spending-month-sub');
+    const _spendEmptyEl = document.getElementById('debts-spending-month-empty');
+    if (_spendTotalEl) _spendTotalEl.textContent = _fmtMoney0(_spendThisMonth);
+    if (_spendSubEl) {
+        _spendSubEl.textContent = _txnsThisMonth.length === 0
+            ? 'No transactions logged yet'
+            : `${_txnsThisMonth.length} transaction${_txnsThisMonth.length === 1 ? '' : 's'} this month`;
+    }
+    if (_spendEmptyEl) _spendEmptyEl.style.display = _txnsThisMonth.length === 0 ? '' : 'none';
+
+    // Expense Categories: build from this month's transactions
+    const _catTotals = {};
+    _txnsThisMonth.forEach(t => {
+        const cat = (t.category || 'Other').toString();
+        _catTotals[cat] = (_catTotals[cat] || 0) + Math.abs(t.amount);
+    });
+    const _catColors = ['#00d4a8','#667eea','#ff4d6d','#ffab40','#a78bfa','#22d3ee','#f472b6','#84cc16'];
+    const _catEntries = Object.entries(_catTotals).sort((a,b) => b[1] - a[1]);
+    const _donutTotalEl  = document.getElementById('debts-donut-total');
+    const _donutLegendEl = document.getElementById('debts-expense-legend');
+
+    if (_catEntries.length === 0 || _spendThisMonth === 0) {
+        // No real spending — render empty donut + empty-state legend
+        drawDonut('expenseDonut', [{ pct: 100, color: 'rgba(127,127,127,0.18)' }]);
+        if (_donutTotalEl) _donutTotalEl.textContent = '$0';
+        if (_donutLegendEl) {
+            _donutLegendEl.innerHTML = `<div class="legend-item" style="font-size:11px; color:var(--text-3);">No transactions yet — add one to see your category breakdown.</div>`;
+        }
+    } else {
+        const _donutSlices = _catEntries.map(([cat, val], i) => ({
+            pct: (val / _spendThisMonth) * 100,
+            color: _catColors[i % _catColors.length]
+        }));
+        drawDonut('expenseDonut', _donutSlices);
+        if (_donutTotalEl) {
+            _donutTotalEl.textContent = _spendThisMonth >= 1000
+                ? '$' + (_spendThisMonth / 1000).toFixed(1) + 'k'
+                : '$' + Math.round(_spendThisMonth);
+        }
+        if (_donutLegendEl) {
+            _donutLegendEl.innerHTML = _catEntries.map(([cat, val], i) => {
+                const pct = Math.round((val / _spendThisMonth) * 100);
+                const safeCat = String(cat).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                return `<div class="legend-item"><div class="legend-dot" style="background:${_catColors[i % _catColors.length]}"></div> ${safeCat} <span style="margin-left:auto; font-weight:700">${pct}%</span></div>`;
+            }).join('');
+        }
+    }
+
     const getWeeklySpending = () => {
         const weeks = [0,0,0,0];
         const now = new Date();
         appState.transactions.forEach(t => {
             const d = new Date(t.date);
+            if (t.amount >= 0) return;
             const diff = Math.floor((now - d) / (86400000 * 7));
             if (diff >= 0 && diff < 4) weeks[3 - diff] += Math.abs(t.amount);
         });
