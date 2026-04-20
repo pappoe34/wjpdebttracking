@@ -15,7 +15,22 @@ const defaultState = {
     },
     transactions: [],
     recurringPayments: [],
-    notifications: []
+    notifications: [],
+    creditScoreHistory: [],
+    prefs: {
+        notifications: {
+            channels: { email: true, push: true, sms: false, inApp: true },
+            types: {
+                paymentDue: true, paymentOverdue: true, milestone: true,
+                strategyChange: false, aiInsights: true, accountSynced: false,
+                scoreChange: true
+            },
+            quietHours: { from: '22:00', to: '07:00', enabled: true }
+        },
+        goals: [],
+        householdMode: false,
+        pinned: ['credit-profile-card', 'dash-spending-card']
+    }
 };
 
 let appState = null;
@@ -48,7 +63,30 @@ function loadState() {
                 },
                 transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [...defaultState.transactions],
                 recurringPayments: Array.isArray(parsed.recurringPayments) ? parsed.recurringPayments : [...defaultState.recurringPayments],
-                notifications: Array.isArray(parsed.notifications) ? parsed.notifications : []
+                notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
+                creditScoreHistory: Array.isArray(parsed.creditScoreHistory) ? parsed.creditScoreHistory : [],
+                prefs: {
+                    ...defaultState.prefs,
+                    ...(parsed.prefs || {}),
+                    notifications: {
+                        ...defaultState.prefs.notifications,
+                        ...((parsed.prefs && parsed.prefs.notifications) || {}),
+                        channels: {
+                            ...defaultState.prefs.notifications.channels,
+                            ...((parsed.prefs && parsed.prefs.notifications && parsed.prefs.notifications.channels) || {})
+                        },
+                        types: {
+                            ...defaultState.prefs.notifications.types,
+                            ...((parsed.prefs && parsed.prefs.notifications && parsed.prefs.notifications.types) || {})
+                        },
+                        quietHours: {
+                            ...defaultState.prefs.notifications.quietHours,
+                            ...((parsed.prefs && parsed.prefs.notifications && parsed.prefs.notifications.quietHours) || {})
+                        }
+                    },
+                    goals: Array.isArray(parsed.prefs && parsed.prefs.goals) ? parsed.prefs.goals : [],
+                    pinned: Array.isArray(parsed.prefs && parsed.prefs.pinned) ? parsed.prefs.pinned : [...defaultState.prefs.pinned]
+                }
             };
         } catch(e) { appState = JSON.parse(JSON.stringify(defaultState)); }
     } else {
@@ -58,6 +96,155 @@ function loadState() {
 
 function saveState() {
     localStorage.setItem('wjp_budget_state', JSON.stringify(appState));
+}
+
+/* ---------- NOTIFICATION PREFERENCES ---------- */
+// Map internal notification type -> prefs.notifications.types key
+function _notifTypeKey(type) {
+    const t = (type || '').toLowerCase();
+    if (t === 'payment' || t === 'paymentdue' || t === 'payment-due') return 'paymentDue';
+    if (t === 'overdue' || t === 'paymentoverdue') return 'paymentOverdue';
+    if (t === 'milestone' || t === 'success') return 'milestone';
+    if (t === 'strategy' || t === 'strategychange') return 'strategyChange';
+    if (t === 'ai' || t === 'insight' || t === 'aiinsights') return 'aiInsights';
+    if (t === 'sync' || t === 'accountsynced') return 'accountSynced';
+    if (t === 'score' || t === 'scorechange') return 'scoreChange';
+    return null;
+}
+
+function canNotify(type) {
+    try {
+        if (!appState || !appState.prefs || !appState.prefs.notifications) return true;
+        const prefs = appState.prefs.notifications;
+        // In-app channel must be on
+        if (prefs.channels && prefs.channels.inApp === false) return false;
+
+        // Check type
+        const key = _notifTypeKey(type);
+        if (key && prefs.types && prefs.types[key] === false) return false;
+
+        // Quiet hours
+        const qh = prefs.quietHours;
+        if (qh && qh.enabled !== false && qh.from && qh.to) {
+            const now = new Date();
+            const [fh, fm] = qh.from.split(':').map(Number);
+            const [th, tm] = qh.to.split(':').map(Number);
+            const cur = now.getHours() * 60 + now.getMinutes();
+            const from = fh * 60 + (fm || 0);
+            const to = th * 60 + (tm || 0);
+            const inQuiet = from < to ? (cur >= from && cur < to) : (cur >= from || cur < to);
+            if (inQuiet) return false;
+        }
+        return true;
+    } catch(_) { return true; }
+}
+
+function pushNotification(notif, type) {
+    if (!appState.notifications) appState.notifications = [];
+    if (!canNotify(type || notif.type)) return false;
+    appState.notifications.unshift(notif);
+    return true;
+}
+
+/* ---------- CREDIT SCORE HISTORY ---------- */
+function computeDeltaReason(prev, curr) {
+    if (!prev) return 'Initial score recorded.';
+    try {
+        // Utilization change (fractional e.g. 0.34 -> 0.18)
+        if (prev.util !== undefined && curr.util !== undefined
+            && prev.util !== null && curr.util !== null) {
+            const pPct = Math.round(prev.util * 100);
+            const cPct = Math.round(curr.util * 100);
+            if (Math.abs(pPct - cPct) >= 3) {
+                return `Utilization ${cPct < pPct ? 'fell' : 'rose'} from ${pPct}% to ${cPct}%.`;
+            }
+        }
+        if ((prev.lates || 0) !== (curr.lates || 0)) {
+            return `Late payments: ${prev.lates||0} → ${curr.lates||0}.`;
+        }
+        if ((prev.inq || 0) !== (curr.inq || 0)) {
+            return `Hard inquiries: ${prev.inq||0} → ${curr.inq||0}.`;
+        }
+        if ((prev.oldest || 0) !== (curr.oldest || 0) && (curr.oldest || 0) > 0) {
+            return `Oldest account age updated to ${curr.oldest} yrs.`;
+        }
+        if ((prev.accounts || 0) !== (curr.accounts || 0)) {
+            return `Account count: ${prev.accounts||0} → ${curr.accounts||0}.`;
+        }
+    } catch(_) {}
+    return 'Score updated.';
+}
+
+function _buildScoreSnapshot(score) {
+    let cs = {}, bureau = {};
+    try { cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch(_) {}
+    try { bureau = JSON.parse(localStorage.getItem('wjp_credit_bureau') || '{}'); } catch(_) {}
+    const debts = (appState && appState.debts) ? appState.debts : [];
+    const cardDebts = debts.filter(d => {
+        const t = (d.type || d.category || '').toString().toLowerCase();
+        return t.includes('credit') || t.includes('card') || t === 'cc';
+    });
+    let totalBal = 0, totalLim = 0;
+    cardDebts.forEach(d => {
+        const lim = parseFloat((cs.cardLimits || {})[d.id] || d.limit || 0);
+        const bal = parseFloat(d.balance || 0);
+        if (lim > 0) { totalBal += bal; totalLim += lim; }
+    });
+    return {
+        score: score,
+        util: totalLim > 0 ? totalBal / totalLim : null,
+        lates: parseInt(cs.latePayments12mo, 10) || 0,
+        inq: parseInt(cs.hardInquiries12mo, 10) || 0,
+        oldest: parseFloat(cs.oldestAccountYears) || 0,
+        accounts: debts.length
+    };
+}
+
+function recordScoreHistory(newScore) {
+    if (!newScore || isNaN(newScore)) return null;
+    if (!appState.creditScoreHistory) appState.creditScoreHistory = [];
+    const hist = appState.creditScoreHistory;
+    const last = hist.length ? hist[hist.length - 1] : null;
+    const prevSnap = last ? last.snapshot : null;
+    const currSnap = _buildScoreSnapshot(newScore);
+
+    // Skip if identical to last entry (same score, recent)
+    if (last && last.score === newScore && prevSnap
+        && Math.abs((last.ts || 0) - Date.now()) < 1000*60*5) return null;
+
+    const prevScore = last ? last.score : null;
+    const delta = prevScore !== null ? newScore - prevScore : 0;
+    const reason = computeDeltaReason(prevSnap, currSnap);
+
+    const entry = {
+        ts: Date.now(),
+        score: newScore,
+        prev: prevScore,
+        delta,
+        reason,
+        snapshot: currSnap
+    };
+    hist.push(entry);
+    // Cap history
+    if (hist.length > 60) hist.splice(0, hist.length - 60);
+    saveState();
+
+    // Tier 2.5: score-change notifications
+    if (prevScore !== null && Math.abs(delta) >= 5) {
+        const dir = delta > 0 ? '+' : '';
+        pushNotification({
+            id: Date.now(),
+            title: `Credit score moved ${dir}${delta}`,
+            text: `New score: ${newScore}. ${reason}`,
+            type: 'scoreChange',
+            priority: Math.abs(delta) >= 15 ? 'high' : 'med',
+            time: 'Just now',
+            read: false,
+            cleared: false
+        }, 'scoreChange');
+        if (typeof renderNotifications === 'function') renderNotifications();
+    }
+    return entry;
 }
 
 /* ---------- SPA ROUTER ---------- */
@@ -1859,15 +2046,47 @@ function initModal() {
     const modal = document.getElementById('entry-modal');
     const btnClose = document.getElementById('modal-close');
     const btnCancels = document.querySelectorAll('.modal-cancel');
-    
+
     const tabs = document.querySelectorAll('.modal-tab');
     const forms = document.querySelectorAll('.modal-form');
 
+    const pickerStep = document.getElementById('entry-picker-step');
+    const formStep = document.getElementById('entry-form-step');
+    const backToPicker = document.getElementById('entry-back-to-picker');
+    const titleEl = document.getElementById('entry-modal-title');
+    const limitGroup = document.getElementById('debt-limit-group');
+    const debtTypeSel = document.getElementById('debt-type');
+
     if(!btnNew || !modal) return;
+
+    const showPicker = () => {
+        if (pickerStep) pickerStep.style.display = 'block';
+        if (formStep) formStep.style.display = 'none';
+        if (titleEl) titleEl.textContent = 'Add';
+    };
+    const showFormStep = (tabName, title) => {
+        if (pickerStep) pickerStep.style.display = 'none';
+        if (formStep) formStep.style.display = 'block';
+        if (titleEl) titleEl.textContent = title || 'New Entry';
+        // Activate correct tab
+        tabs.forEach(t => {
+            t.classList.remove('active');
+            t.style.opacity = '0.5';
+            if (t.getAttribute('data-tab') === tabName) {
+                t.classList.add('active');
+                t.style.opacity = '1';
+            }
+        });
+        forms.forEach(f => f.style.display = 'none');
+        const targetForm = document.getElementById(tabName + '-form');
+        if (targetForm) targetForm.style.display = 'block';
+    };
 
     const closeModal = () => {
         modal.classList.remove('active');
         forms.forEach(f => f.reset());
+        showPicker();
+        if (limitGroup) limitGroup.style.display = 'none';
     };
 
     const handleSuccessState = (form, updateCallback) => {
@@ -1901,6 +2120,7 @@ function initModal() {
 
     btnNew.addEventListener('click', () => {
         modal.classList.add('active');
+        showPicker();
     });
 
     if(btnClose) btnClose.addEventListener('click', closeModal);
@@ -1910,6 +2130,39 @@ function initModal() {
     modal.addEventListener('click', (e) => {
         if(e.target === modal) closeModal();
     });
+
+    // Picker tile routing (Tier 1.2)
+    document.querySelectorAll('.entry-tile').forEach(tile => {
+        tile.addEventListener('click', () => {
+            const route = tile.getAttribute('data-route');
+            if (route === 'credit-card') {
+                showFormStep('new-debt', 'Add Credit Card');
+                if (debtTypeSel) debtTypeSel.value = 'credit card';
+                if (limitGroup) limitGroup.style.display = '';
+            } else if (route === 'loan') {
+                showFormStep('new-debt', 'Add Loan');
+                if (debtTypeSel) debtTypeSel.value = 'loan';
+                if (limitGroup) limitGroup.style.display = 'none';
+            } else if (route === 'transaction') {
+                showFormStep('new-transaction', 'New Transaction');
+            } else if (route === 'bank') {
+                // Route to bank-link drawer (re-use existing settings-drawer flow)
+                closeModal();
+                const btnBank = document.getElementById('btn-settings-link-account');
+                if (btnBank) btnBank.click();
+                else if (typeof showToast === 'function') showToast('Open Settings → Link Bank Account.');
+            }
+        });
+    });
+    if (backToPicker) backToPicker.addEventListener('click', showPicker);
+
+    // Toggle Limit visibility when type changes
+    if (debtTypeSel && limitGroup) {
+        debtTypeSel.addEventListener('change', () => {
+            const t = (debtTypeSel.value || '').toLowerCase();
+            limitGroup.style.display = (t.includes('credit') || t.includes('card')) ? '' : 'none';
+        });
+    }
 
     // Tab Switching Logic
     tabs.forEach(tab => {
@@ -1935,15 +2188,30 @@ function initModal() {
             e.preventDefault();
             
             handleSuccessState(formDebt, () => {
+                const typeVal = (document.getElementById('debt-type')?.value || 'loan').toLowerCase();
+                const limVal = parseFloat(document.getElementById('debt-limit')?.value);
                 const newDebt = {
                     id: 'd' + Date.now(),
                     name: document.getElementById('debt-name').value || 'Unknown Obligation',
+                    type: typeVal,
                     balance: parseFloat(document.getElementById('debt-balance').value) || 0,
                     apr: parseFloat(document.getElementById('debt-apr').value) || 0,
                     minPayment: parseFloat(document.getElementById('debt-min').value) || 0,
-                    dueDate: Math.floor(Math.random() * 28) + 1
+                    dueDate: Math.floor(Math.random() * 28) + 1,
+                    limit: (!isNaN(limVal) && limVal > 0) ? limVal : 0,
+                    lastUpdated: Date.now(),
+                    attachments: []
                 };
                 appState.debts.push(newDebt);
+                // Also sync the limit into cs.cardLimits so Credit Profile util works
+                if (newDebt.limit > 0) {
+                    try {
+                        const cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
+                        cs.cardLimits = cs.cardLimits || {};
+                        cs.cardLimits[newDebt.id] = newDebt.limit;
+                        localStorage.setItem('wjp_credit_inputs', JSON.stringify(cs));
+                    } catch(_){}
+                }
                 saveState();
                 updateUI(); // Redraw Dashboard natively
             });
@@ -2282,18 +2550,67 @@ function updateUI() {
     const oblContainer = document.getElementById('dashboard-obligations');
     if(oblContainer) {
         oblContainer.innerHTML = '';
-        
+
+        // Pull card limits from credit inputs
+        let _cs = {};
+        try { _cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch(_) {}
+        const cardLimits = _cs.cardLimits || {};
+
         appState.debts.forEach(debt => {
             const isPriority = (debt.id === priorityId);
             const badgeHtml = isPriority ? `<div class="badge badge-danger">Priority</div>` : '';
             const cClr = isPriority ? 'var(--danger)' : 'var(--accent)';
             const cBg = isPriority ? 'rgba(255,77,109,0.1)' : 'rgba(0,212,168,0.1)';
 
+            // Utilization bar (credit cards only)
+            const dtype = (debt.type || debt.category || '').toString().toLowerCase();
+            const isCard = dtype.includes('credit') || dtype.includes('card') || dtype === 'cc' || parseFloat(debt.limit) > 0;
+            const lim = parseFloat(debt.limit) || parseFloat(cardLimits[debt.id]) || 0;
+            let utilHtml = '';
+            if (isCard && lim > 0 && debt.balance >= 0) {
+                const pct = Math.min(100, (debt.balance / lim) * 100);
+                const band = pct < 10 ? '#1f9d55'
+                           : pct < 30 ? '#84cc16'
+                           : pct < 50 ? '#b58900'
+                                      : '#ff4d6d';
+                utilHtml = `
+                  <div class="obl-util" style="margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">
+                      <span>Utilization</span><span style="color:${band}">${pct.toFixed(0)}%</span>
+                    </div>
+                    <div style="height:4px; background:var(--card-2); border-radius:3px; overflow:hidden;">
+                      <div style="width:${pct}%; height:100%; background:${band};"></div>
+                    </div>
+                  </div>`;
+            }
+
+            // "Updated N ago" (Tier 2.4)
+            let updatedAgoHtml = '';
+            if (debt.lastUpdated) {
+                const diff = Date.now() - debt.lastUpdated;
+                const mins = Math.floor(diff / 60000);
+                const hrs = Math.floor(mins / 60);
+                const days = Math.floor(hrs / 24);
+                const ago = days > 0 ? `${days}d ago` : hrs > 0 ? `${hrs}h ago` : mins > 0 ? `${mins}m ago` : 'just now';
+                updatedAgoHtml = `<div class="obl-updated" style="font-size:9px; color:var(--text-3); margin-top:6px;">Updated ${ago}</div>`;
+            }
+
+            // Attachments count (Tier 1.6)
+            const attachCount = Array.isArray(debt.attachments) ? debt.attachments.length : 0;
+            const attachLabel = attachCount > 0
+                ? `<i class="ph ph-paperclip"></i> ${attachCount} statement${attachCount>1?'s':''}`
+                : `<i class="ph ph-paperclip"></i> Attach statement`;
+
             oblContainer.innerHTML += `
-               <div class="obligation-card ${isPriority ? 'priority' : ''}" style="animation: fadeIn 0.3s ease;">
+               <div class="obligation-card ${isPriority ? 'priority' : ''}" data-debt-id="${debt.id}" style="animation: fadeIn 0.3s ease; position:relative;">
                  <div class="obl-header">
                    <div class="obl-icon" style="color:${cClr}; background:${cBg}"><i class="ph ph-credit-card"></i></div>
-                   ${badgeHtml}
+                   <div style="display:flex; align-items:center; gap:4px;">
+                     ${badgeHtml}
+                     <button class="obl-menu-btn" data-debt-id="${debt.id}" aria-label="Actions" title="Actions" style="background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center;">
+                       <i class="ph ph-dots-three-vertical" style="font-size:16px;"></i>
+                     </button>
+                   </div>
                  </div>
                  <div class="obl-name">${debt.name}</div>
                  <div class="obl-type" style="font-size:10px; color:var(--text-3)">Managed Liability</div>
@@ -2303,9 +2620,17 @@ function updateUI() {
                    <div class="obl-row"><span class="obl-stat-label">APR</span><span class="obl-stat-val ${isPriority?'danger':''}">${debt.apr}%</span></div>
                    <div class="obl-row"><span class="obl-stat-label">Min. Payment</span><span class="obl-stat-val">${fmt(debt.minPayment)}</span></div>
                  </div>
+                 ${utilHtml}
+                 ${updatedAgoHtml}
+                 <button class="obl-attach-btn" data-debt-id="${debt.id}" style="width:100%; margin-top:10px; padding:6px 8px; background:var(--card-2); border:1px solid var(--border); border-radius:6px; color:var(--text-2); font-size:10px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; font-family:inherit;">
+                   ${attachLabel}
+                 </button>
                </div>
             `;
         });
+
+        // Wire three-dot menus + attach buttons (after injection)
+        if (typeof wireObligationCardActions === 'function') wireObligationCardActions();
     }
 
     if (typeof renderMainCalendar === 'function') renderMainCalendar();
@@ -2409,6 +2734,10 @@ function updateUI() {
 
     if (window.renderStrategyIndicators) renderStrategyIndicators(); // also calls syncStrategyCards()
     else if (typeof syncStrategyCards === 'function') syncStrategyCards(); // fallback sync
+    if (typeof renderPerDebtAttachments === 'function') renderPerDebtAttachments();
+    if (typeof reorderPinnedCards === 'function') reorderPinnedCards();
+    if (typeof applyHouseholdModeLabel === 'function') applyHouseholdModeLabel();
+    if (typeof applyGoalsReordering === 'function') applyGoalsReordering();
     renderTransactions();
     if (typeof renderResilienceTab === 'function') renderResilienceTab();
     renderUpcomingList();
@@ -2740,7 +3069,410 @@ function updateCreditProfile() {
     card.querySelectorAll('.cp-expand-btn').forEach(b => {
         b.addEventListener('click', goToCreditScoreTab);
     });
+
+    // Render live score delta pill + reason (Tier 1.4)
+    renderScoreHistoryBadge(card);
 }
+
+// Inject a live score-history badge ("+12 PTS" + one-line reason) into the
+// Credit Profile card, replacing any static HTML pill left over from index.html.
+function renderScoreHistoryBadge(card) {
+    const hist = (appState && appState.creditScoreHistory) ? appState.creditScoreHistory : [];
+    if (!card || hist.length === 0) return;
+    const latest = hist[hist.length - 1];
+    if (latest == null || latest.delta === undefined) return;
+    // Find the "Overall Status" block's container — there's a stat-pill "+12 PTS"
+    // directly under it that we want to replace.
+    const staticPill = card.querySelector('.stat-pill');
+    const wrapper = staticPill ? staticPill.parentElement : null;
+    const dir = latest.delta > 0 ? 'up' : latest.delta < 0 ? 'down' : 'flat';
+    const arrow = latest.delta > 0 ? 'ph-arrow-up' : latest.delta < 0 ? 'ph-arrow-down' : 'ph-minus';
+    const sign = latest.delta > 0 ? '+' : '';
+    const pillHtml = `
+      <div class="score-delta-live" style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+        <div class="stat-pill ${dir}" style="font-size:10px; padding:2px 8px; display:inline-flex; align-items:center; gap:3px; width:max-content;">
+          <i class="ph ${arrow}"></i> ${sign}${latest.delta} PTS
+        </div>
+        <div style="font-size:10px; color:var(--text-3); line-height:1.4;">${latest.reason || ''}</div>
+      </div>`;
+    if (staticPill) {
+        staticPill.outerHTML = pillHtml;
+    } else if (wrapper) {
+        wrapper.insertAdjacentHTML('beforeend', pillHtml);
+    }
+}
+
+/* ============================================================
+   OBLIGATION CARD ACTIONS (Tier 1.6 + Tier 2.1 + Tier 2.4)
+   Three-dot menu: Rename · Update balance · Attach statement · Delete
+   ============================================================ */
+function wireObligationCardActions() {
+    // Three-dot menu buttons
+    document.querySelectorAll('.obl-menu-btn').forEach(btn => {
+        if (btn._wired) return; btn._wired = true;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute('data-debt-id');
+            openObligationMenu(btn, id);
+        });
+    });
+    // Attach-statement buttons
+    document.querySelectorAll('.obl-attach-btn').forEach(btn => {
+        if (btn._wired) return; btn._wired = true;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute('data-debt-id');
+            openAttachStatementPicker(id);
+        });
+    });
+}
+
+function openObligationMenu(anchor, debtId) {
+    // Close any existing menu
+    document.querySelectorAll('.obl-action-menu').forEach(m => m.remove());
+
+    const menu = document.createElement('div');
+    menu.className = 'obl-action-menu';
+    menu.style.cssText = 'position:absolute; z-index:9500; min-width:180px; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,0.35); padding:6px; font-family:inherit;';
+    const items = [
+        { label: 'Rename', icon: 'ph-pencil-simple', act: 'rename' },
+        { label: 'Update balance', icon: 'ph-arrows-clockwise', act: 'update' },
+        { label: 'Attach statement', icon: 'ph-paperclip', act: 'attach' },
+        { label: 'Delete', icon: 'ph-trash', act: 'delete', danger: true }
+    ];
+    menu.innerHTML = items.map(i => `
+      <button class="obl-menu-item" data-act="${i.act}" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; background:transparent; border:none; color:${i.danger ? '#ff4d6d' : 'var(--text)'}; font-size:12px; font-weight:600; text-align:left; cursor:pointer; border-radius:6px; font-family:inherit;">
+        <i class="ph ${i.icon}"></i> ${i.label}
+      </button>
+    `).join('');
+    document.body.appendChild(menu);
+
+    // Position near anchor
+    const r = anchor.getBoundingClientRect();
+    const top = r.bottom + window.scrollY + 4;
+    const left = Math.max(8, r.right + window.scrollX - 180);
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+
+    const close = () => { menu.remove(); document.removeEventListener('click', onDoc); };
+    const onDoc = (e) => { if (!menu.contains(e.target)) close(); };
+    setTimeout(() => document.addEventListener('click', onDoc), 0);
+
+    menu.querySelectorAll('.obl-menu-item').forEach(b => {
+        b.addEventListener('mouseenter', () => b.style.background = 'var(--card-2)');
+        b.addEventListener('mouseleave', () => b.style.background = 'transparent');
+        b.addEventListener('click', () => {
+            const act = b.getAttribute('data-act');
+            close();
+            if (act === 'rename') renameDebtPrompt(debtId);
+            else if (act === 'update') updateDebtBalancePrompt(debtId);
+            else if (act === 'attach') openAttachStatementPicker(debtId);
+            else if (act === 'delete') deleteDebtPrompt(debtId);
+        });
+    });
+}
+
+function renameDebtPrompt(id) {
+    const debt = appState.debts.find(d => d.id === id);
+    if (!debt) return;
+    const v = prompt('Rename this account:', debt.name);
+    if (v === null) return;
+    const name = v.trim();
+    if (!name) return;
+    debt.name = name;
+    debt.lastUpdated = Date.now();
+    saveState();
+    updateUI();
+    if (typeof showToast === 'function') showToast('Renamed.');
+}
+
+function updateDebtBalancePrompt(id) {
+    const debt = appState.debts.find(d => d.id === id);
+    if (!debt) return;
+    const v = prompt(`Update balance for ${debt.name}:`, String(debt.balance || 0));
+    if (v === null) return;
+    const n = parseFloat(v);
+    if (isNaN(n) || n < 0) { if (typeof showToast === 'function') showToast('Enter a valid amount.'); return; }
+    debt.balance = n;
+    debt.lastUpdated = Date.now();
+    saveState();
+    updateUI();
+    if (typeof showToast === 'function') showToast('Balance updated.');
+}
+
+function deleteDebtPrompt(id) {
+    const debt = appState.debts.find(d => d.id === id);
+    if (!debt) return;
+    if (!confirm(`Delete "${debt.name}"? This cannot be undone.`)) return;
+    appState.debts = appState.debts.filter(d => d.id !== id);
+    saveState();
+    updateUI();
+    if (typeof showToast === 'function') showToast('Deleted.');
+}
+
+function openAttachStatementPicker(id) {
+    const debt = appState.debts.find(d => d.id === id);
+    if (!debt) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.png,.jpg,.jpeg,.csv';
+    input.onchange = () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            if (!confirm(`"${file.name}" is ${(file.size/1024/1024).toFixed(1)} MB. Attach anyway? Large files slow the app down.`)) return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (!Array.isArray(debt.attachments)) debt.attachments = [];
+            debt.attachments.push({
+                name: file.name,
+                dataUrl: e.target.result,
+                size: file.size,
+                ts: Date.now()
+            });
+            saveState();
+            updateUI();
+            if (typeof showToast === 'function') showToast(`Attached "${file.name}".`);
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+// Review & rename imported accounts (Tier 2.1)
+function openReviewImportModal(importedIds) {
+    const targets = (appState.debts || []).filter(d => importedIds.includes(d.id));
+    if (!targets.length) return;
+
+    document.getElementById('review-import-modal')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'review-import-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:9700; display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(4px);';
+    overlay.innerHTML = `
+        <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:560px; max-height:88vh; overflow-y:auto;">
+            <div style="padding:20px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:10px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:0.08em;">Imported</div>
+                    <h3 style="font-size:17px; font-weight:800; margin:4px 0 0;">Review &amp; rename accounts</h3>
+                </div>
+                <button id="rv-close" style="background:transparent; border:none; color:var(--text-3); font-size:22px; cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:18px 22px;">
+                <p style="font-size:11.5px; color:var(--text-3); line-height:1.6; margin:0 0 14px;">Bank feeds return ugly names. Rename, confirm type, and set credit limits before these get locked into your dashboard.</p>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                ${targets.map(d => `
+                    <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:12px;">
+                        <div style="display:grid; grid-template-columns: 1fr 110px; gap:8px; margin-bottom:8px;">
+                            <input class="rv-name" data-id="${d.id}" type="text" value="${d.name || ''}" placeholder="Account name" style="padding:8px 10px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:12px; font-weight:700;">
+                            <select class="rv-type" data-id="${d.id}" style="padding:8px 10px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:11px;">
+                                <option value="credit card" ${((d.type||'').includes('credit')||(d.type||'').includes('card'))?'selected':''}>Credit Card</option>
+                                <option value="loan" ${((d.type||'').includes('loan'))?'selected':''}>Loan</option>
+                                <option value="mortgage" ${((d.type||'').includes('mortgage'))?'selected':''}>Mortgage</option>
+                                <option value="auto" ${((d.type||'').includes('auto'))?'selected':''}>Auto</option>
+                                <option value="student" ${((d.type||'').includes('student'))?'selected':''}>Student</option>
+                            </select>
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                            <label style="font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em;">Balance
+                                <input class="rv-bal" data-id="${d.id}" type="number" value="${d.balance||0}" style="margin-top:4px; width:100%; padding:6px 8px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:11px; box-sizing:border-box;">
+                            </label>
+                            <label style="font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em;">Credit Limit
+                                <input class="rv-lim" data-id="${d.id}" type="number" value="${d.limit||0}" style="margin-top:4px; width:100%; padding:6px 8px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:11px; box-sizing:border-box;">
+                            </label>
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>
+            <div style="padding:16px 22px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
+                <button id="rv-cancel" class="btn btn-ghost" style="padding:10px 16px; font-size:11px;">Skip</button>
+                <button id="rv-confirm" class="btn btn-primary" style="padding:10px 18px; font-size:11px;">Confirm &amp; Save</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('#rv-close').addEventListener('click', close);
+    overlay.querySelector('#rv-cancel').addEventListener('click', close);
+    overlay.querySelector('#rv-confirm').addEventListener('click', () => {
+        overlay.querySelectorAll('.rv-name').forEach(el => {
+            const d = appState.debts.find(x => x.id === el.dataset.id);
+            if (d) d.name = el.value.trim() || d.name;
+        });
+        overlay.querySelectorAll('.rv-type').forEach(el => {
+            const d = appState.debts.find(x => x.id === el.dataset.id);
+            if (d) d.type = el.value;
+        });
+        overlay.querySelectorAll('.rv-bal').forEach(el => {
+            const d = appState.debts.find(x => x.id === el.dataset.id);
+            const v = parseFloat(el.value);
+            if (d && !isNaN(v)) d.balance = v;
+        });
+        overlay.querySelectorAll('.rv-lim').forEach(el => {
+            const d = appState.debts.find(x => x.id === el.dataset.id);
+            const v = parseFloat(el.value);
+            if (d && !isNaN(v)) {
+                d.limit = v;
+                try {
+                    const cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
+                    cs.cardLimits = cs.cardLimits || {};
+                    cs.cardLimits[d.id] = v;
+                    localStorage.setItem('wjp_credit_inputs', JSON.stringify(cs));
+                } catch(_){}
+            }
+            if (d) d.lastUpdated = Date.now();
+        });
+        saveState();
+        updateUI();
+        close();
+        if (typeof showToast === 'function') showToast('Accounts reviewed.');
+    });
+}
+window.openReviewImportModal = openReviewImportModal;
+
+// Render the per-debt attachments list in the Documents tab (Tier 1.6)
+function renderPerDebtAttachments() {
+    const list = document.getElementById('per-debt-attachments-list');
+    if (!list) return;
+    const debts = (appState && appState.debts) ? appState.debts : [];
+    const hasAny = debts.some(d => Array.isArray(d.attachments) && d.attachments.length > 0);
+    if (!hasAny) {
+        list.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 16px; color:var(--text-3); font-size:11px; text-align:center; gap:8px;">
+                <i class="ph ph-paperclip" style="font-size:36px; opacity:0.4;"></i>
+                <strong style="color:var(--text-2); font-size:13px;">No statements attached yet</strong>
+                <span style="max-width:280px;">Open Debts → tap a card → "Attach statement" to add a PDF or photo against a specific account.</span>
+            </div>`;
+        return;
+    }
+    list.innerHTML = debts.filter(d => Array.isArray(d.attachments) && d.attachments.length > 0).map(d => `
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
+            <div style="font-size:12px; font-weight:800; margin-bottom:8px;">${d.name}</div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                ${d.attachments.map((a, i) => `
+                    <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; background:var(--card); border:1px solid var(--border); border-radius:6px;">
+                        <i class="ph-fill ph-file" style="color:var(--accent); font-size:14px;"></i>
+                        <div style="flex:1; font-size:11px; font-weight:600; overflow:hidden; text-overflow:ellipsis;">${a.name}</div>
+                        <span style="font-size:9px; color:var(--text-3);">${new Date(a.ts).toLocaleDateString()}</span>
+                        <a href="${a.dataUrl}" download="${a.name}" style="font-size:10px; color:var(--accent); text-decoration:none; font-weight:700;">OPEN</a>
+                        <button data-debt-id="${d.id}" data-idx="${i}" class="attach-remove-btn" style="background:transparent; border:none; color:#ff4d6d; cursor:pointer; font-size:12px;"><i class="ph ph-x"></i></button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    // Wire remove buttons
+    list.querySelectorAll('.attach-remove-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            const id = b.getAttribute('data-debt-id');
+            const idx = parseInt(b.getAttribute('data-idx'), 10);
+            const d = appState.debts.find(x => x.id === id);
+            if (!d || !Array.isArray(d.attachments)) return;
+            d.attachments.splice(idx, 1);
+            saveState();
+            renderPerDebtAttachments();
+            updateUI();
+        });
+    });
+}
+
+// Reorder dashboard modules based on appState.prefs.goals (Tier 2.2)
+function applyGoalsReordering() {
+    const goals = (appState && appState.prefs && Array.isArray(appState.prefs.goals)) ? appState.prefs.goals : [];
+    // Set CSS order on the dash-left cards based on goals
+    const aiCard = document.querySelector('#page-dashboard .ai-advisor-card');
+    const spendCard = document.querySelector('#page-dashboard .dash-left .card.reveal.reveal-3:not(#dash-financial-resilience)');
+    const resilCard = document.getElementById('dash-financial-resilience');
+    const creditCard = document.getElementById('credit-profile-card');
+    const stratBlock = document.querySelector('#page-dashboard .strategy-indicators');
+
+    // Score-focused: credit profile highest
+    if (goals.includes('score') && creditCard) creditCard.style.order = '-2';
+    // Payoff-focused: strategy indicators / AI strategy up top
+    if (goals.includes('payoff')) {
+        if (stratBlock) stratBlock.style.order = '-2';
+        if (aiCard) aiCard.style.order = '-1';
+    }
+    // Emergency fund / paycheck: resilience up
+    if ((goals.includes('emergency') || goals.includes('paycheck')) && resilCard) {
+        resilCard.style.order = '-2';
+    }
+    // Partner goal flips household mode on
+    if (goals.includes('partner') && appState.prefs && !appState.prefs.householdMode) {
+        // Only auto-enable once; don't overwrite if user explicitly turned it off
+        if (!localStorage.getItem('wjp_household_autoprompted')) {
+            localStorage.setItem('wjp_household_autoprompted', '1');
+        }
+    }
+}
+
+// Household mode label (Tier 2.3): rename the user avatar label to "Household"
+function applyHouseholdModeLabel() {
+    const on = !!(appState && appState.prefs && appState.prefs.householdMode);
+    const settingsNameEl = document.getElementById('settings-user-name');
+    if (settingsNameEl) {
+        const orig = localStorage.getItem('wjp_user_name') || settingsNameEl.textContent || 'User';
+        settingsNameEl.textContent = on ? 'Household' : orig;
+    }
+    const sidebarName = document.querySelector('.user-name');
+    if (sidebarName) {
+        const orig = localStorage.getItem('wjp_user_name') || sidebarName.textContent || 'User';
+        sidebarName.textContent = on ? 'Household' : orig;
+    }
+}
+
+// Reorder pinned dashboard cards (Tier 2.6)
+function reorderPinnedCards() {
+    const pinned = (appState && appState.prefs && Array.isArray(appState.prefs.pinned)) ? appState.prefs.pinned : [];
+    const allCardIds = ['credit-profile-card','dash-financial-resilience','dash-spending-card','upcoming-view-container','dash-strategy-card','dash-stats-card'];
+    allCardIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (pinned.includes(id)) {
+            el.classList.add('pinned');
+            el.style.order = '-10';
+        } else {
+            el.classList.remove('pinned');
+            el.style.order = '';
+        }
+    });
+    // Update all pin icons
+    document.querySelectorAll('.pin-card-btn').forEach(btn => {
+        const id = btn.getAttribute('data-pin-id');
+        if (pinned.includes(id)) {
+            btn.classList.add('is-pinned');
+            btn.style.color = 'var(--accent)';
+            btn.title = 'Unpin';
+        } else {
+            btn.classList.remove('is-pinned');
+            btn.style.color = 'var(--text-3)';
+            btn.title = 'Pin to top';
+        }
+    });
+}
+
+function togglePinned(cardId) {
+    if (!appState.prefs) appState.prefs = {};
+    if (!Array.isArray(appState.prefs.pinned)) appState.prefs.pinned = [];
+    const i = appState.prefs.pinned.indexOf(cardId);
+    if (i >= 0) appState.prefs.pinned.splice(i, 1);
+    else appState.prefs.pinned.push(cardId);
+    saveState();
+    reorderPinnedCards();
+}
+
+// expose globally
+window.wireObligationCardActions = wireObligationCardActions;
+window.renameDebtPrompt = renameDebtPrompt;
+window.updateDebtBalancePrompt = updateDebtBalancePrompt;
+window.deleteDebtPrompt = deleteDebtPrompt;
+window.openAttachStatementPicker = openAttachStatementPicker;
+window.renderPerDebtAttachments = renderPerDebtAttachments;
+window.applyGoalsReordering = applyGoalsReordering;
+window.applyHouseholdModeLabel = applyHouseholdModeLabel;
+window.reorderPinnedCards = reorderPinnedCards;
+window.togglePinned = togglePinned;
 
 function renderStrategyIndicators() {
     const snowballList = document.getElementById('snowball-list');
@@ -3120,7 +3852,7 @@ function initNotifications() {
             const highAprDebt = appState.debts.reduce((p, c) => (p.apr > c.apr) ? p : c, appState.debts[0]);
             if(highAprDebt && highAprDebt.apr > 5) {
                 const saving = (highAprDebt.balance * (highAprDebt.apr / 100) * 0.5).toFixed(0);
-                appState.notifications.unshift({
+                const added = pushNotification({
                     id: Date.now(),
                     title: 'NotebookLM Optimizer',
                     text: `Based on your linked accounts, redirecting 50% of your discretionary budget to your ${highAprDebt.name} avoids $${saving} in interest this year.`,
@@ -3129,9 +3861,8 @@ function initNotifications() {
                     time: 'Just now',
                     read: false,
                     cleared: false
-                });
-                saveState();
-                renderNotifications();
+                }, 'ai');
+                if (added) { saveState(); renderNotifications(); }
                 
                 // Visual bounce
                 const btnNotif = document.getElementById('btn-notifications');
@@ -4449,7 +5180,13 @@ function renderCreditScoreTab() {
         newAccounts12mo: '0',
         cardLimits: {} // { debtId: limit }
     }, cs);
-    const saveCs = () => localStorage.setItem(LS_KEY, JSON.stringify(cs));
+    const saveCs = () => {
+        localStorage.setItem(LS_KEY, JSON.stringify(cs));
+        const sc = parseInt(cs.currentScore, 10);
+        if (!isNaN(sc) && sc >= 300 && sc <= 850 && typeof recordScoreHistory === 'function') {
+            recordScoreHistory(sc);
+        }
+    };
 
     const debts = (appState && appState.debts) ? appState.debts : [];
     const creditCards = debts.filter(d => {
@@ -4793,7 +5530,13 @@ function renderCreditScoreTab() {
     const BUREAU_KEY = 'wjp_credit_bureau';
     let bureau = {};
     try { bureau = JSON.parse(localStorage.getItem(BUREAU_KEY) || '{}'); } catch(_) {}
-    const saveBureau = () => localStorage.setItem(BUREAU_KEY, JSON.stringify(bureau));
+    const saveBureau = () => {
+        localStorage.setItem(BUREAU_KEY, JSON.stringify(bureau));
+        const sc = parseInt(bureau.lastScore, 10);
+        if (!isNaN(sc) && sc >= 300 && sc <= 850 && typeof recordScoreHistory === 'function') {
+            recordScoreHistory(sc);
+        }
+    };
 
     const providerMeta = {
         array:      { label: 'Array.io',              subtitle: 'Client-side widget · live pull', type:'widget'  },
@@ -5836,6 +6579,26 @@ function initAdvisorPageLogic() {
 
     // ── 3. Notification Preferences ──────────────────────────
     document.getElementById('btn-settings-notifications')?.addEventListener('click', () => {
+        if (!appState.prefs) appState.prefs = {};
+        const p = appState.prefs.notifications || {};
+        const ch = p.channels || { email:true, push:true, sms:false, inApp:true };
+        const ty = p.types || {};
+        const qh = p.quietHours || { from:'22:00', to:'07:00', enabled:true };
+        const channelRows = [
+            { key:'email', label:'Email Digest', desc:'Daily summary of account activity' },
+            { key:'push',  label:'Push Notifications', desc:'Instant alerts for payments & milestones' },
+            { key:'sms',   label:'SMS Alerts', desc:'Critical payment reminders via text' },
+            { key:'inApp', label:'In-App Notifications', desc:'Badge and toast alerts inside the dashboard' },
+        ];
+        const typeRows = [
+            { key:'paymentDue', label:'Payment Due (3 days)' },
+            { key:'paymentOverdue', label:'Payment Overdue' },
+            { key:'milestone', label:'Debt Milestone' },
+            { key:'strategyChange', label:'Strategy Change' },
+            { key:'aiInsights', label:'AI Insights' },
+            { key:'accountSynced', label:'Account Synced' },
+            { key:'scoreChange', label:'Credit Score Change' },
+        ];
         openSettingsDrawer({
             icon: 'ph-bell-ringing',
             badge: 'STEP 04',
@@ -5845,45 +6608,76 @@ function initAdvisorPageLogic() {
               <div style="display:flex;flex-direction:column;gap:20px;">
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:12px;">Alert Channels</div>
-                  ${[
-                    {label:'Email Digest',desc:'Daily summary of account activity',on:true},
-                    {label:'Push Notifications',desc:'Instant alerts for payments & milestones',on:true},
-                    {label:'SMS Alerts',desc:'Critical payment reminders via text',on:false},
-                    {label:'In-App Notifications',desc:'Badge and toast alerts inside the dashboard',on:true},
-                  ].map((n,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                  ${channelRows.map(n=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
                     <div>
                       <div style="font-size:11px;font-weight:600;">${n.label}</div>
                       <div style="font-size:9px;color:var(--text-3);">${n.desc}</div>
                     </div>
-                    <div class="toggle-switch notif-toggle ${n.on?'on':''}" style="flex-shrink:0;" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                    <div class="toggle-switch notif-channel ${ch[n.key]?'on':''}" data-ch="${n.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
                   </div>`).join('')}
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:12px;">Alert Types</div>
-                  ${[
-                    {label:'Payment Due (3 days)',on:true},{label:'Payment Overdue',on:true},{label:'Debt Milestone',on:true},
-                    {label:'Strategy Change',on:false},{label:'AI Insights',on:true},{label:'Account Synced',on:false},
-                  ].map(n=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                  ${typeRows.map(n=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
                     <span style="font-size:11px;font-weight:600;">${n.label}</span>
-                    <div class="toggle-switch notif-toggle ${n.on?'on':''}" style="flex-shrink:0;" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                    <div class="toggle-switch notif-type ${ty[n.key]!==false?'on':''}" data-ty="${n.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
                   </div>`).join('')}
                 </div>
                 <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-                  <div style="font-size:9px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Quiet Hours</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="font-size:9px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Quiet Hours</div>
+                    <div class="toggle-switch notif-qh-enabled ${qh.enabled!==false?'on':''}" style="flex-shrink:0;"><div class="thumb"></div></div>
+                  </div>
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <div>
                       <div style="font-size:9px;color:var(--text-3);margin-bottom:4px;">FROM</div>
-                      <input type="time" value="22:00" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:11px;width:100%;box-sizing:border-box;">
+                      <input id="notif-qh-from" type="time" value="${qh.from||'22:00'}" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:11px;width:100%;box-sizing:border-box;">
                     </div>
                     <div>
                       <div style="font-size:9px;color:var(--text-3);margin-bottom:4px;">TO</div>
-                      <input type="time" value="07:00" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:11px;width:100%;box-sizing:border-box;">
+                      <input id="notif-qh-to" type="time" value="${qh.to||'07:00'}" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:11px;width:100%;box-sizing:border-box;">
                     </div>
                   </div>
                 </div>
-                <button class="btn btn-primary settings-drawer-save" data-toast="Notification preferences saved." style="width:100%;padding:12px;">SAVE PREFERENCES</button>
+                <button id="save-notif-prefs" class="btn btn-primary" style="width:100%;padding:12px;">SAVE PREFERENCES</button>
               </div>`
         });
+
+        // Wire toggles after drawer is in the DOM
+        setTimeout(() => {
+            document.querySelectorAll('.notif-channel, .notif-type, .notif-qh-enabled').forEach(t => {
+                t.addEventListener('click', () => t.classList.toggle('on'));
+            });
+            const saveBtn = document.getElementById('save-notif-prefs');
+            if (saveBtn) saveBtn.addEventListener('click', () => {
+                const newCh = {};
+                document.querySelectorAll('.notif-channel').forEach(t => {
+                    newCh[t.dataset.ch] = t.classList.contains('on');
+                });
+                const newTy = {};
+                document.querySelectorAll('.notif-type').forEach(t => {
+                    newTy[t.dataset.ty] = t.classList.contains('on');
+                });
+                const qhEnabled = document.querySelector('.notif-qh-enabled')?.classList.contains('on') !== false;
+                const qhFrom = document.getElementById('notif-qh-from')?.value || '22:00';
+                const qhTo = document.getElementById('notif-qh-to')?.value || '07:00';
+
+                if (!appState.prefs) appState.prefs = {};
+                appState.prefs.notifications = {
+                    channels: newCh,
+                    types: newTy,
+                    quietHours: { from: qhFrom, to: qhTo, enabled: qhEnabled }
+                };
+                saveState();
+                if (typeof showToast === 'function') showToast('Notification preferences saved.');
+                const ov = document.getElementById('settings-drawer-overlay');
+                if (ov) {
+                    const d = document.getElementById('settings-drawer');
+                    if (d) d.style.transform = 'translateX(100%)';
+                    setTimeout(() => ov.remove(), 300);
+                }
+            });
+        }, 50);
     });
 
     // ── 4. Manage Subscription ───────────────────────────────
@@ -6268,6 +7062,51 @@ function initAdvisorPageLogic() {
         setTimeout(() => navigateSPA('dashboard'), 800);
     });
 
+    // ── Household Mode toggle (Tier 2.3) ─────────────────────
+    (function wireHouseholdModeToggle() {
+        const toggle = document.getElementById('toggle-household-mode');
+        const status = document.getElementById('household-mode-status');
+        if (!toggle) return;
+        function sync() {
+            const on = !!(appState.prefs && appState.prefs.householdMode);
+            toggle.classList.toggle('on', on);
+            toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+            if (status) status.textContent = on ? 'ON' : 'OFF';
+        }
+        function flip() {
+            if (!appState.prefs) appState.prefs = {};
+            appState.prefs.householdMode = !appState.prefs.householdMode;
+            saveState();
+            sync();
+            applyHouseholdModeLabel();
+            showToast(appState.prefs.householdMode
+                ? 'Household mode on. Inviting a partner stays free.'
+                : 'Household mode off.');
+        }
+        toggle.addEventListener('click', flip);
+        toggle.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+        });
+        sync();
+    })();
+
+    // ── Dashboard pin buttons (Tier 2.6) ─────────────────────
+    document.querySelectorAll('.pin-card-btn').forEach((btn) => {
+        if (btn.dataset.pinWired === '1') return;
+        btn.dataset.pinWired = '1';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const id = btn.getAttribute('data-pin-id');
+            if (!id) return;
+            togglePinned(id);
+            const pinned = (appState.prefs && appState.prefs.pinned) || [];
+            showToast(pinned.includes(id) ? 'Pinned to top of dashboard.' : 'Unpinned.');
+        });
+    });
+    reorderPinnedCards();
+    applyHouseholdModeLabel();
+
     // ── 11. Logout ────────────────────────────────────────────
     document.getElementById('btn-settings-logout')?.addEventListener('click', (e) => {
         e.preventDefault();
@@ -6587,7 +7426,7 @@ function initDashboardInteractivity() {
                 btnDashExec.innerHTML = `Execute Strategy`;
                 // Add a notification for the execution
                 if(!appState.notifications) appState.notifications = [];
-                appState.notifications.unshift({
+                pushNotification({
                     id: Date.now(),
                     title: 'Strategy Engaged',
                     text: `Your portfolio has been realigned to the ${sim.best} protocol.`,
@@ -6596,7 +7435,7 @@ function initDashboardInteractivity() {
                     time: 'Just now',
                     read: false,
                     cleared: false
-                });
+                }, 'strategyChange');
                 renderNotifications();
             }, 800);
         };
@@ -6681,7 +7520,7 @@ function initDashboardInteractivity() {
                 btnDashApplyShift.style.color = '#000';
                 
                 // Add to activity log / notifications
-                appState.notifications.unshift({
+                pushNotification({
                     id: Date.now(),
                     title: 'Interest Arbitrage Applied',
                     text: 'Shifted $450 excess payment to Prime Rewards Visa for max interest avoidance.',
@@ -6690,7 +7529,7 @@ function initDashboardInteractivity() {
                     time: 'Just now',
                     read: false,
                     cleared: false
-                });
+                }, 'ai');
                 saveState();
                 renderNotifications();
                 updateUI();
@@ -8975,14 +9814,19 @@ function initCreditImport() {
         const sourceLabel = { creditkarma: 'Credit Karma', experian: 'Experian', bank: 'Bank Statement' }[selectedSource];
         showToast(`✅ ${parsedDebts.length} accounts from ${sourceLabel} loaded successfully!`, 'success');
 
+        // Tier 2.1: Review & rename step
+        if (typeof openReviewImportModal === 'function') {
+            setTimeout(() => openReviewImportModal(parsedDebts.map(d => d.id)), 400);
+        }
+
         // Add notification
         if (appState.notifications) {
-            appState.notifications.unshift({
+            pushNotification({
                 title: 'Credit Report Imported',
                 text: `${parsedDebts.length} accounts loaded from ${sourceLabel} CSV.`,
                 time: 'Just now',
                 type: 'success'
-            });
+            }, 'accountSynced');
         }
     });
 
@@ -10005,38 +10849,8 @@ function initAllButtonHandlers() {
         };
     }
 
-    // ── Document Vault: Upload ───────────────────────────────
-    const btnUploadDoc = document.getElementById('btn-upload-doc');
-    const docFileInput = document.getElementById('doc-file-input');
-    if (btnUploadDoc && docFileInput) {
-        btnUploadDoc.onclick = () => docFileInput.click();
-        docFileInput.addEventListener('change', () => {
-            const files = Array.from(docFileInput.files);
-            if (!files.length) return;
-            const container = document.querySelector('.doc-list-item')?.parentElement;
-            files.forEach(file => {
-                const ext = file.name.split('.').pop().toLowerCase();
-                const iconMap = { pdf: 'ph-file-pdf', csv: 'ph-file-csv', xlsx: 'ph-file-xls', xls: 'ph-file-xls', doc: 'ph-file-doc', docx: 'ph-file-doc', txt: 'ph-file-text' };
-                const icon = iconMap[ext] || 'ph-file';
-                const size = file.size < 1024*1024 ? `${Math.round(file.size/1024)} KB` : `${(file.size/(1024*1024)).toFixed(1)} MB`;
-                const div = document.createElement('div');
-                div.className = 'doc-list-item';
-                div.style.animation = 'fadeIn 0.3s ease';
-                div.innerHTML = `
-                    <div style="background:rgba(0,212,168,0.1); color:var(--accent); width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="ph-fill ${icon}" style="font-size:18px;"></i>
-                    </div>
-                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
-                        <div style="font-size:12px; font-weight:700;">${file.name}</div>
-                        <div style="font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${ext.toUpperCase()} • ${size}</div>
-                    </div>
-                    <div style="font-size:10px; color:var(--text-2);">${new Date().toLocaleDateString('default',{month:'short',day:'numeric',year:'numeric'})}</div>`;
-                if (container) container.prepend(div);
-            });
-            showToast(`${files.length} file${files.length > 1 ? 's' : ''} added to vault!`);
-            docFileInput.value = '';
-        });
-    }
+    // ── Per-Debt Attachments list (Tier 1.6 — replaces Document Vault) ──
+    renderPerDebtAttachments();
 
     // ── View Full Schedule ────────────────────────────────────
     const btnViewSchedule = document.getElementById('btn-view-schedule');
@@ -10338,6 +11152,31 @@ window.handleFinancialInfo = function(e) {
     const totalDebt = parseFloat(document.getElementById('onboard-debt').value) || 0;
     sessionStorage.setItem('onboard_income', income);
     sessionStorage.setItem('onboard_total_debt', totalDebt);
+    window.showStep('goals');
+};
+
+window.toggleGoalChip = function(el) {
+    if (!el) return;
+    const on = el.classList.toggle('ob-goal-on');
+    if (on) {
+        el.style.background = 'rgba(0,212,168,0.12)';
+        el.style.borderColor = 'rgba(0,212,168,0.45)';
+        el.style.color = '#00d4a8';
+    } else {
+        el.style.background = 'rgba(255,255,255,0.05)';
+        el.style.borderColor = 'rgba(255,255,255,0.12)';
+        el.style.color = '#f0f4ff';
+    }
+};
+
+window.handleGoalsStep = function(skip) {
+    const goals = [];
+    if (!skip) {
+        document.querySelectorAll('.ob-goal-chip.ob-goal-on').forEach(el => {
+            goals.push(el.getAttribute('data-goal'));
+        });
+    }
+    sessionStorage.setItem('onboard_goals', JSON.stringify(goals));
     window.showStep(3);
 };
 
@@ -10398,6 +11237,11 @@ window._applyOnboardingToState = function(newDebts) {
     appState.recurringPayments = [];
     appState.notifications     = [];
     appState.settings          = { strategy: 'avalanche' };
+    try {
+        const savedGoals = JSON.parse(sessionStorage.getItem('onboard_goals') || '[]');
+        if (!appState.prefs) appState.prefs = JSON.parse(JSON.stringify(defaultState.prefs));
+        appState.prefs.goals = Array.isArray(savedGoals) ? savedGoals : [];
+    } catch(_){}
     appState.budget = {
         savingsRatio: 0,
         contribution: Math.round(income * 0.1),
@@ -10423,6 +11267,10 @@ window.backOnboarding = function() {
     const numStep = parseInt(step);
     if (step === 'bank' || step === 'manual' || step === 'upload') {
         window.showStep(3);
+    } else if (step === 'goals') {
+        window.showStep(2);
+    } else if (step === '3') {
+        window.showStep('goals');
     } else if (numStep > 1) {
         window.showStep(numStep - 1);
     }
