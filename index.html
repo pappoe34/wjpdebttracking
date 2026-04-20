@@ -28,7 +28,9 @@
   <div id="wjp-gate-screen"><span class="dot"></span>Verifying session…</div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
+    import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
+             deleteUser, reauthenticateWithPopup, reauthenticateWithCredential,
+             EmailAuthProvider, GoogleAuthProvider }
       from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -93,6 +95,41 @@
       setTimeout(killOverlay, 2000);
 
       window.__wjpUser = user;
+      window.__wjpAuth = auth;
+
+      // Delete Account helper — exposed so app.js (non-module) can call Firebase.
+      // Handles the 'auth/requires-recent-login' case by re-authenticating the
+      // current user before retrying the delete.
+      window.__wjpDeleteAccount = async function(passwordOrNull){
+        const u = auth.currentUser;
+        if (!u) throw new Error('no-user');
+        try {
+          await deleteUser(u);
+          return { ok:true };
+        } catch (err) {
+          if (err && err.code === 'auth/requires-recent-login') {
+            const providers = (u.providerData || []).map(p => p.providerId);
+            try {
+              if (providers.includes('google.com')) {
+                await reauthenticateWithPopup(u, new GoogleAuthProvider());
+              } else if (providers.includes('password')) {
+                if (!passwordOrNull) return { ok:false, needsPassword:true };
+                const cred = EmailAuthProvider.credential(u.email, passwordOrNull);
+                await reauthenticateWithCredential(u, cred);
+              } else {
+                return { ok:false, error:'unsupported-provider' };
+              }
+              await deleteUser(u);
+              return { ok:true };
+            } catch (e2) {
+              return { ok:false, error: (e2 && e2.code) || 'reauth-failed' };
+            }
+          }
+          return { ok:false, error: (err && err.code) || 'delete-failed' };
+        }
+      };
+      window.__wjpCurrentProviders = () =>
+        (auth.currentUser && auth.currentUser.providerData || []).map(p => p.providerId);
 
       // Subsequent changes (e.g. sign-out from elsewhere) → bounce to intro.
       onAuthStateChanged(auth, (u) => {
@@ -3244,6 +3281,8 @@
                  <a role="button" tabindex="0" id="btn-settings-save-exit" style="font-size:9px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; display:flex; align-items:center; gap:8px; transition:color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-2)'">SAVE AND EXIT JOURNEY <i class="ph ph-sign-out"></i></a>
                  <div style="width:1px; height:16px; background:var(--border);"></div>
                  <a role="button" tabindex="0" id="btn-settings-logout" style="font-size:9px; font-weight:700; color:#ff4d6d; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; display:flex; align-items:center; gap:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">LOGOUT <i class="ph ph-power"></i></a>
+                 <div style="width:1px; height:16px; background:var(--border);"></div>
+                 <a role="button" tabindex="0" id="btn-settings-delete-account" style="font-size:9px; font-weight:700; color:#ff4d6d; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; display:flex; align-items:center; gap:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">DELETE ACCOUNT <i class="ph ph-trash"></i></a>
              </div>
           </div>
         </div>
