@@ -43,22 +43,28 @@ body.dark {
 
 /* ---------- LIGHT MODE ---------- */
 body.light {
-  --bg:         #e8f5f2;
-  --bg-2:       #d4ede8;
+  /* Daytime palette — matches signin/signup pages: white bg with a touch of forest green. */
+  --bg:         #ffffff;
+  --bg-2:       #f7f6f2;
   --card:       #ffffff;
-  --card-2:     #f0faf7;
-  --card-hover: #e8f8f4;
-  --border:     rgba(0,0,0,0.07);
-  --border-accent: rgba(20,120,95,0.3);
-  --text:       #1a2332;
+  --card-2:     #f7f6f2;
+  --card-hover: #f2efe6;
+  --border:     rgba(20,20,20,0.08);
+  --border-accent: rgba(31,122,74,0.28);
+  --text:       #141414;
+  --text-1:     #141414;
   --text-2:     #4a5568;
   --text-3:     #8a9bb0;
-  --sidebar-bg: #c8e8e0;
-  --header-bg:  rgba(232,245,242,0.9);
-  --accent:     #14785f;
-  --accent-text:#14785f;
-  --shadow: 0 4px 24px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+  --ink:        #141414;
+  --sidebar-bg: #ffffff;
+  --header-bg:  rgba(255,255,255,0.92);
+  --accent:     #1f7a4a;
+  --accent-2:   #2b9b72;
+  --accent-text:#1f7a4a;
+  --accent-dim: rgba(31,122,74,0.12);
+  --accent-glow:rgba(31,122,74,0.22);
+  --shadow:     0 4px 24px rgba(0,0,0,0.06);
+  --shadow-lg:  0 8px 40px rgba(0,0,0,0.10);
 }
 
 /* ---------- RESET ---------- */
