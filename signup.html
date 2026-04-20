@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WJP — Start free. Get out of debt.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#050505;
+    --ink:#f5f1ea;
+    --ink-dim:rgba(245,241,234,0.66);
+    --ink-faint:rgba(245,241,234,0.42);
+    --accent:#22c79e;
+    --accent-pill-bg:rgba(34,199,158,0.14);
+    --accent-pill-ink:#9fe8cf;
+    --rule:rgba(245,241,234,0.14);
+    --field-bg:#0a0a0a;
+    --serif:'Fraunces', Georgia, serif;
+    --sans:'Inter', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+  .shell{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
+
+  /* LEFT — form */
+  .left{
+    background:var(--bg);
+    padding:48px 56px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .form{width:min(440px, 100%);text-align:center}
+  .brand-block{margin:0 auto 26px;display:flex;align-items:center;gap:12px;justify-content:center}
+  .mark{
+    width:48px;height:48px;display:block;
+    filter:drop-shadow(0 0 40px rgba(34,199,158,0.35));
+  }
+  .brand-wordmark{
+    font-family:var(--serif);font-weight:600;font-size:17px;
+    letter-spacing:-0.015em;color:var(--ink);
+  }
+  .brand-wordmark em{font-style:italic;font-weight:500;color:var(--accent)}
+  .offer-pill{
+    display:inline-block;padding:9px 18px;border-radius:999px;
+    background:var(--accent-pill-bg);border:1px solid rgba(34,199,158,0.28);
+    color:var(--accent-pill-ink);
+    font-family:var(--sans);font-size:12.5px;letter-spacing:.02em;
+    margin-bottom:26px;
+  }
+  .hero-num{
+    font-family:var(--serif);font-weight:700;font-size:clamp(84px, 11vw, 140px);
+    line-height:.9;letter-spacing:-0.04em;
+    font-variation-settings:"opsz" 144;
+  }
+  .hero-sub{
+    font-family:var(--serif);font-weight:400;font-size:clamp(36px, 4.6vw, 58px);
+    line-height:1;letter-spacing:-0.025em;margin-top:4px;
+  }
+  .renew{color:var(--ink-faint);font-size:13px;margin-top:14px;letter-spacing:.01em}
+  .pitch{color:var(--ink);font-size:15.5px;line-height:1.55;margin:22px auto 28px;max-width:32ch}
+
+  .sso{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px}
+  .sso button{
+    padding:18px;background:#1a1a1a;color:var(--ink);
+    border:1px solid var(--rule);border-radius:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    font-family:var(--sans);font-size:14px;transition:background .15s ease;
+  }
+  .sso button:hover{background:#242424}
+  .sso svg{width:22px;height:22px}
+
+  .divider{display:flex;align-items:center;gap:14px;margin:22px 0 16px;color:var(--ink);font-size:13.5px;font-weight:500}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+  .field{text-align:left;margin-bottom:14px}
+  .field input{
+    width:100%;padding:18px 20px;border-radius:12px;
+    background:var(--field-bg);border:1px solid var(--rule);
+    color:var(--ink);font-family:var(--sans);font-size:15px;outline:none;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .field input:focus{border-color:rgba(245,241,234,0.45);background:#0f0f0f}
+  .field input::placeholder{color:var(--ink-faint)}
+
+  .pill{
+    width:100%;padding:18px;border-radius:12px;
+    background:#fff;color:#0a0a0a;border:none;cursor:pointer;
+    font-family:var(--serif);font-weight:600;font-size:16px;letter-spacing:-.01em;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .pill:hover{transform:translateY(-1px);box-shadow:0 12px 40px rgba(0,0,0,0.5)}
+
+  .swap{margin-top:18px;color:var(--ink-dim);font-size:14px}
+  .swap a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;margin-left:4px}
+  .terms{margin-top:20px;font-size:11.5px;color:var(--ink-faint);line-height:1.55}
+  .terms a{color:var(--ink-dim);text-decoration:underline;text-underline-offset:2px}
+
+  /* RIGHT — marketing */
+  .right{
+    position:relative;overflow:hidden;
+    background:
+      radial-gradient(1200px 700px at 70% 10%, rgba(60,90,180,0.25), transparent 60%),
+      radial-gradient(900px 700px at 20% 100%, rgba(10,25,60,0.8), transparent 65%),
+      linear-gradient(180deg, #0a1230 0%, #060a1c 100%);
+    padding:56px 48px;
+    display:flex;flex-direction:column;justify-content:center;
+  }
+  /* starfield */
+  .stars,.stars::before,.stars::after{
+    position:absolute;inset:0;pointer-events:none;
+  }
+  .stars{
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 40% 70%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 65% 20%, #fff 100%, transparent),
+      radial-gradient(1.5px 1.5px at 80% 60%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 10% 80%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 55% 50%, rgba(255,255,255,0.7) 100%, transparent),
+      radial-gradient(1px 1px at 88% 14%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 30% 45%, rgba(255,255,255,0.5) 100%, transparent),
+      radial-gradient(1px 1px at 72% 82%, #fff 100%, transparent),
+      radial-gradient(1.5px 1.5px at 48% 90%, #fff 100%, transparent);
+    opacity:.9;
+  }
+  .stars::after{
+    content:"";
+    background:
+      radial-gradient(1px 1px at 15% 18%, rgba(255,255,255,0.6), transparent 60%),
+      radial-gradient(1px 1px at 32% 62%, rgba(255,255,255,0.4), transparent 60%),
+      radial-gradient(1px 1px at 60% 34%, rgba(255,255,255,0.5), transparent 60%),
+      radial-gradient(1px 1px at 78% 74%, rgba(255,255,255,0.6), transparent 60%);
+    filter:blur(.3px);
+  }
+  /* shooting star */
+  .streak{
+    position:absolute;top:22%;left:18%;width:110px;height:1px;
+    background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.9));
+    transform:rotate(18deg);opacity:.6;
+  }
+  .right-content{position:relative;z-index:2;max-width:520px;margin:0 auto;text-align:center}
+  .right h2{
+    font-family:var(--serif);font-weight:500;font-size:clamp(32px, 3.4vw, 42px);
+    line-height:1.08;letter-spacing:-0.015em;color:#fff;
+  }
+  .laurel{
+    display:inline-flex;align-items:center;gap:12px;margin:26px 0 30px;
+    color:rgba(255,255,255,.85);font-size:12px;letter-spacing:.18em;
+  }
+  .laurel .branch{font-size:22px;opacity:.8}
+  .preview{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px;padding:22px;
+    text-align:left;backdrop-filter:blur(6px);
+  }
+  .preview .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+  .preview .amount{font-family:var(--serif);font-weight:500;font-size:44px;line-height:1;letter-spacing:-.02em;color:#fff}
+  .preview .month{color:rgba(255,255,255,.7);font-size:13px;margin-top:6px;display:flex;align-items:center;gap:8px}
+  .preview .month::before{content:"";width:6px;height:6px;border-radius:999px;background:#22c79e}
+  .preview svg{display:block;margin-top:18px;width:100%;height:auto}
+  .preview .axis{display:flex;justify-content:space-between;color:rgba(255,255,255,.5);font-size:11px;margin-top:6px}
+
+  /* Form states */
+  .field.error input{border-color:#ff6b6b;background:rgba(255,107,107,0.04)}
+  .err-msg{color:#ff9494;font-size:12px;margin-top:6px;display:none;text-align:left}
+  .field.error .err-msg{display:block}
+  .pill[disabled]{opacity:.6;cursor:not-allowed}
+
+  /* Toast */
+  .toast{
+    position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#111;border:1px solid var(--rule);border-radius:100px;
+    padding:14px 22px;color:var(--ink);font-size:13.5px;font-weight:500;
+    opacity:0;pointer-events:none;transition:all .25s ease;z-index:100;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* responsive */
+  @media (max-width: 980px){
+    .shell{grid-template-columns:1fr}
+    .right{display:none}
+    .left{padding:40px 24px}
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <!-- LEFT: offer + form -->
+    <section class="left">
+      <form class="form" id="signup-form">
+        <div class="brand-block">
+          <svg class="mark" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-label="WJP Budgetting logo">
+            <defs>
+              <linearGradient id="wjpGradSignup" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#22e0b4"/>
+                <stop offset="100%" stop-color="#00a382"/>
+              </linearGradient>
+            </defs>
+            <rect width="56" height="56" rx="16" fill="url(#wjpGradSignup)"/>
+            <text x="28" y="34" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="26" fill="#041a14" letter-spacing="-1">W</text>
+            <path d="M12 44 L22 42 L30 39 L40 35 L44 32" stroke="#041a14" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.55"/>
+            <circle cx="44" cy="32" r="1.8" fill="#041a14"/>
+          </svg>
+          <span class="brand-wordmark">WJP <em>Budgetting</em></span>
+        </div>
+        <div class="offer-pill">Limited Launch Offer · 100% Free Beta</div>
+        <div class="hero-num">$0</div>
+        <div class="hero-sub">for your first year</div>
+        <div class="renew">Free during beta. Lock in founders' pricing for life.</div>
+        <p class="pitch">Take control of every dollar you owe — with an AI co-pilot that never sleeps.</p>
+
+        <div class="sso">
+          <button type="button" aria-label="Continue with Apple" onclick="ssoStub('Apple')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.5c-.03-3.05 2.49-4.51 2.6-4.58-1.41-2.07-3.61-2.35-4.39-2.38-1.87-.19-3.65 1.1-4.6 1.1-.95 0-2.42-1.07-3.97-1.04-2.04.03-3.92 1.19-4.97 3.01-2.13 3.69-.55 9.17 1.53 12.18.99 1.47 2.17 3.12 3.71 3.06 1.49-.06 2.05-.96 3.84-.96 1.79 0 2.3.96 3.87.93 1.6-.03 2.62-1.5 3.6-2.98 1.13-1.71 1.6-3.37 1.62-3.46-.04-.01-3.1-1.18-3.14-4.68zM14.21 4.24c.82-1 1.38-2.4 1.23-3.8-1.19.05-2.65.8-3.5 1.8-.76.88-1.43 2.31-1.25 3.68 1.33.1 2.69-.68 3.52-1.68z"/></svg>
+          </button>
+          <button type="button" aria-label="Continue with Google" onclick="ssoStub('Google')">
+            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          </button>
+        </div>
+
+        <div class="divider">Or sign up with email</div>
+
+        <div class="field" id="email-field">
+          <input type="email" id="email" placeholder="Email" autocomplete="email" required />
+          <div class="err-msg">Enter a valid email address</div>
+        </div>
+
+        <button class="pill" type="submit" id="submit-btn">Sign up</button>
+
+        <div class="swap">Already have an account?<a href="./signin.html">Sign in</a></div>
+        <p class="terms">
+          By creating an account, you agree to our
+          <a href="#" onclick="event.preventDefault(); showToast('Terms page coming soon')">Terms of Service</a> and <a href="#" onclick="event.preventDefault(); showToast('Privacy policy coming soon')">Privacy Policy</a>.
+          Limited time offer during beta.
+        </p>
+      </form>
+    </section>
+
+    <!-- RIGHT: starfield + promise + preview -->
+    <section class="right">
+      <div class="stars" aria-hidden="true"></div>
+      <div class="streak" aria-hidden="true"></div>
+      <div class="right-content">
+        <h2>Track every debt, pay off smarter.<br/>Own your freedom.</h2>
+
+        <div class="laurel">
+          <span class="branch">❦</span>
+          <span>★ ★ ★ ★ ★ &nbsp; 10,000+ members</span>
+          <span class="branch">❦</span>
+        </div>
+
+        <div class="preview">
+          <div class="eyebrow"><span>DEBT THIS MONTH</span><span>+</span></div>
+          <div class="amount">−$1,286</div>
+          <div class="month">April — on track for debt free by Dec 2028</div>
+          <svg viewBox="0 0 360 120" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="#22c79e" stop-opacity=".45"/>
+                <stop offset="1" stop-color="#22c79e" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,100 C60,70 120,82 180,60 C240,40 300,56 360,20 L360,120 L0,120 Z" fill="url(#g)"/>
+            <path d="M0,100 C60,70 120,82 180,60 C240,40 300,56 360,20" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity=".85"/>
+          </svg>
+          <div class="axis"><span>01</span><span>07</span><span>14</span><span>21</span><span>28</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+  function showToast(msg, ms){
+    const t = document.getElementById('toast');
+    if(!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(window.__toastTO);
+    window.__toastTO = setTimeout(() => t.classList.remove('show'), ms || 2600);
+  }
+  function ssoStub(provider){
+    showToast(provider + ' sign-up coming soon — use email for now');
+  }
+  function isEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  document.getElementById('signup-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const emailEl = document.getElementById('email');
+    const emailFld= document.getElementById('email-field');
+    emailFld.classList.remove('error');
+    if(!isEmail(emailEl.value.trim())){
+      emailFld.classList.add('error');
+      showToast('Enter a valid email to continue');
+      return;
+    }
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true; btn.textContent = 'Creating your account…';
+    try{
+      localStorage.setItem('wjp_user', JSON.stringify({ email: emailEl.value.trim(), signedUpAt: Date.now() }));
+    }catch(_){}
+    showToast('Account created — welcome to WJP');
+    setTimeout(() => { window.location.href = './index.html'; }, 900);
+  });
+</script>
+</body>
+</html>

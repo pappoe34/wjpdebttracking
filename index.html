@@ -17,6 +17,10 @@
   <!-- UI Libraries -->
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Brand typography: Fraunces (editorial serif) + Inter (UI sans) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="dark">
 
@@ -62,6 +66,8 @@
     .lp-nav { position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 2.5rem; background: rgba(6,13,24,0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,210,180,0.08); }
     .lp-brand { display: flex; align-items: center; gap: 10px; font-size: 1.4rem; font-weight: 700; color: var(--text-1, #e8edf4); letter-spacing: 0.02em; }
     .lp-brand i { color: var(--accent, #00d2b4); font-size: 1.5rem; }
+    .lp-brand-text { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.15rem; letter-spacing: -0.015em; color: var(--text-1, #e8edf4); }
+    .lp-brand-text em { font-style: italic; font-weight: 500; color: var(--accent, #00d2b4); }
     .lp-nav-right { display: flex; align-items: center; gap: 2rem; }
     .lp-login-link { color: rgba(232,237,244,0.6); text-decoration: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: color 0.3s; letter-spacing: 0.08em; text-transform: uppercase; }
     .lp-login-link:hover { color: var(--accent, #00d2b4); }
@@ -73,8 +79,8 @@
     .lp-hero-inner { position: relative; z-index: 1; max-width: 860px; }
     .lp-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,210,180,0.08); border: 1px solid rgba(0,210,180,0.15); padding: 0.5rem 1.25rem; border-radius: 50px; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent, #00d2b4); margin-bottom: 2.5rem; animation: lpFadeUp 0.8s ease 0.1s both; }
     .lp-badge i { font-size: 0.85rem; }
-    .lp-h1 { font-size: clamp(2.8rem, 7vw, 5.5rem); font-weight: 300; line-height: 1.08; margin-bottom: 1.5rem; animation: lpFadeUp 0.8s ease 0.25s both; letter-spacing: -0.02em; }
-    .lp-h1 em { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; color: var(--accent, #00d2b4); }
+    .lp-h1 { font-family: 'Fraunces', Georgia, serif; font-size: clamp(2.8rem, 7vw, 5.5rem); font-weight: 400; line-height: 1.04; margin-bottom: 1.5rem; animation: lpFadeUp 0.8s ease 0.25s both; letter-spacing: -0.025em; font-variation-settings: "opsz" 144, "SOFT" 30; }
+    .lp-h1 em { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400; color: var(--accent, #00d2b4); font-variation-settings: "opsz" 144; }
     .lp-sub { font-size: clamp(1rem, 1.8vw, 1.25rem); color: rgba(232,237,244,0.5); line-height: 1.7; margin-bottom: 2.5rem; animation: lpFadeUp 0.8s ease 0.4s both; max-width: 640px; margin-left: auto; margin-right: auto; }
     .lp-hero-cta { display: inline-block; background: var(--accent, #00d2b4); color: #000; padding: 1rem 2.25rem; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.3s; animation: lpFadeUp 0.8s ease 0.55s both; }
     .lp-hero-cta:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,210,180,0.35); }
@@ -240,7 +246,21 @@
   <div class="lp-grid-overlay"></div>
 
   <nav class="lp-nav">
-    <div class="lp-brand"><i class="ph-fill ph-wallet"></i> WJP Debt</div>
+    <div class="lp-brand">
+      <svg width="32" height="32" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;">
+        <defs>
+          <linearGradient id="wjpGradNav" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#22e0b4"/>
+            <stop offset="100%" stop-color="#00a382"/>
+          </linearGradient>
+        </defs>
+        <rect width="56" height="56" rx="16" fill="url(#wjpGradNav)"/>
+        <text x="28" y="34" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="26" fill="#041a14" letter-spacing="-1">W</text>
+        <path d="M12 44 L22 42 L30 39 L40 35 L44 32" stroke="#041a14" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.55"/>
+        <circle cx="44" cy="32" r="1.8" fill="#041a14"/>
+      </svg>
+      <span class="lp-brand-text">WJP <em>Budgetting</em></span>
+    </div>
     <div class="lp-nav-right">
       <a class="lp-login-link" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('login');">Log In</a>
       <button class="lp-nav-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &rarr;</button>
@@ -3655,55 +3675,121 @@
   </div>
 
 
-  <!-- ONBOARDING MODAL -->
+  <!-- ONBOARDING MODAL — Origin-styled intro -->
   <div id="onboarding-modal" class="modal" style="display:none;">
-    <div style="position:relative; max-width:520px; width:calc(100% - 32px); border-radius:24px; overflow:hidden; border:1px solid rgba(0,212,168,0.2); box-shadow:0 0 80px rgba(0,212,168,0.12), 0 40px 80px rgba(0,0,0,0.7);">
-      <!-- Background -->
-      <div style="position:absolute; inset:0; background:linear-gradient(145deg,#080d1a 0%,#0d1a2e 60%,#0a0f1e 100%); z-index:0;"></div>
-      <div style="position:absolute; top:-100px; right:-80px; width:320px; height:320px; background:radial-gradient(circle, rgba(0,212,168,0.1) 0%, transparent 65%); z-index:0;"></div>
-      <div style="position:absolute; bottom:-80px; left:-60px; width:280px; height:280px; background:radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 65%); z-index:0;"></div>
-      <!-- Content -->
-      <div style="position:relative; z-index:1; padding:40px 36px 32px;">
-        <!-- AI Badge -->
-        <div class="ob-ai-badge"><div class="ob-ai-dot"></div> AI-POWERED ENGINE V2.4</div>
-        <!-- Headline -->
-        <div style="font-size:34px; font-weight:900; line-height:1.1; margin-bottom:10px; letter-spacing:-1px; color:#f0f4ff;">
-          WJP <span style="color:#00d4a8;">Financial</span><br>Freedom Starts Here.
+    <style>
+      #onboarding-modal .ob-card{
+        position:relative; max-width:560px; width:calc(100% - 32px);
+        border-radius:28px; overflow:hidden;
+        background:#050505; color:#f5f1ea;
+        border:1px solid rgba(245,241,234,0.08);
+        box-shadow:0 60px 120px rgba(0,0,0,0.7), 0 0 120px rgba(0,212,168,0.08);
+        font-family:'Inter', system-ui, sans-serif;
+      }
+      #onboarding-modal .ob-sky{
+        position:absolute; inset:0;
+        background:
+          radial-gradient(ellipse 600px 300px at 50% 110%, rgba(0,212,168,0.10) 0%, transparent 60%),
+          radial-gradient(ellipse 500px 260px at 80% -10%, rgba(124,58,237,0.08) 0%, transparent 60%),
+          linear-gradient(180deg, #0a0a0a 0%, #050505 60%, #000 100%);
+        z-index:0;
+      }
+      #onboarding-modal .ob-stars{
+        position:absolute; inset:0; z-index:0; opacity:0.5; pointer-events:none;
+        background-image:
+          radial-gradient(1px 1px at 18% 22%, #fff, transparent 50%),
+          radial-gradient(1px 1px at 74% 14%, #fff, transparent 50%),
+          radial-gradient(1px 1px at 42% 38%, rgba(255,255,255,0.8), transparent 50%),
+          radial-gradient(1.3px 1.3px at 88% 55%, #fff, transparent 50%),
+          radial-gradient(1px 1px at 28% 70%, rgba(255,255,255,0.75), transparent 50%),
+          radial-gradient(1px 1px at 62% 82%, #fff, transparent 50%);
+      }
+      #onboarding-modal .ob-inner{ position:relative; z-index:1; padding:44px 40px 36px; text-align:center; }
+      #onboarding-modal .ob-brand{
+        display:inline-flex; flex-direction:column; align-items:center; gap:12px;
+        margin:0 auto 28px;
+      }
+      #onboarding-modal .ob-logo-svg{
+        width:56px; height:56px;
+        filter:drop-shadow(0 0 40px rgba(0,212,168,0.35));
+      }
+      #onboarding-modal .ob-wordmark{
+        font-family:'Fraunces', Georgia, serif;
+        font-weight:600; font-size:17px; letter-spacing:-0.015em;
+        color:#f5f1ea;
+      }
+      #onboarding-modal .ob-wordmark em{ font-style:italic; font-weight:500; color:#22c79e; }
+      #onboarding-modal .ob-offer{
+        display:inline-flex; align-items:center; gap:8px;
+        background:rgba(0,212,168,0.10); color:#22c79e;
+        border:1px solid rgba(0,212,168,0.20);
+        padding:7px 14px; border-radius:100px;
+        font-size:11.5px; font-weight:600; letter-spacing:0.04em;
+        margin-bottom:22px;
+      }
+      #onboarding-modal .ob-offer .ob-dot{ width:6px; height:6px; border-radius:50%; background:#22c79e; box-shadow:0 0 10px #22c79e; }
+      #onboarding-modal .ob-h1{
+        font-family:'Fraunces', Georgia, serif;
+        font-weight:500; font-size:clamp(36px, 5.4vw, 52px);
+        line-height:1.02; letter-spacing:-0.025em;
+        color:#f5f1ea; margin-bottom:16px;
+        font-variation-settings:"opsz" 144, "SOFT" 30;
+      }
+      #onboarding-modal .ob-h1 em{ font-style:italic; font-weight:400; color:#f5f1ea; }
+      #onboarding-modal .ob-sub{
+        font-size:15px; color:rgba(245,241,234,0.62); line-height:1.55;
+        max-width:400px; margin:0 auto 30px;
+      }
+      #onboarding-modal .ob-ctas{ display:flex; flex-direction:column; gap:10px; }
+      #onboarding-modal .ob-pill{
+        width:100%; padding:17px; border-radius:12px;
+        background:#fff; color:#050505; border:none; cursor:pointer;
+        font-family:'Fraunces', Georgia, serif; font-weight:600; font-size:16px;
+        letter-spacing:-0.01em; display:inline-flex; align-items:center; justify-content:center; gap:8px;
+        transition:transform .15s ease, box-shadow .15s ease;
+      }
+      #onboarding-modal .ob-pill:hover{ transform:translateY(-1px); box-shadow:0 14px 40px rgba(0,212,168,0.25); }
+      #onboarding-modal .ob-ghost{
+        width:100%; padding:15px; border-radius:12px;
+        background:transparent; color:rgba(245,241,234,0.7);
+        border:1px solid rgba(245,241,234,0.14); cursor:pointer;
+        font-family:'Inter', system-ui, sans-serif; font-weight:500; font-size:14px;
+        transition:background .15s ease, color .15s ease;
+      }
+      #onboarding-modal .ob-ghost:hover{ background:rgba(245,241,234,0.04); color:#f5f1ea; }
+      #onboarding-modal .ob-fine{
+        margin-top:28px; font-family:'Inter', system-ui, sans-serif;
+        font-size:10.5px; letter-spacing:0.18em; text-transform:uppercase;
+        color:rgba(245,241,234,0.35);
+      }
+    </style>
+    <div class="ob-card">
+      <div class="ob-sky"></div>
+      <div class="ob-stars"></div>
+      <div class="ob-inner">
+        <div class="ob-brand">
+          <svg class="ob-logo-svg" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="wjpGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#22e0b4"/>
+                <stop offset="100%" stop-color="#00a382"/>
+              </linearGradient>
+            </defs>
+            <rect width="56" height="56" rx="16" fill="url(#wjpGrad1)"/>
+            <text x="28" y="34" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="26" fill="#041a14" letter-spacing="-1">W</text>
+            <path d="M12 44 L22 42 L30 39 L40 35 L44 32" stroke="#041a14" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.55"/>
+            <circle cx="44" cy="32" r="1.8" fill="#041a14"/>
+          </svg>
+          <div class="ob-wordmark">WJP <em>Budgetting</em></div>
         </div>
-        <p style="font-size:13px; color:rgba(255,255,255,0.45); margin-bottom:28px; line-height:1.65;">Your AI-powered debt elimination co-pilot. Track, strategize, and achieve freedom faster than ever before.</p>
-        <!-- Feature list -->
-        <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:28px;">
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div style="width:38px; height:38px; border-radius:10px; background:rgba(0,212,168,0.1); border:1px solid rgba(0,212,168,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <i class="ph ph-brain" style="color:#00d4a8; font-size:17px;"></i>
-            </div>
-            <div><div style="font-size:13px; font-weight:700; color:#f0f4ff;">AI Strategy Advisor</div><div style="font-size:11px; color:rgba(255,255,255,0.38);">Personalized payoff plans via Evergreen Algorithm</div></div>
-          </div>
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div style="width:38px; height:38px; border-radius:10px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <i class="ph ph-chart-line-up" style="color:#818cf8; font-size:17px;"></i>
-            </div>
-            <div><div style="font-size:13px; font-weight:700; color:#f0f4ff;">Real-Time Debt Tracking</div><div style="font-size:11px; color:rgba(255,255,255,0.38);">Watch your balances drop with live progress charts</div></div>
-          </div>
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div style="width:38px; height:38px; border-radius:10px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <i class="ph ph-lightning" style="color:#fbbf24; font-size:17px;"></i>
-            </div>
-            <div><div style="font-size:13px; font-weight:700; color:#f0f4ff;">Smart Cash Flow Analysis</div><div style="font-size:11px; color:rgba(255,255,255,0.38);">AI identifies hidden savings opportunities automatically</div></div>
-          </div>
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div style="width:38px; height:38px; border-radius:10px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <i class="ph ph-shield-check" style="color:#34d399; font-size:17px;"></i>
-            </div>
-            <div><div style="font-size:13px; font-weight:700; color:#f0f4ff;">Bank-Level Security</div><div style="font-size:11px; color:rgba(255,255,255,0.38);">256-bit encryption — your data never leaves your device</div></div>
-          </div>
+        <div class="ob-offer"><span class="ob-dot"></span> Limited Launch Offer · 100% Free Beta</div>
+        <h1 class="ob-h1">Own your <em>freedom.</em></h1>
+        <p class="ob-sub">Track every debt, pay off smarter, build wealth — your AI co-pilot for financial freedom.</p>
+        <div class="ob-ctas">
+          <button class="ob-pill" onclick="startOnboarding()">Get started →</button>
+          <button class="ob-ghost" onclick="skipOnboarding()">Skip for now</button>
         </div>
-        <!-- CTAs -->
-        <div style="display:flex; gap:10px;">
-          <button onclick="skipOnboarding()" style="flex:1; padding:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; font-family:inherit;" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Skip for Now</button>
-          <button onclick="startOnboarding()" style="flex:2; padding:14px; background:linear-gradient(135deg,#00d4a8,#00b896); border:none; border-radius:12px; color:#000; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 4px 20px rgba(0,212,168,0.35); transition:all 0.2s; font-family:inherit;" onmouseover="this.style.boxShadow='0 4px 32px rgba(0,212,168,0.55)'; this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='0 4px 20px rgba(0,212,168,0.35)'; this.style.transform='none'">Get Started →</button>
-        </div>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:rgba(255,255,255,0.25);">Trusted by 10,000+ users eliminating debt smarter</div>
+        <div class="ob-fine">Trusted by 10,000+ members · 256-bit encryption</div>
       </div>
     </div>
   </div>
