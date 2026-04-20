@@ -51,32 +51,68 @@
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
-    onAuthStateChanged(auth, (user) => {
+    // Overlay killers — run repeatedly because the landing overlay may be re-inserted by
+    // other scripts or parsed after auth resolves.
+    function killOverlay(){
+      const lp = document.getElementById('landing-page');
+      if (lp) lp.style.display = 'none';
+      const ag = document.getElementById('auth-gate');
+      if (ag){ ag.classList.add('hidden'); ag.style.display = 'none'; }
+    }
+    function addSignOutBtn(user){
+      if (!document.body || document.getElementById('wjp-signout-btn')) return;
+      const btn = document.createElement('button');
+      btn.id = 'wjp-signout-btn';
+      btn.type = 'button';
+      btn.textContent = 'Sign out';
+      btn.title = user.email || 'Sign out';
+      btn.addEventListener('click', () => {
+        signOut(auth).finally(() => window.location.replace('./intro.html'));
+      });
+      document.body.appendChild(btn);
+    }
+
+    (async () => {
+      // Must await BOTH: persistence setup, and full state restoration from storage.
+      // Without authStateReady(), onAuthStateChanged fires with null first and we
+      // redirect to intro.html before Firebase restores the persisted user.
+      try { await setPersistence(auth, browserLocalPersistence); } catch(_) {}
+      try { await auth.authStateReady(); } catch(_) {}
+
+      const user = auth.currentUser;
       if (!user){
-        // Not signed in → back to landing. Replace prevents back-button bounce.
         window.location.replace('./intro.html');
         return;
       }
-      // Signed in → reveal the app and add a sign-out control
+
+      // Signed in → reveal the app, tear down overlays, add sign-out.
       document.body.classList.add('wjp-auth-ready');
       const gate = document.getElementById('wjp-gate-screen');
       if (gate){ gate.classList.add('hide'); setTimeout(()=>gate.remove(), 250); }
 
-      if (!document.getElementById('wjp-signout-btn')){
-        const btn = document.createElement('button');
-        btn.id = 'wjp-signout-btn';
-        btn.type = 'button';
-        btn.textContent = 'Sign out';
-        btn.title = user.email || 'Sign out';
-        btn.addEventListener('click', () => {
-          signOut(auth).finally(() => window.location.replace('./intro.html'));
-        });
-        document.body.appendChild(btn);
+      killOverlay();
+      addSignOutBtn(user);
+
+      // Re-run after DOM events in case overlay markup parses or is re-shown later.
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { killOverlay(); addSignOutBtn(user); }, { once:true });
       }
+      window.addEventListener('load', () => { killOverlay(); addSignOutBtn(user); }, { once:true });
+      // Belt-and-suspenders: a few delayed passes in case other scripts re-display.
+      setTimeout(killOverlay, 200);
+      setTimeout(killOverlay, 800);
+      setTimeout(killOverlay, 2000);
+
       window.__wjpUser = user;
-    });
+
+      // Subsequent changes (e.g. sign-out from elsewhere) → bounce to intro.
+      onAuthStateChanged(auth, (u) => {
+        if (!u && document.body.classList.contains('wjp-auth-ready')) {
+          window.location.replace('./intro.html');
+        }
+      });
+    })();
   </script>
   <!-- ── END AUTH GATE ────────────────────────────────────────────────────── -->
   
