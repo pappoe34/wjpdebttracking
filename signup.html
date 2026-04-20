@@ -170,6 +170,11 @@
   .err-msg{color:#ff9494;font-size:12px;margin-top:6px;display:none;text-align:left}
   .field.error .err-msg{display:block}
   .pill[disabled]{opacity:.6;cursor:not-allowed}
+  .password-wrap{position:relative}
+  .password-wrap button.eye{
+    position:absolute;right:16px;top:22px;
+    background:none;border:0;color:var(--ink-dim);cursor:pointer;padding:6px;
+  }
 
   /* Toast */
   .toast{
@@ -230,6 +235,13 @@
           <input type="email" id="email" placeholder="Email" autocomplete="email" required />
           <div class="err-msg">Enter a valid email address</div>
         </div>
+        <div class="field password-wrap" id="pw-field">
+          <input type="password" id="pw" placeholder="Create a password (6+ characters)" autocomplete="new-password" minlength="6" required />
+          <button type="button" class="eye" aria-label="Show password" onclick="const p=document.getElementById('pw');p.type=p.type==='password'?'text':'password'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <div class="err-msg">Password must be at least 6 characters</div>
+        </div>
 
         <button class="pill" type="submit" id="submit-btn">Sign up</button>
 
@@ -276,7 +288,32 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithPopup,
+    GoogleAuthProvider, onAuthStateChanged,
+    setPersistence, browserLocalPersistence
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(()=>{});
+
+  // Already signed in? Skip straight to the app.
+  onAuthStateChanged(auth, (user) => {
+    if (user) window.location.replace('./index.html');
+  });
+
   function showToast(msg, ms){
     const t = document.getElementById('toast');
     if(!t) return;
@@ -285,28 +322,61 @@
     clearTimeout(window.__toastTO);
     window.__toastTO = setTimeout(() => t.classList.remove('show'), ms || 2600);
   }
-  function ssoStub(provider){
-    showToast(provider + ' sign-up coming soon — use email for now');
+  window.showToast = showToast;
+
+  function mapAuthError(code){
+    switch(code){
+      case 'auth/email-already-in-use': return 'That email already has an account — try signing in';
+      case 'auth/invalid-email': return 'That email looks invalid';
+      case 'auth/weak-password': return 'Password is too weak — use 6+ characters';
+      case 'auth/operation-not-allowed': return 'Email sign-up is currently disabled';
+      case 'auth/too-many-requests': return 'Too many attempts — try again later';
+      case 'auth/network-request-failed': return 'Network error — check your connection';
+      case 'auth/popup-closed-by-user': return 'Google sign-up cancelled';
+      case 'auth/popup-blocked': return 'Popup blocked — allow popups and retry';
+      default: return 'Sign-up failed. Please try again.';
+    }
   }
+
+  window.ssoStub = function(provider){
+    if(provider !== 'Google'){
+      showToast(provider + ' sign-up coming soon — use Google or email');
+      return;
+    }
+    const p = new GoogleAuthProvider();
+    signInWithPopup(auth, p)
+      .then(() => {
+        showToast('Account created — welcome to WJP');
+        setTimeout(() => window.location.replace('./index.html'), 500);
+      })
+      .catch((err) => showToast(mapAuthError(err.code)));
+  };
+
   function isEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
   document.getElementById('signup-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const emailEl = document.getElementById('email');
+    const pwEl    = document.getElementById('pw');
     const emailFld= document.getElementById('email-field');
-    emailFld.classList.remove('error');
-    if(!isEmail(emailEl.value.trim())){
-      emailFld.classList.add('error');
-      showToast('Enter a valid email to continue');
-      return;
-    }
+    const pwFld   = document.getElementById('pw-field');
+    let ok = true;
+    emailFld.classList.remove('error'); pwFld.classList.remove('error');
+    if(!isEmail(emailEl.value.trim())){ emailFld.classList.add('error'); ok=false; }
+    if(pwEl.value.length < 6){ pwFld.classList.add('error'); ok=false; }
+    if(!ok){ showToast('Please fix the errors above'); return; }
+
     const btn = document.getElementById('submit-btn');
     btn.disabled = true; btn.textContent = 'Creating your account…';
-    try{
-      localStorage.setItem('wjp_user', JSON.stringify({ email: emailEl.value.trim(), signedUpAt: Date.now() }));
-    }catch(_){}
-    showToast('Account created — welcome to WJP');
-    setTimeout(() => { window.location.href = './index.html'; }, 900);
+    createUserWithEmailAndPassword(auth, emailEl.value.trim(), pwEl.value)
+      .then(() => {
+        showToast('Account created — welcome to WJP');
+        setTimeout(() => window.location.replace('./index.html'), 600);
+      })
+      .catch((err) => {
+        btn.disabled = false; btn.textContent = 'Sign up';
+        showToast(mapAuthError(err.code));
+      });
   });
 </script>
 </body>

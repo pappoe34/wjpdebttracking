@@ -163,7 +163,32 @@
   </form>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signInWithPopup,
+    GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged,
+    setPersistence, browserLocalPersistence
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(()=>{});
+
+  // If already signed in, go straight to the app
+  onAuthStateChanged(auth, (user) => {
+    if (user) window.location.replace('./index.html');
+  });
+
   function showToast(msg, ms){
     const t = document.getElementById('toast');
     if(!t) return;
@@ -172,14 +197,45 @@
     clearTimeout(window.__toastTO);
     window.__toastTO = setTimeout(() => t.classList.remove('show'), ms || 2600);
   }
-  function ssoStub(provider){
-    showToast(provider + ' sign-in coming soon — use email for now');
+  window.showToast = showToast;
+
+  function mapAuthError(code){
+    switch(code){
+      case 'auth/invalid-email': return 'That email looks invalid';
+      case 'auth/user-disabled': return 'This account has been disabled';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential': return 'Email or password is incorrect';
+      case 'auth/too-many-requests': return 'Too many attempts — try again later';
+      case 'auth/network-request-failed': return 'Network error — check your connection';
+      case 'auth/popup-closed-by-user': return 'Google sign-in cancelled';
+      case 'auth/popup-blocked': return 'Popup blocked — allow popups and retry';
+      default: return 'Sign-in failed. Please try again.';
+    }
   }
-  function forgotPw(){
+
+  window.ssoStub = function(provider){
+    if(provider !== 'Google'){
+      showToast(provider + ' sign-in coming soon — use Google or email');
+      return;
+    }
+    const p = new GoogleAuthProvider();
+    signInWithPopup(auth, p)
+      .then(() => {
+        showToast('Welcome — opening your dashboard');
+        setTimeout(() => window.location.replace('./index.html'), 500);
+      })
+      .catch((err) => showToast(mapAuthError(err.code)));
+  };
+
+  window.forgotPw = function(){
     const email = document.getElementById('email').value.trim();
     if(!email){ showToast('Enter your email above first'); document.getElementById('email').focus(); return; }
-    showToast('Password reset link sent to ' + email);
-  }
+    sendPasswordResetEmail(auth, email)
+      .then(() => showToast('Password reset link sent to ' + email))
+      .catch((err) => showToast(mapAuthError(err.code)));
+  };
+
   function isEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
   document.getElementById('signin-form').addEventListener('submit', (e) => {
@@ -196,11 +252,15 @@
 
     const btn = document.getElementById('submit-btn');
     btn.classList.add('loading'); btn.disabled = true; btn.textContent = 'Signing in…';
-    try{
-      localStorage.setItem('wjp_user', JSON.stringify({ email: emailEl.value.trim(), signedInAt: Date.now() }));
-    }catch(_){}
-    showToast('Welcome back — opening your dashboard');
-    setTimeout(() => { window.location.href = './index.html'; }, 900);
+    signInWithEmailAndPassword(auth, emailEl.value.trim(), pwEl.value)
+      .then(() => {
+        showToast('Welcome back — opening your dashboard');
+        setTimeout(() => window.location.replace('./index.html'), 600);
+      })
+      .catch((err) => {
+        btn.classList.remove('loading'); btn.disabled = false; btn.textContent = 'Sign in';
+        showToast(mapAuthError(err.code));
+      });
   });
 </script>
 </body>
