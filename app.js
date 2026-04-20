@@ -638,6 +638,7 @@ function initSubTabs() {
         'Transactions': 'transactions',
         'Recurring Payments': 'recurring',
         'Analysis': 'analysis',
+        'Credit Score': 'credit-score',
         'Simulations': 'simulations',
         'Resilience': 'resilience',
         'Documents': 'documents'
@@ -672,6 +673,9 @@ function initSubTabs() {
             }
             if (target === 'recurring' && typeof renderRecurringTab === 'function') {
                 setTimeout(() => renderRecurringTab(), 30);
+            }
+            if (target === 'credit-score' && typeof renderCreditScoreTab === 'function') {
+                setTimeout(() => renderCreditScoreTab(), 30);
             }
 
             // Redraw charts after panel swap so canvas sizes compute correctly
@@ -4200,6 +4204,570 @@ function renderResilienceTab() {
         }, 8);
     });
 }
+
+
+/* ═════════════════════════════════════════════════════════════
+   CREDIT SCORE INTELLIGENCE ENGINE
+   Uses FICO factor weights (Payment 35%, Utilization 30%,
+   Length 15%, Mix 10%, New Credit 10%) to analyse the user's
+   debts + inputs and generate a concrete point-by-point plan.
+   ═══════════════════════════════════════════════════════════ */
+function renderCreditScoreTab() {
+    const container = document.getElementById('credit-score-tab-content');
+    if (!container) return;
+
+    // ---- Load/save persistent credit inputs ----
+    const LS_KEY = 'wjp_credit_inputs';
+    let cs = {};
+    try { cs = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch(_) {}
+    cs = Object.assign({
+        currentScore: '',
+        oldestAccountYears: '',
+        avgAccountYears: '',
+        latePayments12mo: '0',
+        hardInquiries12mo: '0',
+        newAccounts12mo: '0',
+        cardLimits: {} // { debtId: limit }
+    }, cs);
+    const saveCs = () => localStorage.setItem(LS_KEY, JSON.stringify(cs));
+
+    const debts = (appState && appState.debts) ? appState.debts : [];
+    const creditCards = debts.filter(d => {
+        const t = (d.type || d.category || '').toString().toLowerCase();
+        return t.includes('credit') || t.includes('card') || t === 'cc';
+    });
+
+    // Helpful labels
+    const scoreBand = (s) => {
+        if (s >= 800) return { band:'Exceptional', color:'#1f9d55' };
+        if (s >= 740) return { band:'Very Good',   color:'#2b9b72' };
+        if (s >= 670) return { band:'Good',        color:'#b58900' };
+        if (s >= 580) return { band:'Fair',        color:'#d97706' };
+        return { band:'Poor', color:'#ff4d6d' };
+    };
+    const fmtMoney = (n) => '$' + Math.round(n).toLocaleString();
+
+    // ---- Gather snapshot for analysis ----
+    const snapshot = () => {
+        const score = parseInt(cs.currentScore, 10);
+        const oldest = parseFloat(cs.oldestAccountYears);
+        const avg    = parseFloat(cs.avgAccountYears);
+        const lates  = parseInt(cs.latePayments12mo, 10) || 0;
+        const inq    = parseInt(cs.hardInquiries12mo, 10) || 0;
+        const newAcc = parseInt(cs.newAccounts12mo, 10) || 0;
+
+        // Utilization across credit cards
+        let totalBal = 0, totalLim = 0, perCard = [];
+        creditCards.forEach(d => {
+            const bal = parseFloat(d.balance) || 0;
+            const lim = parseFloat(cs.cardLimits[d.id]) || parseFloat(d.limit) || 0;
+            totalBal += bal;
+            totalLim += lim;
+            perCard.push({ id:d.id, name:d.name || d.lender || 'Card', bal, lim,
+                           util: lim > 0 ? bal / lim : null });
+        });
+        const globalUtil = totalLim > 0 ? totalBal / totalLim : null;
+
+        // Account mix
+        const types = new Set();
+        debts.forEach(d => {
+            const t = (d.type || d.category || '').toString().toLowerCase();
+            if (t.includes('credit') || t.includes('card')) types.add('revolving');
+            else if (t.includes('mortgage')) types.add('mortgage');
+            else if (t.includes('auto') || t.includes('car')) types.add('auto');
+            else if (t.includes('student')) types.add('student');
+            else if (t.includes('personal') || t.includes('loan')) types.add('installment');
+            else types.add('other');
+        });
+
+        return {
+            score: isNaN(score) ? null : Math.max(300, Math.min(850, score)),
+            oldest: isNaN(oldest) ? null : oldest,
+            avg: isNaN(avg) ? null : avg,
+            lates, inq, newAcc,
+            totalBal, totalLim, globalUtil, perCard,
+            mix: types.size
+        };
+    };
+
+    // ---- FICO-style factor analysis ----
+    const analyse = (s) => {
+        const factors = [];
+
+        // Payment History (35%)
+        let phScore = 100 - (s.lates * 18);
+        phScore = Math.max(0, phScore);
+        factors.push({
+            key:'payment', name:'Payment History', weight:35,
+            rating: s.lates === 0 ? 'Excellent' : s.lates <= 1 ? 'Fair' : 'Poor',
+            detail: s.lates === 0
+                ? 'No late payments in the past 12 months.'
+                : `${s.lates} late payment${s.lates>1?'s':''} in the past 12 months.`,
+            score: phScore
+        });
+
+        // Utilization (30%)
+        let utilScore, utilRating, utilDetail;
+        if (s.globalUtil === null) {
+            utilScore = 60; utilRating = 'Unknown';
+            utilDetail = 'Enter credit card limits to calculate utilization.';
+        } else {
+            const pct = s.globalUtil * 100;
+            if (pct < 10) { utilScore = 100; utilRating = 'Excellent'; }
+            else if (pct < 30) { utilScore = 85; utilRating = 'Very Good'; }
+            else if (pct < 50) { utilScore = 60; utilRating = 'Fair'; }
+            else if (pct < 75) { utilScore = 35; utilRating = 'Poor'; }
+            else { utilScore = 15; utilRating = 'Very Poor'; }
+            utilDetail = `Total ${fmtMoney(s.totalBal)} / ${fmtMoney(s.totalLim)} → ${pct.toFixed(1)}% used.`;
+        }
+        factors.push({ key:'utilization', name:'Credit Utilization', weight:30,
+                       rating:utilRating, detail:utilDetail, score:utilScore });
+
+        // Length (15%)
+        let lenScore, lenRating, lenDetail;
+        const ageBasis = (s.oldest !== null ? s.oldest : null);
+        if (ageBasis === null) {
+            lenScore = 55; lenRating = 'Unknown';
+            lenDetail = 'Add your oldest account age to refine this factor.';
+        } else if (ageBasis >= 10) { lenScore = 100; lenRating = 'Excellent'; lenDetail = `Oldest account is ${ageBasis} years — strong history.`; }
+        else if (ageBasis >= 7)    { lenScore = 85;  lenRating = 'Very Good'; lenDetail = `Oldest account is ${ageBasis} years.`; }
+        else if (ageBasis >= 4)    { lenScore = 65;  lenRating = 'Fair';      lenDetail = `Oldest account is ${ageBasis} years — aging benefits will accrue.`; }
+        else if (ageBasis >= 2)    { lenScore = 45;  lenRating = 'Limited';   lenDetail = `Oldest account is ${ageBasis} years — history still young.`; }
+        else                       { lenScore = 25;  lenRating = 'New';       lenDetail = `Oldest account is ${ageBasis} years.`; }
+        factors.push({ key:'length', name:'Length of Credit History', weight:15,
+                       rating:lenRating, detail:lenDetail, score:lenScore });
+
+        // Mix (10%)
+        let mixScore, mixRating, mixDetail;
+        if (s.mix >= 3)      { mixScore = 95; mixRating = 'Excellent'; }
+        else if (s.mix === 2){ mixScore = 75; mixRating = 'Good'; }
+        else if (s.mix === 1){ mixScore = 45; mixRating = 'Thin'; }
+        else                 { mixScore = 30; mixRating = 'Insufficient'; }
+        mixDetail = `${s.mix} account type${s.mix!==1?'s':''} reporting (revolving, installment, mortgage, etc.).`;
+        factors.push({ key:'mix', name:'Credit Mix', weight:10,
+                       rating:mixRating, detail:mixDetail, score:mixScore });
+
+        // New Credit (10%)
+        let ncScore = 100 - (s.inq * 6) - (s.newAcc * 8);
+        ncScore = Math.max(0, Math.min(100, ncScore));
+        let ncRating = ncScore >= 85 ? 'Excellent' : ncScore >= 65 ? 'Good' : ncScore >= 40 ? 'Fair' : 'Poor';
+        factors.push({ key:'new', name:'New Credit', weight:10,
+                       rating:ncRating,
+                       detail:`${s.inq} hard inquir${s.inq!==1?'ies':'y'} + ${s.newAcc} new account${s.newAcc!==1?'s':''} in 12 months.`,
+                       score:ncScore });
+
+        // Weighted composite 0–100
+        const composite = factors.reduce((acc, f) => acc + (f.score * f.weight / 100), 0);
+        return { factors, composite };
+    };
+
+    // ---- Action plan generator: ranked levers with point deltas ----
+    const buildPlan = (s, a) => {
+        const actions = [];
+
+        // Lever 1 — per-card utilization reductions (below 30%, then below 10%)
+        s.perCard.forEach(c => {
+            if (c.lim > 0 && c.util !== null) {
+                if (c.util >= 0.30) {
+                    const target30 = c.lim * 0.29;
+                    const payoff = Math.max(0, c.bal - target30);
+                    if (payoff > 0) {
+                        const deltaPts = Math.round(Math.min(45, (c.util - 0.29) * 80));
+                        actions.push({
+                            title: `Pay down ${c.name} to below 30% utilization`,
+                            detail: `Currently ${(c.util*100).toFixed(0)}% used (${fmtMoney(c.bal)} of ${fmtMoney(c.lim)}). Reducing balance to ${fmtMoney(target30)} drops utilization into the "good" band.`,
+                            pay: payoff, pts: deltaPts, timeframe: '1 statement cycle',
+                            debtId: c.id, priority: 100 + deltaPts
+                        });
+                    }
+                } else if (c.util >= 0.10) {
+                    const target10 = c.lim * 0.09;
+                    const payoff = Math.max(0, c.bal - target10);
+                    if (payoff > 0) {
+                        const deltaPts = Math.round(Math.min(20, (c.util - 0.09) * 60));
+                        actions.push({
+                            title: `Pay down ${c.name} to below 10% utilization`,
+                            detail: `Currently ${(c.util*100).toFixed(0)}% used. Dropping to ${fmtMoney(target10)} shifts this card into the optimal band.`,
+                            pay: payoff, pts: deltaPts, timeframe: '1 statement cycle',
+                            debtId: c.id, priority: 50 + deltaPts
+                        });
+                    }
+                }
+            }
+        });
+
+        // Lever 2 — overall utilization if no per-card limits available
+        if (s.globalUtil === null && creditCards.length > 0) {
+            actions.push({
+                title: 'Add your credit card limits',
+                detail: 'Utilization is the single largest short-term lever on your score. Add a limit for each card to activate targeted payoff recommendations.',
+                pay: 0, pts: 0, timeframe: 'now',
+                priority: 110
+            });
+        }
+
+        // Lever 3 — on-time payment streak
+        if (s.lates > 0) {
+            actions.push({
+                title: 'Build a clean 6-month on-time payment streak',
+                detail: `Late payments weight 35% of your score. Set auto-pay minimums on every account — each additional on-time month reduces the drag from your ${s.lates} recent late.`,
+                pay: 0, pts: Math.min(40, s.lates * 12), timeframe: '3–6 months',
+                priority: 130
+            });
+        } else {
+            actions.push({
+                title: 'Keep a spotless on-time record',
+                detail: 'No late payments in the last 12 months — maintain this and payment-history gains will compound naturally over time.',
+                pay: 0, pts: 5, timeframe: 'ongoing',
+                priority: 10
+            });
+        }
+
+        // Lever 4 — reduce new-credit drag
+        if (s.inq >= 3 || s.newAcc >= 2) {
+            actions.push({
+                title: 'Pause new credit applications for 6 months',
+                detail: `${s.inq} hard inquiries + ${s.newAcc} new accounts in 12 months is pulling the "New Credit" factor down. Each inquiry ages off after 12 months; each new account ages for ~24 months.`,
+                pay: 0, pts: Math.min(18, s.inq * 3 + s.newAcc * 4), timeframe: '6–12 months',
+                priority: 40
+            });
+        }
+
+        // Lever 5 — credit mix
+        if (s.mix <= 1) {
+            actions.push({
+                title: 'Diversify credit mix (only if organic)',
+                detail: 'You currently report only one account type. If you already need a loan (auto, personal), the added mix helps — never open credit solely for mix points.',
+                pay: 0, pts: 8, timeframe: '3–6 months',
+                priority: 20
+            });
+        }
+
+        // Lever 6 — account aging
+        if (s.oldest !== null && s.oldest < 5) {
+            actions.push({
+                title: 'Keep oldest account open & active',
+                detail: `Your oldest account is ${s.oldest} years. Closing it would cut the "Length" factor. Put a small recurring charge on it and auto-pay in full to keep it reporting.`,
+                pay: 0, pts: 10, timeframe: 'ongoing',
+                priority: 15
+            });
+        }
+
+        // Lever 7 — request credit limit increase (if utilization is high)
+        if (s.globalUtil !== null && s.globalUtil > 0.30) {
+            actions.push({
+                title: 'Request a credit-limit increase on your best card',
+                detail: 'A soft-pull limit increase raises the denominator of your utilization ratio without any payoff required. Most major issuers grant ~20–30% increases after 6+ months of on-time use.',
+                pay: 0, pts: 12, timeframe: '1–2 statement cycles',
+                priority: 35
+            });
+        }
+
+        // Rank by priority / estimated points
+        actions.sort((x, y) => (y.priority || 0) - (x.priority || 0));
+        return actions;
+    };
+
+    // ---- Project score at 3/6/12 months ----
+    const project = (s, plan) => {
+        const base = s.score || 640;
+        let m3 = 0, m6 = 0, m12 = 0;
+        plan.forEach(a => {
+            const tf = (a.timeframe || '').toLowerCase();
+            if (tf.includes('statement') || tf.includes('1–2') || tf.includes('now')) {
+                m3 += a.pts; m6 += a.pts; m12 += a.pts;
+            } else if (tf.includes('3') || tf.includes('6 months')) {
+                m3 += Math.round(a.pts * 0.3);
+                m6 += Math.round(a.pts * 0.7);
+                m12 += a.pts;
+            } else if (tf.includes('12') || tf.includes('ongoing')) {
+                m3 += Math.round(a.pts * 0.1);
+                m6 += Math.round(a.pts * 0.4);
+                m12 += a.pts;
+            } else {
+                m3 += Math.round(a.pts * 0.2);
+                m6 += Math.round(a.pts * 0.5);
+                m12 += a.pts;
+            }
+        });
+        // Diminishing returns past 100 pts of deltas
+        const dim = (x) => Math.round(x > 80 ? 80 + (x - 80) * 0.4 : x);
+        m3 = dim(m3); m6 = dim(m6); m12 = dim(m12);
+        return {
+            now: base,
+            m3: Math.min(850, base + m3),
+            m6: Math.min(850, base + m6),
+            m12: Math.min(850, base + m12),
+            d3: m3, d6: m6, d12: m12
+        };
+    };
+
+    // ---- RENDER ----
+    const s = snapshot();
+    const needsOnboarding = s.score === null;
+
+    // Input capture card
+    const inputsCard = `
+      <div class="card" style="grid-column:1 / -1; padding:28px;">
+        <div class="sjc-header" style="margin-bottom:18px;">
+          <div class="sjc-icon-blob"><i class="ph-fill ph-identification-badge"></i></div>
+          <div class="badge" style="background:transparent; border:1px solid var(--border); color:var(--text-3); font-size:8px;">CREDIT PROFILE INPUTS</div>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin-bottom:6px;">Tell the engine about your credit file</h3>
+        <p style="font-size:12px; color:var(--text-2); line-height:1.6; margin-bottom:18px; max-width:560px;">
+          The plan is generated from your live debt data plus these five inputs. All inputs are stored locally on this device — nothing is sent to a server.
+        </p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;">
+            Current FICO score
+            <input id="cs-input-score" type="number" min="300" max="850" value="${cs.currentScore}" placeholder="e.g. 680"
+              style="padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; font-weight:600;">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;">
+            Oldest account age (yrs)
+            <input id="cs-input-oldest" type="number" min="0" max="60" step="0.5" value="${cs.oldestAccountYears}" placeholder="e.g. 6"
+              style="padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; font-weight:600;">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;">
+            Late payments (last 12mo)
+            <input id="cs-input-lates" type="number" min="0" max="20" value="${cs.latePayments12mo}" placeholder="0"
+              style="padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; font-weight:600;">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;">
+            Hard inquiries (last 12mo)
+            <input id="cs-input-inq" type="number" min="0" max="20" value="${cs.hardInquiries12mo}" placeholder="0"
+              style="padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; font-weight:600;">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;">
+            New accounts (last 12mo)
+            <input id="cs-input-newacc" type="number" min="0" max="20" value="${cs.newAccounts12mo}" placeholder="0"
+              style="padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; font-weight:600;">
+          </label>
+        </div>
+
+        ${creditCards.length > 0 ? `
+        <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--border);">
+          <div style="font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;">Credit card limits (for utilization)</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+            ${creditCards.map(d => `
+              <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px;">
+                <span style="flex:1; font-size:12px; font-weight:700;">${(d.name || d.lender || 'Card').replace(/</g,'&lt;')}</span>
+                <span style="font-size:10px; color:var(--text-3);">Limit $</span>
+                <input data-card-id="${d.id}" class="cs-card-limit" type="number" min="0" value="${cs.cardLimits[d.id] || ''}" placeholder="0"
+                  style="width:100px; padding:6px 8px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:12px; font-weight:600;">
+              </label>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+          <button id="cs-save-btn" class="btn btn-primary" style="padding:12px 22px; font-size:11px;">
+            <i class="ph-fill ph-sparkle"></i> &nbsp;ANALYSE MY CREDIT
+          </button>
+        </div>
+      </div>`;
+
+    // If score isn't set yet, show just inputs + empty hero state
+    if (needsOnboarding) {
+        container.innerHTML = `
+          <div class="reveal" style="display:grid; grid-template-columns:1fr; gap:24px; padding-bottom:40px;">
+            <div class="card" style="grid-column:1 / -1; padding:36px; text-align:center;">
+              <div style="display:inline-flex; width:64px; height:64px; border-radius:18px; background:rgba(31,122,74,0.08); border:1px solid rgba(31,122,74,0.2); align-items:center; justify-content:center; margin:0 auto 18px;">
+                <i class="ph-fill ph-gauge" style="font-size:28px; color:var(--accent);"></i>
+              </div>
+              <h2 style="font-size:26px; font-weight:900; margin-bottom:8px;">Credit Score Intelligence Engine</h2>
+              <p style="font-size:13px; color:var(--text-2); max-width:540px; margin:0 auto; line-height:1.7;">
+                Enter your current score and the engine will combine it with your live debt data to generate a ranked, point-by-point improvement plan. Every recommendation uses the FICO factor model (Payment 35% · Utilization 30% · Length 15% · Mix 10% · New Credit 10%).
+              </p>
+            </div>
+            ${inputsCard}
+          </div>`;
+        wireInputs();
+        return;
+    }
+
+    // With a score, run analysis + plan
+    const a = analyse(s);
+    const plan = buildPlan(s, a);
+    const proj = project(s, plan);
+    const band = scoreBand(s.score);
+    const gaugePct = Math.round(((s.score - 300) / 550) * 100);
+
+    // Key headline number: total estimated 12mo gain
+    const totalGain = proj.d12;
+
+    const heroCard = `
+      <div class="card" style="grid-column:1 / -1; padding:36px; display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:center;">
+        <div>
+          <div class="sjc-header" style="margin-bottom:16px;">
+            <div class="sjc-icon-blob"><i class="ph-fill ph-gauge"></i></div>
+            <div class="badge" style="background:transparent; border:1px solid var(--border); color:var(--text-3); font-size:8px;">LIVE ANALYSIS</div>
+          </div>
+          <div style="font-size:11px; color:var(--text-3); text-transform:uppercase; font-weight:700; letter-spacing:0.08em; margin-bottom:6px;">Current score</div>
+          <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:8px;">
+            <div style="font-size:64px; font-weight:900; letter-spacing:-0.02em; color:${band.color};">${s.score}</div>
+            <div style="font-size:14px; font-weight:700; color:${band.color}; text-transform:uppercase; letter-spacing:0.05em;">${band.band}</div>
+          </div>
+          <div style="height:8px; background:var(--card-2); border-radius:99px; overflow:hidden; margin-bottom:22px;">
+            <div style="width:${gaugePct}%; height:100%; background:linear-gradient(90deg, #ff4d6d 0%, #d97706 35%, #b58900 55%, #2b9b72 75%, #1f9d55 100%);"></div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px;">
+            <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:14px;">
+              <div style="font-size:9px; color:var(--text-3); text-transform:uppercase; font-weight:700; letter-spacing:0.05em;">+3 months</div>
+              <div style="font-size:22px; font-weight:900; margin-top:4px;">${proj.m3}</div>
+              <div style="font-size:10px; color:var(--accent); font-weight:700;">+${proj.d3} pts</div>
+            </div>
+            <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:14px;">
+              <div style="font-size:9px; color:var(--text-3); text-transform:uppercase; font-weight:700; letter-spacing:0.05em;">+6 months</div>
+              <div style="font-size:22px; font-weight:900; margin-top:4px;">${proj.m6}</div>
+              <div style="font-size:10px; color:var(--accent); font-weight:700;">+${proj.d6} pts</div>
+            </div>
+            <div style="background:var(--card-2); border:1px solid rgba(31,122,74,0.35); border-radius:10px; padding:14px;">
+              <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.05em;">+12 months</div>
+              <div style="font-size:22px; font-weight:900; margin-top:4px; color:var(--accent);">${proj.m12}</div>
+              <div style="font-size:10px; color:var(--accent); font-weight:700;">+${proj.d12} pts</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--text-3); text-transform:uppercase; font-weight:700; letter-spacing:0.08em; margin-bottom:6px;">AI verdict</div>
+          <h2 style="font-size:24px; font-weight:900; line-height:1.3; margin-bottom:12px;">
+            ${totalGain >= 60
+              ? `Execute the plan and you're on track for a <span style="color:var(--accent);">+${totalGain}-point</span> lift in 12 months.`
+              : totalGain >= 30
+              ? `A <span style="color:var(--accent);">+${totalGain}-point</span> lift is realistic in 12 months with the steps below.`
+              : `Your score is already strong. Protecting it is the priority — a steady <span style="color:var(--accent);">+${totalGain} pts</span> is achievable.`}
+          </h2>
+          <p style="font-size:12px; color:var(--text-2); line-height:1.7;">
+            Each recommendation below is ranked by expected point impact. The top action is your <strong>single biggest lever right now</strong>. Stack them sequentially — don't take on multiple new commitments simultaneously.
+          </p>
+        </div>
+      </div>`;
+
+    const factorCard = `
+      <div class="card" style="grid-column:1 / -1; padding:28px;">
+        <div class="sjc-header" style="margin-bottom:18px;">
+          <div class="sjc-icon-blob"><i class="ph-fill ph-chart-pie-slice"></i></div>
+          <div class="badge" style="background:transparent; border:1px solid var(--border); color:var(--text-3); font-size:8px;">FICO FACTOR BREAKDOWN</div>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin-bottom:14px;">What's driving your score right now</h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          ${a.factors.map(f => {
+            const pct = Math.round(f.score);
+            const barColor = pct >= 80 ? '#1f9d55' : pct >= 60 ? '#2b9b72' : pct >= 40 ? '#b58900' : pct >= 20 ? '#d97706' : '#ff4d6d';
+            return `
+            <div style="background:var(--card-2); border:1px solid var(--border); border-radius:12px; padding:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div>
+                  <span style="font-size:13px; font-weight:800;">${f.name}</span>
+                  <span style="font-size:10px; color:var(--text-3); margin-left:8px; font-weight:600;">${f.weight}% of score</span>
+                </div>
+                <div style="font-size:11px; font-weight:800; color:${barColor}; text-transform:uppercase; letter-spacing:0.05em;">${f.rating}</div>
+              </div>
+              <div style="height:6px; background:var(--card); border-radius:99px; overflow:hidden; margin-bottom:8px;">
+                <div style="width:${pct}%; height:100%; background:${barColor};"></div>
+              </div>
+              <div style="font-size:11px; color:var(--text-2); line-height:1.5;">${f.detail}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+
+    const planCard = plan.length === 0 ? '' : `
+      <div class="card" style="grid-column:1 / -1; padding:28px;">
+        <div class="sjc-header" style="margin-bottom:18px;">
+          <div class="sjc-icon-blob"><i class="ph-fill ph-list-checks"></i></div>
+          <div class="badge" style="background:transparent; border:1px solid var(--accent); color:var(--accent); font-size:8px;">AI ACTION PLAN · RANKED</div>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin-bottom:14px;">Do these in order — highest impact first</h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          ${plan.map((ac, i) => `
+            <div style="background:var(--card-2); border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; gap:16px;">
+              <div style="width:36px; height:36px; border-radius:10px; background:rgba(31,122,74,0.08); border:1px solid rgba(31,122,74,0.2); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; flex-shrink:0;">${i+1}</div>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:4px;">
+                  <div style="font-size:13px; font-weight:800; line-height:1.4;">${ac.title}</div>
+                  <div style="flex-shrink:0; display:flex; gap:6px; align-items:center;">
+                    ${ac.pts > 0 ? `<span style="font-size:11px; font-weight:800; color:var(--accent); background:rgba(31,122,74,0.08); border:1px solid rgba(31,122,74,0.2); padding:4px 10px; border-radius:99px; white-space:nowrap;">+${ac.pts} pts</span>` : ''}
+                    <span style="font-size:10px; font-weight:700; color:var(--text-3); background:var(--card); border:1px solid var(--border); padding:4px 10px; border-radius:99px; white-space:nowrap; text-transform:uppercase; letter-spacing:0.04em;">${ac.timeframe}</span>
+                  </div>
+                </div>
+                <div style="font-size:11px; color:var(--text-2); line-height:1.6;">${ac.detail}</div>
+                ${ac.pay > 0 ? `<div style="margin-top:8px; font-size:11px; color:var(--accent); font-weight:700;"><i class="ph-fill ph-currency-circle-dollar"></i> Payoff target: ${fmtMoney(ac.pay)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    // Debt priority card: which debts to pay down first
+    const prioritized = s.perCard
+        .filter(c => c.util !== null && c.util > 0.10)
+        .sort((a,b) => b.util - a.util);
+    const priorityCard = prioritized.length === 0 ? '' : `
+      <div class="card" style="grid-column:1 / -1; padding:28px;">
+        <div class="sjc-header" style="margin-bottom:18px;">
+          <div class="sjc-icon-blob"><i class="ph-fill ph-target"></i></div>
+          <div class="badge" style="background:transparent; border:1px solid var(--border); color:var(--text-3); font-size:8px;">WHICH DEBTS TO WORK ON FIRST</div>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin-bottom:14px;">Utilization-weighted payoff order</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+          ${prioritized.map((c, i) => {
+            const band = c.util >= 0.75 ? '#ff4d6d' : c.util >= 0.50 ? '#d97706' : c.util >= 0.30 ? '#b58900' : '#2b9b72';
+            return `
+            <div style="background:var(--card-2); border:1px solid ${i===0?'rgba(255,77,109,0.35)':'var(--border)'}; border-radius:12px; padding:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-size:13px; font-weight:800;">${String(c.name).replace(/</g,'&lt;')}</div>
+                <div style="font-size:11px; font-weight:800; color:${band};">${(c.util*100).toFixed(0)}% used</div>
+              </div>
+              <div style="height:6px; background:var(--card); border-radius:99px; overflow:hidden; margin-bottom:8px;">
+                <div style="width:${Math.min(100, c.util*100)}%; height:100%; background:${band};"></div>
+              </div>
+              <div style="font-size:10px; color:var(--text-3); display:flex; justify-content:space-between;">
+                <span>Balance ${fmtMoney(c.bal)}</span>
+                <span>Limit ${fmtMoney(c.lim)}</span>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+
+    container.innerHTML = `
+      <div class="reveal" style="display:grid; grid-template-columns:1fr; gap:24px; padding-bottom:40px;">
+        ${heroCard}
+        ${factorCard}
+        ${planCard}
+        ${priorityCard}
+        ${inputsCard}
+      </div>`;
+
+    wireInputs();
+
+    function wireInputs() {
+        const map = [
+            ['cs-input-score',   'currentScore'],
+            ['cs-input-oldest',  'oldestAccountYears'],
+            ['cs-input-lates',   'latePayments12mo'],
+            ['cs-input-inq',     'hardInquiries12mo'],
+            ['cs-input-newacc',  'newAccounts12mo']
+        ];
+        map.forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', (e) => { cs[key] = e.target.value; });
+        });
+        document.querySelectorAll('.cs-card-limit').forEach(el => {
+            el.addEventListener('input', (e) => {
+                const id = e.target.dataset.cardId;
+                cs.cardLimits[id] = e.target.value;
+            });
+        });
+        const saveBtn = document.getElementById('cs-save-btn');
+        if (saveBtn) saveBtn.addEventListener('click', () => {
+            saveCs();
+            if (typeof showToast === 'function') showToast('Credit analysis updated.');
+            renderCreditScoreTab();
+        });
+    }
+}
+window.renderCreditScoreTab = renderCreditScoreTab;
 
 
 function renderActivityPage() {
