@@ -2554,28 +2554,192 @@ function updateAnalysisTab() {
     // If hasData, the existing HTML remains visible with real chart data
 }
 
-// Show credit profile only when linked; otherwise show connect prompt
+// Jump from anywhere into the Debts → Credit Score subtab
+function goToCreditScoreTab() {
+    if (typeof navigateSPA === 'function') navigateSPA('debts');
+    setTimeout(() => {
+        const tabs = document.querySelectorAll('.debts-subtabs .subtab');
+        let target = null;
+        tabs.forEach(t => { if (t.textContent.trim() === 'Credit Score') target = t; });
+        if (target) {
+            target.click();
+        } else if (typeof renderCreditScoreTab === 'function') {
+            renderCreditScoreTab();
+        }
+    }, 80);
+}
+window.goToCreditScoreTab = goToCreditScoreTab;
+
+// Dashboard "Credit Profile" card — now wired to the same bureau link + credit
+// inputs used by the Credit Score sub-tab. Shows real score, real utilization,
+// and an expand icon that jumps straight into the full Credit Score tab.
 function updateCreditProfile() {
     const card = document.getElementById('credit-profile-card');
     if (!card) return;
-    const isLinked = localStorage.getItem('wjp_credit_linked') === 'true';
-    if (isLinked) return; // real data already in the card HTML
+
+    // Pull persisted state from the Credit Score tab
+    let cs = {};
+    let bureau = {};
+    try { cs     = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch(_) {}
+    try { bureau = JSON.parse(localStorage.getItem('wjp_credit_bureau') || '{}'); } catch(_) {}
+
+    // Resolve a usable score: bureau lastScore > cs.currentScore
+    const rawScore = bureau.lastScore || cs.currentScore;
+    const score    = (rawScore !== null && rawScore !== undefined && rawScore !== '' && !isNaN(parseInt(rawScore, 10)))
+                       ? parseInt(rawScore, 10)
+                       : null;
+
+    const providerLabels = {
+        array: 'ARRAY', plaid: 'PLAID', experian: 'EXPERIAN', equifax: 'EQUIFAX',
+        transunion: 'TRANSUNION', creditkarma: 'CREDIT KARMA', myfico: 'myFICO'
+    };
+    const isLinked = !!bureau.provider || score !== null;
+
+    // ─── Not linked ───
+    if (!isLinked) {
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="font-size:14px; font-weight:700;">Credit Profile</h3>
+                <div class="card-label" style="color:var(--text-3); border-color:var(--border); display:flex; gap:6px; align-items:center;">
+                    NOT LINKED
+                    <button class="cp-expand-btn" title="Open Credit Score tab" style="background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:0; display:inline-flex; align-items:center;">
+                        <i class="ph ph-arrow-square-out" style="font-size:14px;"></i>
+                    </button>
+                </div>
+            </div>
+            <div style="text-align:center; padding:16px 10px 20px;">
+                <div style="width:64px; height:64px; border-radius:50%; background:rgba(127,127,127,0.06); border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                    <i class="ph ph-link-simple-break" style="font-size:26px; color:var(--text-3);"></i>
+                </div>
+                <div style="font-size:13px; font-weight:700; margin-bottom:6px; color:var(--text);">Credit Profile Not Linked</div>
+                <div style="font-size:11px; color:var(--text-3); line-height:1.6; margin-bottom:20px;">Connect Array, Experian, Equifax,<br>TransUnion, Credit Karma or myFICO to see<br>your live score and AI insights.</div>
+                <button class="cp-connect-btn" style="padding:10px 22px; background:linear-gradient(135deg,var(--accent),#00b896); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="ph ph-link"></i> Connect Credit Profile
+                </button>
+            </div>`;
+        card.querySelectorAll('.cp-expand-btn, .cp-connect-btn').forEach(b => {
+            b.addEventListener('click', goToCreditScoreTab);
+        });
+        return;
+    }
+
+    // ─── Linked: compute live metrics ───
+    const debts     = (appState && appState.debts) ? appState.debts : [];
+    const cardDebts = debts.filter(d => {
+        const t = (d.type || d.category || '').toString().toLowerCase();
+        return t.includes('credit') || t.includes('card') || t === 'cc';
+    });
+    let totalBal = 0, totalLim = 0;
+    cardDebts.forEach(d => {
+        const lim = parseFloat((cs.cardLimits || {})[d.id] || 0);
+        const bal = parseFloat(d.balance || 0);
+        if (lim > 0) { totalBal += bal; totalLim += lim; }
+    });
+    const utilPct = totalLim > 0 ? (totalBal / totalLim) * 100 : null;
+    const utilDisplay = utilPct === null ? '—' : utilPct.toFixed(1) + '%';
+    const utilBarPct  = utilPct === null ? 0 : Math.min(100, utilPct);
+    const utilColor   = utilPct === null ? 'var(--border)'
+                       : utilPct < 10 ? '#1f9d55'
+                       : utilPct < 30 ? '#2b9b72'
+                       : utilPct < 50 ? '#b58900'
+                       : utilPct < 75 ? '#d97706' : '#ff4d6d';
+
+    const lates    = parseInt(cs.latePayments12mo, 10) || 0;
+    const historyPct = Math.max(0, 100 - lates * 8);
+
+    const oldestYrs = cs.oldestAccountYears !== '' && cs.oldestAccountYears !== null && !isNaN(parseFloat(cs.oldestAccountYears))
+        ? parseFloat(cs.oldestAccountYears) : null;
+    const accountsTotal = debts.length;
+
+    // Score band
+    const band = score >= 800 ? { label:'Exceptional', color:'#1f9d55' }
+               : score >= 740 ? { label:'Very Good',   color:'#2b9b72' }
+               : score >= 670 ? { label:'Good',        color:'#84cc16' }
+               : score >= 580 ? { label:'Fair',        color:'#d97706' }
+                              : { label:'Poor',        color:'#ff4d6d' };
+    const dashOffset = Math.round(264 - 264 * ((score - 300) / 550));
+
+    const provLabel = providerLabels[bureau.provider] || (score ? 'MANUAL ENTRY' : 'LINKED');
+    const lastSync  = bureau.lastSync ? new Date(bureau.lastSync).toLocaleDateString() : null;
+
+    // AI insight: pick the highest-impact suggestion
+    let aiMsg = `Your score is ${band.label.toLowerCase()}. Open the Credit Score tab for a ranked, point-by-point improvement plan.`;
+    if (utilPct !== null && utilPct >= 30) {
+        aiMsg = `Drop overall utilization from ${utilDisplay} to under 10% — typically worth +20 to +40 points within one statement cycle.`;
+    } else if (lates > 0) {
+        aiMsg = `Each of your ${lates} late payment${lates>1?'s':''} drags Payment History (35% of FICO). A clean 6-month streak can recover 20–40 points.`;
+    } else if (utilPct !== null && utilPct < 10 && score < 740) {
+        aiMsg = `Utilization is excellent. Length of credit and account mix are now your biggest levers — keep oldest accounts open.`;
+    }
 
     card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <h3 style="font-size:14px; font-weight:700;">Credit Profile</h3>
-            <div class="card-label" style="color:var(--text-3); border-color:var(--border);">NOT LINKED</div>
-        </div>
-        <div style="text-align:center; padding:16px 10px 20px;">
-            <div style="width:64px; height:64px; border-radius:50%; background:rgba(255,255,255,0.03); border:2px dashed rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
-                <i class="ph ph-link-simple-break" style="font-size:26px; color:rgba(255,255,255,0.2);"></i>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <div class="card-label" title="${lastSync ? 'Last synced ' + lastSync : 'Source'}">${provLabel}</div>
+                <button class="cp-expand-btn" title="Open full Credit Score tab" style="background:var(--card-2); border:1px solid var(--border); color:var(--text); cursor:pointer; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; font-family:inherit;">
+                    <i class="ph ph-arrows-out-simple" style="font-size:12px;"></i> EXPAND
+                </button>
             </div>
-            <div style="font-size:13px; font-weight:700; margin-bottom:6px; color:var(--text);">Credit Profile Not Linked</div>
-            <div style="font-size:11px; color:var(--text-3); line-height:1.6; margin-bottom:20px;">Connect to Experian, Equifax, or<br>TransUnion to view your real credit score,<br>utilization, and AI insights.</div>
-            <button onclick="navigateSPA('settings')" style="padding:10px 22px; background:linear-gradient(135deg,var(--accent),#00b896); border:none; border-radius:10px; color:#000; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px;">
-                <i class="ph ph-link"></i> Connect Credit Profile
+        </div>
+
+        <div style="display:flex; align-items:center; gap:20px; margin-bottom:20px;">
+            <div style="position:relative; width:80px; height:80px; display:flex; align-items:center; justify-content:center;">
+                <svg width="80" height="80" viewBox="0 0 100 100" style="position:absolute; transform:rotate(-90deg);">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--card-2)" stroke-width="8"></circle>
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="${band.color}" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="${dashOffset}" stroke-linecap="round"></circle>
+                </svg>
+                <div style="text-align:center;">
+                    <div style="font-size:22px; font-weight:800; line-height:1; color:var(--text);">${score}</div>
+                    <div style="font-size:9px; color:var(--text-3); font-weight:600; margin-top:2px;">PTS</div>
+                </div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:var(--text-3); font-weight:600; text-transform:uppercase; margin-bottom:2px;">Overall Status</div>
+                <div style="font-size:16px; font-weight:800; color:${band.color};">${band.label}</div>
+                <div style="font-size:10px; color:var(--text-3); margin-top:6px;">${lastSync ? 'Synced ' + lastSync : 'Tap EXPAND for full plan'}</div>
+            </div>
+        </div>
+
+        <div class="credit-details-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:20px; border-top:1px solid var(--border); padding-top:16px;">
+            <div class="credit-metric">
+                <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Utilization</div>
+                <div style="font-size:13px; font-weight:700; color:${utilPct === null ? 'var(--text-3)' : utilColor};">${utilDisplay}</div>
+                <div style="height:3px; background:var(--card-2); border-radius:3px; margin-top:6px; overflow:hidden;">
+                    <div style="width:${utilBarPct}%; height:100%; background:${utilColor};"></div>
+                </div>
+            </div>
+            <div class="credit-metric">
+                <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">History</div>
+                <div style="font-size:13px; font-weight:700;">${historyPct}%</div>
+                <div style="height:3px; background:var(--card-2); border-radius:3px; margin-top:6px; overflow:hidden;">
+                    <div style="width:${historyPct}%; height:100%; background:${historyPct >= 95 ? '#1f9d55' : historyPct >= 80 ? '#b58900' : '#ff4d6d'};"></div>
+                </div>
+            </div>
+            <div class="credit-metric">
+                <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Oldest Acct</div>
+                <div style="font-size:13px; font-weight:700;">${oldestYrs !== null ? oldestYrs + ' Yrs' : '—'}</div>
+            </div>
+            <div class="credit-metric">
+                <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Accounts</div>
+                <div style="font-size:13px; font-weight:700;">${accountsTotal} Total</div>
+            </div>
+        </div>
+
+        <div id="credit-ai-box" style="background:var(--card-2); border-radius:10px; padding:12px; border:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <div class="ai-icon" style="width:18px; height:18px; font-size:10px; background:var(--accent); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center;"><i class="ph-fill ph-lightning"></i></div>
+                <div style="font-size:11px; font-weight:700; color:var(--text);">AI Optimization Insight</div>
+            </div>
+            <p style="font-size:10.5px; color:var(--text-3); line-height:1.5; margin-bottom:10px;">${aiMsg}</p>
+            <button class="cp-expand-btn" style="width:100%; padding:8px 10px; background:var(--card); border:1px solid var(--border); color:var(--text); font-size:10.5px; font-weight:700; border-radius:6px; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <i class="ph ph-arrow-square-out"></i> OPEN CREDIT SCORE TAB
             </button>
         </div>`;
+
+    card.querySelectorAll('.cp-expand-btn').forEach(b => {
+        b.addEventListener('click', goToCreditScoreTab);
+    });
 }
 
 function renderStrategyIndicators() {
@@ -5032,6 +5196,7 @@ function renderCreditScoreTab() {
         if (saveBtn) saveBtn.addEventListener('click', () => {
             saveCs();
             if (typeof showToast === 'function') showToast('Credit analysis updated.');
+            if (typeof updateCreditProfile === 'function') updateCreditProfile();
             renderCreditScoreTab();
         });
 
@@ -5048,6 +5213,7 @@ function renderCreditScoreTab() {
             bureau = {};
             saveBureau();
             if (typeof showToast === 'function') showToast('Bureau disconnected.');
+            if (typeof updateCreditProfile === 'function') updateCreditProfile();
             renderCreditScoreTab();
         });
 
@@ -5231,6 +5397,7 @@ function renderCreditScoreTab() {
 
             backdrop.remove();
             if (typeof showToast === 'function') showToast('Connected to ' + providerMeta[p].label + '.');
+            if (typeof updateCreditProfile === 'function') updateCreditProfile();
             renderCreditScoreTab();
         });
     }
@@ -5245,6 +5412,7 @@ function renderCreditScoreTab() {
             bureau.lastSync = Date.now();
             saveBureau();
             if (typeof showToast === 'function') showToast('Array widget refreshed.');
+            if (typeof updateCreditProfile === 'function') updateCreditProfile();
             renderCreditScoreTab();
             return;
         }
@@ -5268,6 +5436,7 @@ function renderCreditScoreTab() {
         cs.currentScore = v;
         saveCs();
         if (typeof showToast === 'function') showToast('Score updated from ' + m.label + '.');
+        if (typeof updateCreditProfile === 'function') updateCreditProfile();
         renderCreditScoreTab();
     }
 }
