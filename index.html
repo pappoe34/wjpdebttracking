@@ -3266,6 +3266,36 @@
                 <button class="btn btn-primary" id="btn-settings-chat" style="padding:14px; font-size:9px; display:flex; justify-content:center; align-items:center; gap:8px;"><i class="ph-fill ph-chat-teardrop-dots"></i> LIVE CHAT</button>
               </div>
             </div>
+
+            <!-- Card 9: Session -->
+            <div class="card settings-journey-card" style="grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; gap:40px; padding:32px;">
+              <div style="flex:1;">
+                <div class="sjc-header" style="margin-bottom:16px;">
+                  <div class="sjc-icon-blob"><i class="ph-fill ph-power"></i></div>
+                  <div class="badge" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-3); font-size:8px;">SESSION</div>
+                </div>
+                <h3 class="sjc-title" style="font-size:20px; margin-bottom:8px;">Log out</h3>
+                <p class="sjc-desc" style="max-width:360px; font-size:12px; color:var(--text-2); line-height:1.6;">Ends your session on this device. Your progress is saved automatically before you leave — pick up right where you left off next time you sign in.</p>
+              </div>
+              <div style="width:320px; display:flex; flex-direction:column; gap:10px;">
+                <button class="btn" id="btn-settings-logout" style="padding:14px; font-size:10px; font-weight:700; letter-spacing:0.05em; background:rgba(255,77,109,0.08); border:1px solid rgba(255,77,109,0.35); color:#ff4d6d; display:flex; justify-content:center; align-items:center; gap:8px; cursor:pointer;"><i class="ph ph-sign-out"></i> LOG OUT &amp; SAVE</button>
+              </div>
+            </div>
+
+            <!-- Card 10: Danger Zone -->
+            <div class="card settings-journey-card" style="grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; gap:40px; padding:32px; background:var(--bg); border:1px solid rgba(255,77,109,0.25);">
+              <div style="flex:1;">
+                <div class="sjc-header" style="margin-bottom:16px;">
+                  <div class="sjc-icon-blob" style="background:rgba(255,77,109,0.12); border-color:rgba(255,77,109,0.3); color:#ff4d6d;"><i class="ph-fill ph-warning-octagon"></i></div>
+                  <div class="badge" style="background:transparent; border:1px solid rgba(255,77,109,0.35); color:#ff4d6d; font-size:8px;">DANGER ZONE</div>
+                </div>
+                <h3 class="sjc-title" style="font-size:20px; margin-bottom:8px;">Delete your account</h3>
+                <p class="sjc-desc" style="max-width:360px; font-size:12px; color:var(--text-2); line-height:1.6;">Permanently deletes your WJP account and wipes all local data on this device. You'll be asked to type <strong style="color:#ff4d6d;">DELETE</strong> to confirm. This cannot be undone.</p>
+              </div>
+              <div style="width:320px; display:flex; flex-direction:column; gap:10px;">
+                <button class="btn" id="btn-settings-delete-account" style="padding:14px; font-size:10px; font-weight:700; letter-spacing:0.05em; background:#ff4d6d; border:1px solid #ff4d6d; color:#fff; display:flex; justify-content:center; align-items:center; gap:8px; cursor:pointer;"><i class="ph-fill ph-trash"></i> DELETE MY ACCOUNT</button>
+              </div>
+            </div>
           </div>
 
           <!-- Bottom Footer elements -->
@@ -3276,13 +3306,6 @@
                          <div id="settings-user-name" style="font-size:12px; font-weight:700;">User</div>
                      <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.05em;">PREMIUM MEMBER</div>
                  </div>
-             </div>
-             <div style="display:flex; align-items:center; gap:32px;">
-                 <a role="button" tabindex="0" id="btn-settings-save-exit" style="font-size:9px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; display:flex; align-items:center; gap:8px; transition:color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-2)'">SAVE AND EXIT JOURNEY <i class="ph ph-sign-out"></i></a>
-                 <div style="width:1px; height:16px; background:var(--border);"></div>
-                 <a role="button" tabindex="0" id="btn-settings-logout" style="font-size:9px; font-weight:700; color:#ff4d6d; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; display:flex; align-items:center; gap:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">LOGOUT <i class="ph ph-power"></i></a>
-                 <div style="width:1px; height:16px; background:var(--border);"></div>
-                 <a role="button" tabindex="0" id="btn-settings-delete-account" style="font-size:9px; font-weight:700; color:#ff4d6d; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; display:flex; align-items:center; gap:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">DELETE ACCOUNT <i class="ph ph-trash"></i></a>
              </div>
           </div>
         </div>
