@@ -5059,6 +5059,97 @@ function initAdvisorPageLogic() {
         window.location.reload();
     };
 
+    // ── 11b. Delete Account ───────────────────────────────────
+    document.getElementById('btn-settings-delete-account')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const providers = (typeof window.__wjpCurrentProviders === 'function')
+            ? window.__wjpCurrentProviders() : [];
+        const isPasswordUser = providers.includes('password');
+        const passwordField = isPasswordUser
+            ? `<input id="wjp-del-pw" type="password" placeholder="Enter your password" autocomplete="current-password"
+                 style="width:100%;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:14px;outline:none;" />`
+            : '';
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+        modal.innerHTML = `<div style="background:var(--card);border:1px solid rgba(255,77,109,0.35);border-radius:16px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+          <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,77,109,0.12);border:1px solid rgba(255,77,109,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+            <i class="ph-fill ph-trash" style="color:#ff4d6d;font-size:24px;"></i>
+          </div>
+          <div style="font-size:19px;font-weight:900;margin-bottom:8px;">Delete your account?</div>
+          <div style="font-size:12px;color:var(--text-3);line-height:1.6;margin-bottom:18px;">
+            This permanently deletes your WJP account and wipes all local data on this device. <strong style="color:#ff4d6d;">This cannot be undone.</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text-2);text-align:left;margin-bottom:8px;font-weight:600;">Type <span style="color:#ff4d6d;font-weight:800;">DELETE</span> to confirm:</div>
+          <input id="wjp-del-confirm" type="text" autocomplete="off"
+            style="width:100%;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:14px;outline:none;letter-spacing:0.1em;" />
+          ${passwordField}
+          <div id="wjp-del-error" style="font-size:11px;color:#ff4d6d;margin-bottom:12px;display:none;"></div>
+          <div style="display:flex;gap:12px;">
+            <button id="wjp-del-cancel" style="flex:1;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:11px;font-weight:700;cursor:pointer;">CANCEL</button>
+            <button id="wjp-del-confirm-btn" disabled style="flex:1;padding:12px;background:#ff4d6d;border:none;border-radius:8px;color:white;font-size:11px;font-weight:700;cursor:not-allowed;opacity:0.45;">DELETE FOREVER</button>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+
+        const input   = modal.querySelector('#wjp-del-confirm');
+        const pwEl    = modal.querySelector('#wjp-del-pw');
+        const confirm = modal.querySelector('#wjp-del-confirm-btn');
+        const cancel  = modal.querySelector('#wjp-del-cancel');
+        const errEl   = modal.querySelector('#wjp-del-error');
+
+        const refresh = () => {
+            const ok = input.value.trim().toUpperCase() === 'DELETE';
+            confirm.disabled = !ok;
+            confirm.style.cursor = ok ? 'pointer' : 'not-allowed';
+            confirm.style.opacity = ok ? '1' : '0.45';
+        };
+        input.addEventListener('input', refresh);
+        setTimeout(() => input.focus(), 40);
+        cancel.addEventListener('click', () => modal.remove());
+
+        confirm.addEventListener('click', async () => {
+            if (confirm.disabled) return;
+            confirm.disabled = true;
+            confirm.textContent = 'DELETING…';
+            errEl.style.display = 'none';
+            try {
+                if (typeof window.__wjpDeleteAccount !== 'function') {
+                    throw new Error('auth-unavailable');
+                }
+                const pw = pwEl ? pwEl.value : null;
+                const res = await window.__wjpDeleteAccount(pw);
+                if (res && res.ok) {
+                    try {
+                        const keys = [];
+                        for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+                        keys.forEach(k => localStorage.removeItem(k));
+                        sessionStorage.clear();
+                    } catch(_) {}
+                    window.location.replace('./intro.html');
+                    return;
+                }
+                if (res && res.needsPassword) {
+                    errEl.textContent = 'Password required to confirm account deletion.';
+                } else if (res && res.error === 'auth/wrong-password') {
+                    errEl.textContent = 'Incorrect password. Try again.';
+                } else if (res && res.error === 'auth/popup-closed-by-user') {
+                    errEl.textContent = 'Re-authentication was cancelled.';
+                } else {
+                    errEl.textContent = 'Delete failed: ' + ((res && res.error) || 'unknown error');
+                }
+                errEl.style.display = 'block';
+                confirm.textContent = 'DELETE FOREVER';
+                refresh();
+            } catch (e) {
+                errEl.textContent = 'Delete failed: ' + (e && e.message || 'unknown error');
+                errEl.style.display = 'block';
+                confirm.textContent = 'DELETE FOREVER';
+                refresh();
+            }
+        });
+    });
+
     // ── 12. Footer Links ──────────────────────────────────────
     const footerContent = {
         'btn-footer-terms': {
