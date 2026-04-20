@@ -50,6 +50,12 @@
       if (lp) lp.style.display = 'none';
       const ag = document.getElementById('auth-gate');
       if (ag){ ag.classList.add('hidden'); ag.style.display = 'none'; }
+      // Onboarding page (Create Account / Log In / Get Started Free) must never
+      // show for a user that already has an auth session.
+      const ob = document.getElementById('onboarding-page');
+      if (ob){ ob.style.display = 'none'; ob.setAttribute('aria-hidden','true'); }
+      const obm = document.getElementById('onboarding-modal');
+      if (obm){ obm.style.display = 'none'; }
     }
 
     (async () => {
@@ -69,6 +75,10 @@
       document.body.classList.add('wjp-auth-ready');
       const gate = document.getElementById('wjp-gate-screen');
       if (gate){ gate.classList.add('hide'); setTimeout(()=>gate.remove(), 250); }
+
+      // Firebase user exists → onboarding (email/password collection page) is
+      // redundant. Mark it complete so checkOnboarding() doesn't reopen it.
+      try { localStorage.setItem('wjp_onboarding_complete', 'true'); } catch(_) {}
 
       killOverlay();
 
