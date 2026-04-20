@@ -3804,3 +3804,118 @@ button.icon-btn,
   min-width: 44px;
   min-height: 44px;
 }
+
+/* ============================================================
+   GLASSMORPHISM — LIGHT MODE
+   White base with soft green mesh + frosted translucent surfaces.
+   ============================================================ */
+body.light {
+  background:
+    radial-gradient(circle at 12% 8%,  rgba(43,155,114,0.18) 0%, transparent 42%),
+    radial-gradient(circle at 88% 18%, rgba(31,122,74,0.14)  0%, transparent 45%),
+    radial-gradient(circle at 78% 92%, rgba(201,154,42,0.10) 0%, transparent 40%),
+    radial-gradient(circle at 18% 78%, rgba(43,155,114,0.12) 0%, transparent 45%),
+    linear-gradient(180deg, #ffffff 0%, #f7f6f2 100%);
+  background-attachment: fixed;
+}
+
+/* Frosted surfaces */
+body.light .sidebar,
+body.light .app-header,
+body.light .header,
+body.light .topbar {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border-color: rgba(31,122,74,0.14);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset;
+}
+
+body.light .card,
+body.light .card-glass,
+body.light .panel,
+body.light .modal,
+body.light .drawer,
+body.light .settings-drawer,
+body.light .dropdown,
+body.light .popover,
+body.light .menu {
+  background: rgba(255,255,255,0.62);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(31,122,74,0.14);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.8) inset,
+    0 8px 32px rgba(20,40,30,0.06);
+}
+
+body.light .card:hover,
+body.light .card-glass:hover {
+  background: rgba(255,255,255,0.78);
+  border-color: rgba(31,122,74,0.28);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 12px 40px rgba(20,40,30,0.10);
+}
+
+/* Nested surfaces (lists, tables, chips, inputs) — translucent, slightly stronger tint */
+body.light .card-2,
+body.light .chip,
+body.light .badge,
+body.light .tag,
+body.light .list-item,
+body.light .row-hover:hover {
+  background: rgba(247,246,242,0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(31,122,74,0.10);
+}
+
+body.light input,
+body.light textarea,
+body.light select,
+body.light .input,
+body.light .field input {
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(31,122,74,0.18);
+}
+
+body.light input:focus,
+body.light textarea:focus,
+body.light select:focus {
+  background: rgba(255,255,255,0.95);
+  border-color: #1f7a4a;
+  box-shadow: 0 0 0 3px rgba(31,122,74,0.14);
+}
+
+/* Buttons get a glassy highlight in light mode */
+body.light .btn,
+body.light .btn-secondary {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(31,122,74,0.18);
+  color: var(--text);
+}
+
+body.light .btn-primary {
+  background: linear-gradient(135deg, #1f7a4a, #2b9b72);
+  border: 1px solid rgba(31,122,74,0.4);
+  color: #fff;
+}
+
+body.light .btn-primary:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 8px 24px rgba(31,122,74,0.25);
+}
+
+/* Scrollbars — faint glass look in light mode */
+body.light ::-webkit-scrollbar-thumb {
+  background: rgba(31,122,74,0.25);
+  border-radius: 8px;
+}
+body.light ::-webkit-scrollbar-track {
+  background: transparent;
+}
