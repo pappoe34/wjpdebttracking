@@ -1048,9 +1048,9 @@
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                 <div>
                   <h3 style="font-size:14px; font-weight:700;">Spending This Month</h3>
-                  <div class="card-sub">Compare monthly costs against last year's avg.</div>
+                  <div class="card-sub" id="debts-spending-month-sub">No transactions logged yet</div>
                 </div>
-                <div class="card-value" style="font-size:22px">$3,420</div>
+                <div class="card-value" id="debts-spending-month-total" style="font-size:22px">$0</div>
               </div>
               <div class="chart-wrap" style="height:130px;">
                 <canvas id="debtsWeeklyChart"></canvas>
@@ -1061,6 +1061,7 @@
                 <div class="card-sub">Wk 3</div>
                 <div class="card-sub">Wk 4</div>
               </div>
+              <div id="debts-spending-month-empty" style="display:none; margin-top:10px; text-align:center; font-size:11px; color:var(--text-3);">Add a transaction to see your weekly trend.</div>
             </div>
 
             <div class="card">
@@ -1069,14 +1070,11 @@
                 <div class="donut-wrap">
                   <canvas id="expenseDonut" width="130" height="130"></canvas>
                   <div class="donut-center">
-                    <div class="donut-val">$3.4k</div>
+                    <div class="donut-val" id="debts-donut-total">$0</div>
                   </div>
                 </div>
-                <div class="donut-legend">
-                  <div class="legend-item"><div class="legend-dot" style="background:#00d4a8"></div> Housing <span style="margin-left:auto; font-weight:700">45%</span></div>
-                  <div class="legend-item"><div class="legend-dot" style="background:#667eea"></div> Transport <span style="margin-left:auto; font-weight:700">25%</span></div>
-                  <div class="legend-item"><div class="legend-dot" style="background:#ff4d6d"></div> Food <span style="margin-left:auto; font-weight:700">15%</span></div>
-                  <div class="legend-item"><div class="legend-dot" style="background:#ffab40"></div> Others <span style="margin-left:auto; font-weight:700">15%</span></div>
+                <div class="donut-legend" id="debts-expense-legend">
+                  <div class="legend-item" style="font-size:11px; color:var(--text-3);">No transactions yet — add one to see your category breakdown.</div>
                 </div>
               </div>
             </div>
