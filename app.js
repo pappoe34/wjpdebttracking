@@ -175,27 +175,32 @@ document.addEventListener('DOMContentLoaded', () => {
 function initTheme() {
     const themeToggle = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
-    
-    // Load saved theme
-    const savedTheme = localStorage.getItem('budget-theme') || 'dark';
-    document.body.className = savedTheme;
-    updateThemeIcon(savedTheme);
-    
-    themeToggle.addEventListener('click', () => {
-        const isDark = document.body.classList.contains('dark');
-        const newTheme = isDark ? 'light' : 'dark';
-        
-        document.body.className = newTheme;
-        localStorage.setItem('budget-theme', newTheme);
-        updateThemeIcon(newTheme);
-        
-        // Redraw charts with new theme colors
-        drawCharts();
-    });
-    
- function updateThemeIcon(theme) {
-        themeIcon.innerHTML = theme === 'dark' 
-            ? '<i class="ph ph-moon"></i>' 
+
+    // Always start in light (daytime) mode on load — per Winston.
+    // Use classList so we don't clobber other body classes (e.g. wjp-auth-ready).
+    document.body.classList.remove('dark','light');
+    document.body.classList.add('light');
+    updateThemeIcon('light');
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.body.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+
+            document.body.classList.remove('dark','light');
+            document.body.classList.add(newTheme);
+            localStorage.setItem('budget-theme', newTheme);
+            updateThemeIcon(newTheme);
+
+            // Redraw charts with new theme colors
+            if (typeof drawCharts === 'function') drawCharts();
+        });
+    }
+
+    function updateThemeIcon(theme) {
+        if (!themeIcon) return;
+        themeIcon.innerHTML = theme === 'dark'
+            ? '<i class="ph ph-moon"></i>'
             : '<i class="ph ph-sun"></i>';
     }
 }
@@ -9363,11 +9368,9 @@ function loadUserData(user) {
     window._origSetItem('wjp_last_user_email', user.email || '');
     window._origSetItem('wjp_last_user_name', fullName || '');
   } catch(e) {}
-  const themePref = localStorage.getItem('budget-theme');
-  if (themePref) {
-    document.body.classList.remove('light', 'dark');
-    document.body.classList.add(themePref);
-  }
+  // Theme: always start in light mode on session load (per user preference).
+  document.body.classList.remove('light', 'dark');
+  document.body.classList.add('light');
 }
 
 function clearUserSession() { _currentUserId = null; }
