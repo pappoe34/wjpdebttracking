@@ -9460,3 +9460,19 @@ window.startOnboarding = function() {
     const obPage = document.getElementById('onboarding-page');
     if (obPage) obPage.style.display = 'block';
 };
+
+
+// ══════════════════════════════════════════════════════════════
+//  BROWSER CACHE — Prevent BFCache Restoration of Auth State
+// ══════════════════════════════════════════════════════════════
+
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    // Page was restored from bfcache
+    const ni = window.netlifyIdentity;
+    if (!ni || !ni.currentUser()) {
+      // No active user, reload to show auth gate
+      window.location.reload();
+    }
+  }
+});
