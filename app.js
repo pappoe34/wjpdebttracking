@@ -4566,10 +4566,220 @@ function renderCreditScoreTab() {
         </div>
       </div>`;
 
+    // ─────────────────────────────────────────────────────────
+    // BUREAU CONNECTION — live provider integration
+    // Stores: { provider, appKey, userId, lastSync, lastScore }
+    // ─────────────────────────────────────────────────────────
+    const BUREAU_KEY = 'wjp_credit_bureau';
+    let bureau = {};
+    try { bureau = JSON.parse(localStorage.getItem(BUREAU_KEY) || '{}'); } catch(_) {}
+    const saveBureau = () => localStorage.setItem(BUREAU_KEY, JSON.stringify(bureau));
+
+    const providerMeta = {
+        array:      { label: 'Array.io',              subtitle: 'Client-side widget · live pull', type:'widget'  },
+        plaid:      { label: 'Plaid (CRA)',           subtitle: 'Requires backend proxy',          type:'api'     },
+        experian:   { label: 'Experian Connect',      subtitle: 'Requires backend proxy',          type:'api'     },
+        equifax:    { label: 'Equifax',               subtitle: 'Requires backend proxy',          type:'api'     },
+        transunion: { label: 'TransUnion',            subtitle: 'Requires backend proxy',          type:'api'     },
+        creditkarma:{ label: 'Credit Karma (manual)', subtitle: 'Paste your latest score',         type:'manual'  },
+        myfico:     { label: 'myFICO (manual)',       subtitle: 'Paste your latest score',         type:'manual'  }
+    };
+
+    const bureauStatus = () => {
+        if (!bureau.provider) return 'Not connected';
+        const m = providerMeta[bureau.provider];
+        if (!m) return 'Not connected';
+        const ls = bureau.lastSync ? new Date(bureau.lastSync).toLocaleString() : 'never';
+        return `Connected to ${m.label} · last sync ${ls}`;
+    };
+
+    const bureauCard = `
+      <div class="card" style="grid-column:1 / -1; padding:28px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:260px;">
+            <div class="sjc-header" style="margin-bottom:14px;">
+              <div class="sjc-icon-blob"><i class="ph-fill ph-shield-check"></i></div>
+              <div class="badge" style="background:transparent; border:1px solid var(--border); color:var(--text-3); font-size:8px;">CREDIT BUREAU LINK</div>
+            </div>
+            <h3 style="font-size:18px; font-weight:800; margin-bottom:6px;">${bureau.provider ? 'Bureau connected' : 'Connect a credit bureau'}</h3>
+            <p style="font-size:12px; color:var(--text-2); line-height:1.6; max-width:520px;">
+              ${bureau.provider
+                ? bureauStatus() + '. Click Sync to refresh your score from the provider.'
+                : 'Pull live score + factor data directly from Array, Plaid, a bureau API, or sync manually from Credit Karma / myFICO. Credentials are stored locally on this device only.'}
+            </p>
+            ${bureau.provider === 'array' && bureau.appKey && bureau.userId ? `
+              <div id="cs-array-widget-mount" style="margin-top:14px; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:10px; min-height:120px;">
+                <div style="font-size:11px; color:var(--text-3); font-weight:700; margin-bottom:8px;">Array live widget</div>
+                <div id="cs-array-target" style="min-height:80px;"></div>
+                <div style="font-size:10px; color:var(--text-3); margin-top:8px;">If the widget doesn't render, verify your App Key and User ID match your Array dashboard.</div>
+              </div>` : ''}
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px; min-width:220px;">
+            <button id="cs-connect-bureau" class="btn btn-primary" style="padding:12px 18px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px;">
+              <i class="ph-fill ph-plug"></i> ${bureau.provider ? 'MANAGE CONNECTION' : 'CONNECT BUREAU'}
+            </button>
+            ${bureau.provider ? `
+              <button id="cs-sync-bureau" class="btn btn-ghost" style="padding:10px 16px; font-size:10px; background:var(--card-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; gap:6px;">
+                <i class="ph ph-arrows-clockwise"></i> SYNC NOW
+              </button>
+              <button id="cs-disconnect-bureau" class="btn btn-ghost" style="padding:10px 16px; font-size:10px; background:transparent; border:1px solid rgba(255,77,109,0.35); color:#ff4d6d; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <i class="ph ph-plug-charging"></i> DISCONNECT
+              </button>` : ''}
+          </div>
+        </div>
+      </div>`;
+
+    // ─────────────────────────────────────────────────────────
+    // AI CREDIT ADVISOR — answers questions using live profile
+    // ─────────────────────────────────────────────────────────
+    const CHAT_KEY = 'wjp_credit_chat';
+    let chat = [];
+    try { chat = JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); } catch(_) { chat = []; }
+    const saveChat = () => localStorage.setItem(CHAT_KEY, JSON.stringify(chat.slice(-40)));
+
+    const answerQuestion = (qRaw) => {
+        const q = (qRaw || '').toLowerCase().trim();
+        const sNow = snapshot();
+        const aNow = sNow.score !== null ? analyse(sNow) : null;
+        const planNow = aNow ? buildPlan(sNow, aNow) : [];
+        const projNow = aNow ? project(sNow, planNow) : null;
+
+        // "which debt/card to pay first"
+        if (/(pay (off|down) first|which (debt|card|one)|focus on|priority|start with|tackle first)/.test(q)) {
+            const top = planNow.find(p => p.pay > 0);
+            if (top) {
+                return `Start with **${top.title.replace(/^Pay down /, '')}**. ${top.detail} Expected impact: **+${top.pts} pts** within **${top.timeframe}**.`;
+            }
+            if (!sNow.totalLim) return `I need your credit card limits to rank debts by score impact. Add them in the "Credit Profile Inputs" card below.`;
+            return `Your utilization is already in the optimal zone. Focus on keeping balances under 10% of each card's limit and never missing a payment.`;
+        }
+
+        // "why is my score low" / "what's hurting my score"
+        if (/(why.*(low|hurt|bad|drop|fall)|hurting|dragging|weakest|biggest factor)/.test(q)) {
+            if (!aNow) return `Enter your current FICO score below and I can tell you exactly what's dragging it down.`;
+            const worst = aNow.factors.slice().sort((x,y) => x.score - y.score)[0];
+            return `Your weakest factor is **${worst.name}** (${worst.rating}, ${worst.weight}% of your score). ${worst.detail} Fixing this is your highest-leverage move.`;
+        }
+
+        // utilization
+        if (/(utilization|credit usage|balance to limit)/.test(q)) {
+            if (sNow.globalUtil === null) return `Add each credit card's limit in the Inputs card below so I can compute your utilization.`;
+            const pct = (sNow.globalUtil * 100).toFixed(1);
+            const worstCard = sNow.perCard.filter(c => c.util !== null).sort((a,b) => b.util - a.util)[0];
+            return `Your overall utilization is **${pct}%** (${fmtMoney(sNow.totalBal)} across ${fmtMoney(sNow.totalLim)} in limits). ${worstCard ? `Worst card: **${worstCard.name}** at ${(worstCard.util*100).toFixed(0)}%.` : ''} FICO rewards <10% — ideally you want each card below that line before each statement closes.`;
+        }
+
+        // "how long / when will I reach X"
+        const target = (() => {
+            const m = q.match(/(\d{3})/);
+            if (!m) return null;
+            const v = parseInt(m[1], 10);
+            return (v >= 300 && v <= 850) ? v : null;
+        })();
+        if (target && /(how long|reach|hit|when will|time to)/.test(q)) {
+            if (!projNow) return `Enter your current score so I can project a timeline.`;
+            if (target <= projNow.m3)       return `At your current trajectory you'd cross **${target}** within ~3 months (projected ${projNow.m3}).`;
+            if (target <= projNow.m6)       return `Roughly **3–6 months** if you execute the top actions (projected ${projNow.m6} at 6 months).`;
+            if (target <= projNow.m12)      return `Around **6–12 months** with the full plan in play (projected ${projNow.m12} at 12 months).`;
+            return `${target} is past your 12-month trajectory (${projNow.m12}). Sustained clean payment history + utilization discipline beyond 12 months is the path.`;
+        }
+
+        // approvals
+        if (/(approv|qualif|eligible|get a loan|get a card|mortgage|auto loan|car loan|refinance)/.test(q)) {
+            const score = sNow.score;
+            if (!score) return `Share your current score and I'll map approval odds for auto, mortgage, personal loan, and top rewards cards.`;
+            const lines = [];
+            const band = scoreBand(score).band;
+            lines.push(`At **${score} (${band})**:`);
+            if (/mortgage|refinance/.test(q)) {
+                lines.push(`• Mortgage — conventional loans require 620+; best rates unlock at 740+. ${score >= 740 ? 'You qualify for top-tier rates.' : score >= 700 ? 'You qualify, but rates will be moderate.' : score >= 620 ? 'You qualify, but rates will be notably higher.' : 'Most lenders will decline; FHA starts at 580.'}`);
+            } else if (/auto|car/.test(q)) {
+                lines.push(`• Auto loan — captive lenders approve down to ~580; best APRs unlock at 720+. ${score >= 720 ? 'You qualify for the lowest tier APRs.' : score >= 660 ? 'You qualify for prime rates, likely 1–3 points above floor.' : 'You qualify for subprime APRs; consider a co-signer or larger down payment.'}`);
+            } else if (/rewards|premium|card/.test(q)) {
+                lines.push(`• Rewards credit cards — most issuers want 700+ for premium rewards, 750+ for premium travel cards. ${score >= 750 ? 'You qualify across the board.' : score >= 700 ? 'You qualify for mainstream rewards, not ultra-premium.' : 'Target cash-back starter cards; premium rewards likely denied.'}`);
+            } else {
+                lines.push(`• Auto loan: best rates at 720+.`);
+                lines.push(`• Mortgage: 620 minimum (conventional), 740+ for best rate.`);
+                lines.push(`• Rewards credit cards: 700+ typically.`);
+                lines.push(`• Personal loan: 660+ for prime APRs.`);
+            }
+            return lines.join('\n');
+        }
+
+        // limit increase
+        if (/(limit increase|credit limit|raise.*limit|cli)/.test(q)) {
+            return `Request a soft-pull limit increase on your card with the longest on-time history. Major issuers (Chase, Amex, Capital One, Discover) typically grant 20–30% bumps every 6 months of on-time use. A higher limit drops your utilization ratio instantly — often worth **+5 to +15 points** within one statement cycle.`;
+        }
+
+        // payment history
+        if (/(late|missed|on-time|on time|payment history)/.test(q)) {
+            if (sNow.lates === 0) return `You have no late payments in the last 12 months — Payment History (35% of your score) is working in your favor. Keep auto-pay on every account to protect this.`;
+            return `You have **${sNow.lates} late payment${sNow.lates>1?'s':''}** in the past 12 months. Each late drags Payment History (35% weight). A 30-day late costs 60–80 points at the peak and ages off over 7 years; a clean 6-month streak can recover 20–40 of those points.`;
+        }
+
+        // help / greeting / default
+        if (/(hi|hello|hey|help|what can you|how do|what should)/.test(q) || q.length < 4) {
+            return `I'm your credit advisor. I can answer using your live debt data. Try:\n• Which debt should I pay off first?\n• Why is my score low?\n• What's my utilization?\n• Can I qualify for a mortgage / auto loan / rewards card?\n• How long until my score hits 750?\n• Should I request a limit increase?`;
+        }
+
+        // Fallback — give a summary
+        if (!aNow) return `Enter your current FICO score in the Inputs card and I can give you a data-driven answer.`;
+        const worst = aNow.factors.slice().sort((x,y) => x.score - y.score)[0];
+        const top = planNow[0];
+        return `Here's what I see: score **${sNow.score}** (${scoreBand(sNow.score).band}). Weakest factor: **${worst.name}** (${worst.rating}). Top recommended action: **${top ? top.title : 'Maintain current habits'}**${top && top.pts ? ` (+${top.pts} pts)` : ''}.`;
+    };
+
+    const renderChatBubble = (role, text) => {
+        const isUser = role === 'user';
+        const safe = String(text || '')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+        return `
+          <div style="display:flex; ${isUser ? 'justify-content:flex-end' : 'justify-content:flex-start'}; margin-bottom:10px;">
+            <div style="max-width:78%; padding:12px 14px; border-radius:${isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px'}; background:${isUser ? 'var(--accent)' : 'var(--card-2)'}; color:${isUser ? '#fff' : 'var(--text)'}; border:${isUser ? 'none' : '1px solid var(--border)'}; font-size:12px; line-height:1.6;">${safe}</div>
+          </div>`;
+    };
+
+    const aiChatCard = `
+      <div class="card" style="grid-column:1 / -1; padding:28px;">
+        <div class="sjc-header" style="margin-bottom:14px;">
+          <div class="sjc-icon-blob"><i class="ph-fill ph-robot"></i></div>
+          <div class="badge" style="background:transparent; border:1px solid var(--accent); color:var(--accent); font-size:8px;">AI CREDIT ADVISOR</div>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin-bottom:6px;">Ask anything about your score</h3>
+        <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin-bottom:14px;">Questions are answered using your live debt data, credit inputs, and FICO factor model. Conversation stays on this device.</p>
+
+        <div id="cs-chat-suggestions" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+          ${[
+            'Which debt should I pay first?',
+            'Why is my score low?',
+            "What's my utilization?",
+            'Can I qualify for a mortgage?',
+            'How long until my score hits 750?',
+            'Should I request a limit increase?'
+          ].map(q => `<button class="cs-chat-suggest" style="padding:7px 12px; font-size:10px; font-weight:700; background:var(--card-2); border:1px solid var(--border); color:var(--text-2); border-radius:99px; cursor:pointer;">${q}</button>`).join('')}
+        </div>
+
+        <div id="cs-chat-history" style="max-height:360px; overflow-y:auto; padding:16px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; margin-bottom:12px;">
+          ${chat.length === 0 ? `<div style="text-align:center; padding:20px; font-size:11px; color:var(--text-3);">Ask a question or pick a suggestion above to start.</div>` : chat.map(m => renderChatBubble(m.role, m.text)).join('')}
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <input id="cs-chat-input" type="text" placeholder="Ask about your credit score…" autocomplete="off"
+            style="flex:1; padding:12px 14px; background:var(--card-2); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:12px; outline:none;">
+          <button id="cs-chat-send" class="btn btn-primary" style="padding:12px 18px; font-size:11px;">
+            <i class="ph-fill ph-paper-plane-tilt"></i>&nbsp;ASK
+          </button>
+          ${chat.length > 0 ? `<button id="cs-chat-clear" class="btn btn-ghost" style="padding:12px 14px; font-size:10px; background:var(--card-2); border:1px solid var(--border);"><i class="ph ph-trash"></i></button>` : ''}
+        </div>
+      </div>`;
+
     // If score isn't set yet, show just inputs + empty hero state
     if (needsOnboarding) {
         container.innerHTML = `
           <div class="reveal" style="display:grid; grid-template-columns:1fr; gap:24px; padding-bottom:40px;">
+            ${bureauCard}
             <div class="card" style="grid-column:1 / -1; padding:36px; text-align:center;">
               <div style="display:inline-flex; width:64px; height:64px; border-radius:18px; background:rgba(31,122,74,0.08); border:1px solid rgba(31,122,74,0.2); align-items:center; justify-content:center; margin:0 auto 18px;">
                 <i class="ph-fill ph-gauge" style="font-size:28px; color:var(--accent);"></i>
@@ -4580,6 +4790,7 @@ function renderCreditScoreTab() {
               </p>
             </div>
             ${inputsCard}
+            ${aiChatCard}
           </div>`;
         wireInputs();
         return;
@@ -4732,10 +4943,12 @@ function renderCreditScoreTab() {
 
     container.innerHTML = `
       <div class="reveal" style="display:grid; grid-template-columns:1fr; gap:24px; padding-bottom:40px;">
+        ${bureauCard}
         ${heroCard}
         ${factorCard}
         ${planCard}
         ${priorityCard}
+        ${aiChatCard}
         ${inputsCard}
       </div>`;
 
@@ -4765,6 +4978,241 @@ function renderCreditScoreTab() {
             if (typeof showToast === 'function') showToast('Credit analysis updated.');
             renderCreditScoreTab();
         });
+
+        // ─── Bureau connection UI ───
+        const connectBtn = document.getElementById('cs-connect-bureau');
+        if (connectBtn) connectBtn.addEventListener('click', () => openBureauModal());
+
+        const syncBtn = document.getElementById('cs-sync-bureau');
+        if (syncBtn) syncBtn.addEventListener('click', () => syncBureau());
+
+        const discBtn = document.getElementById('cs-disconnect-bureau');
+        if (discBtn) discBtn.addEventListener('click', () => {
+            if (!confirm('Disconnect from ' + (providerMeta[bureau.provider]?.label || 'bureau') + '? Your local credit profile data will stay.')) return;
+            bureau = {};
+            saveBureau();
+            if (typeof showToast === 'function') showToast('Bureau disconnected.');
+            renderCreditScoreTab();
+        });
+
+        // Inject Array widget script if configured
+        if (bureau.provider === 'array' && bureau.appKey && bureau.userId) {
+            const target = document.getElementById('cs-array-target');
+            if (target && !document.getElementById('array-web-component-script')) {
+                const sc = document.createElement('script');
+                sc.id = 'array-web-component-script';
+                sc.src = 'https://embed.array.io/cms/array-web-component.js?appKey=' + encodeURIComponent(bureau.appKey);
+                sc.async = true;
+                document.head.appendChild(sc);
+            }
+            if (target) {
+                target.innerHTML = `<array-credit-score appKey="${String(bureau.appKey).replace(/"/g,'')}" userToken="${String(bureau.userId).replace(/"/g,'')}" sandbox="true"></array-credit-score>`;
+            }
+        }
+
+        // ─── Chat wiring ───
+        const sendBtn = document.getElementById('cs-chat-send');
+        const inputEl = document.getElementById('cs-chat-input');
+        const clearBtn = document.getElementById('cs-chat-clear');
+
+        const sendMessage = (textOverride) => {
+            const text = (textOverride !== undefined ? textOverride : (inputEl ? inputEl.value : '')).trim();
+            if (!text) return;
+            chat.push({ role: 'user', text, ts: Date.now() });
+            const reply = answerQuestion(text);
+            chat.push({ role: 'assistant', text: reply, ts: Date.now() });
+            saveChat();
+            if (inputEl) inputEl.value = '';
+            renderCreditScoreTab();
+        };
+
+        if (sendBtn) sendBtn.addEventListener('click', () => sendMessage());
+        if (inputEl) inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        document.querySelectorAll('.cs-chat-suggest').forEach(btn => {
+            btn.addEventListener('click', () => sendMessage(btn.textContent));
+        });
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+            if (!confirm('Clear your credit-advisor chat history?')) return;
+            chat = [];
+            saveChat();
+            renderCreditScoreTab();
+        });
+
+        // Auto-scroll chat history to bottom
+        const hist = document.getElementById('cs-chat-history');
+        if (hist) hist.scrollTop = hist.scrollHeight;
+    }
+
+    function openBureauModal() {
+        // Remove any stale modal
+        const existing = document.getElementById('cs-bureau-modal');
+        if (existing) existing.remove();
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'cs-bureau-modal';
+        backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:10000; display:flex; align-items:center; justify-content:center; padding:20px;';
+
+        const providerOptions = Object.entries(providerMeta).map(([k, m]) => `
+          <label style="display:flex; gap:12px; padding:12px 14px; background:var(--card-2); border:1px solid var(--border); border-radius:10px; cursor:pointer;">
+            <input type="radio" name="cs-bureau-provider" value="${k}" ${bureau.provider===k?'checked':''} style="margin-top:3px;">
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:800;">${m.label}</div>
+              <div style="font-size:10px; color:var(--text-3);">${m.subtitle}</div>
+            </div>
+            <div style="font-size:9px; font-weight:700; color:${m.type==='widget'?'#2b9b72':m.type==='api'?'#d97706':'var(--text-3)'}; text-transform:uppercase; align-self:center;">${m.type}</div>
+          </label>`).join('');
+
+        backdrop.innerHTML = `
+          <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; max-width:540px; width:100%; max-height:90vh; overflow-y:auto;">
+            <div style="padding:22px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:11px; color:var(--text-3); font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">Credit bureau link</div>
+                <h3 style="font-size:18px; font-weight:800; margin-top:4px;">Choose a provider</h3>
+              </div>
+              <button id="cs-bureau-close" style="background:transparent; border:none; color:var(--text-3); font-size:22px; cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:20px 24px;">
+              <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;">${providerOptions}</div>
+              <div id="cs-bureau-fields" style="display:flex; flex-direction:column; gap:10px;"></div>
+              <div style="font-size:10px; color:var(--text-3); line-height:1.6; margin-top:14px; padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px;">
+                <i class="ph-fill ph-shield"></i> Credentials stay on this device (localStorage). Bureau APIs marked "api" require a backend proxy for FCRA compliance — this app stores your reference credentials and lets you paste the score the backend returns.
+              </div>
+            </div>
+            <div style="padding:18px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
+              <button id="cs-bureau-cancel" class="btn btn-ghost" style="padding:10px 18px; font-size:11px; background:var(--card-2); border:1px solid var(--border);">CANCEL</button>
+              <button id="cs-bureau-save" class="btn btn-primary" style="padding:10px 18px; font-size:11px;">SAVE CONNECTION</button>
+            </div>
+          </div>`;
+        document.body.appendChild(backdrop);
+
+        const fieldsEl = backdrop.querySelector('#cs-bureau-fields');
+        const renderFields = (provider) => {
+            const m = providerMeta[provider];
+            if (!m) { fieldsEl.innerHTML = ''; return; }
+            const inputStyle = 'padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; font-weight:600; width:100%;';
+            const labelStyle = 'display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;';
+
+            if (m.type === 'widget') {
+                fieldsEl.innerHTML = `
+                  <label style="${labelStyle}">App Key (from Array dashboard)
+                    <input id="cs-f-appkey" type="text" value="${(bureau.appKey||'').replace(/"/g,'')}" placeholder="sandbox-xxxx or prod key" style="${inputStyle}">
+                  </label>
+                  <label style="${labelStyle}">User Token / ID
+                    <input id="cs-f-userid" type="text" value="${(bureau.userId||'').replace(/"/g,'')}" placeholder="user token issued for this account" style="${inputStyle}">
+                  </label>
+                  <label style="${labelStyle}">Latest score (optional — widget will pull live)
+                    <input id="cs-f-score" type="number" min="300" max="850" value="${bureau.lastScore||''}" placeholder="e.g. 720" style="${inputStyle}">
+                  </label>`;
+            } else if (m.type === 'api') {
+                fieldsEl.innerHTML = `
+                  <label style="${labelStyle}">API reference / Client ID
+                    <input id="cs-f-appkey" type="text" value="${(bureau.appKey||'').replace(/"/g,'')}" placeholder="client_id or reference code" style="${inputStyle}">
+                  </label>
+                  <label style="${labelStyle}">Account / User reference
+                    <input id="cs-f-userid" type="text" value="${(bureau.userId||'').replace(/"/g,'')}" placeholder="your account reference at provider" style="${inputStyle}">
+                  </label>
+                  <label style="${labelStyle}">Latest score from provider
+                    <input id="cs-f-score" type="number" min="300" max="850" value="${bureau.lastScore||''}" placeholder="paste the score your backend returned" style="${inputStyle}">
+                  </label>
+                  <div style="font-size:10px; color:#d97706; line-height:1.5; padding:8px 10px; background:rgba(217,119,6,0.08); border:1px solid rgba(217,119,6,0.25); border-radius:6px;">
+                    <i class="ph-fill ph-warning"></i> Direct ${m.label} pulls require a backend proxy + FCRA-compliant consent. Your credentials and score are stored locally only; no pull happens from this browser.
+                  </div>`;
+            } else {
+                fieldsEl.innerHTML = `
+                  <label style="${labelStyle}">Latest score from ${m.label}
+                    <input id="cs-f-score" type="number" min="300" max="850" value="${bureau.lastScore||''}" placeholder="e.g. 720" style="${inputStyle}">
+                  </label>
+                  <label style="${labelStyle}">Source URL (optional)
+                    <input id="cs-f-appkey" type="text" value="${(bureau.appKey||'').replace(/"/g,'')}" placeholder="https://… where you saw the score" style="${inputStyle}">
+                  </label>
+                  <label style="${labelStyle}">Account / user reference (optional)
+                    <input id="cs-f-userid" type="text" value="${(bureau.userId||'').replace(/"/g,'')}" placeholder="username or email at the source" style="${inputStyle}">
+                  </label>`;
+            }
+        };
+
+        const currentChoice = () => {
+            const r = backdrop.querySelector('input[name="cs-bureau-provider"]:checked');
+            return r ? r.value : null;
+        };
+        renderFields(bureau.provider || null);
+        backdrop.querySelectorAll('input[name="cs-bureau-provider"]').forEach(r => {
+            r.addEventListener('change', () => renderFields(r.value));
+        });
+
+        backdrop.querySelector('#cs-bureau-close').addEventListener('click', () => backdrop.remove());
+        backdrop.querySelector('#cs-bureau-cancel').addEventListener('click', () => backdrop.remove());
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.remove(); });
+
+        backdrop.querySelector('#cs-bureau-save').addEventListener('click', () => {
+            const p = currentChoice();
+            if (!p) { alert('Pick a provider first.'); return; }
+            const appKeyEl = backdrop.querySelector('#cs-f-appkey');
+            const userIdEl = backdrop.querySelector('#cs-f-userid');
+            const scoreEl  = backdrop.querySelector('#cs-f-score');
+            const appKey = appKeyEl ? appKeyEl.value.trim() : '';
+            const userId = userIdEl ? userIdEl.value.trim() : '';
+            const scoreVal = scoreEl && scoreEl.value ? parseInt(scoreEl.value, 10) : null;
+
+            bureau = {
+                provider: p,
+                appKey, userId,
+                lastScore: (scoreVal && scoreVal >= 300 && scoreVal <= 850) ? scoreVal : (bureau.lastScore || null),
+                lastSync: Date.now()
+            };
+            saveBureau();
+
+            // If user pasted a score, pipe it into the credit profile
+            if (scoreVal && scoreVal >= 300 && scoreVal <= 850) {
+                cs.currentScore = scoreVal;
+                saveCs();
+            }
+
+            backdrop.remove();
+            if (typeof showToast === 'function') showToast('Connected to ' + providerMeta[p].label + '.');
+            renderCreditScoreTab();
+        });
+    }
+
+    function syncBureau() {
+        if (!bureau.provider) return;
+        const m = providerMeta[bureau.provider];
+        if (!m) return;
+
+        if (m.type === 'widget') {
+            // Array widget is live — just bump the sync timestamp and re-render
+            bureau.lastSync = Date.now();
+            saveBureau();
+            if (typeof showToast === 'function') showToast('Array widget refreshed.');
+            renderCreditScoreTab();
+            return;
+        }
+
+        // api + manual → prompt for latest score
+        const currentScore = bureau.lastScore ? String(bureau.lastScore) : '';
+        const input = prompt(
+            'Sync from ' + m.label + '\n\n' +
+            (m.type === 'api'
+                ? 'Paste the latest score returned by your ' + m.label + ' backend proxy:'
+                : 'Paste your latest score from ' + m.label + ':'),
+            currentScore
+        );
+        if (input === null) return;
+        const v = parseInt(input, 10);
+        if (!v || v < 300 || v > 850) { alert('Enter a valid score between 300 and 850.'); return; }
+
+        bureau.lastScore = v;
+        bureau.lastSync = Date.now();
+        saveBureau();
+        cs.currentScore = v;
+        saveCs();
+        if (typeof showToast === 'function') showToast('Score updated from ' + m.label + '.');
+        renderCreditScoreTab();
     }
 }
 window.renderCreditScoreTab = renderCreditScoreTab;
