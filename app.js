@@ -2146,11 +2146,15 @@ function initModal() {
             } else if (route === 'transaction') {
                 showFormStep('new-transaction', 'New Transaction');
             } else if (route === 'bank') {
-                // Route to bank-link drawer (re-use existing settings-drawer flow)
+                // Real Plaid Link flow. Falls back to legacy settings-drawer if Plaid isn't configured.
                 closeModal();
-                const btnBank = document.getElementById('btn-settings-link-account');
-                if (btnBank) btnBank.click();
-                else if (typeof showToast === 'function') showToast('Open Settings → Link Bank Account.');
+                if (typeof openPlaidLink === 'function') {
+                    openPlaidLink();
+                } else {
+                    const btnBank = document.getElementById('btn-settings-link-account');
+                    if (btnBank) btnBank.click();
+                    else if (typeof showToast === 'function') showToast('Open Settings → Link Bank Account.');
+                }
             }
         });
     });
@@ -3134,7 +3138,16 @@ function openObligationMenu(anchor, debtId) {
     const menu = document.createElement('div');
     menu.className = 'obl-action-menu';
     menu.style.cssText = 'position:absolute; z-index:9500; min-width:180px; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,0.35); padding:6px; font-family:inherit;';
-    const items = [
+
+    // Plaid-sourced debts cannot be edited manually — only refreshed from bank or unlinked.
+    const debtForMenu = (appState.debts || []).find(d => d.id === debtId);
+    const isPlaid = !!(debtForMenu && debtForMenu.source === 'plaid');
+    const items = isPlaid ? [
+        { label: 'Rename', icon: 'ph-pencil-simple', act: 'rename' },
+        { label: 'Refresh from bank', icon: 'ph-arrows-clockwise', act: 'refresh-bank' },
+        { label: 'Attach statement', icon: 'ph-paperclip', act: 'attach' },
+        { label: 'Unlink bank', icon: 'ph-link-break', act: 'unlink-bank', danger: true }
+    ] : [
         { label: 'Rename', icon: 'ph-pencil-simple', act: 'rename' },
         { label: 'Update balance', icon: 'ph-arrows-clockwise', act: 'update' },
         { label: 'Attach statement', icon: 'ph-paperclip', act: 'attach' },
@@ -3168,6 +3181,14 @@ function openObligationMenu(anchor, debtId) {
             else if (act === 'update') updateDebtBalancePrompt(debtId);
             else if (act === 'attach') openAttachStatementPicker(debtId);
             else if (act === 'delete') deleteDebtPrompt(debtId);
+            else if (act === 'refresh-bank') {
+                const d = (appState.debts || []).find(x => x.id === debtId);
+                if (d && d.itemId && typeof refreshFromBank === 'function') refreshFromBank(d.itemId);
+            }
+            else if (act === 'unlink-bank') {
+                const d = (appState.debts || []).find(x => x.id === debtId);
+                if (d && d.itemId && typeof unlinkPlaidItem === 'function') unlinkPlaidItem(d.itemId);
+            }
         });
     });
 }
@@ -6184,6 +6205,313 @@ function renderCreditScoreTab() {
     }
 }
 window.renderCreditScoreTab = renderCreditScoreTab;
+
+
+/* ============================================================
+   PLAID BANK-SYNC (real backend via Netlify Functions)
+   Backend lives at /.netlify/functions/* and requires:
+     - PLAID_CLIENT_ID, PLAID_SANDBOX_SECRET (Plaid sandbox)
+     - FIREBASE_SERVICE_ACCOUNT_JSON (Firebase Admin)
+   All calls authenticate with the current user's Firebase ID token.
+   ============================================================ */
+const PLAID_FN_BASE = '/.netlify/functions';
+
+async function getIdToken() {
+    try {
+        const auth = window.__wjpAuth;
+        const user = (auth && auth.currentUser) || window.__wjpUser;
+        if (!user || typeof user.getIdToken !== 'function') return null;
+        return await user.getIdToken();
+    } catch (_) {
+        return null;
+    }
+}
+
+async function fetchLinkToken() {
+    const token = await getIdToken();
+    if (!token) throw new Error('not-signed-in');
+    const resp = await fetch(`${PLAID_FN_BASE}/create-link-token`, {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    });
+    let data = null;
+    try { data = await resp.json(); } catch(_) {}
+    if (!resp.ok) {
+        const msg = (data && data.error) || ('HTTP ' + resp.status);
+        const e = new Error(msg);
+        e.status = resp.status;
+        e.serverError = (data && data.error) || '';
+        throw e;
+    }
+    return data && data.link_token;
+}
+
+async function openPlaidLink() {
+    if (typeof Plaid === 'undefined' || !Plaid || typeof Plaid.create !== 'function') {
+        if (typeof showToast === 'function') showToast('Plaid Link script not loaded.');
+        return;
+    }
+    if (typeof showToast === 'function') showToast('Contacting your bank…');
+    let linkToken;
+    try {
+        linkToken = await fetchLinkToken();
+    } catch (e) {
+        // Detect "bank sync not configured" and surface a friendly message; keep the
+        // legacy fake-bank UI accessible as a fallback.
+        const msg = (e && (e.serverError || e.message)) || '';
+        if (/missing env var|PLAID_CLIENT_ID|PLAID_SANDBOX_SECRET|FIREBASE_SERVICE_ACCOUNT_JSON/i.test(msg)) {
+            if (typeof showToast === 'function') showToast("Bank sync isn't configured yet — see setup guide.");
+            return;
+        }
+        if (e && e.message === 'not-signed-in') {
+            if (typeof showToast === 'function') showToast('Sign in to link your bank.');
+            return;
+        }
+        console.error('fetchLinkToken failed:', e);
+        if (typeof showToast === 'function') showToast('Could not start bank link. Try again.');
+        return;
+    }
+    if (!linkToken) {
+        if (typeof showToast === 'function') showToast('No link token returned.');
+        return;
+    }
+
+    try {
+        const handler = Plaid.create({
+            token: linkToken,
+            onSuccess: (public_token, metadata) => { handlePlaidSuccess(public_token, metadata); },
+            onExit: (err, metadata) => { handlePlaidExit(err, metadata); }
+        });
+        handler.open();
+    } catch (e) {
+        console.error('Plaid.create failed:', e);
+        if (typeof showToast === 'function') showToast('Could not open Plaid Link.');
+    }
+}
+
+async function handlePlaidSuccess(public_token, metadata) {
+    try {
+        const token = await getIdToken();
+        if (!token) throw new Error('not-signed-in');
+        const institutionName = metadata && metadata.institution && metadata.institution.name;
+        const accounts = (metadata && metadata.accounts) || [];
+        const resp = await fetch(`${PLAID_FN_BASE}/exchange-public-token`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ public_token, institutionName, accounts })
+        });
+        if (!resp.ok) {
+            let data = {};
+            try { data = await resp.json(); } catch(_) {}
+            throw new Error((data && data.error) || ('HTTP ' + resp.status));
+        }
+        if (typeof showToast === 'function') showToast('Bank linked. Loading accounts…');
+        await refreshLinkedAccounts();
+        if (typeof showToast === 'function') showToast('Accounts synced.');
+    } catch (e) {
+        console.error('handlePlaidSuccess error:', e);
+        if (typeof showToast === 'function') showToast('Linked, but sync failed. Try Refresh.');
+    }
+}
+
+function handlePlaidExit(err, metadata) {
+    if (err) {
+        console.warn('Plaid exit with error:', err, metadata);
+        if (typeof showToast === 'function') showToast('Bank link cancelled.');
+    }
+    // No error + user closed → no-op.
+}
+
+async function refreshLinkedAccounts() {
+    const token = await getIdToken();
+    if (!token) return;
+    let resp;
+    try {
+        resp = await fetch(`${PLAID_FN_BASE}/get-accounts`, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+    } catch (e) {
+        console.warn('refreshLinkedAccounts network error:', e);
+        return;
+    }
+    if (!resp.ok) {
+        // Silent on auto-refresh (env not configured yet, etc.) — surface only the obvious cases.
+        if (resp.status === 401) return;
+        let data = {};
+        try { data = await resp.json(); } catch(_) {}
+        const msg = (data && data.error) || '';
+        if (/missing env var/i.test(msg)) return; // Plaid not configured → silent
+        console.warn('get-accounts failed:', resp.status, msg);
+        return;
+    }
+    let payload = null;
+    try { payload = await resp.json(); } catch(_) {}
+    if (!payload || !Array.isArray(payload.items)) return;
+
+    const now = Date.now();
+    appState.debts = Array.isArray(appState.debts) ? appState.debts : [];
+
+    // Track which Plaid-sourced IDs we see in this refresh so we can prune stale ones.
+    const seenIds = new Set();
+
+    payload.items.forEach(item => {
+        const itemId = item.itemId;
+        const institutionName = item.institutionName || 'Bank';
+        const liabilities = item.liabilities || null;
+        (item.accounts || []).forEach(account => {
+            const id = 'plaid:' + account.account_id;
+            seenIds.add(id);
+            const subtype = String(account.subtype || '').toLowerCase();
+            const type = String(account.type || '').toLowerCase();
+            let mappedType = 'bank';
+            if (subtype === 'credit card' || type === 'credit') mappedType = 'credit card';
+            else if (type === 'loan') mappedType = 'loan';
+
+            const balances = account.balances || {};
+            const balance = Math.abs(Number(balances.current) || 0);
+            const limit = balances.limit != null ? Number(balances.limit) : null;
+
+            // Try to pull APR / minimum payment from liabilities payload if present.
+            let apr = 0;
+            let minPayment = 0;
+            if (liabilities) {
+                const pickFromList = (list) => (list || []).find(x => x && x.account_id === account.account_id);
+                const credit = pickFromList(liabilities.credit);
+                const student = pickFromList(liabilities.student);
+                const mortgage = pickFromList(liabilities.mortgage);
+                if (credit) {
+                    minPayment = Number(credit.minimum_payment_amount) || 0;
+                    const aprs = credit.aprs || [];
+                    if (aprs.length) apr = Number(aprs[0].apr_percentage) || 0;
+                }
+                if (student) {
+                    minPayment = Number(student.minimum_payment_amount) || minPayment;
+                    apr = Number(student.interest_rate_percentage) || apr;
+                }
+                if (mortgage) {
+                    apr = Number((mortgage.interest_rate && mortgage.interest_rate.percentage)) || apr;
+                }
+            }
+
+            const existing = appState.debts.find(d => d.id === id);
+            const record = {
+                id,
+                name: account.name || account.official_name || institutionName,
+                type: mappedType,
+                balance,
+                limit: (limit != null && !isNaN(limit)) ? limit : (existing && existing.limit) || null,
+                apr: apr || (existing && existing.apr) || 0,
+                minPayment: minPayment || (existing && existing.minPayment) || 0,
+                dueDate: (existing && existing.dueDate) || (Math.floor(Math.random() * 28) + 1),
+                attachments: (existing && existing.attachments) || [],
+                source: 'plaid',
+                itemId,
+                institutionName,
+                lastUpdated: now
+            };
+            if (existing) {
+                Object.assign(existing, record);
+            } else {
+                appState.debts.push(record);
+            }
+
+            // Mirror credit-card limit into cs.cardLimits so utilization bars pick it up.
+            if (mappedType === 'credit card' && record.limit > 0) {
+                try {
+                    const cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
+                    cs.cardLimits = cs.cardLimits || {};
+                    cs.cardLimits[id] = record.limit;
+                    localStorage.setItem('wjp_credit_inputs', JSON.stringify(cs));
+                } catch(_) {}
+            }
+        });
+    });
+
+    // Prune Plaid debts that no longer appear (e.g. removed at bank)
+    appState.debts = appState.debts.filter(d => d.source !== 'plaid' || seenIds.has(d.id));
+
+    try { if (typeof saveState === 'function') saveState(); } catch(_) {}
+    try { if (typeof updateUI === 'function') updateUI(); } catch(_) {}
+}
+
+async function refreshFromBank(itemId) {
+    if (typeof showToast === 'function') showToast('Refreshing from bank…');
+    try {
+        await refreshLinkedAccounts();
+        if (typeof showToast === 'function') showToast('Bank data refreshed.');
+    } catch (e) {
+        console.error('refreshFromBank error:', e);
+        if (typeof showToast === 'function') showToast('Refresh failed.');
+    }
+}
+
+async function unlinkPlaidItem(itemId) {
+    if (!itemId) return;
+    if (!confirm('Unlink this bank? This removes all accounts synced from it.')) return;
+    try {
+        const token = await getIdToken();
+        if (!token) throw new Error('not-signed-in');
+        const resp = await fetch(`${PLAID_FN_BASE}/unlink-item`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ itemId })
+        });
+        if (!resp.ok) {
+            let data = {};
+            try { data = await resp.json(); } catch(_) {}
+            throw new Error((data && data.error) || ('HTTP ' + resp.status));
+        }
+        appState.debts = (appState.debts || []).filter(d => !(d.source === 'plaid' && d.itemId === itemId));
+        try { if (typeof saveState === 'function') saveState(); } catch(_) {}
+        try { if (typeof updateUI === 'function') updateUI(); } catch(_) {}
+        if (typeof showToast === 'function') showToast('Bank unlinked.');
+    } catch (e) {
+        console.error('unlinkPlaidItem error:', e);
+        if (typeof showToast === 'function') showToast('Unlink failed.');
+    }
+}
+
+// Expose for inline handlers / debugging
+window.openPlaidLink = openPlaidLink;
+window.refreshLinkedAccounts = refreshLinkedAccounts;
+window.refreshFromBank = refreshFromBank;
+window.unlinkPlaidItem = unlinkPlaidItem;
+
+// Auto-refresh linked accounts once Firebase auth is ready + signed in.
+// The gate in index.html dispatches 'wjp-auth-ready' after authStateReady() resolves.
+(function wirePlaidAutoRefresh() {
+    let ran = false;
+    const go = () => {
+        if (ran) return;
+        ran = true;
+        // Fire-and-forget; refreshLinkedAccounts is silent on "not configured" / 401.
+        try { refreshLinkedAccounts(); } catch(_) {}
+    };
+    window.addEventListener('wjp-auth-ready', go, { once: true });
+    // Fallback: if the event already fired before app.js parsed, the gate has set window.__wjpUser.
+    // Check after DOM is ready.
+    const check = () => {
+        if (window.__wjpUser && window.__wjpAuth && window.__wjpAuth.currentUser) go();
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', check, { once: true });
+    } else {
+        setTimeout(check, 0);
+    }
+    // Belt-and-suspenders
+    setTimeout(check, 1500);
+})();
 
 
 function renderActivityPage() {
