@@ -96,6 +96,9 @@
 
       window.__wjpUser = user;
       window.__wjpAuth = auth;
+      // Signal to app.js (non-module) that Firebase auth is ready + user is signed in.
+      // app.js listens for this to kick off Plaid / linked-account refresh.
+      try { window.dispatchEvent(new CustomEvent('wjp-auth-ready', { detail: { uid: user.uid } })); } catch(_) {}
 
       // Delete Account helper — exposed so app.js (non-module) can call Firebase.
       // Handles the 'auth/requires-recent-login' case by re-authenticating the
@@ -152,6 +155,8 @@
   <!-- UI Libraries -->
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Plaid Link (real bank-sync) -->
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
   <!-- Brand typography: Fraunces (editorial serif) + Inter (UI sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
