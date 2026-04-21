@@ -1,0 +1,9 @@
+{
+  "name": "wjp-functions",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "plaid": "^27.0.0",
+    "firebase-admin": "^12.0.0"
+  }
+}
