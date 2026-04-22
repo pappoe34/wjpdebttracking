@@ -1,6 +1,9 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+  # Skip build when only non-deployed paths changed (docs, scratch scripts, secrets).
+  # Netlify runs this in the repo root; non-zero exit => skip deploy.
+  ignore = "git diff --quiet HEAD^ HEAD -- ':!README*' ':!docs/' ':!.secrets/' ':!*.py' ':!*.md'"
 
 [functions]
   node_bundler = "esbuild"
