@@ -165,6 +165,16 @@ exports.handler = async (event) => {
   const db = getFirestore();
   const admin = getFirebaseAdmin();
   const uid = await findUidForItem(db, itemId);
+  // Diagnostic: record uid resolution outcome.
+  try {
+    await db.collection('plaid_webhook_diag').doc('latest').set({
+      verifyOk: true,
+      parsedWebhookType: webhookType,
+      parsedWebhookCode: webhookCode,
+      resolvedUid: uid || null,
+      resolvedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (_) {}
   if (!uid) {
     console.warn('webhook for unknown item', itemId, webhookType, webhookCode);
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, reason: 'unknown item' }) };
