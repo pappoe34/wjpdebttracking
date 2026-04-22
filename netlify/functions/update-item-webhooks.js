@@ -88,6 +88,17 @@ exports.handler = async (event) => {
         // Mirror the configured URL onto the doc so we can audit later without
         // round-tripping to Plaid.
         await doc.ref.set({ webhookUrl, webhookUrlUpdatedAt: new Date().toISOString() }, { merge: true });
+        // Backfill plaid_item_owners mapping. Items linked before this mapping
+        // existed have webhooks arriving with no way to resolve the user.
+        try {
+          await db.collection('plaid_item_owners').doc(doc.id).set({
+            uid,
+            backfilledAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (mapErr) {
+          // Non-fatal — webhook URL update still succeeded.
+          console.warn('plaid_item_owners backfill failed', doc.id, mapErr.message);
+        }
         updated.push({ itemId: doc.id, ok: true });
       } catch (e) {
         const msg = (e && e.response && e.response.data && (e.response.data.error_message || e.response.data.error_code)) || e.message || 'unknown';
