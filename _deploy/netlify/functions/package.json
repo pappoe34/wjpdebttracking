@@ -5,6 +5,6 @@
   "dependencies": {
     "plaid": "^27.0.0",
     "firebase-admin": "^12.0.0",
-    "jose": "^5.9.6"
+    "jose": "^4.15.9"
   }
 }
