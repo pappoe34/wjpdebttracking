@@ -8,7 +8,7 @@
 // Safe to keep in sandbox; remove (or gate) before cutting over to production.
 
 const { verifyIdToken, getFirestore } = require('./_shared/firebase');
-const { getPlaidClient } = require('./_shared/plaid');
+const { getPlaidClient, getPlaidEnv } = require('./_shared/plaid');
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +23,12 @@ exports.handler = async (event) => {
   }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'method not allowed' }) };
+  }
+
+  // Hard gate: this endpoint hits Plaid's /sandbox/* API and is meaningless
+  // (and unsafe to expose) outside sandbox. Fail closed in dev/production.
+  if (getPlaidEnv() !== 'sandbox') {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'sandbox-only endpoint disabled in PLAID_ENV=' + getPlaidEnv() }) };
   }
 
   try {

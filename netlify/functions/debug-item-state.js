@@ -8,7 +8,7 @@
 // attached on Plaid's side, and whether plaid-webhook ever wrote lastWebhookAt).
 
 const { verifyIdToken, getFirestore } = require('./_shared/firebase');
-const { getPlaidClient } = require('./_shared/plaid');
+const { getPlaidClient, getPlaidEnv } = require('./_shared/plaid');
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +35,11 @@ function safeData(d) {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'method not allowed' }) };
+
+  // Hard gate: returns internal Plaid item state + uid mappings. Sandbox only.
+  if (getPlaidEnv() !== 'sandbox') {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'sandbox-only endpoint disabled in PLAID_ENV=' + getPlaidEnv() }) };
+  }
 
   try {
     const authHeader = event.headers.authorization || event.headers.Authorization;
