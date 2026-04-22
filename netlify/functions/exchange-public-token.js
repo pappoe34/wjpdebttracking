@@ -59,6 +59,22 @@ exports.handler = async (event) => {
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
+    // Top-level item_id → uid mapping. The Plaid webhook only ships item_id,
+    // not uid, so we need a way to route the notification to the right user
+    // doc without scanning every user. Keeping this in its own collection so
+    // security rules can keep it readable only by the webhook (server-only).
+    try {
+      await db.collection('plaid_item_owners').doc(item_id).set({
+        uid,
+        institutionName: institutionName || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (e) {
+      // Don't fail the link if the mapping write fails — webhook will fall
+      // back to a (slow) scan, and the user's data is still saved.
+      console.warn('plaid_item_owners write failed for', item_id, e.message);
+    }
+
     return {
       statusCode: 200,
       headers: CORS,

@@ -67,6 +67,8 @@ function loadState() {
                 creditScoreHistory: Array.isArray(parsed.creditScoreHistory) ? parsed.creditScoreHistory : [],
                 // Idempotency log for Plaid-applied payments — see syncBankTransactions.
                 processedTxIds: Array.isArray(parsed.processedTxIds) ? parsed.processedTxIds : [],
+                // Cache key for syncRecurringTransactions (1h refresh window).
+                lastRecurringSync: Number(parsed.lastRecurringSync) || 0,
                 prefs: {
                     ...defaultState.prefs,
                     ...(parsed.prefs || {}),
@@ -2618,6 +2620,14 @@ function updateUI() {
         appState.debts.forEach(debt => {
             const isPriority = (debt.id === priorityId);
             const badgeHtml = isPriority ? `<div class="badge badge-danger">Priority</div>` : '';
+            // Autopay tag from recurring stream detection (Plaid transactionsRecurringGet).
+            // We only set autopayActive for MATURE/EARLY_DETECTION streams matched to this card.
+            const autopayTitle = debt.autopayActive
+                ? `Autopay detected${debt.autopayDescription ? ' — ' + debt.autopayDescription : ''}${debt.autopayAmount ? ' (~$' + Number(debt.autopayAmount).toFixed(2) + ')' : ''}${debt.autopayFrequency ? ' · ' + String(debt.autopayFrequency).toLowerCase() : ''}`
+                : '';
+            const autopayBadgeHtml = debt.autopayActive
+                ? `<div class="badge" title="${autopayTitle}" style="background:rgba(0,212,168,0.15); color:var(--accent); font-size:9px; display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:4px; font-weight:600;"><i class="ph ph-arrows-clockwise"></i> Autopay</div>`
+                : '';
             const cClr = isPriority ? 'var(--danger)' : 'var(--accent)';
             const cBg = isPriority ? 'rgba(255,77,109,0.1)' : 'rgba(0,212,168,0.1)';
 
@@ -2665,6 +2675,7 @@ function updateUI() {
                  <div class="obl-header">
                    <div class="obl-icon" style="color:${cClr}; background:${cBg}"><i class="ph ph-credit-card"></i></div>
                    <div style="display:flex; align-items:center; gap:4px;">
+                     ${autopayBadgeHtml}
                      ${badgeHtml}
                      <button class="obl-menu-btn" data-debt-id="${debt.id}" aria-label="Actions" title="Actions" style="background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center;">
                        <i class="ph ph-dots-three-vertical" style="font-size:16px;"></i>
@@ -6419,6 +6430,16 @@ async function handlePlaidSuccess(public_token, metadata) {
             }
         } catch(_) {}
 
+        // Also pull recurring streams so any existing autopay setup gets tagged on
+        // the debt cards. This is intentionally fire-and-forget — Plaid's
+        // recurring detector may return PRODUCT_NOT_READY on a brand-new item, in
+        // which case the next auto-refresh cycle picks it up.
+        try {
+            if (typeof syncRecurringTransactions === 'function') {
+                syncRecurringTransactions({ force: true });
+            }
+        } catch(_) {}
+
         // Pull the freshly-synced accounts from appState so the modal shows real
         // balances + account types pulled from Plaid (not just the metadata names).
         const syncedDebts = (appState.debts || []).filter(d => d.source === 'plaid' && (!newItemId || d.itemId === newItemId));
@@ -6619,11 +6640,22 @@ async function refreshLinkedAccounts() {
             }
 
             const existing = appState.debts.find(d => d.id === id);
+            // Trust local balance if syncBankTransactions just decremented it.
+            // Plaid's /accounts can lag a payment by a few seconds; without this guard the
+            // user sees their balance go down then snap back up. Window picked to outlast
+            // the typical Plaid balance-propagation gap without holding stale numbers long.
+            const TX_SYNC_TRUST_WINDOW_MS = 30 * 1000;
+            const recentlyDecremented = !!(
+                existing &&
+                existing.lastSyncedFromTransactions &&
+                (now - Number(existing.lastSyncedFromTransactions) < TX_SYNC_TRUST_WINDOW_MS)
+            );
+            const effectiveBalance = recentlyDecremented ? Number(existing.balance) : balance;
             const record = {
                 id,
                 name: account.name || account.official_name || institutionName,
                 type: mappedType,
-                balance,
+                balance: effectiveBalance,
                 limit: (limit != null && !isNaN(limit)) ? limit : (existing && existing.limit) || null,
                 apr: apr || (existing && existing.apr) || 0,
                 minPayment: minPayment || (existing && existing.minPayment) || 0,
@@ -6632,6 +6664,8 @@ async function refreshLinkedAccounts() {
                 source: 'plaid',
                 itemId,
                 institutionName,
+                // Preserve so back-to-back refreshes inside the window still skip overwrite.
+                lastSyncedFromTransactions: (existing && existing.lastSyncedFromTransactions) || 0,
                 lastUpdated: now
             };
             if (existing) {
@@ -6670,6 +6704,13 @@ async function refreshFromBank(itemId) {
         } else {
             await refreshLinkedAccounts();
         }
+        // Force-refresh recurring on a user-initiated refresh (bypass 1h cache):
+        // user clicked the button expecting fresh data, so we should oblige.
+        try {
+            if (typeof syncRecurringTransactions === 'function') {
+                await syncRecurringTransactions({ force: true });
+            }
+        } catch(_) {}
         if (typeof showToast === 'function') showToast('Bank data refreshed.');
     } catch (e) {
         console.error('refreshFromBank error:', e);
@@ -6858,6 +6899,213 @@ async function syncBankTransactions(opts) {
 }
 window.syncBankTransactions = syncBankTransactions;
 
+// --- Recurring autopay tagging ----------------------------------------------
+// Pulls recurring outflow streams from Plaid, identifies CC-payment streams
+// (description names a 4-digit account mask), and tags the matched debt with
+// autopayActive + last-amount metadata.
+//
+// Why: lets us surface "Autopay active" badges on cards so users at a glance
+// know which obligations are on autopilot. Decisions deliberately conservative:
+// only mark a debt active if the stream's status is MATURE/EARLY_DETECTION
+// (Plaid's own confidence signal) AND it's currently active.
+
+const PLAID_RECURRING_INFLIGHT = { running: false };
+const RECURRING_REFRESH_MS = 60 * 60 * 1000; // 1 hour cache
+
+async function syncRecurringTransactions(opts) {
+    const options = opts || {};
+    const force = !!options.force;
+    if (PLAID_RECURRING_INFLIGHT.running) return { skipped: true };
+    // Soft cache: don't re-poll within an hour unless forced.
+    const last = Number(appState.lastRecurringSync || 0);
+    if (!force && last && (Date.now() - last) < RECURRING_REFRESH_MS) {
+        return { skipped: true, cached: true };
+    }
+    PLAID_RECURRING_INFLIGHT.running = true;
+    try {
+        const token = await getIdToken();
+        if (!token) return { skipped: true };
+        let resp;
+        try {
+            resp = await fetch(`${PLAID_FN_BASE}/recurring-transactions`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: '{}'
+            });
+        } catch (e) {
+            return { error: 'network' };
+        }
+        if (!resp.ok) {
+            if (resp.status === 401) return { skipped: true };
+            return { error: 'http ' + resp.status };
+        }
+        const payload = await resp.json().catch(() => null);
+        if (!payload || !Array.isArray(payload.items)) return { skipped: true };
+
+        // Build a map of mask → list of CC debts (multiple cards can in theory share masks across institutions)
+        const ccDebts = (appState.debts || []).filter(d => String(d.type || '').toLowerCase() === 'credit card');
+        // Reset all CC autopay tags before re-applying — handles the case where a recurring
+        // stream has been cancelled at the bank.
+        ccDebts.forEach(d => {
+            d.autopayActive = false;
+            d.autopayDescription = null;
+            d.autopayAmount = null;
+            d.autopayFrequency = null;
+        });
+
+        let tagged = 0;
+        for (const item of payload.items) {
+            const accountsById = {};
+            (item.accounts || []).forEach(a => { accountsById[a.account_id] = a; });
+
+            for (const stream of (item.outflow_streams || [])) {
+                if (!stream || stream.is_active === false) continue;
+                const status = String(stream.status || '').toUpperCase();
+                // Only trust MATURE / EARLY_DETECTION; ignore TENTATIVE to avoid false positives.
+                if (status && !['MATURE', 'EARLY_DETECTION'].includes(status)) continue;
+                const desc = String(stream.description || '').toUpperCase();
+                const cat = (stream.category || []).map(c => String(c || '').toLowerCase());
+                const looksLikePayment = /PAYMENT|AUTOPAY|CREDIT CARD/.test(desc) ||
+                    cat.some(c => c.includes('payment') || c.includes('credit card'));
+                if (!looksLikePayment) continue;
+
+                // Try to find a 4-digit mask in the description and match it to a CC debt
+                const maskMatch = desc.match(/\b(\d{4})\b/);
+                let target = null;
+                if (maskMatch) {
+                    const mask = maskMatch[1];
+                    // Mask comes from accountsById entries we get from the SAME institution's other accounts.
+                    // The CC debt we want to tag may be on this same item.
+                    target = ccDebts.find(d => {
+                        const acct = accountsById[d.id.replace(/^plaid:/, '')];
+                        return acct && acct.mask === mask;
+                    });
+                    // Fallback: name contains the mask (e.g. "Plaid Credit Card • 3333")
+                    if (!target) {
+                        target = ccDebts.find(d => String(d.name || '').includes(mask));
+                    }
+                }
+                // If still no match and the item only has one CC, tag that one.
+                if (!target) {
+                    const ccsThisItem = ccDebts.filter(d => d.itemId === item.itemId);
+                    if (ccsThisItem.length === 1) target = ccsThisItem[0];
+                }
+                if (!target) continue;
+
+                target.autopayActive = true;
+                target.autopayDescription = stream.merchant_name || stream.description || 'Recurring payment';
+                target.autopayAmount = (stream.average_amount != null) ? Math.abs(Number(stream.average_amount)) : null;
+                target.autopayFrequency = stream.frequency || null;
+                tagged++;
+            }
+        }
+
+        appState.lastRecurringSync = Date.now();
+        try { saveState(); } catch(_) {}
+        try { updateUI(); } catch(_) {}
+        return { tagged, items: payload.items.length };
+    } finally {
+        PLAID_RECURRING_INFLIGHT.running = false;
+    }
+}
+window.syncRecurringTransactions = syncRecurringTransactions;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhook pending-flag poller. Plaid pushes notifications to plaid-webhook,
+// which sets txPendingSync / recurringPendingSync on the user's items doc.
+// We poll every WEBHOOK_POLL_MS and run the matching sync for any flagged
+// item, then call check-webhook-pending with `clear: true` to reset.
+// ─────────────────────────────────────────────────────────────────────────────
+const WEBHOOK_POLL_MS = 30 * 1000;
+let _webhookPollTimer = null;
+let _webhookPollInflight = false;
+
+async function pollWebhookPending() {
+    if (_webhookPollInflight) return;
+    _webhookPollInflight = true;
+    try {
+        const token = await getIdToken();
+        if (!token) return;
+        let resp;
+        try {
+            resp = await fetch(`${PLAID_FN_BASE}/check-webhook-pending`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: '{}'
+            });
+        } catch (_) { return; }
+        if (!resp.ok) return;
+        const payload = await resp.json().catch(() => null);
+        if (!payload || !payload.pending) return;
+
+        const txItems  = Array.isArray(payload.pending.transactions) ? payload.pending.transactions : [];
+        const recItems = Array.isArray(payload.pending.recurring)    ? payload.pending.recurring    : [];
+
+        // Fire syncs in parallel; clear the flags only after the sync resolves
+        // so a failed sync gets retried on the next poll instead of silently
+        // dropped.
+        const ops = [];
+        if (txItems.length && typeof syncBankTransactions === 'function') {
+            ops.push(
+                syncBankTransactions({ silent: true })
+                    .then(() => clearWebhookPending(token, txItems, 'transactions'))
+                    .catch(() => {})
+            );
+        }
+        if (recItems.length && typeof syncRecurringTransactions === 'function') {
+            ops.push(
+                syncRecurringTransactions({ force: true })
+                    .then(() => clearWebhookPending(token, recItems, 'recurring'))
+                    .catch(() => {})
+            );
+        }
+        // Surface item errors as activity log entries (re-auth nudges, etc.).
+        if (Array.isArray(payload.errors) && payload.errors.length && typeof logActivity === 'function') {
+            payload.errors.forEach(err => {
+                if (!err || !err.code) return;
+                // Avoid spamming: only log the first time we see a given code+item combo this session.
+                const key = `__wjp_err_${err.itemId}_${err.code}`;
+                if (window[key]) return;
+                window[key] = true;
+                logActivity({
+                    title: 'Bank needs attention',
+                    text: `${err.code}${err.message ? ' — ' + err.message : ''}`,
+                    type: 'bank',
+                    priority: 'high',
+                    link: '#debts'
+                });
+            });
+        }
+        await Promise.all(ops);
+    } finally {
+        _webhookPollInflight = false;
+    }
+}
+
+async function clearWebhookPending(token, itemIds, which) {
+    if (!itemIds || !itemIds.length) return;
+    try {
+        await fetch(`${PLAID_FN_BASE}/check-webhook-pending`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clear: true, itemIds, which })
+        });
+    } catch (_) {}
+}
+
+function startWebhookPoller() {
+    if (_webhookPollTimer) return;
+    // First poll runs after the auto-refresh sync settles so we don't double up.
+    _webhookPollTimer = setInterval(pollWebhookPending, WEBHOOK_POLL_MS);
+    // Also poll when the tab regains focus — covers the "user came back from
+    // their banking app after enabling autopay" case.
+    window.addEventListener('focus', () => { pollWebhookPending(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') pollWebhookPending();
+    });
+}
+window.pollWebhookPending = pollWebhookPending;
+
 // Expose for inline handlers / debugging
 window.openPlaidLink = openPlaidLink;
 window.refreshLinkedAccounts = refreshLinkedAccounts;
@@ -6880,6 +7128,19 @@ window.unlinkPlaidItem = unlinkPlaidItem;
         } catch (_) {
             try { refreshLinkedAccounts(); } catch(_) {}
         }
+        // Recurring streams refresh — gated by RECURRING_REFRESH_MS (1h) so this
+        // is cheap on every load. Picks up newly-detected autopay setups since
+        // last visit. Independent of syncBankTransactions so a Plaid recurring
+        // hiccup doesn't affect the payment-matching path.
+        try {
+            if (typeof syncRecurringTransactions === 'function') {
+                syncRecurringTransactions().catch(() => {});
+            }
+        } catch (_) {}
+        // Start the webhook pending-flag poller. Cheap (one Firestore read every
+        // 30s) and gives us near-real-time updates without a Firestore client
+        // listener. Safe to call repeatedly — guarded inside startWebhookPoller.
+        try { if (typeof startWebhookPoller === 'function') startWebhookPoller(); } catch(_) {}
     };
     window.addEventListener('wjp-auth-ready', go, { once: true });
     // Fallback: if the event already fired before app.js parsed, the gate has set window.__wjpUser.

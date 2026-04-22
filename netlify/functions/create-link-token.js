@@ -30,13 +30,24 @@ exports.handler = async (event) => {
     const uid = decoded.uid;
 
     const plaid = getPlaidClient();
-    const resp = await plaid.linkTokenCreate({
+    // Wire the webhook URL onto the link token so Plaid pushes us
+    // TRANSACTIONS:SYNC_UPDATES_AVAILABLE notifications. Netlify exposes the
+    // deployed site URL via process.env.URL; allow override for local/dev or a
+    // separate webhook-only domain. If neither is set, leave it off — Plaid
+    // is fine without a webhook (we'll just rely on auto-poll).
+    const webhookUrl = process.env.PLAID_WEBHOOK_URL ||
+      (process.env.URL ? `${process.env.URL}/.netlify/functions/plaid-webhook` : null);
+
+    const linkPayload = {
       user: { client_user_id: uid },
       client_name: 'WJP Debt Tracking',
       products: ['transactions', 'liabilities'],
       country_codes: ['US'],
       language: 'en'
-    });
+    };
+    if (webhookUrl) linkPayload.webhook = webhookUrl;
+
+    const resp = await plaid.linkTokenCreate(linkPayload);
 
     return {
       statusCode: 200,
