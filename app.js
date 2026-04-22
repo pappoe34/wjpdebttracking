@@ -146,6 +146,50 @@ function pushNotification(notif, type) {
     return true;
 }
 
+/**
+ * logActivity — single source of truth for the bell badge AND the Activity Log tab.
+ * Both read from appState.notifications, so any user-meaningful event should call this.
+ *   logActivity({ title, text, type, priority, link })
+ *     title    — short headline ("Bank linked", "Payment recorded")
+ *     text     — one-line detail ("Chase • 4 accounts synced")
+ *     type     — category for filtering: 'bank' | 'debt' | 'payment' | 'strategy' | 'system'
+ *     priority — 'low' | 'normal' | 'high' (drives styling)
+ *     link     — optional in-app destination ('#debts', '#dashboard', etc.)
+ */
+function logActivity(entry) {
+    try {
+        if (!entry || typeof entry !== 'object') return false;
+        const notif = {
+            id: 'a' + Date.now() + Math.floor(Math.random() * 1000),
+            title: entry.title || 'Activity',
+            text: entry.text || '',
+            type: entry.type || 'system',
+            priority: entry.priority || 'normal',
+            link: entry.link || null,
+            timestamp: Date.now(),
+            cleared: false
+        };
+        if (!appState.notifications) appState.notifications = [];
+        appState.notifications.unshift(notif);
+        // Keep the log from growing unbounded — cap at 200 entries.
+        if (appState.notifications.length > 200) {
+            appState.notifications = appState.notifications.slice(0, 200);
+        }
+        try { if (typeof saveState === 'function') saveState(); } catch(_) {}
+        // Re-render bell badge + activity tab if they're already on screen.
+        try {
+            if (typeof renderNotifications === 'function') renderNotifications();
+            const activeActivity = document.querySelector('.tab-content[data-tab="activity"].active');
+            if (activeActivity && typeof renderActivityPage === 'function') renderActivityPage();
+        } catch(_) {}
+        return true;
+    } catch (e) {
+        console.warn('logActivity failed:', e);
+        return false;
+    }
+}
+window.logActivity = logActivity;
+
 /* ---------- CREDIT SCORE HISTORY ---------- */
 function computeDeltaReason(prev, curr) {
     if (!prev) return 'Initial score recorded.';
@@ -2218,6 +2262,15 @@ function initModal() {
                 }
                 saveState();
                 updateUI(); // Redraw Dashboard natively
+                if (typeof logActivity === 'function') {
+                    logActivity({
+                        title: 'Debt added',
+                        text: `${newDebt.name} — $${Number(newDebt.balance || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} @ ${newDebt.apr}% APR`,
+                        type: 'debt',
+                        priority: 'normal',
+                        link: '#debts'
+                    });
+                }
             });
         });
     }
@@ -3196,6 +3249,7 @@ function openObligationMenu(anchor, debtId) {
 function renameDebtPrompt(id) {
     const debt = appState.debts.find(d => d.id === id);
     if (!debt) return;
+    const oldName = debt.name;
     const v = prompt('Rename this account:', debt.name);
     if (v === null) return;
     const name = v.trim();
@@ -3205,11 +3259,21 @@ function renameDebtPrompt(id) {
     saveState();
     updateUI();
     if (typeof showToast === 'function') showToast('Renamed.');
+    if (typeof logActivity === 'function' && oldName !== name) {
+        logActivity({
+            title: 'Debt renamed',
+            text: `"${oldName}" → "${name}"`,
+            type: 'debt',
+            priority: 'low',
+            link: '#debts'
+        });
+    }
 }
 
 function updateDebtBalancePrompt(id) {
     const debt = appState.debts.find(d => d.id === id);
     if (!debt) return;
+    const prev = Number(debt.balance || 0);
     const v = prompt(`Update balance for ${debt.name}:`, String(debt.balance || 0));
     if (v === null) return;
     const n = parseFloat(v);
@@ -3219,16 +3283,41 @@ function updateDebtBalancePrompt(id) {
     saveState();
     updateUI();
     if (typeof showToast === 'function') showToast('Balance updated.');
+    if (typeof logActivity === 'function') {
+        const fmt = (x) => '$' + Number(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+        const delta = prev - n;
+        const isPayment = delta > 0;
+        const isPaidOff = n === 0 && prev > 0;
+        logActivity({
+            title: isPaidOff ? 'Debt paid off 🎉' : (isPayment ? 'Payment recorded' : 'Balance updated'),
+            text: isPayment
+                ? `${debt.name}: ${fmt(prev)} → ${fmt(n)} (−${fmt(delta)})`
+                : `${debt.name}: ${fmt(prev)} → ${fmt(n)}`,
+            type: isPayment ? 'payment' : 'debt',
+            priority: isPaidOff ? 'high' : 'normal',
+            link: '#debts'
+        });
+    }
 }
 
 function deleteDebtPrompt(id) {
     const debt = appState.debts.find(d => d.id === id);
     if (!debt) return;
     if (!confirm(`Delete "${debt.name}"? This cannot be undone.`)) return;
+    const removedName = debt.name;
     appState.debts = appState.debts.filter(d => d.id !== id);
     saveState();
     updateUI();
     if (typeof showToast === 'function') showToast('Deleted.');
+    if (typeof logActivity === 'function') {
+        logActivity({
+            title: 'Debt deleted',
+            text: `Removed "${removedName}"`,
+            type: 'debt',
+            priority: 'normal',
+            link: '#debts'
+        });
+    }
 }
 
 function openAttachStatementPicker(id) {
@@ -6297,29 +6386,146 @@ async function handlePlaidSuccess(public_token, metadata) {
     try {
         const token = await getIdToken();
         if (!token) throw new Error('not-signed-in');
-        const institutionName = metadata && metadata.institution && metadata.institution.name;
-        const accounts = (metadata && metadata.accounts) || [];
+        const institutionName = (metadata && metadata.institution && metadata.institution.name) || 'Your bank';
+        const linkAccounts = (metadata && metadata.accounts) || [];
         const resp = await fetch(`${PLAID_FN_BASE}/exchange-public-token`, {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + token,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ public_token, institutionName, accounts })
+            body: JSON.stringify({ public_token, institutionName, accounts: linkAccounts })
         });
         if (!resp.ok) {
             let data = {};
             try { data = await resp.json(); } catch(_) {}
             throw new Error((data && data.error) || ('HTTP ' + resp.status));
         }
+        let exchangePayload = {};
+        try { exchangePayload = await resp.json(); } catch(_) {}
+        const newItemId = exchangePayload && exchangePayload.itemId;
+
         if (typeof showToast === 'function') showToast('Bank linked. Loading accounts…');
         await refreshLinkedAccounts();
-        if (typeof showToast === 'function') showToast('Accounts synced.');
+
+        // Pull the freshly-synced accounts from appState so the modal shows real
+        // balances + account types pulled from Plaid (not just the metadata names).
+        const syncedDebts = (appState.debts || []).filter(d => d.source === 'plaid' && (!newItemId || d.itemId === newItemId));
+        const accountsForModal = syncedDebts.length ? syncedDebts.map(d => ({
+            name: d.name,
+            type: d.type,
+            balance: d.balance,
+            mask: (d.id || '').replace(/^plaid:/, '').slice(-4)
+        })) : linkAccounts.map(a => ({
+            name: a.name || 'Account',
+            type: a.subtype || a.type || 'account',
+            balance: null,
+            mask: a.mask || ''
+        }));
+
+        if (typeof showBankLinkConfirmation === 'function') {
+            showBankLinkConfirmation(institutionName, accountsForModal);
+        } else if (typeof showToast === 'function') {
+            showToast('Accounts synced.');
+        }
+
+        // Activity log entry — feeds bell badge + Activity Log tab.
+        const acctSummary = accountsForModal.length === 1
+            ? '1 account synced'
+            : `${accountsForModal.length} accounts synced`;
+        if (typeof logActivity === 'function') {
+            logActivity({
+                title: 'Bank linked',
+                text: `${institutionName} — ${acctSummary}`,
+                type: 'bank',
+                priority: 'high',
+                link: '#debts'
+            });
+        }
     } catch (e) {
         console.error('handlePlaidSuccess error:', e);
         if (typeof showToast === 'function') showToast('Linked, but sync failed. Try Refresh.');
+        if (typeof logActivity === 'function') {
+            logActivity({
+                title: 'Bank link issue',
+                text: 'Linked but sync failed — tap Refresh to retry.',
+                type: 'bank',
+                priority: 'high'
+            });
+        }
     }
 }
+
+/* ---------- POST-LINK CONFIRMATION MODAL ----------
+   Built dynamically so we don't depend on existing markup in index.html.
+   Inherits the page's CSS variables for colors/typography. */
+function showBankLinkConfirmation(institutionName, accounts) {
+    try {
+        // Remove any previous instance.
+        const old = document.getElementById('wjp-bank-link-confirm');
+        if (old) old.remove();
+
+        const safeName = (institutionName || 'Your bank').toString();
+        const total = (accounts || []).reduce((s, a) => s + (Number(a.balance) || 0), 0);
+        const fmt = (n) => '$' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const rows = (accounts || []).map(a => {
+            const mask = a.mask ? `•••${a.mask}` : '';
+            const bal = (a.balance != null) ? fmt(a.balance) : '—';
+            const type = (a.type || '').toString();
+            return `
+              <div class="wjp-blc-row" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border, rgba(0,0,0,.08));gap:12px;">
+                <div style="min-width:0;flex:1;">
+                  <div style="font-weight:600;color:var(--text, #111);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name || 'Account'}</div>
+                  <div style="font-size:12px;color:var(--text-muted, #6b7280);text-transform:capitalize;">${type}${mask ? ' · ' + mask : ''}</div>
+                </div>
+                <div style="font-variant-numeric:tabular-nums;font-weight:600;color:var(--text, #111);">${bal}</div>
+              </div>`;
+        }).join('');
+
+        const wrap = document.createElement('div');
+        wrap.id = 'wjp-bank-link-confirm';
+        wrap.setAttribute('role', 'dialog');
+        wrap.setAttribute('aria-modal', 'true');
+        wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;animation:wjpFade .18s ease-out;';
+        wrap.innerHTML = `
+          <style>
+            @keyframes wjpFade { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes wjpRise { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+          </style>
+          <div style="background:var(--card, #fff);color:var(--text, #111);max-width:440px;width:100%;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden;animation:wjpRise .22s ease-out;">
+            <div style="padding:20px 22px 8px 22px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:var(--accent, #16a34a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">✓</div>
+                <div style="font-size:13px;color:var(--text-muted, #6b7280);text-transform:uppercase;letter-spacing:.06em;">Bank linked</div>
+              </div>
+              <div style="font-size:20px;font-weight:700;line-height:1.2;">${safeName}</div>
+              <div style="font-size:13px;color:var(--text-muted, #6b7280);margin-top:4px;">
+                ${(accounts || []).length} ${ (accounts || []).length === 1 ? 'account' : 'accounts' } synced · Total balance ${fmt(total)}
+              </div>
+            </div>
+            <div style="margin-top:8px;max-height:42vh;overflow-y:auto;border-top:1px solid var(--border, rgba(0,0,0,.08));">
+              ${rows || '<div style="padding:18px;color:var(--text-muted,#6b7280);text-align:center;">Accounts are syncing — they\'ll appear on your Debts tab in a moment.</div>'}
+            </div>
+            <div style="padding:14px 18px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border, rgba(0,0,0,.08));background:var(--card-muted, transparent);">
+              <button type="button" id="wjp-blc-close" style="background:var(--accent, #16a34a);color:#fff;border:0;padding:10px 18px;border-radius:10px;font-weight:600;cursor:pointer;">Got it</button>
+            </div>
+          </div>`;
+        document.body.appendChild(wrap);
+
+        const close = () => { try { wrap.remove(); } catch(_) {} };
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+        const btn = document.getElementById('wjp-blc-close');
+        if (btn) btn.addEventListener('click', close);
+        document.addEventListener('keydown', function esc(e) {
+            if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+        });
+    } catch (e) {
+        console.warn('showBankLinkConfirmation failed:', e);
+        if (typeof showToast === 'function') showToast('Bank linked.');
+    }
+}
+window.showBankLinkConfirmation = showBankLinkConfirmation;
 
 function handlePlaidExit(err, metadata) {
     if (err) {
@@ -6456,6 +6662,11 @@ async function refreshFromBank(itemId) {
 async function unlinkPlaidItem(itemId) {
     if (!itemId) return;
     if (!confirm('Unlink this bank? This removes all accounts synced from it.')) return;
+    // Capture the institution name + count before we wipe the debts so the
+    // activity log can describe what was unlinked.
+    const removed = (appState.debts || []).filter(d => d.source === 'plaid' && d.itemId === itemId);
+    const institutionName = (removed[0] && removed[0].institutionName) || 'Bank';
+    const removedCount = removed.length;
     try {
         const token = await getIdToken();
         if (!token) throw new Error('not-signed-in');
@@ -6476,6 +6687,14 @@ async function unlinkPlaidItem(itemId) {
         try { if (typeof saveState === 'function') saveState(); } catch(_) {}
         try { if (typeof updateUI === 'function') updateUI(); } catch(_) {}
         if (typeof showToast === 'function') showToast('Bank unlinked.');
+        if (typeof logActivity === 'function') {
+            logActivity({
+                title: 'Bank unlinked',
+                text: `${institutionName} — ${removedCount} ${removedCount === 1 ? 'account' : 'accounts'} removed`,
+                type: 'bank',
+                priority: 'normal'
+            });
+        }
     } catch (e) {
         console.error('unlinkPlaidItem error:', e);
         if (typeof showToast === 'function') showToast('Unlink failed.');
@@ -8103,8 +8322,19 @@ function openDebtSubTab(subtabName) {
 function setStrategy(name) {
     if (!['snowball', 'hybrid', 'avalanche'].includes(name)) return;
     if (!appState.settings) appState.settings = {};
+    const prev = appState.settings.strategy;
     appState.settings.strategy = name;
     saveState();
+    if (prev !== name && typeof logActivity === 'function') {
+        const labels = { snowball: 'Snowball ❄️', hybrid: 'Hybrid ⚡', avalanche: 'Avalanche 🏔️' };
+        logActivity({
+            title: 'Payoff strategy changed',
+            text: `${labels[prev] || prev || 'None'} → ${labels[name]}`,
+            type: 'strategy',
+            priority: 'normal',
+            link: '#dashboard'
+        });
+    }
 
     // 1. Sync all chip groups (Debts subtab strategy-tabs)
     document.querySelectorAll('#strategy-tabs .chip').forEach(c => {
@@ -8247,6 +8477,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnSyncBank && plaidModal) {
         btnSyncBank.addEventListener('click', () => {
+            // Real Plaid Link is the primary path. The legacy mockup is only a
+            // fallback for when Plaid isn't available (offline / script blocked).
+            const hasPlaid = (typeof Plaid !== 'undefined' && Plaid && typeof Plaid.create === 'function');
+            const hasOpener = (typeof openPlaidLink === 'function' || typeof window.openPlaidLink === 'function');
+            if (hasPlaid && hasOpener) {
+                try {
+                    (window.openPlaidLink || openPlaidLink)();
+                    return;
+                } catch (e) {
+                    console.warn('openPlaidLink threw, falling back to mockup:', e);
+                }
+            }
+            // Fallback: legacy mockup so a click never feels broken.
             plaidModal.classList.add('active');
         });
 
