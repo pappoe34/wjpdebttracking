@@ -65,6 +65,8 @@ function loadState() {
                 recurringPayments: Array.isArray(parsed.recurringPayments) ? parsed.recurringPayments : [...defaultState.recurringPayments],
                 notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
                 creditScoreHistory: Array.isArray(parsed.creditScoreHistory) ? parsed.creditScoreHistory : [],
+                // Idempotency log for Plaid-applied payments — see syncBankTransactions.
+                processedTxIds: Array.isArray(parsed.processedTxIds) ? parsed.processedTxIds : [],
                 prefs: {
                     ...defaultState.prefs,
                     ...(parsed.prefs || {}),
@@ -6408,6 +6410,15 @@ async function handlePlaidSuccess(public_token, metadata) {
         if (typeof showToast === 'function') showToast('Bank linked. Loading accounts…');
         await refreshLinkedAccounts();
 
+        // Kick off a transaction sync in the background so any payments already
+        // sitting on the bank's ledger get auto-applied right away. PRODUCT_NOT_READY
+        // is normal on first call; the auto-poller will catch up on the next visit.
+        try {
+            if (typeof syncBankTransactions === 'function') {
+                syncBankTransactions({ silent: true });
+            }
+        } catch(_) {}
+
         // Pull the freshly-synced accounts from appState so the modal shows real
         // balances + account types pulled from Plaid (not just the metadata names).
         const syncedDebts = (appState.debts || []).filter(d => d.source === 'plaid' && (!newItemId || d.itemId === newItemId));
@@ -6651,7 +6662,14 @@ async function refreshLinkedAccounts() {
 async function refreshFromBank(itemId) {
     if (typeof showToast === 'function') showToast('Refreshing from bank…');
     try {
-        await refreshLinkedAccounts();
+        // syncBankTransactions pulls new payments AND calls refreshLinkedAccounts
+        // at the end to reconcile balances — single round-trip from the user's
+        // perspective. Fall back to bare refresh if sync isn't wired.
+        if (typeof syncBankTransactions === 'function') {
+            await syncBankTransactions({ silent: false });
+        } else {
+            await refreshLinkedAccounts();
+        }
         if (typeof showToast === 'function') showToast('Bank data refreshed.');
     } catch (e) {
         console.error('refreshFromBank error:', e);
@@ -6701,6 +6719,145 @@ async function unlinkPlaidItem(itemId) {
     }
 }
 
+/* ============================================================
+   PLAID TRANSACTIONS SYNC — auto-payment matching
+   Pulls new transactions via /sync-transactions (cursor-based,
+   server-side dedupe) and decrements debt balances when a
+   payment shows up. The user never has to manually log a payment.
+
+   Sign convention (Plaid):
+   - Credit card account: amount > 0 = charge (balance UP),
+                          amount < 0 = payment (balance DOWN).
+   - Loan/mortgage account: transactions rare; we rely on
+                            liabilitiesGet (refreshLinkedAccounts)
+                            to pull updated balances post-payment.
+   ============================================================ */
+
+const PLAID_TX_INFLIGHT = { running: false };
+
+async function syncBankTransactions(opts) {
+    const options = opts || {};
+    const silent = !!options.silent;
+    if (PLAID_TX_INFLIGHT.running) return { skipped: true };
+    PLAID_TX_INFLIGHT.running = true;
+
+    try {
+        const token = await getIdToken();
+        if (!token) return { skipped: true };
+
+        let resp;
+        try {
+            resp = await fetch(`${PLAID_FN_BASE}/sync-transactions`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: '{}'
+            });
+        } catch (e) {
+            console.warn('syncBankTransactions network error:', e);
+            return { error: 'network' };
+        }
+
+        if (!resp.ok) {
+            // Silent on the obvious "not configured / not signed in" cases so the
+            // background poll doesn't spam toasts.
+            if (resp.status === 401) return { skipped: true };
+            let data = {};
+            try { data = await resp.json(); } catch(_) {}
+            const msg = (data && data.error) || '';
+            if (/missing env var|product_not_ready/i.test(msg)) return { skipped: true };
+            console.warn('sync-transactions failed:', resp.status, msg);
+            if (!silent && typeof showToast === 'function') showToast('Transaction sync failed.');
+            return { error: msg || ('HTTP ' + resp.status) };
+        }
+
+        const payload = await resp.json().catch(() => null);
+        if (!payload || !Array.isArray(payload.items)) return { skipped: true };
+
+        // Idempotency belt: server-side cursor is primary, but we double-check
+        // transaction_id locally so a stale localStorage replay can't double-count.
+        if (!Array.isArray(appState.processedTxIds)) appState.processedTxIds = [];
+        const processed = new Set(appState.processedTxIds);
+
+        let paymentsApplied = 0;
+        let totalPaid = 0;
+        let chargesSeen = 0;
+        const fmt = (n) => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        for (const item of payload.items) {
+            const inst = item.institutionName || 'Bank';
+            for (const tx of (item.added || [])) {
+                if (!tx || !tx.transaction_id) continue;
+                if (processed.has(tx.transaction_id)) continue;
+                processed.add(tx.transaction_id);
+
+                // Match transaction to a debt by Plaid account_id.
+                const debtId = 'plaid:' + tx.account_id;
+                const debt = (appState.debts || []).find(d => d.id === debtId);
+                if (!debt) continue;
+
+                const debtType = String(debt.type || '').toLowerCase();
+                const amount = Number(tx.amount) || 0;
+
+                // Only credit-card payments are auto-applied here. Loans / mortgages
+                // get their balance from liabilitiesGet via refreshLinkedAccounts.
+                if (debtType === 'credit card' && amount < 0) {
+                    const paymentAmt = Math.abs(amount);
+                    const prev = Number(debt.balance || 0);
+                    const next = Math.max(0, prev - paymentAmt);
+                    debt.balance = next;
+                    debt.lastUpdated = Date.now();
+                    debt.lastSyncedFromTransactions = Date.now();
+                    paymentsApplied++;
+                    totalPaid += paymentAmt;
+
+                    if (typeof logActivity === 'function') {
+                        const paidOff = next === 0 && prev > 0;
+                        logActivity({
+                            title: paidOff ? 'Card paid off 🎉' : 'Payment recorded',
+                            text: `${debt.name} — ${fmt(paymentAmt)} via Plaid (${inst})${paidOff ? '' : ` · new balance ${fmt(next)}`}`,
+                            type: 'payment',
+                            priority: paidOff ? 'high' : 'normal',
+                            link: '#debts'
+                        });
+                    }
+                } else if (debtType === 'credit card' && amount > 0) {
+                    chargesSeen++;
+                    // Don't overwrite the balance from a single charge — bank's
+                    // running balance via refreshLinkedAccounts is authoritative.
+                }
+            }
+        }
+
+        // Cap the processed-id set to keep localStorage lean (~ last 1000 txs).
+        const arr = Array.from(processed);
+        appState.processedTxIds = arr.length > 1000 ? arr.slice(arr.length - 1000) : arr;
+
+        if (paymentsApplied > 0) {
+            try { if (typeof saveState === 'function') saveState(); } catch(_) {}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_) {}
+            if (!silent && typeof showToast === 'function') {
+                showToast(`Synced ${paymentsApplied} payment${paymentsApplied === 1 ? '' : 's'} (${fmt(totalPaid)})`);
+            }
+        } else {
+            // Even with zero payment matches, persist the processedTxIds growth so
+            // we don't reapply the same txs after a page reload.
+            try { if (typeof saveState === 'function') saveState(); } catch(_) {}
+        }
+
+        // Pull liability balances too — covers loans/mortgages and reconciles
+        // credit-card balance against the bank's source of truth.
+        try { await refreshLinkedAccounts(); } catch(_) {}
+
+        return { paymentsApplied, totalPaid, chargesSeen };
+    } finally {
+        PLAID_TX_INFLIGHT.running = false;
+    }
+}
+window.syncBankTransactions = syncBankTransactions;
+
 // Expose for inline handlers / debugging
 window.openPlaidLink = openPlaidLink;
 window.refreshLinkedAccounts = refreshLinkedAccounts;
@@ -6714,8 +6871,15 @@ window.unlinkPlaidItem = unlinkPlaidItem;
     const go = () => {
         if (ran) return;
         ran = true;
-        // Fire-and-forget; refreshLinkedAccounts is silent on "not configured" / 401.
-        try { refreshLinkedAccounts(); } catch(_) {}
+        // Fire-and-forget; both helpers are silent on "not configured" / 401.
+        // syncBankTransactions calls refreshLinkedAccounts itself at the end,
+        // so no need to call refreshLinkedAccounts separately here.
+        try {
+            syncBankTransactions({ silent: true })
+                .catch(() => { try { refreshLinkedAccounts(); } catch(_) {} });
+        } catch (_) {
+            try { refreshLinkedAccounts(); } catch(_) {}
+        }
     };
     window.addEventListener('wjp-auth-ready', go, { once: true });
     // Fallback: if the event already fired before app.js parsed, the gate has set window.__wjpUser.
