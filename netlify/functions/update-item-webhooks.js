@@ -73,9 +73,11 @@ exports.handler = async (event) => {
 
     for (const doc of snap.docs) {
       const data = doc.data() || {};
-      const accessToken = data.accessToken;
+      // exchange-public-token.js writes the field as `access_token` (snake_case).
+      // Accept camelCase too for forward-compat.
+      const accessToken = data.access_token || data.accessToken;
       if (!accessToken) {
-        errors.push({ itemId: doc.id, message: 'missing accessToken on plaid_items doc' });
+        errors.push({ itemId: doc.id, message: 'missing access_token on plaid_items doc' });
         continue;
       }
       try {
