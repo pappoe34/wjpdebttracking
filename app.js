@@ -8219,6 +8219,11 @@ function initAdvisorPageLogic() {
     };
     Object.entries(footerContent).forEach(([id, {title, body}]) => {
         document.getElementById(id)?.addEventListener('click', () => {
+            // Privacy Policy: open the real published page instead of the placeholder drawer
+            if (id === 'btn-footer-privacy') {
+                window.open('./privacy.html', '_blank', 'noopener');
+                return;
+            }
             openSettingsDrawer({
                 icon: 'ph-file-text',
                 badge: 'LEGAL',
