@@ -67,12 +67,20 @@ exports.handler = async (event) => {
       plaidErr = 'no access_token on doc';
     }
 
+    // Pull the global webhook-arrival diag doc too, if present.
+    let diag = null;
+    try {
+      const diagSnap = await db.collection('plaid_webhook_diag').doc('latest').get();
+      if (diagSnap.exists) diag = safeData(diagSnap.data());
+    } catch (_) {}
+
     return {
       statusCode: 200,
       headers: CORS,
       body: JSON.stringify({
         firestore: safeData(data),
-        plaid: { item: plaidItem, error: plaidErr }
+        plaid: { item: plaidItem, error: plaidErr },
+        webhookDiag: diag
       }, null, 2)
     };
   } catch (err) {

@@ -109,10 +109,40 @@ exports.handler = async (event) => {
   const rawBody = event.body || '';
   const headers = event.headers || {};
 
+  // Diagnostic: stamp arrival on a global doc BEFORE verification, so we can
+  // distinguish "Plaid never delivered" from "we received but failed verify".
+  // Cheap (one Firestore write per webhook) and worth keeping while in sandbox.
+  try {
+    const dbDiag = getFirestore();
+    const adminDiag = getFirebaseAdmin();
+    let parsedItemIdForDiag = null;
+    try {
+      const p = JSON.parse(rawBody);
+      parsedItemIdForDiag = p && p.item_id ? String(p.item_id) : null;
+    } catch (_) {}
+    await dbDiag.collection('plaid_webhook_diag').doc('latest').set({
+      receivedAt: adminDiag.firestore.FieldValue.serverTimestamp(),
+      itemId: parsedItemIdForDiag,
+      hasVerificationHeader: !!(headers['plaid-verification'] || headers['Plaid-Verification']),
+      bodyLen: rawBody.length
+    }, { merge: true });
+  } catch (e) {
+    console.warn('webhook diag write failed', e.message);
+  }
+
   try {
     await verifyWebhook(headers, rawBody);
   } catch (e) {
     console.error('webhook verification failed:', e.message);
+    // Stamp the failure on the diag doc so we can see it from the browser.
+    try {
+      const dbDiag = getFirestore();
+      const adminDiag = getFirebaseAdmin();
+      await dbDiag.collection('plaid_webhook_diag').doc('latest').set({
+        lastVerifyError: e.message,
+        lastVerifyErrorAt: adminDiag.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (_) {}
     // Always return 200 to Plaid even on verification failure so they don't
     // back off + retry storm; just log it.
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: false, reason: 'verify' }) };
