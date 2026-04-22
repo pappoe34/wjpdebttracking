@@ -20,7 +20,11 @@
 const crypto = require('crypto');
 const jose = require('jose');
 const { getFirestore, getFirebaseAdmin } = require('./_shared/firebase');
-const { getPlaidClient } = require('./_shared/plaid');
+const { getPlaidClient, getPlaidEnv } = require('./_shared/plaid');
+
+// In production we skip the plaid_webhook_diag writes (3 Firestore writes per
+// webhook) — they're a sandbox debugging aid only.
+const DIAG_ENABLED = getPlaidEnv() === 'sandbox';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -111,23 +115,26 @@ exports.handler = async (event) => {
 
   // Diagnostic: stamp arrival on a global doc BEFORE verification, so we can
   // distinguish "Plaid never delivered" from "we received but failed verify".
-  // Cheap (one Firestore write per webhook) and worth keeping while in sandbox.
-  try {
-    const dbDiag = getFirestore();
-    const adminDiag = getFirebaseAdmin();
-    let parsedItemIdForDiag = null;
+  // Sandbox-only — skipped in production to save Firestore writes and avoid
+  // metadata exposure on a globally-readable doc.
+  if (DIAG_ENABLED) {
     try {
-      const p = JSON.parse(rawBody);
-      parsedItemIdForDiag = p && p.item_id ? String(p.item_id) : null;
-    } catch (_) {}
-    await dbDiag.collection('plaid_webhook_diag').doc('latest').set({
-      receivedAt: adminDiag.firestore.FieldValue.serverTimestamp(),
-      itemId: parsedItemIdForDiag,
-      hasVerificationHeader: !!(headers['plaid-verification'] || headers['Plaid-Verification']),
-      bodyLen: rawBody.length
-    }, { merge: true });
-  } catch (e) {
-    console.warn('webhook diag write failed', e.message);
+      const dbDiag = getFirestore();
+      const adminDiag = getFirebaseAdmin();
+      let parsedItemIdForDiag = null;
+      try {
+        const p = JSON.parse(rawBody);
+        parsedItemIdForDiag = p && p.item_id ? String(p.item_id) : null;
+      } catch (_) {}
+      await dbDiag.collection('plaid_webhook_diag').doc('latest').set({
+        receivedAt: adminDiag.firestore.FieldValue.serverTimestamp(),
+        itemId: parsedItemIdForDiag,
+        hasVerificationHeader: !!(headers['plaid-verification'] || headers['Plaid-Verification']),
+        bodyLen: rawBody.length
+      }, { merge: true });
+    } catch (e) {
+      console.warn('webhook diag write failed', e.message);
+    }
   }
 
   try {
@@ -135,14 +142,16 @@ exports.handler = async (event) => {
   } catch (e) {
     console.error('webhook verification failed:', e.message);
     // Stamp the failure on the diag doc so we can see it from the browser.
-    try {
-      const dbDiag = getFirestore();
-      const adminDiag = getFirebaseAdmin();
-      await dbDiag.collection('plaid_webhook_diag').doc('latest').set({
-        lastVerifyError: e.message,
-        lastVerifyErrorAt: adminDiag.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    } catch (_) {}
+    if (DIAG_ENABLED) {
+      try {
+        const dbDiag = getFirestore();
+        const adminDiag = getFirebaseAdmin();
+        await dbDiag.collection('plaid_webhook_diag').doc('latest').set({
+          lastVerifyError: e.message,
+          lastVerifyErrorAt: adminDiag.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (_) {}
+    }
     // Always return 200 to Plaid even on verification failure so they don't
     // back off + retry storm; just log it.
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: false, reason: 'verify' }) };
@@ -165,16 +174,18 @@ exports.handler = async (event) => {
   const db = getFirestore();
   const admin = getFirebaseAdmin();
   const uid = await findUidForItem(db, itemId);
-  // Diagnostic: record uid resolution outcome.
-  try {
-    await db.collection('plaid_webhook_diag').doc('latest').set({
-      verifyOk: true,
-      parsedWebhookType: webhookType,
-      parsedWebhookCode: webhookCode,
-      resolvedUid: uid || null,
-      resolvedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  } catch (_) {}
+  // Diagnostic: record uid resolution outcome (sandbox only).
+  if (DIAG_ENABLED) {
+    try {
+      await db.collection('plaid_webhook_diag').doc('latest').set({
+        verifyOk: true,
+        parsedWebhookType: webhookType,
+        parsedWebhookCode: webhookCode,
+        resolvedUid: uid || null,
+        resolvedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (_) {}
+  }
   if (!uid) {
     console.warn('webhook for unknown item', itemId, webhookType, webhookCode);
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, reason: 'unknown item' }) };

@@ -6329,16 +6329,19 @@ async function getIdToken() {
     }
 }
 
-async function fetchLinkToken() {
+async function fetchLinkToken(opts) {
+    opts = opts || {};
     const token = await getIdToken();
     if (!token) throw new Error('not-signed-in');
+    // opts.itemId → request an UPDATE-mode link token for re-auth on a broken item.
+    const body = opts.itemId ? { itemId: opts.itemId } : {};
     const resp = await fetch(`${PLAID_FN_BASE}/create-link-token`, {
         method: 'POST',
         headers: {
             'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify(body)
     });
     let data = null;
     try { data = await resp.json(); } catch(_) {}
@@ -6352,15 +6355,24 @@ async function fetchLinkToken() {
     return data && data.link_token;
 }
 
-async function openPlaidLink() {
+async function openPlaidLink(opts) {
+    opts = opts || {};
+    // opts.updateItemId  → request update-mode link token (re-auth flow for ITEM_LOGIN_REQUIRED)
     if (typeof Plaid === 'undefined' || !Plaid || typeof Plaid.create !== 'function') {
         if (typeof showToast === 'function') showToast('Plaid Link script not loaded.');
         return;
     }
-    if (typeof showToast === 'function') showToast('Contacting your bank…');
+    // Offline-first check — fail fast with a clear message instead of a generic network error.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        if (typeof showToast === 'function') showToast("You're offline — try again when you're back online.");
+        return;
+    }
+    if (typeof showToast === 'function') {
+        showToast(opts.updateItemId ? 'Reconnecting to your bank…' : 'Contacting your bank…');
+    }
     let linkToken;
     try {
-        linkToken = await fetchLinkToken();
+        linkToken = await fetchLinkToken(opts.updateItemId ? { itemId: opts.updateItemId } : undefined);
     } catch (e) {
         // Detect "bank sync not configured" and surface a friendly message; keep the
         // legacy fake-bank UI accessible as a fallback.
@@ -6371,6 +6383,11 @@ async function openPlaidLink() {
         }
         if (e && e.message === 'not-signed-in') {
             if (typeof showToast === 'function') showToast('Sign in to link your bank.');
+            return;
+        }
+        // Network/fetch failure — distinguish from server-side error
+        if (e && (e.name === 'TypeError' || /Failed to fetch|NetworkError/i.test(msg))) {
+            if (typeof showToast === 'function') showToast('Network error — check your connection and retry.');
             return;
         }
         console.error('fetchLinkToken failed:', e);
@@ -6385,14 +6402,39 @@ async function openPlaidLink() {
     try {
         const handler = Plaid.create({
             token: linkToken,
-            onSuccess: (public_token, metadata) => { handlePlaidSuccess(public_token, metadata); },
-            onExit: (err, metadata) => { handlePlaidExit(err, metadata); }
+            onSuccess: (public_token, metadata) => { handlePlaidSuccess(public_token, metadata, opts); },
+            onExit: (err, metadata) => { handlePlaidExit(err, metadata, opts); },
+            onEvent: (eventName, metadata) => { handlePlaidEvent(eventName, metadata, opts); }
         });
         handler.open();
     } catch (e) {
         console.error('Plaid.create failed:', e);
         if (typeof showToast === 'function') showToast('Could not open Plaid Link.');
     }
+}
+
+/* ---------- Plaid Link telemetry ----------
+   Plaid emits ~20 event names through onEvent (OPEN, SELECT_INSTITUTION, SUBMIT_CREDENTIALS,
+   HANDOFF, EXIT, ERROR, etc.). We log them all to console for support, and write a small
+   subset to the activity log so users (and we) can see where things broke. */
+function handlePlaidEvent(eventName, metadata, opts) {
+    try {
+        // Always log to console — cheap and invaluable for support tickets.
+        console.log('[plaid-link]', eventName, metadata);
+        if (eventName === 'ERROR' && metadata) {
+            // Only log to activity feed if it's an actual error, not a benign exit.
+            const code = metadata.error_code || 'UNKNOWN';
+            const inst = (metadata.institution_name) || 'bank';
+            if (typeof logActivity === 'function') {
+                logActivity({
+                    title: 'Bank link error',
+                    text: `${inst} — ${code}`,
+                    type: 'bank',
+                    priority: 'high'
+                });
+            }
+        }
+    } catch (_) { /* never let telemetry break the flow */ }
 }
 
 async function handlePlaidSuccess(public_token, metadata) {
@@ -6559,13 +6601,61 @@ function showBankLinkConfirmation(institutionName, accounts) {
 }
 window.showBankLinkConfirmation = showBankLinkConfirmation;
 
-function handlePlaidExit(err, metadata) {
-    if (err) {
-        console.warn('Plaid exit with error:', err, metadata);
-        if (typeof showToast === 'function') showToast('Bank link cancelled.');
+function handlePlaidExit(err, metadata, opts) {
+    opts = opts || {};
+    // No error + user closed → benign cancel. Stay quiet on update-mode (re-auth) so
+    // we don't double-toast — the calling card UI already shows the broken state.
+    if (!err) {
+        if (!opts.updateItemId && typeof showToast === 'function') {
+            showToast('Bank link cancelled. Tap Sync Bank when ready.');
+        }
+        return;
     }
-    // No error + user closed → no-op.
+    console.warn('Plaid exit with error:', err, metadata);
+    const code = (err && err.error_code) || '';
+    const msgMap = {
+        // Re-auth path — fire the update-mode flow if the item ID is known.
+        'ITEM_LOGIN_REQUIRED': "Your bank wants you to re-verify. Reopening Plaid…",
+        'INVALID_CREDENTIALS': 'Wrong username or password. Try again.',
+        'INVALID_MFA': "MFA code didn't match. Try again.",
+        'INSTITUTION_DOWN': "Your bank is temporarily unavailable. Try again in a few minutes.",
+        'INSTITUTION_NO_LONGER_SUPPORTED': "Your bank is no longer supported. Pick a different one.",
+        'INSTITUTION_NOT_RESPONDING': "Your bank is slow to respond. Try again shortly.",
+        'INTERNAL_SERVER_ERROR': 'Plaid had a hiccup. Try again.',
+        'INVALID_LINK_TOKEN': 'Session expired. Reopen the bank link to continue.',
+        'INVALID_REQUEST': 'Bank link request was rejected. Try again.',
+        'NO_INTERNET_CONNECTIVITY': "No internet. Reconnect and try again.",
+        'PRODUCT_NOT_READY': "Your bank's data isn't ready yet. Try again in a minute.",
+        'RATE_LIMIT_EXCEEDED': 'Too many attempts. Wait a minute and try again.',
+        'USER_SETUP_REQUIRED': 'Plaid needs you to finish setting up at your bank first.'
+    };
+    const friendly = msgMap[code] || (code ? `Couldn't link bank (${code}). Try again.` : 'Bank link failed. Try again.');
+    if (typeof showToast === 'function') showToast(friendly);
+
+    // Auto-trigger re-auth on ITEM_LOGIN_REQUIRED if we know which item, so the user
+    // doesn't have to hunt for a Reconnect button.
+    if (code === 'ITEM_LOGIN_REQUIRED' && opts.updateItemId) {
+        setTimeout(() => { try { openPlaidLink({ updateItemId: opts.updateItemId }); } catch(_) {} }, 800);
+    }
+
+    // Activity log entry so users can find the failure later.
+    if (typeof logActivity === 'function') {
+        const inst = (metadata && metadata.institution_name) || 'Bank';
+        logActivity({
+            title: 'Bank link failed',
+            text: `${inst} — ${code || 'unknown'}`,
+            type: 'bank',
+            priority: 'high'
+        });
+    }
 }
+
+// Public helper for the "Reconnect" buttons on linked-bank cards.
+async function openPlaidUpdateMode(itemId) {
+    if (!itemId) return;
+    return openPlaidLink({ updateItemId: itemId });
+}
+window.openPlaidUpdateMode = openPlaidUpdateMode;
 
 async function refreshLinkedAccounts() {
     const token = await getIdToken();
@@ -6688,6 +6778,36 @@ async function refreshLinkedAccounts() {
 
     // Prune Plaid debts that no longer appear (e.g. removed at bank)
     appState.debts = appState.debts.filter(d => d.source !== 'plaid' || seenIds.has(d.id));
+
+    // Reauth nudge: any item with an itemError needs the user to reconnect.
+    // Dedupe per session so we don't spam the activity log on every poll.
+    if (!window.__wjpReauthNudged) window.__wjpReauthNudged = new Set();
+    payload.items.forEach(item => {
+        if (!item || !item.itemError || !item.itemId) return;
+        if (window.__wjpReauthNudged.has(item.itemId)) return;
+        window.__wjpReauthNudged.add(item.itemId);
+        const inst = item.institutionName || 'Your bank';
+        // ITEM_LOGIN_REQUIRED is the most common — wording is tuned for it but
+        // serves as a generic reauth nudge for the others too.
+        const friendly = (item.itemError === 'ITEM_LOGIN_REQUIRED')
+            ? `${inst} needs you to re-verify. Tap to reconnect.`
+            : `${inst} connection issue (${item.itemError}). Tap to reconnect.`;
+        if (typeof showToast === 'function') showToast(friendly);
+        if (typeof logActivity === 'function') {
+            logActivity({
+                title: 'Reconnect bank',
+                text: friendly,
+                type: 'bank',
+                priority: 'high',
+                link: `#reconnect:${item.itemId}`
+            });
+        }
+        // Auto-open update mode after a short delay so the user sees the toast
+        // first (and doesn't get a Plaid modal slammed in their face on page load).
+        setTimeout(() => {
+            try { openPlaidUpdateMode(item.itemId); } catch(_) {}
+        }, 2500);
+    });
 
     try { if (typeof saveState === 'function') saveState(); } catch(_) {}
     try { if (typeof updateUI === 'function') updateUI(); } catch(_) {}

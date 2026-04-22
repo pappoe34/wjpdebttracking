@@ -1,7 +1,7 @@
 // POST /.netlify/functions/create-link-token
 // Headers: Authorization: Bearer <Firebase ID token>
 // Returns: { link_token }
-const { verifyIdToken } = require('./_shared/firebase');
+const { verifyIdToken, getFirestore } = require('./_shared/firebase');
 const { getPlaidClient } = require('./_shared/plaid');
 
 const CORS = {
@@ -29,6 +29,28 @@ exports.handler = async (event) => {
     }
     const uid = decoded.uid;
 
+    // Optional UPDATE MODE: client passes { itemId } when re-authing a broken item
+    // (e.g. ITEM_LOGIN_REQUIRED). For update mode, Plaid wants `access_token` and
+    // NO `products` field on the link token request.
+    let updateAccessToken = null;
+    try {
+      const body = JSON.parse(event.body || '{}');
+      if (body && body.itemId) {
+        const db = getFirestore();
+        const snap = await db
+          .collection('users').doc(uid)
+          .collection('plaid_items').doc(String(body.itemId)).get();
+        if (!snap.exists) {
+          return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'item not found' }) };
+        }
+        const d = snap.data() || {};
+        updateAccessToken = d.access_token || d.accessToken || null;
+        if (!updateAccessToken) {
+          return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'item missing access_token' }) };
+        }
+      }
+    } catch (_) { /* fall through to normal mode if body parse fails */ }
+
     const plaid = getPlaidClient();
     // Wire the webhook URL onto the link token so Plaid pushes us
     // TRANSACTIONS:SYNC_UPDATES_AVAILABLE notifications. Netlify exposes the
@@ -41,10 +63,16 @@ exports.handler = async (event) => {
     const linkPayload = {
       user: { client_user_id: uid },
       client_name: 'WJP Debt Tracking',
-      products: ['transactions', 'liabilities'],
       country_codes: ['US'],
       language: 'en'
     };
+    if (updateAccessToken) {
+      // Update mode: re-auth flow. No `products` field allowed.
+      linkPayload.access_token = updateAccessToken;
+    } else {
+      // Normal new-link mode.
+      linkPayload.products = ['transactions', 'liabilities'];
+    }
     if (webhookUrl) linkPayload.webhook = webhookUrl;
 
     const resp = await plaid.linkTokenCreate(linkPayload);

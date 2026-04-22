@@ -1,96 +1,14 @@
-// POST /.netlify/functions/debug-item-state
-// Headers: Authorization: Bearer <Firebase ID token>
-// Body:    { itemId: '...' }
-// Returns: { firestore: {...}, plaid: {...} }
-//
-// Diagnostic only. Returns the plaid_items Firestore doc + the result of
-// Plaid /item/get (so we can confirm whether the webhook URL is actually
-// attached on Plaid's side, and whether plaid-webhook ever wrote lastWebhookAt).
-
-const { verifyIdToken, getFirestore } = require('./_shared/firebase');
-const { getPlaidClient, getPlaidEnv } = require('./_shared/plaid');
-
+// REMOVED — sandbox-only diagnostic endpoint, retired before Plaid Production cutover.
+// Stub kept only to ensure any stale client call gets a clean 410 instead of a 404.
+// No imports, no logic, no side effects.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type': 'application/json'
 };
-
-function safeData(d) {
-  if (!d) return null;
-  // Strip the access token; never return it to the browser.
-  const out = {};
-  for (const k of Object.keys(d)) {
-    if (k === 'access_token' || k === 'accessToken') continue;
-    const v = d[k];
-    if (v && typeof v === 'object' && typeof v.toDate === 'function') {
-      try { out[k] = v.toDate().toISOString(); continue; } catch (_) {}
-    }
-    out[k] = v;
-  }
-  return out;
-}
-
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'method not allowed' }) };
-
-  // Hard gate: returns internal Plaid item state + uid mappings. Sandbox only.
-  if (getPlaidEnv() !== 'sandbox') {
-    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'sandbox-only endpoint disabled in PLAID_ENV=' + getPlaidEnv() }) };
-  }
-
-  try {
-    const authHeader = event.headers.authorization || event.headers.Authorization;
-    let decoded;
-    try { decoded = await verifyIdToken(authHeader); }
-    catch (e) { return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'unauthorized: ' + e.message }) }; }
-    const uid = decoded.uid;
-
-    let body = {};
-    try { body = JSON.parse(event.body || '{}'); } catch (_) {}
-    const itemId = body.itemId;
-    if (!itemId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'missing itemId' }) };
-
-    const db = getFirestore();
-    const itemDoc = await db.collection('users').doc(uid).collection('plaid_items').doc(itemId).get();
-    if (!itemDoc.exists) return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'item not found' }) };
-    const data = itemDoc.data() || {};
-    const accessToken = data.access_token || data.accessToken;
-
-    let plaidItem = null;
-    let plaidErr = null;
-    if (accessToken) {
-      try {
-        const r = await getPlaidClient().itemGet({ access_token: accessToken });
-        plaidItem = r && r.data && r.data.item ? r.data.item : null;
-      } catch (e) {
-        plaidErr = (e && e.response && e.response.data && (e.response.data.error_message || e.response.data.error_code)) || e.message;
-      }
-    } else {
-      plaidErr = 'no access_token on doc';
-    }
-
-    // Pull the global webhook-arrival diag doc too, if present.
-    let diag = null;
-    try {
-      const diagSnap = await db.collection('plaid_webhook_diag').doc('latest').get();
-      if (diagSnap.exists) diag = safeData(diagSnap.data());
-    } catch (_) {}
-
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify({
-        firestore: safeData(data),
-        plaid: { item: plaidItem, error: plaidErr },
-        webhookDiag: diag
-      }, null, 2)
-    };
-  } catch (err) {
-    const msg = (err && err.message) || 'unknown error';
-    console.error('debug-item-state error:', msg);
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: msg }) };
-  }
-};
+exports.handler = async () => ({
+  statusCode: 410,
+  headers: CORS,
+  body: JSON.stringify({ error: 'endpoint removed' })
+});

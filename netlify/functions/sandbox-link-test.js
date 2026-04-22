@@ -1,4 +1,4 @@
-// REMOVED — sandbox-only test endpoint, retired before Plaid Production cutover.
+// REMOVED — one-shot sandbox integration test, retired after Plaid integration verified.
 // Stub kept only to ensure any stale client call gets a clean 410 instead of a 404.
 // No imports, no logic, no side effects.
 const CORS = {

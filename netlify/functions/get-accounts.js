@@ -41,11 +41,19 @@ exports.handler = async (event) => {
       if (!access_token) continue;
 
       let accounts = [];
+      // Capture per-call Plaid error so the UI can surface a Reconnect CTA when
+      // the item needs re-auth (ITEM_LOGIN_REQUIRED, etc.). Webhook-set errors
+      // already live in Firestore (data.itemError); this catches sync-time errors too.
+      let liveItemError = null;
+      let liveItemErrorMessage = null;
       try {
         const bal = await plaid.accountsBalanceGet({ access_token });
         accounts = bal.data.accounts || [];
       } catch (e) {
-        console.error('accountsBalanceGet failed for item', itemId, (e && e.response && e.response.data) || e.message);
+        const errData = e && e.response && e.response.data;
+        liveItemError = (errData && errData.error_code) || null;
+        liveItemErrorMessage = (errData && errData.error_message) || (e && e.message) || null;
+        console.error('accountsBalanceGet failed for item', itemId, errData || e.message);
       }
 
       let liabilities = null;
@@ -61,11 +69,17 @@ exports.handler = async (event) => {
         }
       }
 
+      // Prefer the live error code (right now) over the cached webhook one.
+      const itemError = liveItemError || data.itemError || null;
+      const itemErrorMessage = liveItemErrorMessage || data.itemErrorMessage || null;
+
       items.push({
         itemId,
         institutionName: data.institutionName || null,
         accounts,
-        liabilities
+        liabilities,
+        itemError,
+        itemErrorMessage
       });
     }
 
