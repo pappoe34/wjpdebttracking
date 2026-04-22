@@ -6811,6 +6811,164 @@ async function refreshLinkedAccounts() {
 
     try { if (typeof saveState === 'function') saveState(); } catch(_) {}
     try { if (typeof updateUI === 'function') updateUI(); } catch(_) {}
+
+    // First-run prompt: brand-new user from signup.html?new=1 with zero linked
+    // items → surface a focused Connect-Your-Bank modal. Seamless-first principle:
+    // Plaid auto-pop is the primary path, manual entry is the fallback.
+    try {
+        const isFirstRun = sessionStorage.getItem('wjp_first_run') === '1';
+        const hasItems = Array.isArray(payload.items) && payload.items.length > 0;
+        if (isFirstRun && !hasItems && typeof showFirstLinkPrompt === 'function') {
+            showFirstLinkPrompt();
+        } else if (isFirstRun && hasItems) {
+            // User already has items (re-signup, or Plaid finished mid-load) → clear.
+            sessionStorage.removeItem('wjp_first_run');
+        }
+    } catch(_) {}
+}
+
+// First-link prompt — focused modal for brand-new users. Built lazily so it
+// doesn't add markup to index.html that has to be hidden on every page load.
+function showFirstLinkPrompt() {
+    if (document.getElementById('wjp-first-link-modal')) return; // already up
+    if (sessionStorage.getItem('wjp_first_link_dismissed') === '1') return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'wjp-first-link-modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-label', 'Connect your bank');
+    wrap.style.cssText = [
+        'position:fixed', 'inset:0', 'z-index:99999',
+        'display:flex', 'align-items:center', 'justify-content:center',
+        'background:rgba(5,5,5,0.72)', 'backdrop-filter:blur(8px)',
+        '-webkit-backdrop-filter:blur(8px)',
+        'animation:wjpFlmFade .25s ease both',
+        'font-family:Inter, system-ui, sans-serif'
+    ].join(';');
+
+    wrap.innerHTML = `
+        <style>
+            @keyframes wjpFlmFade { from { opacity:0 } to { opacity:1 } }
+            @keyframes wjpFlmRise { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+            #wjp-first-link-modal .flm-card {
+                position:relative; max-width:520px; width:calc(100% - 32px);
+                border-radius:24px; overflow:hidden;
+                background:#0a0a0a; color:#f5f1ea;
+                border:1px solid rgba(245,241,234,0.08);
+                box-shadow:0 40px 100px rgba(0,0,0,0.6), 0 0 80px rgba(0,212,168,0.10);
+                animation:wjpFlmRise .35s ease .05s both;
+            }
+            #wjp-first-link-modal .flm-glow {
+                position:absolute; inset:0; pointer-events:none;
+                background:
+                  radial-gradient(ellipse 500px 240px at 50% 110%, rgba(0,212,168,0.10) 0%, transparent 60%),
+                  radial-gradient(ellipse 400px 220px at 80% -10%, rgba(124,58,237,0.06) 0%, transparent 60%);
+            }
+            #wjp-first-link-modal .flm-inner {
+                position:relative; padding:36px 32px 28px; text-align:center;
+            }
+            #wjp-first-link-modal .flm-icon {
+                width:56px; height:56px; border-radius:16px;
+                margin:0 auto 18px;
+                background:linear-gradient(135deg, #22e0b4 0%, #00a382 100%);
+                display:flex; align-items:center; justify-content:center;
+                box-shadow:0 0 40px rgba(0,212,168,0.35);
+            }
+            #wjp-first-link-modal .flm-icon i { font-size:28px; color:#041a14; }
+            #wjp-first-link-modal .flm-h1 {
+                font-family:'Fraunces', Georgia, serif;
+                font-weight:500; font-size:30px; line-height:1.1;
+                letter-spacing:-0.02em; color:#f5f1ea;
+                margin:0 0 12px;
+            }
+            #wjp-first-link-modal .flm-h1 em { font-style:italic; color:#22c79e; font-weight:400; }
+            #wjp-first-link-modal .flm-sub {
+                font-size:14.5px; color:rgba(245,241,234,0.62); line-height:1.55;
+                max-width:380px; margin:0 auto 22px;
+            }
+            #wjp-first-link-modal .flm-bullets {
+                text-align:left; max-width:340px; margin:0 auto 26px;
+                display:flex; flex-direction:column; gap:10px;
+            }
+            #wjp-first-link-modal .flm-bullet {
+                display:flex; align-items:flex-start; gap:10px;
+                font-size:13px; color:rgba(245,241,234,0.78); line-height:1.45;
+            }
+            #wjp-first-link-modal .flm-bullet i {
+                color:#22c79e; font-size:14px; margin-top:2px; flex-shrink:0;
+            }
+            #wjp-first-link-modal .flm-cta {
+                width:100%; padding:15px; border-radius:12px;
+                background:#fff; color:#050505; border:none; cursor:pointer;
+                font-family:'Fraunces', Georgia, serif; font-weight:600; font-size:16px;
+                letter-spacing:-0.01em;
+                display:inline-flex; align-items:center; justify-content:center; gap:8px;
+                transition:transform .15s ease, box-shadow .15s ease;
+            }
+            #wjp-first-link-modal .flm-cta:hover {
+                transform:translateY(-1px);
+                box-shadow:0 14px 36px rgba(0,212,168,0.22);
+            }
+            #wjp-first-link-modal .flm-skip {
+                margin-top:12px;
+                background:transparent; color:rgba(245,241,234,0.55);
+                border:none; cursor:pointer;
+                font-family:Inter, system-ui, sans-serif; font-size:13px;
+                padding:8px 12px;
+                transition:color .15s ease;
+            }
+            #wjp-first-link-modal .flm-skip:hover { color:#f5f1ea; }
+            #wjp-first-link-modal .flm-fine {
+                margin-top:18px; font-size:10.5px; letter-spacing:0.14em;
+                text-transform:uppercase; color:rgba(245,241,234,0.32);
+            }
+        </style>
+        <div class="flm-card">
+            <div class="flm-glow"></div>
+            <div class="flm-inner">
+                <div class="flm-icon"><i class="ph ph-bank"></i></div>
+                <h2 class="flm-h1">Connect a bank to <em>get started</em></h2>
+                <p class="flm-sub">WJP pulls your debts and payments automatically — no spreadsheets, no copy-paste. Takes 30 seconds.</p>
+                <div class="flm-bullets">
+                    <div class="flm-bullet"><i class="ph ph-check-circle"></i> Auto-imports credit cards, loans &amp; balances</div>
+                    <div class="flm-bullet"><i class="ph ph-check-circle"></i> Tracks payments &amp; flags missed bills</div>
+                    <div class="flm-bullet"><i class="ph ph-check-circle"></i> Read-only — your credentials never touch us</div>
+                </div>
+                <button type="button" class="flm-cta" id="flm-connect">
+                    Connect your bank <i class="ph ph-arrow-right"></i>
+                </button>
+                <button type="button" class="flm-skip" id="flm-skip">I&rsquo;ll do this later</button>
+                <div class="flm-fine">Powered by Plaid · 256-bit encryption</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+
+    const close = () => { try { wrap.remove(); } catch(_) {} };
+    const connectBtn = wrap.querySelector('#flm-connect');
+    const skipBtn = wrap.querySelector('#flm-skip');
+
+    connectBtn.addEventListener('click', () => {
+        sessionStorage.removeItem('wjp_first_run');
+        close();
+        if (typeof openPlaidLink === 'function') {
+            try { openPlaidLink(); } catch (e) { console.warn('openPlaidLink threw:', e); }
+        }
+    });
+    skipBtn.addEventListener('click', () => {
+        sessionStorage.removeItem('wjp_first_run');
+        sessionStorage.setItem('wjp_first_link_dismissed', '1');
+        close();
+        if (typeof showToast === 'function') {
+            showToast('No worries — tap Sync Bank up top whenever you\u2019re ready.');
+        }
+    });
+    // ESC closes (treats as skip — same dismiss semantics).
+    const escHandler = (e) => {
+        if (e.key === 'Escape') { skipBtn.click(); document.removeEventListener('keydown', escHandler); }
+    };
+    document.addEventListener('keydown', escHandler);
 }
 
 async function refreshFromBank(itemId) {

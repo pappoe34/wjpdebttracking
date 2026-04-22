@@ -82,6 +82,18 @@
       // redundant. Mark it complete so checkOnboarding() doesn't reopen it.
       try { localStorage.setItem('wjp_onboarding_complete', 'true'); } catch(_) {}
 
+      // Brand-new user just landed from signup.html?new=1 → stash a session flag
+      // so app.js can surface a focused first-link prompt once Plaid items load.
+      // Also strip the query param so refreshes don't re-trigger the prompt.
+      try {
+        const u = new URL(window.location.href);
+        if (u.searchParams.get('new') === '1') {
+          sessionStorage.setItem('wjp_first_run', '1');
+          u.searchParams.delete('new');
+          window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+        }
+      } catch(_) {}
+
       killOverlay();
 
       // Re-run after DOM events in case overlay markup parses or is re-shown later.
@@ -150,7 +162,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WJP Debt">
   
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=26-revert">
   <!-- Use Phosphor icons for aesthetic UI -->
   <!-- UI Libraries -->
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>

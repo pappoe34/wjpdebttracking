@@ -470,8 +470,10 @@
         await persistenceReady;
         await signInWithPopup(auth, p);
         await auth.authStateReady();
-        showToast('Account created — welcome to WJP');
-        setTimeout(() => window.location.replace('./index.html'), 400);
+        showToast('Account created — let\u2019s connect your bank');
+        // ?new=1 tells the dashboard this is a brand-new user so it can surface
+        // the first-link prompt instead of the cluttered default UI.
+        setTimeout(() => window.location.replace('./index.html?new=1'), 400);
       } catch (err) {
         showToast(mapAuthError(err.code));
       }
@@ -499,8 +501,10 @@
         await persistenceReady;
         await createUserWithEmailAndPassword(auth, emailEl.value.trim(), pwEl.value);
         await auth.authStateReady();
-        showToast('Account created — welcome to WJP');
-        setTimeout(() => window.location.replace('./index.html'), 400);
+        showToast('Account created — let\u2019s connect your bank');
+        // ?new=1 tells the dashboard this is a brand-new user so it can surface
+        // the first-link prompt instead of the cluttered default UI.
+        setTimeout(() => window.location.replace('./index.html?new=1'), 400);
       } catch (err) {
         btn.disabled = false; btn.textContent = 'Start free →';
         showToast(mapAuthError(err.code));
