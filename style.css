@@ -912,26 +912,25 @@ body.light .theme-toggle .toggle-thumb {
   margin-top: 10px;
   letter-spacing: 0.02em;
 }
+/* Progress badge — sits BELOW the bar on its own row (cleaner than
+   the old absolute-centered overlay which made the bar look crowded) */
 .progress-center {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
 }
 .progress-badge-center {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(4px);
+  background: var(--accent-dim);
   color: var(--accent);
   border: 1px solid var(--border-accent);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  letter-spacing: 0.02em;
 }
 
 /* ---------- BUTTONS ---------- */
@@ -4309,9 +4308,44 @@ body.dark .top-header{
 
   /* AI Strategy Advisor specifically — make it feel like a hero */
   .ai-advisor-card{
-    padding: 22px !important;
+    padding: 20px !important;
   }
   .ai-advisor-card .ai-card-title > div:first-child{ font-size: 16px !important; }
+  /* Inner body was 2-col grid (Current Focus + Payoff Projection) — stack */
+  .ai-card-body{
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+  .ai-card-actions{ flex-wrap: wrap !important; gap: 8px !important; }
+  .ai-card-actions .btn{ flex: 1 1 auto; min-width: 0; }
+
+  /* Spending tracker — inner row was 2-col (chart + transactions) → stack */
+  .spending-row{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .spending-card-header{
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    row-gap: 10px !important;
+  }
+
+  /* Generic catch for inline 2-col grids on pages (Budget's Cash Flow/AI
+     Coach section uses style="grid-template-columns:1.4fr 1fr" inline,
+     and other pages use similar patterns). Force them all to 1 column. */
+  .page [style*="grid-template-columns:1.4fr"],
+  .page [style*="grid-template-columns: 1.4fr"],
+  .page [style*="grid-template-columns:1fr 1fr"],
+  .page [style*="grid-template-columns: 1fr 1fr"],
+  .page [style*="grid-template-columns:2fr 1fr"],
+  .page [style*="grid-template-columns: 2fr 1fr"],
+  .page [style*="grid-template-columns:1fr 320px"],
+  .page [style*="grid-template-columns: 1fr 320px"],
+  .page [style*="grid-template-columns:1fr 340px"],
+  .page [style*="grid-template-columns: 1fr 340px"]{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
 
   /* Kill any lingering min-widths that cause horizontal cutoff */
   .ai-advisor-card, .strategy-card,
