@@ -434,6 +434,67 @@ footer a:hover{color:var(--ink)}
 }
 
 /* ============================================================
+   MOBILE NAV MENU — hamburger + full-screen overlay
+   ============================================================ */
+.nav-menu-btn{
+  display:none;
+  appearance:none;background:rgba(255,255,255,0.6);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(10,10,10,0.1);
+  border-radius:10px;padding:8px;color:var(--ink);cursor:pointer;
+  line-height:0;
+}
+.nav-menu-btn:hover{background:rgba(255,255,255,0.85)}
+
+.nav-menu-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(255,255,255,0.96);
+  backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);
+  display:none;
+  overflow-y:auto;
+}
+.nav-menu-overlay.open{display:block}
+.nav-menu-inner{
+  max-width:460px;margin:0 auto;padding:72px 22px 32px;
+  display:flex;flex-direction:column;gap:22px;
+}
+.nav-menu-top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:14px;border-bottom:1px solid var(--rule);
+}
+.nav-menu-title{
+  font-family:var(--sans);font-weight:800;font-size:13px;
+  letter-spacing:2.5px;text-transform:uppercase;color:var(--ink-faint);
+}
+.nav-menu-close{
+  appearance:none;background:rgba(10,10,10,0.05);
+  border:none;border-radius:10px;padding:8px;color:var(--ink);cursor:pointer;line-height:0;
+}
+.nav-menu-close:hover{background:rgba(10,10,10,0.1)}
+.nav-menu-content{display:flex;flex-direction:column;gap:4px}
+.nav-menu-content a.link{
+  padding:16px 18px;font-size:17px;font-weight:600;
+  color:var(--ink) !important;
+  border-radius:12px;display:block;text-align:left;
+  border:1px solid transparent;
+  background:transparent !important;
+  box-shadow:none !important;
+  letter-spacing:-0.01em;
+}
+.nav-menu-content a.link:hover{background:rgba(10,10,10,0.04) !important}
+.nav-menu-content a.link.active{
+  background:rgba(31,122,74,0.10) !important;
+  color:var(--accent) !important;
+  border-color:rgba(31,122,74,0.24);
+}
+.nav-menu-content .pill{
+  display:flex !important;justify-content:center;
+  font-size:15px;padding:16px 22px !important;
+  margin-top:10px;letter-spacing:-0.005em;
+}
+body.menu-open{overflow:hidden}
+
+/* ============================================================
    MOBILE OVERRIDES — bigger, more readable, scroll-friendly.
    ============================================================ */
 /* Prevent any horizontal overflow that forces browser zoom-out */
@@ -443,6 +504,10 @@ body{overflow-x:hidden;max-width:100vw}
 img, svg, .demo-card, .mockup, .math-card, .outcome-stat-row, .pricing-mini, .theme-row, .split-pillars{max-width:100%;min-width:0}
 
 @media (max-width:820px){
+  /* Show hamburger, hide inline nav-links */
+  .nav-menu-btn{display:inline-flex;align-items:center;justify-content:center}
+  nav.top .nav-links{display:none !important}
+
   /* Base size up for readability */
   body{font-size:16.5px}
 
