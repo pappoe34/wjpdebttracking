@@ -432,3 +432,38 @@ footer a:hover{color:var(--ink)}
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important;transition:none !important}
 }
+
+/* ============================================================
+   MOBILE OVERRIDES — tighter padding, no sticky sidebars,
+   smaller coin overlays, fit-to-phone hero.
+   ============================================================ */
+@media (max-width:760px){
+  /* Tighter section padding everywhere */
+  section.pad{padding:64px 20px}
+  .sub-hero{padding:100px 20px 40px}
+  .value-props{padding:60px 20px}
+  .final{padding:72px 20px}
+  nav.top{padding:14px 18px}
+
+  /* Typography scales down */
+  h1.head{font-size:clamp(30px,8vw,46px);letter-spacing:-0.03em}
+  h2.h2{font-size:clamp(26px,6.5vw,34px);letter-spacing:-0.03em}
+  .lede{font-size:15px}
+
+  /* Cards tighten */
+  .vp-card, .pillar, .feat, .step{padding:22px 18px}
+  .math-card{padding:22px;gap:20px}
+  .math-card .big{font-size:clamp(36px,8vw,46px)}
+  details.q{padding:16px 18px}
+  details.q summary{font-size:15.5px}
+  .ask-ai{padding:22px;margin-top:28px}
+
+  /* Hero meta readability */
+  .hero-meta{font-size:10px;letter-spacing:1.8px;gap:14px}
+
+  /* Footer readable */
+  footer{padding:32px 20px 48px}
+  .foot-links{gap:14px}
+  .foot-row{gap:14px;padding-top:16px}
+  .foot-trust{gap:12px;font-size:10px;letter-spacing:1.5px}
+}

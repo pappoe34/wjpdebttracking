@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./landing.css?v=phase2-7">
+<link rel="stylesheet" href="./landing.css?v=phase2-9">
 <style>
   /* intro-specific hero — fits viewport, no scroll needed */
   .hero{
@@ -43,6 +43,24 @@
     .hero .hero-sub{margin-top:14px;font-size:15px}
     .hero .hero-cta{margin-top:20px}
     .hero .hero-meta{margin-top:18px}
+  }
+  /* Mobile: don't force 100vh — content determines height, align to top */
+  @media (max-width:760px){
+    .hero{
+      min-height:auto;
+      padding:100px 20px 44px;
+      align-items:flex-start;
+    }
+    .hero h1.head{
+      font-size:clamp(32px,8vw,48px);
+      line-height:1.04;letter-spacing:-0.035em;
+    }
+    .hero .hero-sub{font-size:15px;line-height:1.55}
+    .hero .hero-cta{margin-top:22px;gap:10px}
+    .hero .hero-cta .pill{padding:11px 18px;font-size:13px}
+    .hero .hero-meta{margin-top:20px;gap:14px;font-size:10px;letter-spacing:1.8px}
+    /* Hide coins on phone — too busy, and hurts mobile CPU/battery */
+    .floaters{display:none}
   }
 </style>
 </head>
