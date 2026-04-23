@@ -173,7 +173,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WJP Debt">
   
-  <link rel="stylesheet" href="style.css?v=35-mobile-fix3">
+  <link rel="stylesheet" href="style.css?v=36-portrait">
   <!-- Use Phosphor icons for aesthetic UI -->
   <!-- UI Libraries -->
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -582,6 +582,9 @@
     <main class="main-area">
       <!-- HEADER -->
       <header class="top-header">
+        <button class="app-menu-btn" id="appMenuBtn" type="button" aria-label="Open menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+        </button>
         <div class="header-brand">
           <div class="header-brand-text" id="header-title">Financial Strategy</div>
         </div>
@@ -4578,6 +4581,34 @@
   <!-- Netlify Identity Widget -->
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script src="app.js?v=17"></script>
+
+  <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
+  <script>
+  (function(){
+    var btn = document.getElementById('appMenuBtn');
+    if (!btn) return;
+    var close = function(){ document.body.classList.remove('app-menu-open'); };
+    var open  = function(){ document.body.classList.add('app-menu-open'); };
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if (document.body.classList.contains('app-menu-open')) close(); else open();
+    });
+    // Tap outside sidebar closes
+    document.addEventListener('click', function(e){
+      if (!document.body.classList.contains('app-menu-open')) return;
+      var s = document.querySelector('.sidebar');
+      if (s && !s.contains(e.target) && e.target !== btn) close();
+    });
+    // Tap any sidebar nav-item closes
+    document.querySelectorAll('.sidebar .nav-item').forEach(function(i){
+      i.addEventListener('click', close);
+    });
+    // Esc closes
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') close();
+    });
+  })();
+  </script>
 </body>
 </html>
 
