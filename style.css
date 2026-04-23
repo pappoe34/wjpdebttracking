@@ -4166,15 +4166,17 @@ body.dark .top-header{
 
 @media (max-width: 560px) and (orientation: portrait){
 
-  /* --- 1) Normal vertical scroll, no forced horizontal pan ----- */
+  /* --- 1) Viewport-level: normal vertical scroll, no horiz shift
+     The page itself does NOT scroll horizontally — only the content
+     area does, so the header stays locked at the top.
+  --------------------------------------------------------------- */
   html, body{
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    touch-action: manipulation !important; /* allows pinch-zoom */
+    touch-action: manipulation !important;
     max-width: 100% !important;
   }
-  /* Remove the forced wide width — let content flow at viewport width */
   .app-wrapper{
     min-width: 0 !important;
     width: 100% !important;
@@ -4188,11 +4190,25 @@ body.dark .top-header{
     width: 100% !important;
     margin-left: 0 !important;
   }
+
+  /* --- 2) CONTENT AREA is the pannable zone -------------------
+     User swipes left/right inside the content area to reveal
+     content that's wider than the viewport. The top-header stays
+     locked at the top of the viewport (doesn't move with the pan).
+  --------------------------------------------------------------- */
   .content-area{
-    padding: 14px 12px !important;
-    overflow-x: hidden !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 14px !important;
   }
-  .page{ min-width: 0 !important; }
+  /* Pages render at their natural, comfortable width — wide enough
+     that the desktop layout breathes, narrow enough that a single
+     swipe covers it. User pans left/right to access full content. */
+  .page{
+    min-width: 900px !important;
+    max-width: none !important;
+  }
 
   /* --- 2) Sidebar — slide-in drawer (from yesterday) ---------- */
   .sidebar{
@@ -4213,85 +4229,27 @@ body.dark .top-header{
     z-index: 900;
   }
 
-  /* --- 3) DASHBOARD polish — stack everything, make hero big --- */
-  /* Hero card (Total Debt Remaining) — full-width, prominent */
-  .dash-header{
-    grid-template-columns: 1fr !important;
-    gap: 12px !important;
-    margin-bottom: 16px !important;
-  }
-  .dash-total-card{
-    width: 100% !important;
-    min-width: 0 !important;
-    text-align: left !important;
-    padding: 18px 20px !important;
-    background: linear-gradient(135deg, rgba(31,122,74,0.08), rgba(201,154,42,0.06)) !important;
-    border: 1px solid rgba(31,122,74,0.18) !important;
-  }
-  .dash-total-card .card-label{
-    font-size: 10px !important;
-    letter-spacing: 0.12em !important;
-  }
-  .dash-total-card .card-value{
-    font-size: clamp(28px, 9vw, 40px) !important;
-    line-height: 1.05 !important;
-    letter-spacing: -0.02em !important;
-    font-weight: 800 !important;
-    margin-top: 6px;
-  }
-
-  /* Section title — snappy on phone, no word-break */
-  .section-title{
-    font-size: clamp(22px, 6.5vw, 30px) !important;
-    line-height: 1.1 !important;
-  }
-  .section-label{ font-size: 10px !important; letter-spacing: 0.14em !important; }
-
-  /* Progress section */
-  .dash-progress-section{ margin-bottom: 18px !important; }
-  .progress-badge-center{ font-size: 11px !important; }
-  .progress-labels{ font-size: 11px !important; }
-
-  /* Main dash-grid → single column, right column stacks below */
-  .dash-grid{
-    grid-template-columns: 1fr !important;
-    gap: 14px !important;
-  }
-  .dash-left, .dash-right{
-    gap: 14px !important;
-    width: 100%;
-    min-width: 0;
-  }
-  .dash-right{ flex-direction: column !important; }
-  .dash-right .card{ flex: 1 1 100% !important; width: 100% !important; }
-
-  /* Strategy indicators — stack vertically */
-  .strategy-indicators{ grid-template-columns: 1fr !important; gap: 12px !important; }
-
-  /* Stats / obligation rows — 2 columns on phone where space allows */
-  .dash-stats-row{ grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-  .obligation-cards,
-  .obligation-cards-row{ grid-template-columns: 1fr !important; gap: 12px !important; }
-
-  /* Paycheck buckets — single column (was 4 columns on desktop) */
-  #paycheck-buckets{
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
-  }
-
-  /* Generic cards — sane padding & radius on phone */
-  .card{
-    padding: 16px !important;
-    border-radius: 14px !important;
-  }
-
-  /* AI advisor card, stats cards — kill any hard min-widths */
-  .ai-advisor-card, .strategy-card, .dash-stats-row > *{
-    min-width: 0 !important;
-  }
-
-  /* Typography inside cards — keep values readable */
+  /* --- 3) CONTENT — natural desktop-ish layout at 900px ----------
+     Since the content area now pans horizontally, we let the full
+     desktop layout render. No aggressive single-column stacking —
+     the user sees the tablet-landscape-style layout and swipes
+     sideways to reveal content on the right.
+  --------------------------------------------------------------- */
+  /* Cards stay their natural sizes; only cap the absolute max so
+     nothing runs to 3000px wide */
+  .card{ max-width: 100%; }
+  /* Typography safety: allow long numbers to wrap inside their cells */
   .card-value, .stat-value{ overflow-wrap: anywhere; }
+
+  /* Subtle hint on first load — a soft swipe indicator on the right
+     edge of the content area so users notice there's more to see */
+  .content-area{
+    background-image:
+      linear-gradient(to left, rgba(31,122,74,0.04), transparent 40px);
+    background-repeat: no-repeat;
+    background-position: right top;
+    background-size: 40px 100%;
+  }
 
   /* --- 3) Rotate-for-best-view BANNER (slim, dismissible) ------
      Sits at the top of the viewport (position:fixed so it doesn't
