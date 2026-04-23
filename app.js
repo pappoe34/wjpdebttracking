@@ -307,6 +307,9 @@ const titles = {
 function navigateSPA(target) {
     if (!target) return;
 
+    // Lightweight analytics — fire once per navigation
+    try { window.wjp && wjp.track && wjp.track('tab_viewed', { tab: target }); } catch(_){}
+
     // Reset scroll position on every navigation
     const contentArea = document.querySelector('.content-area');
     if (contentArea) contentArea.scrollTop = 0;
@@ -6402,13 +6405,27 @@ async function openPlaidLink(opts) {
     try {
         const handler = Plaid.create({
             token: linkToken,
-            onSuccess: (public_token, metadata) => { handlePlaidSuccess(public_token, metadata, opts); },
-            onExit: (err, metadata) => { handlePlaidExit(err, metadata, opts); },
+            onSuccess: (public_token, metadata) => {
+                try { window.wjp && wjp.track && wjp.track('plaid_link_success', { institution: (metadata && metadata.institution && metadata.institution.name) || null }); } catch(_){}
+                handlePlaidSuccess(public_token, metadata, opts);
+            },
+            onExit: (err, metadata) => {
+                try {
+                    if (err) {
+                        window.wjp && wjp.track && wjp.track('plaid_link_error', { code: err.error_code || null, type: err.error_type || null });
+                    } else {
+                        window.wjp && wjp.track && wjp.track('plaid_link_exit', {});
+                    }
+                } catch(_){}
+                handlePlaidExit(err, metadata, opts);
+            },
             onEvent: (eventName, metadata) => { handlePlaidEvent(eventName, metadata, opts); }
         });
+        try { window.wjp && wjp.track && wjp.track('plaid_link_opened', {}); } catch(_){}
         handler.open();
     } catch (e) {
         console.error('Plaid.create failed:', e);
+        try { window.wjp && wjp.track && wjp.track('client_error', { where: 'plaid_create', msg: String(e && e.message || e).slice(0, 160) }); } catch(_){}
         if (typeof showToast === 'function') showToast('Could not open Plaid Link.');
     }
 }

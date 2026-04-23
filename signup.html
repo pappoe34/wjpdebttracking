@@ -511,6 +511,7 @@
 
     const btn = document.getElementById('submit-btn');
     btn.disabled = true; btn.textContent = 'Creating your account…';
+    try { window.wjp && wjp.track && wjp.track('signup_started', { method: 'email' }); } catch(_){}
     (async () => {
       try {
         await persistenceReady;
@@ -522,14 +523,17 @@
           });
         } catch(_){}
         await auth.authStateReady();
+        try { window.wjp && wjp.track && wjp.track('signup_completed', { method: 'email' }); } catch(_){}
         showToast('Account created — check your email to verify');
         setTimeout(() => window.location.replace('./verify.html'), 600);
       } catch (err) {
         btn.disabled = false; btn.textContent = 'Start free →';
+        try { window.wjp && wjp.track && wjp.track('client_error', { where: 'signup', code: err.code || null }); } catch(_){}
         showToast(mapAuthError(err.code));
       }
     })();
   });
 </script>
+<script defer src="./wjp-analytics.js?v=1"></script>
 </body>
 </html>

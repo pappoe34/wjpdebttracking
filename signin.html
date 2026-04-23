@@ -485,6 +485,7 @@
 
     const btn = document.getElementById('submit-btn');
     btn.classList.add('loading'); btn.disabled = true; btn.textContent = 'Signing in…';
+    try { window.wjp && wjp.track && wjp.track('signin_started', { method: 'email' }); } catch(_){}
     (async () => {
       try {
         await persistenceReady;
@@ -495,14 +496,17 @@
           setTimeout(() => window.location.replace('./verify.html'), 500);
           return;
         }
+        try { window.wjp && wjp.track && wjp.track('signin_completed', { method: 'email' }); } catch(_){}
         showToast('Welcome back — opening your dashboard');
         setTimeout(() => window.location.replace('./index.html'), 400);
       } catch (err) {
         btn.classList.remove('loading'); btn.disabled = false; btn.textContent = 'Sign in →';
+        try { window.wjp && wjp.track && wjp.track('client_error', { where: 'signin', code: err.code || null }); } catch(_){}
         showToast(mapAuthError(err.code));
       }
     })();
   });
 </script>
+<script defer src="./wjp-analytics.js?v=1"></script>
 </body>
 </html>
