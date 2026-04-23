@@ -4191,23 +4191,21 @@ body.dark .top-header{
     margin-left: 0 !important;
   }
 
-  /* --- 2) CONTENT AREA is the pannable zone -------------------
-     User swipes left/right inside the content area to reveal
-     content that's wider than the viewport. The top-header stays
-     locked at the top of the viewport (doesn't move with the pan).
+  /* --- 2) CONTENT — full-bleed vertical stack, no wasted margins
+     Each card takes the full viewport width. No card is ever cut
+     mid-way. User scrolls vertically, cards are big and breathe.
   --------------------------------------------------------------- */
   .content-area{
-    overflow-x: auto !important;
+    overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    padding: 14px 14px !important;
+    padding: 12px 8px 24px !important;  /* tight side padding = more card space */
+    background-image: none !important;
   }
-  /* Pages render at their natural, comfortable width — wide enough
-     that the desktop layout breathes, narrow enough that a single
-     swipe covers it. User pans left/right to access full content. */
   .page{
-    min-width: 900px !important;
-    max-width: none !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
   /* --- 2) Sidebar — slide-in drawer (from yesterday) ---------- */
@@ -4229,27 +4227,103 @@ body.dark .top-header{
     z-index: 900;
   }
 
-  /* --- 3) CONTENT — natural desktop-ish layout at 900px ----------
-     Since the content area now pans horizontally, we let the full
-     desktop layout render. No aggressive single-column stacking —
-     the user sees the tablet-landscape-style layout and swipes
-     sideways to reveal content on the right.
+  /* --- 3) DASHBOARD — every card full-width, big, readable ------
+     Stack every grid/flex row vertically. No cards cut mid-way.
+     Bigger typography, generous padding INSIDE cards.
   --------------------------------------------------------------- */
-  /* Cards stay their natural sizes; only cap the absolute max so
-     nothing runs to 3000px wide */
-  .card{ max-width: 100%; }
-  /* Typography safety: allow long numbers to wrap inside their cells */
-  .card-value, .stat-value{ overflow-wrap: anywhere; }
 
-  /* Subtle hint on first load — a soft swipe indicator on the right
-     edge of the content area so users notice there's more to see */
-  .content-area{
-    background-image:
-      linear-gradient(to left, rgba(31,122,74,0.04), transparent 40px);
-    background-repeat: no-repeat;
-    background-position: right top;
-    background-size: 40px 100%;
+  /* Hero row: section-label + h1 + total-debt card all stack */
+  .dash-header{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    margin-bottom: 18px !important;
   }
+  .section-label{ font-size: 10px !important; letter-spacing: 0.14em !important; }
+  .section-title{
+    font-size: clamp(26px, 8vw, 36px) !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  /* Total Debt hero — full width, prominent gradient background */
+  .dash-total-card{
+    width: 100% !important;
+    min-width: 0 !important;
+    text-align: left !important;
+    padding: 22px 22px !important;
+    background: linear-gradient(135deg, rgba(31,122,74,0.09), rgba(201,154,42,0.07)) !important;
+    border: 1px solid rgba(31,122,74,0.20) !important;
+    border-radius: 16px !important;
+  }
+  .dash-total-card .card-label{
+    font-size: 10px !important;
+    letter-spacing: 0.14em !important;
+    color: var(--text-3) !important;
+  }
+  .dash-total-card .card-value{
+    font-size: clamp(32px, 10vw, 48px) !important;
+    line-height: 1.03 !important;
+    letter-spacing: -0.025em !important;
+    font-weight: 800 !important;
+    margin-top: 8px !important;
+  }
+
+  /* Progress bar — full width, taller */
+  .dash-progress-section{ margin-bottom: 20px !important; }
+  .progress-bar-tall .progress-track{ height: 12px !important; }
+  .progress-badge-center{ font-size: 12px !important; padding: 6px 14px !important; }
+  .progress-labels{ font-size: 12px !important; }
+
+  /* Dash grid: stack left + right into ONE column, cards fill width */
+  .dash-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .dash-left, .dash-right{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .dash-right .card{ flex: 1 1 100% !important; width: 100% !important; }
+
+  /* Strategy indicators + stats + obligation rows — all stack */
+  .strategy-indicators{ grid-template-columns: 1fr !important; gap: 12px !important; }
+  .dash-stats-row{ grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .obligation-cards,
+  .obligation-cards-row{ grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* Paycheck buckets — single column */
+  #paycheck-buckets{ grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* All cards: full width, generous inside-padding */
+  .card{
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 20px !important;
+    border-radius: 16px !important;
+    box-sizing: border-box;
+  }
+
+  /* AI Strategy Advisor specifically — make it feel like a hero */
+  .ai-advisor-card{
+    padding: 22px !important;
+  }
+  .ai-advisor-card .ai-card-title > div:first-child{ font-size: 16px !important; }
+
+  /* Kill any lingering min-widths that cause horizontal cutoff */
+  .ai-advisor-card, .strategy-card,
+  .dash-stats-row > *, .dash-right > *,
+  .obligation-cards > *, .obligation-cards-row > *,
+  #paycheck-buckets > *{
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Typography inside cards */
+  .card-value, .stat-value{ overflow-wrap: anywhere; }
 
   /* --- 3) Rotate-for-best-view BANNER (slim, dismissible) ------
      Sits at the top of the viewport (position:fixed so it doesn't
