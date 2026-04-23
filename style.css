@@ -3937,15 +3937,47 @@ body.dark .app-wrapper::before{
     /* NO word-break — that was breaking words into vertical letter columns */
   }
 
-  /* Grids to 1 column */
+  /* Grids to 1 column on phone */
   .dash-stats-row,
   .obligation-cards,
+  .obligation-cards-row,
+  .debts-spend-grid,
   .advisor-hero-grid,
   .advisor-main-grid,
   .settings-grid,
   .rec-bottom-grid {
     grid-template-columns: 1fr !important;
+    display: grid !important;
     gap: 12px !important;
+  }
+
+  /* Dash header — title + total-debt stack vertically */
+  .dash-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+  .dash-total-card {
+    width: 100%;
+    text-align: left;
+  }
+  .dash-total-card .card-value {
+    font-size: 26px !important;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  /* All big card numbers get a safety shrink */
+  .card-value {
+    font-size: clamp(20px, 6vw, 28px) !important;
+    overflow-wrap: anywhere;
+  }
+
+  /* Progress bar badge — don't clip long labels */
+  .progress-badge-center {
+    font-size: 11px !important;
+    white-space: normal;
+    padding: 4px 10px !important;
   }
 
   /* Floating "book" (reviewer FAB) — move so it doesn't cover buttons */
