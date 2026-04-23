@@ -4156,47 +4156,45 @@ body.dark .top-header{
 }
 
 /* ============================================================
-   PORTRAIT-PHONE PAN-EVERYWHERE + ROTATE BANNER
-   Winston's spec: in portrait, let the user pan the screen in any
-   direction (no forced fit); show a slim dismissible banner at the
-   top suggesting landscape for the best view.
+   PORTRAIT-PHONE — STACK EVERYTHING CLEANLY
+   Drops yesterday's forced 1180px pan approach. Instead: let the
+   existing responsive rules (≤820px) stack things, then add
+   dashboard-specific polish so the first screen after sign-in
+   shows the key numbers at readable sizes.
    ============================================================ */
 #rotate-prompt{ display: none; }
 
 @media (max-width: 560px) and (orientation: portrait){
 
-  /* --- 1) Allow panning in every direction ---------------------
-     The app was designed for desktop widths. Rather than squeeze
-     everything into 380px and drop content, let the page keep its
-     natural size and let the user swipe left/right and up/down.
-  --------------------------------------------------------------- */
+  /* --- 1) Normal vertical scroll, no forced horizontal pan ----- */
   html, body{
-    overflow-x: auto !important;
+    overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: auto;
-    touch-action: pan-x pan-y pinch-zoom !important;
+    touch-action: manipulation !important; /* allows pinch-zoom */
+    max-width: 100% !important;
   }
-  /* Allow pinch-zoom so users can also zoom into dense tables */
-  body{ max-width: none !important; }
-
-  /* Preserve desktop content width so there is content to pan */
+  /* Remove the forced wide width — let content flow at viewport width */
   .app-wrapper{
-    min-width: 1180px !important;
-    overflow: visible !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
   }
   .main-area{
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
     min-width: 0 !important;
-    max-width: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin-left: 0 !important;
   }
-  /* Inner sections no longer forced to viewport width */
-  .main-area *{ max-width: none !important; }
+  .content-area{
+    padding: 14px 12px !important;
+    overflow-x: hidden !important;
+  }
+  .page{ min-width: 0 !important; }
 
-  /* --- 2) Sidebar — stays as slide-in drawer (on top of viewport),
-     NOT part of the pannable area, so the hamburger menu is always
-     reachable regardless of scroll position.
-  --------------------------------------------------------------- */
+  /* --- 2) Sidebar — slide-in drawer (from yesterday) ---------- */
   .sidebar{
     position: fixed !important;
     top: 0; left: 0;
@@ -4207,14 +4205,93 @@ body.dark .top-header{
     z-index: 1200;
   }
   body.app-menu-open .sidebar{ transform: translateX(0) !important; }
-  .main-area{ margin-left: 0 !important; }
 
-  /* Top-header sticks to viewport top during vertical pan */
+  /* Top-header sticks to viewport top while scrolling */
   .top-header{
     position: sticky;
     top: 0;
     z-index: 900;
   }
+
+  /* --- 3) DASHBOARD polish — stack everything, make hero big --- */
+  /* Hero card (Total Debt Remaining) — full-width, prominent */
+  .dash-header{
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+  .dash-total-card{
+    width: 100% !important;
+    min-width: 0 !important;
+    text-align: left !important;
+    padding: 18px 20px !important;
+    background: linear-gradient(135deg, rgba(31,122,74,0.08), rgba(201,154,42,0.06)) !important;
+    border: 1px solid rgba(31,122,74,0.18) !important;
+  }
+  .dash-total-card .card-label{
+    font-size: 10px !important;
+    letter-spacing: 0.12em !important;
+  }
+  .dash-total-card .card-value{
+    font-size: clamp(28px, 9vw, 40px) !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.02em !important;
+    font-weight: 800 !important;
+    margin-top: 6px;
+  }
+
+  /* Section title — snappy on phone, no word-break */
+  .section-title{
+    font-size: clamp(22px, 6.5vw, 30px) !important;
+    line-height: 1.1 !important;
+  }
+  .section-label{ font-size: 10px !important; letter-spacing: 0.14em !important; }
+
+  /* Progress section */
+  .dash-progress-section{ margin-bottom: 18px !important; }
+  .progress-badge-center{ font-size: 11px !important; }
+  .progress-labels{ font-size: 11px !important; }
+
+  /* Main dash-grid → single column, right column stacks below */
+  .dash-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .dash-left, .dash-right{
+    gap: 14px !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .dash-right{ flex-direction: column !important; }
+  .dash-right .card{ flex: 1 1 100% !important; width: 100% !important; }
+
+  /* Strategy indicators — stack vertically */
+  .strategy-indicators{ grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* Stats / obligation rows — 2 columns on phone where space allows */
+  .dash-stats-row{ grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .obligation-cards,
+  .obligation-cards-row{ grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* Paycheck buckets — single column (was 4 columns on desktop) */
+  #paycheck-buckets{
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Generic cards — sane padding & radius on phone */
+  .card{
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  /* AI advisor card, stats cards — kill any hard min-widths */
+  .ai-advisor-card, .strategy-card, .dash-stats-row > *{
+    min-width: 0 !important;
+  }
+
+  /* Typography inside cards — keep values readable */
+  .card-value, .stat-value{ overflow-wrap: anywhere; }
 
   /* --- 3) Rotate-for-best-view BANNER (slim, dismissible) ------
      Sits at the top of the viewport (position:fixed so it doesn't
@@ -4273,8 +4350,9 @@ body.dark .top-header{
     background: rgba(255,255,255,0.22);
   }
 
-  /* Push content down so banner doesn't cover the header */
-  body:not(.rotate-dismissed) .app-wrapper{ padding-top: 52px; }
+  /* Push the sticky header down so the rotate banner doesn't cover it */
+  body:not(.rotate-dismissed) .top-header{ top: 52px; }
+  body:not(.rotate-dismissed) .main-area{ padding-top: 52px; box-sizing: border-box; }
 }
 
 @keyframes rotateHint{
