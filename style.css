@@ -4330,9 +4330,7 @@ body.dark .top-header{
     row-gap: 10px !important;
   }
 
-  /* Generic catch for inline 2-col grids on pages (Budget's Cash Flow/AI
-     Coach section uses style="grid-template-columns:1.4fr 1fr" inline,
-     and other pages use similar patterns). Force them all to 1 column. */
+  /* Generic catch for inline 2-col grids on pages. Force all to 1 col. */
   .page [style*="grid-template-columns:1.4fr"],
   .page [style*="grid-template-columns: 1.4fr"],
   .page [style*="grid-template-columns:1fr 1fr"],
@@ -4342,7 +4340,131 @@ body.dark .top-header{
   .page [style*="grid-template-columns:1fr 320px"],
   .page [style*="grid-template-columns: 1fr 320px"],
   .page [style*="grid-template-columns:1fr 340px"],
-  .page [style*="grid-template-columns: 1fr 340px"]{
+  .page [style*="grid-template-columns: 1fr 340px"],
+  .page [style*="grid-template-columns:180px 1fr"],
+  .page [style*="grid-template-columns: 180px 1fr"],
+  .page [style*="grid-template-columns:150px 1fr"],
+  .page [style*="grid-template-columns: 150px 1fr"]{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* ===== BUDGET TAB ===== */
+  .budget-stats-row{
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .budget-stat-card{ padding: 14px 16px !important; }
+  .budget-stat-value{ font-size: 22px !important; }
+  .budget-main-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  /* Expense Dynamics inner grid (inline "180px 1fr") already caught above.
+     Add donut centering + chart height safety. */
+  .donut-center{
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+
+  /* Detailed Transactions table — horizontally scrollable inside card,
+     never overflow the card boundary. */
+  #budget-transactions-card{
+    overflow-x: hidden !important;
+  }
+  #budget-transactions-card > div:first-child{
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .data-table{
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-collapse: collapse;
+  }
+  .data-table thead, .data-table tbody{
+    display: table !important;
+    width: max-content !important;
+    min-width: 100% !important;
+  }
+  .data-table th, .data-table td{
+    white-space: nowrap;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* ===== STRATEGY TAB (page-debts) ===== */
+  /* Subtab row — evenly spaced, clean scroll, no cut edges */
+  .debts-subtabs{
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 4px 2px 10px !important;
+    margin: 0 -4px 14px !important;
+    scroll-padding: 0 8px;
+  }
+  .debts-subtabs::-webkit-scrollbar{ display: none; }
+  .debts-subtabs .subtab{
+    padding: 8px 14px !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 9px !important;
+    background: var(--card-2);
+    border-bottom: 0 !important;
+  }
+  .debts-subtabs .subtab.active{
+    background: linear-gradient(135deg, rgba(31,122,74,0.14), rgba(201,154,42,0.10)) !important;
+    color: var(--text) !important;
+    border-bottom: 0 !important;
+    box-shadow: inset 0 0 0 1px rgba(31,122,74,0.20);
+  }
+
+  /* Debts hero card — title + Monthly Ceiling + Avg APR stack vertically */
+  .debts-header-card{ padding: 20px !important; }
+  .debts-hero-meta{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+  .debts-hero-meta > div:last-child{
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  .debts-hero-meta > div:last-child > div{
+    flex: 1 1 140px !important;
+  }
+  .debts-main-val{ font-size: clamp(32px, 9vw, 42px) !important; }
+
+  /* Payoff Strategy + AI Advisor — single column */
+  .debts-main-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  /* Payoff Strategy card's inner "chip-group" (Snowball/Hybrid/Avalanche)
+     — wrap below the title on mobile */
+  .payoff-strategy-card > div:first-child{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .payoff-strategy-card .chip-group{
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .payoff-strategy-card .chip{
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  /* Debts spending + donut grid — single column */
+  .debts-spend-grid{
     grid-template-columns: 1fr !important;
     gap: 14px !important;
   }

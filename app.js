@@ -310,9 +310,15 @@ function navigateSPA(target) {
     // Lightweight analytics — fire once per navigation
     try { window.wjp && wjp.track && wjp.track('tab_viewed', { tab: target }); } catch(_){}
 
-    // Reset scroll position on every navigation
+    // Reset scroll position on every navigation — both the in-app content
+    // scroller AND the window/document (mobile portrait scrolls the window)
     const contentArea = document.querySelector('.content-area');
     if (contentArea) contentArea.scrollTop = 0;
+    try {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    } catch(_) {}
 
     const navItems = document.querySelectorAll('.nav-item[data-page]');
     const pages = document.querySelectorAll('.page');
