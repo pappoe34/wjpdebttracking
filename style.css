@@ -4136,6 +4136,26 @@ body.dark .top-header{
 }
 
 /* ============================================================
+   CALENDAR-TAB MONTHLY GRID FIX
+   The inline style on #main-calendar-grid forces
+   `grid-template-rows: repeat(5, 1fr)` — which (a) breaks months
+   that need 6 weeks and (b) fights with the mixed-size cell
+   content (square padding cells vs. tall day cells).
+   Override to let rows auto-size with a sane minimum.
+   ============================================================ */
+#main-calendar-grid{
+  grid-template-rows: unset !important;
+  grid-auto-rows: minmax(92px, 1fr) !important;
+  align-content: stretch;
+}
+/* Padding cells (previous/next month) should not be square — they
+   should match the surrounding day-cell height so the row stays flat. */
+#main-calendar-grid .cal-day.empty{
+  aspect-ratio: auto !important;
+  min-height: 92px;
+}
+
+/* ============================================================
    PORTRAIT-PHONE PAN-EVERYWHERE + ROTATE BANNER
    Winston's spec: in portrait, let the user pan the screen in any
    direction (no forced fit); show a slim dismissible banner at the
