@@ -4134,3 +4134,132 @@ body.dark .top-header{
   font-size:8.5px;font-weight:600;color:var(--text-3);
   text-transform:uppercase;letter-spacing:0.22em;margin-top:4px;
 }
+
+/* ============================================================
+   PORTRAIT-PHONE PAN-EVERYWHERE + ROTATE BANNER
+   Winston's spec: in portrait, let the user pan the screen in any
+   direction (no forced fit); show a slim dismissible banner at the
+   top suggesting landscape for the best view.
+   ============================================================ */
+#rotate-prompt{ display: none; }
+
+@media (max-width: 560px) and (orientation: portrait){
+
+  /* --- 1) Allow panning in every direction ---------------------
+     The app was designed for desktop widths. Rather than squeeze
+     everything into 380px and drop content, let the page keep its
+     natural size and let the user swipe left/right and up/down.
+  --------------------------------------------------------------- */
+  html, body{
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: auto;
+    touch-action: pan-x pan-y pinch-zoom !important;
+  }
+  /* Allow pinch-zoom so users can also zoom into dense tables */
+  body{ max-width: none !important; }
+
+  /* Preserve desktop content width so there is content to pan */
+  .app-wrapper{
+    min-width: 1180px !important;
+    overflow: visible !important;
+  }
+  .main-area{
+    overflow: visible !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  /* Inner sections no longer forced to viewport width */
+  .main-area *{ max-width: none !important; }
+
+  /* --- 2) Sidebar — stays as slide-in drawer (on top of viewport),
+     NOT part of the pannable area, so the hamburger menu is always
+     reachable regardless of scroll position.
+  --------------------------------------------------------------- */
+  .sidebar{
+    position: fixed !important;
+    top: 0; left: 0;
+    height: 100vh;
+    width: 240px;
+    transform: translateX(-100%);
+    transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+    z-index: 1200;
+  }
+  body.app-menu-open .sidebar{ transform: translateX(0) !important; }
+  .main-area{ margin-left: 0 !important; }
+
+  /* Top-header sticks to viewport top during vertical pan */
+  .top-header{
+    position: sticky;
+    top: 0;
+    z-index: 900;
+  }
+
+  /* --- 3) Rotate-for-best-view BANNER (slim, dismissible) ------
+     Sits at the top of the viewport (position:fixed so it doesn't
+     move when the user pans the content underneath).
+  --------------------------------------------------------------- */
+  body:not(.rotate-dismissed) #rotate-prompt{
+    display: flex;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 2147483000;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(90deg, rgba(31,122,74,0.96), rgba(43,155,114,0.96) 55%, rgba(201,154,42,0.96));
+    color: #f6f8fb;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  body:not(.rotate-dismissed) #rotate-prompt .rotate-card{
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 0;
+    background: transparent; border: 0; padding: 0; box-shadow: none; text-align: left;
+  }
+  body:not(.rotate-dismissed) #rotate-prompt .rotate-icon{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; flex: 0 0 30px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    animation: rotateHint 2.6s ease-in-out infinite;
+  }
+  body:not(.rotate-dismissed) #rotate-prompt .rotate-icon svg{ width: 20px; height: 20px; }
+  body:not(.rotate-dismissed) #rotate-prompt h2{
+    font-size: 13px; font-weight: 700; letter-spacing: -0.005em;
+    margin: 0; line-height: 1.2; color: #fff;
+  }
+  body:not(.rotate-dismissed) #rotate-prompt p{
+    font-size: 11.5px; font-weight: 500;
+    margin: 1px 0 0; line-height: 1.25;
+    color: rgba(255,255,255,0.82);
+  }
+  body:not(.rotate-dismissed) #rotate-prompt .rotate-btn{
+    appearance: none; -webkit-appearance: none;
+    flex: 0 0 auto;
+    border: 1px solid rgba(255,255,255,0.38);
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 12px; font-weight: 600;
+    padding: 6px 10px; border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  body:not(.rotate-dismissed) #rotate-prompt .rotate-btn:hover,
+  body:not(.rotate-dismissed) #rotate-prompt .rotate-btn:active{
+    background: rgba(255,255,255,0.22);
+  }
+
+  /* Push content down so banner doesn't cover the header */
+  body:not(.rotate-dismissed) .app-wrapper{ padding-top: 52px; }
+}
+
+@keyframes rotateHint{
+  0%   { transform: rotate(0deg); }
+  45%  { transform: rotate(-90deg); }
+  55%  { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
