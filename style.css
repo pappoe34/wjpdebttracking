@@ -4330,23 +4330,22 @@ body.dark .top-header{
     row-gap: 10px !important;
   }
 
-  /* Generic catch for inline 2-col grids on pages. Force all to 1 col. */
-  .page [style*="grid-template-columns:1.4fr"],
-  .page [style*="grid-template-columns: 1.4fr"],
-  .page [style*="grid-template-columns:1fr 1fr"],
-  .page [style*="grid-template-columns: 1fr 1fr"],
-  .page [style*="grid-template-columns:2fr 1fr"],
-  .page [style*="grid-template-columns: 2fr 1fr"],
-  .page [style*="grid-template-columns:1fr 320px"],
-  .page [style*="grid-template-columns: 1fr 320px"],
-  .page [style*="grid-template-columns:1fr 340px"],
-  .page [style*="grid-template-columns: 1fr 340px"],
-  .page [style*="grid-template-columns:180px 1fr"],
-  .page [style*="grid-template-columns: 180px 1fr"],
-  .page [style*="grid-template-columns:150px 1fr"],
-  .page [style*="grid-template-columns: 150px 1fr"]{
+  /* =============================================================
+     BROAD CATCH-ALL: force EVERY inline multi-col grid in any page
+     to stack to 1 column. Excludes:
+       - calendar day grids (repeat(7, 1fr)) where 7 cols is correct
+       - any grid that already says `1fr` as a single column
+  ============================================================= */
+  .page [style*="grid-template-columns"]:not([style*="repeat(7"]):not(#main-calendar-grid):not(#mini-calendar-grid){
     grid-template-columns: 1fr !important;
     gap: 14px !important;
+  }
+
+  /* Repeat(4,1fr) stat bars (Transactions/Recurring sub-tabs) — keep
+     2-col on phone since items are compact numbers */
+  #txn-stats-bar, #rec-stats-bar{
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
   }
 
   /* ===== BUDGET TAB ===== */
@@ -4467,6 +4466,79 @@ body.dark .top-header{
   .debts-spend-grid{
     grid-template-columns: 1fr !important;
     gap: 14px !important;
+  }
+
+  /* ===== AI ADVISOR TAB (page-advisor) ===== */
+  .advisor-layout-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .advisor-chat-container{
+    height: auto !important;
+    min-height: 60vh !important;
+    max-height: 80vh !important;
+  }
+  .advisor-chat-scroll{
+    padding: 16px !important;
+  }
+  .chat-msg{
+    max-width: 100% !important;
+    gap: 10px !important;
+  }
+  .chat-avatar{
+    width: 32px !important; height: 32px !important;
+    font-size: 16px !important;
+  }
+  .chat-bubble, .ai-bubble{
+    padding: 12px 14px !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+  }
+  .chat-bubble p{ font-size: 13px !important; }
+  .advisor-chat-bottom{ padding: 12px !important; }
+  .chat-metric-chip{
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  /* Advisor page h1 */
+  #page-advisor h1{ font-size: clamp(28px, 8vw, 40px) !important; }
+
+  /* ===== ACTIVITY LOG TAB (page-activity) ===== */
+  /* Outer card breathing room */
+  #page-activity .reveal.reveal-1{
+    padding: 14px !important;
+  }
+  /* Activity table: scrolls horizontally inside its card */
+  #activity-log-table{
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ===== GENERIC AI-PERF-GRID (used across multiple pages) ===== */
+  .ai-perf-grid{
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* ===== Advisor-hero/main grid (legacy class names) ===== */
+  .advisor-hero-grid, .advisor-main-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* ===== Settings journey grid ===== */
+  .settings-journey-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* Generic big headings on dynamic pages — scale down on phone */
+  .page h1[style*="font-size:40px"],
+  .page h1[style*="font-size: 40px"]{
+    font-size: clamp(26px, 8vw, 36px) !important;
+    line-height: 1.1 !important;
   }
 
   /* Kill any lingering min-widths that cause horizontal cutoff */
