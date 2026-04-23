@@ -3951,10 +3951,9 @@ body.dark .app-wrapper::before{
     gap: 12px !important;
   }
 
-  /* Dash header — title + total-debt stack vertically */
+  /* Dash header — title + total-debt stack vertically (grid was 1fr auto) */
   .dash-header {
-    flex-direction: column !important;
-    align-items: flex-start !important;
+    grid-template-columns: 1fr !important;
     gap: 14px !important;
   }
   .dash-total-card {
@@ -3966,6 +3965,34 @@ body.dark .app-wrapper::before{
     line-height: 1.1;
     overflow-wrap: anywhere;
   }
+
+  /* Paycheck buckets (Bills & Essentials / Budget Lifestyle / Savings / Investing)
+     — inline grid:repeat(4,1fr), stack to 1 col on phone */
+  #paycheck-buckets {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Any inline-styled grid using repeat(4,1fr) or (3,1fr) or (2,1fr) on dashboard */
+  [style*="grid-template-columns:repeat(4"],
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns:repeat(3"],
+  [style*="grid-template-columns: repeat(3"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Page header inline-flex patterns (Transactions "+ Add" header etc.)
+     Target containers that are flex + space-between → stack on phone */
+  [style*="justify-content:space-between"][style*="display:flex"]:not(.top-header):not(nav):not(.brand):not(.dot-cluster):not(.demo-head) {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  [style*="justify-content:space-between"][style*="display:flex"]:not(.top-header):not(nav):not(.brand):not(.dot-cluster):not(.demo-head) > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* H1 inline in transaction header */
+  h1[style*="font-size:28px"] { font-size: clamp(22px, 6vw, 28px) !important }
 
   /* All big card numbers get a safety shrink */
   .card-value {
