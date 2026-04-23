@@ -4368,31 +4368,76 @@ body.dark .top-header{
     pointer-events: none;
   }
 
-  /* Detailed Transactions table — horizontally scrollable inside card,
-     never overflow the card boundary. */
+  /* ===== TABLES → CARD LAYOUT ON MOBILE (much more readable than
+     a tiny horizontally-scrolling table). Every .data-table row
+     collapses into a vertical card with the first cell as an
+     eyebrow and the second cell as the main title. ===== */
   #budget-transactions-card{
     overflow-x: hidden !important;
+    padding: 16px !important;
   }
   #budget-transactions-card > div:first-child{
     flex-wrap: wrap !important;
-    gap: 6px !important;
+    gap: 8px !important;
   }
   .data-table{
     display: block !important;
     width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    border-collapse: collapse;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
   }
-  .data-table thead, .data-table tbody{
-    display: table !important;
-    width: max-content !important;
-    min-width: 100% !important;
+  .data-table thead{ display: none !important; }
+  .data-table tbody{ display: block !important; width: 100% !important; }
+  .data-table tr{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    padding: 12px 14px !important;
+    background: var(--card-2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    margin-bottom: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
-  .data-table th, .data-table td{
-    white-space: nowrap;
-    padding: 10px 12px !important;
-    font-size: 12px !important;
+  .data-table td{
+    display: block !important;
+    padding: 2px 0 !important;
+    font-size: 13px !important;
+    color: var(--text-2) !important;
+    border: none !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+  /* First cell (date/timestamp) = eyebrow */
+  .data-table td:nth-child(1){
+    font-size: 10px !important;
+    color: var(--text-3) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  /* Second cell (merchant/event title) = main heading */
+  .data-table td:nth-child(2){
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--text) !important;
+    margin-bottom: 4px;
+  }
+  .data-table td .badge,
+  .data-table td > div.badge{
+    display: inline-flex !important;
+    margin: 2px 4px 2px 0;
+  }
+  /* Pagination bar inside transaction cards */
+  .txn-pagination{
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+  }
+  .txn-pagination > div:last-child{
+    justify-content: space-between !important;
   }
 
   /* ===== STRATEGY TAB (page-debts) ===== */
@@ -4467,6 +4512,87 @@ body.dark .top-header{
     grid-template-columns: 1fr !important;
     gap: 14px !important;
   }
+
+  /* ===== SUBTAB HEADERS (Transactions/Recurring/Analysis) =====
+     Each subtab has a header row with title + action buttons using
+     justify-content: space-between which overflows on mobile. Force
+     the whole row to wrap so title stacks above the controls. */
+  .debts-subtab-content > div.reveal[style*="justify-content:space-between"],
+  .debts-subtab-content > div.reveal[style*="justify-content: space-between"]{
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+  .debts-subtab-content > div.reveal > div[style*="display:flex"]{
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  /* Recurring filter group — horizontal pills row, scroll if needed */
+  #rec-filter-group{
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100% !important;
+  }
+  #rec-filter-group::-webkit-scrollbar{ display: none; }
+  .rec-cat-btn{
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+  .debts-subtab-content .btn{
+    font-size: 12px !important;
+    padding: 9px 14px !important;
+  }
+  .debts-subtab-content h1{
+    font-size: clamp(22px, 7vw, 28px) !important;
+    margin: 4px 0 0 !important;
+  }
+
+  /* ===== SIMULATIONS — AI Insight card row (icon + text + button)
+     was a 3-part flex; stack so button isn't chopped off ===== */
+  #simulations-tab-content .card.reveal.reveal-4 > div[style*="display:flex"]{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+  #sim-apply-btn{
+    width: 100% !important;
+    padding: 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* ===== DOCUMENTS — Credit Import banner stacks ===== */
+  #credit-import-banner{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    padding: 18px !important;
+    text-align: left !important;
+  }
+  #credit-import-banner > div:first-child{
+    width: 52px; height: 52px;
+    align-self: flex-start !important;
+  }
+  #credit-import-banner > div:last-child{
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  #credit-import-banner > div:last-child > button{
+    flex: 1 1 auto !important;
+    white-space: nowrap !important;
+    justify-content: center !important;
+  }
+  #credit-accounts-section > div:first-child{
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  #page-debts div.reveal h1[style*="font-size:32px"]{
+    font-size: clamp(26px, 8vw, 32px) !important;
+  }
+
+  /* ===== RESILIENCE — custom stress test row ===== */
+  #resilience-tab-content input[type="range"]{ width: 100% !important; }
 
   /* ===== AI ADVISOR TAB (page-advisor) ===== */
   .advisor-layout-grid{
