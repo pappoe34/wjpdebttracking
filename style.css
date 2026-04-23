@@ -3893,10 +3893,10 @@ body.dark .app-wrapper::before{
   /* Narrower sidebar */
   :root { --sidebar-width: 56px; }
 
-  /* Overflow-x hidden ONLY at body/main level. Don't cascade max-width
-     to descendants — it broke flex children last time. */
+  /* Allow horizontal pan inside main-area — users swipe to see wide content.
+     html/body stay hidden so the page itself doesn't scroll sideways weirdly. */
   html, body { overflow-x: hidden; }
-  .main-area { overflow-x: hidden; min-width: 0; }
+  .main-area { overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
 
   /* Top header — horizontal scroll for tabs (real class: .header-nav-item) */
   .top-header {
