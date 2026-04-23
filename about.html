@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>About — WJP Budgetting</title>
+<meta name="description" content="WJP is a private debt strategist built by an independent team. We track every balance, engineer a payoff plan, and hold you accountable — with zero conflicts of interest." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-7">
+<style>
+  /* About-page compact spacing */
+  section.pad.about-story{padding:70px 24px;position:relative;overflow:hidden}
+  section.pad.about-story::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(600px 360px at 15% 30%, rgba(31,122,74,0.05), transparent 70%),
+      radial-gradient(550px 340px at 88% 75%, rgba(201,154,42,0.04), transparent 70%);
+  }
+  section.final{padding:90px 24px}
+
+  /* Split layout — text left, pillars right */
+  .about-split{
+    position:relative;padding:130px 24px 70px;overflow:hidden;
+    background:
+      radial-gradient(700px 400px at 10% 15%, rgba(31,122,74,0.06), transparent 70%),
+      radial-gradient(600px 360px at 90% 80%, rgba(201,154,42,0.05), transparent 70%);
+    border-bottom:1px solid var(--rule);
+  }
+  .about-split .wrap{max-width:1200px;margin:0 auto;position:relative}
+  .split-grid{
+    display:grid;grid-template-columns:minmax(320px, 1fr) 1.15fr;gap:56px;align-items:start;
+  }
+  .split-text{position:sticky;top:110px}
+  .split-text h1{
+    font-family:var(--sans);font-weight:800;
+    font-size:clamp(34px,4.4vw,52px);line-height:1.04;letter-spacing:-0.038em;
+    color:var(--ink);margin-top:14px;
+  }
+  .split-text h1 em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.038em}
+  .split-text p.lede{margin-top:20px;font-size:16px;max-width:460px}
+
+  /* Expandable pillars — stacked right column */
+  .split-pillars{display:flex;flex-direction:column;gap:12px}
+  .split-pillars details.pillar{
+    padding:22px 24px;cursor:pointer;
+    transition:background .25s ease, border-color .25s ease, box-shadow .25s ease;
+  }
+  .split-pillars details.pillar[open]{
+    background:rgba(255,255,255,0.88);
+    border-color:rgba(31,122,74,0.28);
+    box-shadow:0 14px 40px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .split-pillars details.pillar > summary{
+    list-style:none;cursor:pointer;outline:none;
+    display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;
+  }
+  .split-pillars details.pillar > summary::-webkit-details-marker{display:none}
+  .split-pillars details.pillar > summary .icon{margin-bottom:0}
+  .split-pillars details.pillar > summary .text h4{margin:0;font-size:17px;line-height:1.1}
+  .split-pillars details.pillar > summary .text p{margin-top:4px;color:var(--ink-dim);font-size:13.5px;line-height:1.45}
+  .split-pillars details.pillar > summary .toggle{
+    font-family:var(--sans);font-size:22px;color:var(--accent);font-weight:400;
+    line-height:1;width:24px;text-align:center;transition:transform .25s ease;
+  }
+  .split-pillars details.pillar[open] > summary .toggle{transform:rotate(45deg)}
+  .pillar-detail{
+    margin-top:16px;padding-top:14px;border-top:1px solid rgba(31,122,74,0.15);
+    color:var(--ink-dim);font-size:14px;line-height:1.65;
+  }
+  .pillar-detail b{color:var(--ink);font-weight:600}
+
+  @media (max-width:900px){
+    .split-grid{grid-template-columns:1fr;gap:32px}
+    .split-text{position:static}
+    .about-split{padding:120px 24px 60px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a href="./intro.html" class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class="link active" href="./about.html">About</a>
+    <a class="link" href="./how.html">How</a>
+    <a class="link" href="./features.html">Features</a>
+    <a class="link" href="./math.html">Math</a>
+    <a class="link" href="./faq.html">FAQ</a>
+    <a class="pill ghost" href="./signin.html">Sign in</a>
+    <a class="pill accent" href="./signup.html">Start free →</a>
+  </div>
+</nav>
+
+<!-- SPLIT: text left, pillars right -->
+<section class="about-split">
+  <div class="wrap">
+    <div class="split-grid reveal">
+      <!-- LEFT: brand context -->
+      <div class="split-text">
+        <span class="eyebrow">What is WJP?</span>
+        <h1>Your personal <em>debt strategist</em> — quiet, honest, and relentless.</h1>
+        <p class="lede">
+          Most apps hand you a budget and walk away. WJP stays with you. It learns how your money
+          actually moves, engineers the fastest path out of debt, and shows you — in plain English —
+          every dollar that used to bleed into interest.
+        </p>
+        <p class="lede" style="margin-top:14px;color:var(--ink-faint);font-size:13px">
+          Click any pillar on the right to see how it actually works.
+        </p>
+      </div>
+
+      <!-- RIGHT: expandable pillars -->
+      <div class="split-pillars">
+        <details class="pillar">
+          <summary>
+            <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+            <div class="text">
+              <h4>Track</h4>
+              <p>Every card, loan, mortgage, and hidden fee — in one calm place.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </summary>
+          <div class="pillar-detail">
+            <p>WJP auto-imports every obligation from every connected account — <b>credit cards, student loans, auto loans, mortgages, personal loans, and BNPL plans</b>. Balances update in real time via Plaid's read-only bridge.</p>
+            <p style="margin-top:10px">You'll see current APR, minimum payment, due date, and interest accrued since your last statement — on a single dashboard. No more hunting through five separate banking apps to remember what you owe.</p>
+          </div>
+        </details>
+
+        <details class="pillar">
+          <summary>
+            <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg></div>
+            <div class="text">
+              <h4>Plan</h4>
+              <p>AI builds a month-by-month payoff strategy — snowball, avalanche, or hybrid.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </summary>
+          <div class="pillar-detail">
+            <p>Our AI runs thousands of payoff simulations against your actual cash flow — not a textbook model. You'll see three sharp options side by side:</p>
+            <p style="margin-top:10px"><b>Avalanche</b> — highest APR first, maximum interest saved. <b>Snowball</b> — smallest balance first, maximum momentum. <b>AI hybrid</b> — adapts month to month as your income and spending shift.</p>
+            <p style="margin-top:10px">Each plan ships with an exact debt-free date, total interest saved, and a month-by-month schedule of where every dollar should go.</p>
+          </div>
+        </details>
+
+        <details class="pillar">
+          <summary>
+            <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></div>
+            <div class="text">
+              <h4>Pay off</h4>
+              <p>Smart nudges keep you on pace. Miss a month? WJP rebalances — no shame.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </summary>
+          <div class="pillar-detail">
+            <p>Reminders fire <b>before</b> bills drop, not after. Transactions are auto-matched to the right debt the moment they clear your account — no manual reconciliation, no missed payments.</p>
+            <p style="margin-top:10px">If a month goes sideways, WJP rebalances the plan automatically. You'll see a revised debt-free date, not a guilt trip. Credit utilization tracking shows you how your score will respond as balances drop — so you know you're winning before FICO does.</p>
+          </div>
+        </details>
+
+        <details class="pillar">
+          <summary>
+            <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10"/><path d="M12 17v4"/><path d="M17 4h2v4a7 7 0 0 1-14 0V4h2"/></svg></div>
+            <div class="text">
+              <h4>Celebrate</h4>
+              <p>Every payoff is a milestone. Watch your progress compound.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </summary>
+          <div class="pillar-detail">
+            <p>Every milestone compounds. When you cross <b>25%, 50%, 75%, and 100%</b> paid off, WJP logs the moment and shows you what you've actually accomplished — not just in dollars, but in <b>hours of work freed, stress cut, and future cash flow unlocked</b>.</p>
+            <p style="margin-top:10px">When the last balance clears, your dashboard pivots into a net-worth tracker. The tools don't go away — the goal just changes. Your AI co-pilot starts modeling investment scenarios with the same cash flow it used to route to debt.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OUR STORY -->
+<section class="pad about-story">
+  <div class="wrap reveal" style="max-width:780px;position:relative">
+    <span class="eyebrow">Our story</span>
+    <h2 class="h2">Built by people who've <em>been there.</em></h2>
+    <p class="lede" style="margin-top:20px">
+      WJP exists because we spent years trying to get out of debt with tools that weren't built for it.
+      Banking apps show you what you owe, but not how to stop owing. Budgeting apps show you where your money
+      went, but not where it's going next. We wanted an opinionated co-pilot — one that engineers the exit,
+      reminds you when it matters, and stays quiet when it doesn't.
+    </p>
+    <p class="lede" style="margin-top:16px">
+      We're an independent team — <b>not owned by a bank, a lender, or a payment processor</b>. Our only business
+      model is a single optional Pro tier. That means no ads, no data sales, no conflicts of interest
+      about whether you actually pay things off. Your debt-free date is our only product metric.
+    </p>
+  </div>
+
+  <div class="wrap reveal" style="max-width:980px;margin-top:50px">
+    <div class="vp-grid" style="margin-top:0">
+      <div class="vp-card">
+        <div class="num">OUR MISSION</div>
+        <h3>Close every balance</h3>
+        <p>Get every user to zero debt, faster than they thought possible — then keep them there. That's the whole product.</p>
+      </div>
+      <div class="vp-card">
+        <div class="num">OUR PROMISE</div>
+        <h3>No tricks, no upsells</h3>
+        <p>No dark patterns. No hidden fees. No partnership with a lender who'd benefit if you fail. One transparent Pro tier — take it or leave it.</p>
+      </div>
+      <div class="vp-card">
+        <div class="num">OUR STANDARD</div>
+        <h3>Your data, your rules</h3>
+        <p>Encrypted end-to-end. Never sold. Export or delete in one click. We treat your financial data the way we'd want ours treated.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="wrap reveal">
+    <span class="eyebrow">Start now</span>
+    <h2 class="h2">Put a <em>date</em> on debt-free.</h2>
+    <div class="hero-cta">
+      <a class="pill accent" href="./signup.html">Start free →</a>
+      <a class="pill ghost" href="./signin.html">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+  onAuthStateChanged(auth, (user) => { if (user) window.location.replace('./index.html'); });
+</script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

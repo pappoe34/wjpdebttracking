@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Terms of Service — WJP Budgetting</title>
+<meta name="description" content="The terms governing your use of WJP Budgetting — an independent debt tracking and planning service." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-8">
+<style>
+  .legal-wrap{padding:130px 24px 100px}
+  .legal-wrap .wrap{max-width:1200px;margin:0 auto}
+  .legal-split{
+    display:grid;grid-template-columns:minmax(220px,260px) 1fr;gap:48px;align-items:start;
+  }
+  @media (max-width:900px){.legal-split{grid-template-columns:1fr;gap:28px}}
+
+  /* LEFT: sticky TOC */
+  .legal-toc{position:sticky;top:110px;display:flex;flex-direction:column;gap:18px}
+  @media (max-width:900px){.legal-toc{position:static}}
+  .legal-toc .eyebrow{margin:0}
+  .legal-toc .updated{
+    padding:14px;border-radius:12px;
+    background:rgba(255,255,255,0.6);
+    backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.85);
+  }
+  .legal-toc .updated .lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:4px}
+  .legal-toc .updated .vl{font-family:var(--sans);font-size:14px;font-weight:700;color:var(--ink)}
+  .toc-nav{display:flex;flex-direction:column;gap:2px}
+  .toc-nav a{
+    padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:500;color:var(--ink-dim);
+    transition:background .2s ease,color .2s ease;border:1px solid transparent;
+    display:flex;gap:8px;align-items:baseline;
+  }
+  .toc-nav a:hover{color:var(--ink);background:rgba(10,10,10,0.04)}
+  .toc-nav a.active{
+    color:var(--ink);background:rgba(255,255,255,0.75);
+    border-color:rgba(31,122,74,0.22);
+  }
+  .toc-nav a .num{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);font-weight:700;flex-shrink:0;width:18px}
+  .toc-nav a.active .num{color:var(--accent)}
+
+  /* RIGHT: article content */
+  .legal-content{
+    background:rgba(255,255,255,0.72);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    border-radius:20px;padding:48px;
+    box-shadow:0 16px 48px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .legal-content h1{
+    font-family:var(--sans);font-weight:800;font-size:clamp(32px,4vw,44px);
+    line-height:1.08;letter-spacing:-0.038em;color:var(--ink);margin-bottom:12px;
+  }
+  .legal-content h1 em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.038em}
+  .legal-content .sub{color:var(--ink-dim);font-size:15.5px;line-height:1.6;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid var(--rule)}
+  .legal-content section{scroll-margin-top:90px;margin-top:36px}
+  .legal-content section:first-of-type{margin-top:0}
+  .legal-content section h2{
+    font-family:var(--sans);font-weight:800;font-size:21px;letter-spacing:-0.02em;color:var(--ink);
+    margin-bottom:12px;display:flex;gap:12px;align-items:baseline;
+  }
+  .legal-content section h2 .num{
+    font-family:var(--mono);font-size:12px;letter-spacing:1.8px;color:var(--accent);font-weight:700;
+  }
+  .legal-content section p{color:var(--ink-dim);font-size:14.5px;line-height:1.7}
+  .legal-content section p + p{margin-top:12px}
+  .legal-content section p b{color:var(--ink);font-weight:600}
+  .legal-content section a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+  .legal-content section a:hover{color:var(--accent-2)}
+  .legal-content section ul{margin-top:10px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+  .legal-content section ul li{
+    color:var(--ink-dim);font-size:14px;line-height:1.55;
+    display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;
+  }
+  .legal-content section ul li::before{
+    content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);
+    margin-top:9px;flex-shrink:0;
+  }
+  .legal-content section ul li b{color:var(--ink);font-weight:600}
+
+  .legal-callout{
+    margin-top:14px;padding:16px 18px;border-radius:12px;
+    background:rgba(201,154,42,0.08);border:1px solid rgba(201,154,42,0.22);
+    font-size:13.5px;color:var(--ink-dim);line-height:1.55;
+  }
+  .legal-callout b{color:var(--gold-deep);font-weight:700}
+
+  .contact-card{
+    margin-top:44px;padding:24px;border-radius:14px;
+    background:linear-gradient(135deg, rgba(31,122,74,0.06), rgba(43,155,114,0.04));
+    border:1px solid rgba(31,122,74,0.18);
+  }
+  .contact-card h3{font-family:var(--sans);font-weight:700;font-size:17px;letter-spacing:-0.02em;color:var(--ink);margin-bottom:8px}
+  .contact-card p{font-size:14px;color:var(--ink-dim);line-height:1.6}
+  .contact-card .email{font-family:var(--mono);font-weight:600;color:var(--accent)}
+
+  @media (max-width:900px){
+    .legal-content{padding:28px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a href="./intro.html" class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class="link" href="./about.html">About</a>
+    <a class="link" href="./how.html">How</a>
+    <a class="link" href="./features.html">Features</a>
+    <a class="link" href="./math.html">Math</a>
+    <a class="link" href="./faq.html">FAQ</a>
+    <a class="pill ghost" href="./signin.html">Sign in</a>
+    <a class="pill accent" href="./signup.html">Start free →</a>
+  </div>
+</nav>
+
+<!-- TERMS -->
+<section class="legal-wrap">
+  <div class="wrap">
+    <div class="legal-split">
+
+      <!-- LEFT: TOC -->
+      <aside class="legal-toc reveal">
+        <span class="eyebrow">Table of contents</span>
+        <div class="updated">
+          <div class="lbl">Last updated</div>
+          <div class="vl">April 23, 2026</div>
+        </div>
+        <nav class="toc-nav" id="tocNav">
+          <a href="#intro" class="active"><span class="num">01</span> Introduction</a>
+          <a href="#acceptance"><span class="num">02</span> Acceptance</a>
+          <a href="#eligibility"><span class="num">03</span> Eligibility &amp; account</a>
+          <a href="#service"><span class="num">04</span> Service description</a>
+          <a href="#billing"><span class="num">05</span> Trial, subscription &amp; billing</a>
+          <a href="#use"><span class="num">06</span> Acceptable use</a>
+          <a href="#data"><span class="num">07</span> Your data &amp; privacy</a>
+          <a href="#third-party"><span class="num">08</span> Third-party services</a>
+          <a href="#ip"><span class="num">09</span> Intellectual property</a>
+          <a href="#disclaimer"><span class="num">10</span> Not financial advice</a>
+          <a href="#liability"><span class="num">11</span> Limitation of liability</a>
+          <a href="#indemnify"><span class="num">12</span> Indemnification</a>
+          <a href="#termination"><span class="num">13</span> Termination</a>
+          <a href="#changes"><span class="num">14</span> Changes to terms</a>
+          <a href="#law"><span class="num">15</span> Governing law</a>
+          <a href="#contact"><span class="num">16</span> Contact</a>
+        </nav>
+      </aside>
+
+      <!-- RIGHT: Article -->
+      <article class="legal-content reveal">
+        <h1>Terms of <em>Service.</em></h1>
+        <p class="sub">
+          These terms govern your use of <b>WJP Budgetting &amp; Tracking OS</b> (the "Service"), operated by
+          the WJP team ("WJP," "we," "us," "our"). Please read them carefully — using the Service means
+          you agree to be bound by them.
+        </p>
+
+        <section id="intro">
+          <h2><span class="num">01</span> Introduction</h2>
+          <p>
+            WJP Budgetting is an independent software service that helps you track personal debts, build a
+            payoff plan, and receive reminders and insights about your financial progress. We are not a bank,
+            a lender, a credit bureau, a broker-dealer, or a buy-now-pay-later provider. We do not move money
+            on your behalf.
+          </p>
+          <p>
+            By creating an account or using the Service in any capacity, you represent that you have read,
+            understood, and agree to these Terms and our <a href="./privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.
+          </p>
+        </section>
+
+        <section id="acceptance">
+          <h2><span class="num">02</span> Acceptance</h2>
+          <p>
+            These Terms form a legally binding agreement between you and WJP. If you do not agree, you must
+            not create an account or use the Service. We may revise these Terms from time to time (see
+            <a href="#changes">Section 14</a>); continued use after a revision becomes effective means you
+            accept the revised Terms.
+          </p>
+        </section>
+
+        <section id="eligibility">
+          <h2><span class="num">03</span> Eligibility &amp; account</h2>
+          <p>
+            You must be at least <b>18 years old</b> and capable of entering a legally binding contract to
+            use the Service. You agree to provide accurate, current, and complete information when creating
+            your account, and to keep that information up to date.
+          </p>
+          <p>You are responsible for:</p>
+          <ul>
+            <li><span>Maintaining the confidentiality of your password and any multi-factor credentials.</span></li>
+            <li><span>All activity that occurs under your account, whether authorized by you or not.</span></li>
+            <li><span>Notifying us immediately of any unauthorized use or suspected breach at <a href="mailto:security@wjpbudgetting.com">security@wjpbudgetting.com</a>.</span></li>
+          </ul>
+        </section>
+
+        <section id="service">
+          <h2><span class="num">04</span> Service description</h2>
+          <p>
+            WJP provides tools to help you track debts, calculate payoff strategies (e.g., snowball,
+            avalanche, AI-engineered hybrid), set up reminders, and visualize financial progress. Optionally,
+            you may connect external financial accounts via <b>Plaid</b> to automate balance and transaction
+            updates. All connections are <b>read-only</b>; the Service cannot initiate transfers, pay bills,
+            or withdraw funds.
+          </p>
+          <p>
+            Features may change over time. We may add, modify, deprecate, or remove features in our
+            discretion, including features previously labeled "beta" or "coming soon."
+          </p>
+        </section>
+
+        <section id="billing">
+          <h2><span class="num">05</span> Trial, subscription &amp; billing</h2>
+          <p>
+            New users receive a <b>3-month free trial</b> of the Service. No credit card is required to begin
+            the trial. After the trial ends, continued access to paid features requires an active subscription
+            ("Pro"), currently offered at <b>$9.99 per month</b> or <b>$79 per year</b>, subject to change.
+          </p>
+          <p>
+            Subscriptions renew automatically at the end of each billing period unless cancelled. You may
+            cancel at any time from your account settings — cancellation takes effect at the end of the
+            current billing period, and no partial-period refunds are issued except where required by law.
+          </p>
+          <div class="legal-callout">
+            <b>Fair use:</b> if you cancel during a free trial, you will not be charged. If you cancel after
+            being charged for a Pro period, your data remains accessible for <b>30 days</b> in case you
+            return, then is permanently deleted.
+          </div>
+        </section>
+
+        <section id="use">
+          <h2><span class="num">06</span> Acceptable use</h2>
+          <p>You agree not to, and not to permit anyone else to:</p>
+          <ul>
+            <li><span>Use the Service for any unlawful, fraudulent, or deceptive purpose.</span></li>
+            <li><span>Reverse-engineer, decompile, scrape, or otherwise attempt to extract the source code of the Service.</span></li>
+            <li><span>Interfere with or disrupt the integrity, performance, or security of the Service.</span></li>
+            <li><span>Access the Service using automated tools, bots, or any means other than the interfaces we provide, except for publicly published APIs used in accordance with their documented terms.</span></li>
+            <li><span>Upload, link, or submit content you do not have the right to share, or that infringes on third-party rights.</span></li>
+            <li><span>Resell, sublicense, or commercially exploit the Service without our prior written consent.</span></li>
+          </ul>
+        </section>
+
+        <section id="data">
+          <h2><span class="num">07</span> Your data &amp; privacy</h2>
+          <p>
+            Your financial data belongs to you. We use it to provide the Service and do not sell it to third
+            parties. Our full data practices are described in our <a href="./privacy.html" target="_blank" rel="noopener">Privacy Policy</a>,
+            which is incorporated into these Terms by reference.
+          </p>
+          <p>
+            You may <b>export</b> your data as CSV, or <b>delete</b> your account (and all associated data)
+            from your account settings at any time. Permanent deletion is processed within 30 days.
+          </p>
+        </section>
+
+        <section id="third-party">
+          <h2><span class="num">08</span> Third-party services</h2>
+          <p>
+            The Service integrates with third-party providers including <b>Plaid Inc.</b> (for secure,
+            read-only financial account linking), <b>Google Firebase</b> (for authentication and secure
+            storage), and <b>Google Sign-In</b> (for optional SSO). Your use of these integrations is also
+            governed by those providers' respective terms and privacy policies.
+          </p>
+          <p>
+            We are not responsible for content, availability, or practices of third-party services. Any
+            disputes arising from third-party services should be directed to the respective provider.
+          </p>
+        </section>
+
+        <section id="ip">
+          <h2><span class="num">09</span> Intellectual property</h2>
+          <p>
+            The Service, including all software, designs, text, graphics, logos, and other content, is owned
+            by WJP or its licensors and is protected by copyright, trademark, and other intellectual property
+            laws. We grant you a limited, non-exclusive, non-transferable, revocable license to access and
+            use the Service in accordance with these Terms.
+          </p>
+          <p>
+            You retain all rights to the personal financial data you provide. By submitting data, you grant
+            us a worldwide, non-exclusive license to process that data <b>solely</b> to operate and improve
+            the Service for you.
+          </p>
+        </section>
+
+        <section id="disclaimer">
+          <h2><span class="num">10</span> Not financial advice</h2>
+          <div class="legal-callout">
+            <b>Important:</b> WJP is a software tool, not a financial advisor. The Service provides
+            informational tools and calculations but does <b>not</b> constitute legal, tax, accounting,
+            investment, or financial advice. Nothing in the Service should be construed as a recommendation
+            to enter into any specific financial transaction.
+          </div>
+          <p>
+            You are solely responsible for decisions about your finances. Consult a licensed financial
+            advisor, tax professional, or attorney before acting on any information you derive from the Service.
+          </p>
+          <p>
+            Projections, payoff dates, interest savings, and credit-score estimates are <b>illustrative</b>
+            based on the data you provide and assumptions about rates, payment schedules, and consumer
+            credit behavior. Actual results may differ materially.
+          </p>
+        </section>
+
+        <section id="liability">
+          <h2><span class="num">11</span> Limitation of liability</h2>
+          <p>
+            To the fullest extent permitted by law, the Service is provided <b>"as is" and "as available"</b>
+            without warranties of any kind, whether express or implied, including but not limited to
+            warranties of merchantability, fitness for a particular purpose, and non-infringement.
+          </p>
+          <p>
+            WJP, its officers, directors, employees, and agents shall not be liable for any indirect,
+            incidental, special, consequential, or punitive damages, including loss of profits, data, use,
+            goodwill, or other intangible losses, resulting from your access to or use of (or inability to
+            use) the Service.
+          </p>
+          <p>
+            Our total cumulative liability to you for any claim arising from or relating to the Service
+            shall not exceed the greater of (a) the amount you paid us in the twelve months preceding the
+            claim, or (b) $100 USD.
+          </p>
+        </section>
+
+        <section id="indemnify">
+          <h2><span class="num">12</span> Indemnification</h2>
+          <p>
+            You agree to indemnify and hold harmless WJP and its affiliates, officers, employees, and agents
+            from any claims, damages, losses, liabilities, costs, and expenses (including reasonable
+            attorneys' fees) arising out of your use of the Service, your violation of these Terms, or your
+            violation of any third-party rights.
+          </p>
+        </section>
+
+        <section id="termination">
+          <h2><span class="num">13</span> Termination</h2>
+          <p>
+            You may terminate your account at any time from your account settings. We may suspend or
+            terminate your account if we reasonably believe you have violated these Terms or if continued
+            provision of the Service would subject us to legal or regulatory risk.
+          </p>
+          <p>
+            Upon termination, your right to use the Service ends immediately. Sections that by their nature
+            should survive termination (including Sections 9–12, and 15) will continue to apply.
+          </p>
+        </section>
+
+        <section id="changes">
+          <h2><span class="num">14</span> Changes to these Terms</h2>
+          <p>
+            We may update these Terms from time to time. If changes are material, we will notify you via
+            email to your registered address or a prominent notice in the Service at least <b>30 days</b>
+            before the changes take effect. Your continued use of the Service after the effective date
+            constitutes acceptance of the revised Terms.
+          </p>
+        </section>
+
+        <section id="law">
+          <h2><span class="num">15</span> Governing law &amp; disputes</h2>
+          <p>
+            These Terms are governed by the laws of the State of Delaware, USA, without regard to its
+            conflict of laws principles. Any dispute arising out of or related to these Terms or the Service
+            will be resolved by binding arbitration administered by the American Arbitration Association
+            under its Consumer Arbitration Rules, except that either party may seek injunctive relief in
+            court for intellectual property disputes or breaches of confidentiality.
+          </p>
+          <p>
+            You agree to resolve any disputes with us on an <b>individual basis only</b>, and waive any
+            right to bring or participate in a class action.
+          </p>
+        </section>
+
+        <section id="contact">
+          <h2><span class="num">16</span> Contact</h2>
+          <p>Questions about these Terms? We want to hear from you.</p>
+          <div class="contact-card">
+            <h3>Legal &amp; general inquiries</h3>
+            <p>Email us at <span class="email">legal@wjpbudgetting.com</span></p>
+            <p style="margin-top:8px">For data / privacy requests, see our <a href="./privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+          </div>
+        </section>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // TOC: smooth scroll + active state
+  const tocNav = document.getElementById('tocNav');
+  const tocLinks = tocNav.querySelectorAll('a');
+  tocLinks.forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = a.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth' });
+    });
+  });
+  const sections = Array.from(tocLinks).map(a => document.getElementById(a.getAttribute('href').slice(1)));
+  const tocObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+  sections.forEach(s => s && tocObs.observe(s));
+</script>
+
+</body>
+</html>

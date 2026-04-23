@@ -3,659 +3,123 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>WJP Budgetting — Where your money grows.</title>
-<meta name="description" content="WJP is your AI debt strategist. Track every balance, engineer a payoff plan, and watch your money grow. Bank-level security. No credit card required." />
+<title>WJP Budgetting — Debt-free is a date on your calendar.</title>
+<meta name="description" content="WJP is your private debt strategist. Link your accounts, engineer a payoff plan, and hold yourself accountable — until the last balance hits zero. Bank-level security. No credit card required." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-7">
 <style>
-  :root{
-    --bg:#ffffff;           /* page background */
-    --bg-soft:#f7f6f2;      /* alt section */
-    --bg-tint:#f2efe6;      /* warm off-white */
-    --ink:#141414;          /* primary text */
-    --ink-dim:rgba(20,20,20,0.66);
-    --ink-faint:rgba(20,20,20,0.40);
-    --accent:#1f7a4a;       /* muted forest green, used sparingly */
-    --accent-2:#2b9b72;     /* secondary green accent */
-    --gold:#c99a2a;         /* muted gold for money cues */
-    --gold-deep:#8f6a14;
-    --rule:rgba(20,20,20,0.09);
-    --serif:'Fraunces', 'Times New Roman', serif;
-    --sans:'Inter', system-ui, -apple-system, sans-serif;
-    --mono:'JetBrains Mono', ui-monospace, monospace;
-    --radius:18px;
-    --max:1160px;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    font-family:var(--sans);
-    color:var(--ink);
-    background:var(--bg);
-    overflow-x:hidden;
-    -webkit-font-smoothing:antialiased;
-    line-height:1.55;
-  }
-  a{color:inherit;text-decoration:none}
-  img,svg{display:block;max-width:100%}
-
-  /* ───────────────────────── NAV ───────────────────────── */
-  nav.top{
-    position:fixed;top:0;left:0;right:0;z-index:50;
-    display:flex;align-items:center;justify-content:space-between;
-    padding:20px 28px;
-    transition:background .3s ease, backdrop-filter .3s ease, border-color .3s ease;
-    border-bottom:1px solid transparent;
-  }
-  nav.top.scrolled{
-    background:rgba(255,255,255,0.85);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-    border-bottom-color:var(--rule);
-  }
-  .brand{display:flex;align-items:center;gap:12px}
-  .brand-mark{
-    width:42px;height:42px;border-radius:12px;
-    background:linear-gradient(135deg,#1f7a4a,#2b9b72);
-    display:grid;place-items:center;
-    box-shadow:0 6px 18px rgba(31,122,74,0.28), inset 0 0 0 1px rgba(255,255,255,0.18);
-    font-family:var(--serif);font-weight:700;color:#ffffff;font-size:22px;font-style:italic;
-  }
-  .brand-mark::after{content:"";position:absolute;}
-  .brand-text{line-height:1}
-  .brand-text b{font-family:var(--serif);font-weight:700;font-size:19px;letter-spacing:0.2px;color:var(--ink)}
-  .brand-text i{color:var(--accent);font-style:italic;font-family:var(--serif);font-weight:500}
-  .brand-text small{display:block;font-size:10px;letter-spacing:2.5px;color:var(--ink-faint);margin-top:3px;text-transform:uppercase}
-
-  .nav-links{display:flex;gap:28px;align-items:center}
-  .nav-links a.link{font-size:14px;color:var(--ink-dim);letter-spacing:0.2px}
-  .nav-links a.link:hover{color:var(--ink)}
-  .pill{
-    display:inline-flex;align-items:center;gap:10px;
-    padding:11px 22px;border-radius:999px;font-size:13px;font-weight:600;letter-spacing:0.6px;
-    text-transform:uppercase;transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
-  }
-  .pill.primary{background:var(--ink);color:#ffffff}
-  .pill.primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,0.18)}
-  .pill.ghost{background:#ffffff;color:var(--ink);border:1px solid rgba(20,20,20,0.18)}
-  .pill.ghost:hover{background:#f5f3ee;border-color:rgba(20,20,20,0.32)}
-  .pill.accent{background:var(--accent);color:#ffffff}
-  .pill.accent:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(31,122,74,0.30);background:var(--accent-2)}
-  @media (max-width:760px){
-    .nav-links a.link{display:none}
-  }
-
-  /* ───────────────────────── HERO SCENE ───────────────────────── */
+  /* intro-specific hero — fits viewport, no scroll needed */
   .hero{
-    position:relative;min-height:100vh;
-    display:flex;flex-direction:column;
-    isolation:isolate;overflow:hidden;
-    padding:120px 24px 0;
-    background:#ffffff; /* fallback while image loads */
-  }
-  /* Full-bleed money-tree scene — inline SVG illustration */
-  .scene-sky{
-    position:absolute;inset:0;z-index:0;
+    position:relative;
+    min-height:100svh;min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    padding:100px 24px 56px;text-align:center;
     overflow:hidden;
-    background:linear-gradient(180deg,#bfe1f7 0%,#e8f4fb 55%,#fbf1d4 100%);
   }
-  .scene-svg{
-    position:absolute;inset:0;width:100%;height:100%;display:block;
-    transform-origin:55% 55%;
-    animation:kenburns 32s ease-in-out infinite alternate;
-    will-change:transform;
-  }
-  @keyframes kenburns{
-    0%  { transform:scale(1.04) translate(0,0); }
-    50% { transform:scale(1.08) translate(-1%, -0.8%); }
-    100%{ transform:scale(1.06) translate(1%, 0.6%); }
-  }
-  /* Top & bottom soft washes for text legibility */
-  .scene-sky::before{
-    content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  .hero-content{position:relative;z-index:2;max-width:900px;margin:0 auto;width:100%}
+  .hero-flourish{
+    position:absolute;inset:0;z-index:1;pointer-events:none;
     background:
-      linear-gradient(180deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.30) 28%, rgba(255,255,255,0.10) 55%, rgba(255,255,255,0.55) 100%);
+      radial-gradient(520px 340px at 12% 30%, rgba(31,122,74,0.12), transparent 70%),
+      radial-gradient(480px 320px at 88% 70%, rgba(201,154,42,0.10), transparent 70%);
   }
-  .scene-sky::after{
-    content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
-    background:radial-gradient(1200px 700px at 16% 18%, rgba(255,240,200,0.30), transparent 65%);
+  /* Tighter display type for the hero so it fits comfortably */
+  .hero h1.head{
+    font-size:clamp(38px,6.2vw,78px);
+    line-height:0.98;letter-spacing:-0.042em;
+    margin-top:22px;
   }
-
-  /* Cloud drift */
-  .clouds .cloud{animation:cloudDrift 60s linear infinite}
-  .clouds .c1{animation-duration:70s}
-  .clouds .c2{animation-duration:85s;animation-delay:-18s}
-  .clouds .c3{animation-duration:95s;animation-delay:-38s}
-  @keyframes cloudDrift{
-    0%  {transform:translateX(-120px)}
-    100%{transform:translateX(220px)}
+  .hero .hero-sub{
+    margin-top:18px;max-width:620px;
+    font-size:clamp(15px,1.25vw,17px);line-height:1.55;
   }
-
-  /* Canopy subtle sway */
-  .canopy-sway{transform-origin:800px 560px;animation:canopySway 7s ease-in-out infinite}
-  @keyframes canopySway{0%,100%{transform:rotate(-0.8deg)}50%{transform:rotate(0.8deg)}}
-
-  /* Leaf-bill flutter */
-  .bill-leaves rect{animation:leafFlutter 4.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
-  .bill-leaves rect:nth-child(2n){animation-duration:5.5s;animation-delay:-1s}
-  .bill-leaves rect:nth-child(3n){animation-duration:6s;animation-delay:-2s}
-  @keyframes leafFlutter{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(6deg) translateY(-2px)}}
-
-  /* Bills falling near tree base */
-  .falling-bills .bill{animation:billFall 8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
-  .falling-bills .b2{animation-duration:9s;animation-delay:-2s}
-  .falling-bills .b3{animation-duration:10s;animation-delay:-4s}
-  .falling-bills .b4{animation-duration:11s;animation-delay:-6s}
-  .falling-bills .b5{animation-duration:9.5s;animation-delay:-3s}
-  .falling-bills .b6{animation-duration:10.5s;animation-delay:-5s}
-  @keyframes billFall{
-    0%  {transform:translate(0,-260px) rotate(-20deg);opacity:0}
-    15% {opacity:1}
-    85% {opacity:1}
-    100%{transform:translate(10px,10px) rotate(40deg);opacity:0}
-  }
-
-  /* Legacy ambient layers off — inline SVG scene carries all of this */
-  .stars,.mountains,.grass-layer,.tree-wrap{display:none !important;}
-  .tree-glow{
-    position:absolute;left:50%;top:10%;transform:translateX(-50%);
-    width:70%;height:70%;border-radius:50%;
-    background:radial-gradient(closest-side, rgba(255,240,210,0.55), transparent 70%);
-    filter:blur(30px);
-    z-index:-1;
-    animation:pulse 5s ease-in-out infinite;
-  }
-  @keyframes pulse{0%,100%{opacity:.65}50%{opacity:1}}
-
-  /* Rising coins — page-wide overlay */
-  .floaters{
-    position:fixed;inset:0;z-index:60;
-    pointer-events:none;overflow:hidden;
-    transition:opacity .4s ease;
-  }
-  .floaters.hidden{opacity:0}
-  .coin{
-    position:absolute;width:18px;height:18px;border-radius:50%;
-    background:radial-gradient(circle at 30% 30%, #fff5b5, #f2c14e 45%, #a97a16 85%);
-    box-shadow:0 0 14px rgba(242,193,78,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
-    opacity:0;
-  }
-  .coin::after{
-    content:"$";position:absolute;inset:0;display:grid;place-items:center;
-    font-family:var(--serif);font-weight:700;font-size:11px;color:#7a5a0e;
-  }
-
-  /* Grass at the bottom */
-  .grass-layer{
-    position:absolute;left:0;right:0;bottom:0;z-index:5;
-    height:22vh;min-height:180px;max-height:280px;
-    pointer-events:none;
-    overflow:hidden;
-  }
-  .ground-gradient{
-    position:absolute;left:0;right:0;bottom:0;height:100%;
-    background:linear-gradient(180deg,transparent, rgba(8,40,24,0.25) 20%, #083c26 70%, #052116 100%);
-  }
-  .grass-row{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;gap:2px;padding:0 4px}
-  .grass-row.back{bottom:0;opacity:.6;filter:blur(0.6px)}
-  .grass-row.mid{bottom:0;opacity:.85}
-  .grass-row.front{bottom:0}
-  .blade{
-    width:4px;
-    background:linear-gradient(to top, #0e4d2f 0%, #1d7a4a 40%, #4dd6a1 100%);
-    border-radius:50% 50% 0 0 / 90% 90% 0 0;
-    transform-origin:bottom center;
-    animation:sway var(--dur,4s) ease-in-out infinite;
-    animation-delay:var(--delay,0s);
-    box-shadow:0 0 2px rgba(0,0,0,0.3);
-  }
-  .grass-row.back .blade{background:linear-gradient(to top, #0a3a23, #156238, #2a9465)}
-  .grass-row.mid .blade{background:linear-gradient(to top, #0d4a2d, #1d7a4a, #4dd6a1)}
-  .grass-row.front .blade{background:linear-gradient(to top, #0e5534, #2a9465, #8df2c5)}
-  @keyframes sway{
-    0%,100%{transform:rotate(-5deg)}
-    50%{transform:rotate(5deg)}
-  }
-
-  /* Hero text over the scene */
-  .hero-content{
-    position:relative;z-index:6;
-    max-width:var(--max);width:100%;margin:0 auto;
-    text-align:center;
-    padding-top:40px;
-  }
-  .badge{
-    display:inline-flex;align-items:center;gap:10px;
-    padding:7px 16px;border-radius:999px;
-    background:rgba(255,255,255,0.85);
-    border:1px solid rgba(20,20,20,0.12);
-    font-size:11px;letter-spacing:2.5px;color:var(--ink);
-    text-transform:uppercase;font-weight:500;
-  }
-  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
-  h1.head{
-    font-family:var(--serif);font-weight:300;font-style:italic;
-    font-size:clamp(44px,8.2vw,128px);line-height:0.95;letter-spacing:-0.02em;
-    margin:28px 0 0;
-    color:var(--ink);
-  }
-  h1.head em{
-    font-style:italic;font-weight:400;color:var(--accent);
-  }
-  .hero-sub{
-    margin:22px auto 0;max-width:680px;
-    font-size:clamp(16px,1.6vw,19px);color:var(--ink-dim);
-  }
-  .hero-sub b{color:var(--ink);font-weight:600}
-  .hero-cta{
-    margin-top:34px;display:inline-flex;gap:14px;flex-wrap:wrap;justify-content:center;
-  }
-  .hero-meta{
-    margin-top:22px;display:flex;gap:26px;justify-content:center;flex-wrap:wrap;
-    font-size:11px;letter-spacing:2.4px;color:var(--ink-faint);text-transform:uppercase;
-  }
-  .hero-meta span{display:inline-flex;align-items:center;gap:8px}
-  .hero-meta span::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--accent);opacity:.8}
-
-  /* ───────────────────────── SECTIONS ───────────────────────── */
-  section.pad{padding:120px 24px;position:relative}
-  .wrap{max-width:var(--max);margin:0 auto}
-  .eyebrow{
-    display:inline-block;font-size:11px;letter-spacing:3px;text-transform:uppercase;
-    color:var(--accent);font-weight:500;margin-bottom:18px;
-  }
-  h2.h2{
-    font-family:var(--serif);font-weight:300;font-size:clamp(34px,5.4vw,64px);line-height:1.02;letter-spacing:-0.015em;
-  }
-  h2.h2 em{font-style:italic;color:var(--accent)}
-  .lede{margin-top:20px;max-width:680px;color:var(--ink-dim);font-size:clamp(16px,1.4vw,18px)}
-
-  /* About / pillars */
-  .about{background:#ffffff}
-  .pillars{margin-top:60px;display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-  .pillar{
-    position:relative;padding:26px 24px;border-radius:var(--radius);
-    background:#ffffff;
-    border:1px solid var(--rule);
-    box-shadow:0 1px 2px rgba(20,20,20,0.03);
-    transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
-  }
-  .pillar:hover{transform:translateY(-4px);border-color:rgba(31,122,74,0.28);box-shadow:0 12px 30px rgba(20,20,20,0.06)}
-  .pillar .icon{width:44px;height:44px;border-radius:12px;background:#f1efe8;display:grid;place-items:center;margin-bottom:16px;color:var(--accent)}
-  .pillar h4{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-0.01em;color:var(--ink)}
-  .pillar p{margin-top:8px;color:var(--ink-dim);font-size:14px}
-  @media (max-width:880px){.pillars{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:480px){.pillars{grid-template-columns:1fr}}
-
-  /* How it works */
-  .how{background:var(--bg-soft)}
-  .steps{margin-top:64px;display:grid;grid-template-columns:repeat(3,1fr);gap:22px;counter-reset:step}
-  .step{
-    position:relative;padding:42px 28px 30px;border-radius:var(--radius);
-    background:#ffffff;
-    border:1px solid var(--rule);
-    box-shadow:0 1px 2px rgba(20,20,20,0.03);
-  }
-  .step::before{
-    counter-increment:step;content:"0" counter(step);
-    position:absolute;top:20px;right:24px;
-    font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--accent);
-  }
-  .step .num{
-    width:48px;height:48px;border-radius:50%;
-    background:linear-gradient(135deg,#2b9b72,#1f7a4a);
-    display:grid;place-items:center;color:#ffffff;font-family:var(--serif);font-weight:700;font-size:20px;
-    box-shadow:0 6px 18px rgba(31,122,74,0.22);
-    margin-bottom:18px;
-  }
-  .step h4{font-family:var(--serif);font-size:22px;font-weight:500;letter-spacing:-0.01em;color:var(--ink)}
-  .step p{margin-top:10px;color:var(--ink-dim);font-size:14.5px}
-  @media (max-width:860px){.steps{grid-template-columns:1fr}}
-
-  /* Features */
-  .features{background:#ffffff}
-  .feat-grid{margin-top:60px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  .feat{
-    padding:30px 26px;border-radius:var(--radius);
-    background:#fafaf7;
-    border:1px solid var(--rule);
-    transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
-  }
-  .feat:hover{transform:translateY(-3px);border-color:rgba(31,122,74,0.28);box-shadow:0 10px 24px rgba(20,20,20,0.05)}
-  .feat .ico{
-    width:40px;height:40px;margin-bottom:16px;border-radius:10px;
-    background:#eef5f1;
-    display:grid;place-items:center;color:var(--accent);
-  }
-  .feat h5{font-family:var(--serif);font-size:19px;font-weight:500;letter-spacing:-0.005em;color:var(--ink)}
-  .feat p{margin-top:8px;color:var(--ink-dim);font-size:14px}
-  @media (max-width:900px){.feat-grid{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.feat-grid{grid-template-columns:1fr}}
-
-  /* The math — visual proof */
-  .math{background:var(--bg-soft)}
-  .math-card{
-    margin-top:60px;padding:48px;border-radius:24px;
-    background:#ffffff;
-    border:1px solid var(--rule);
-    box-shadow:0 18px 48px rgba(20,20,20,0.06);
-    display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
-  }
-  .math-card .big{
-    font-family:var(--serif);font-style:italic;font-weight:300;
-    font-size:clamp(44px,6.5vw,92px);line-height:1;letter-spacing:-0.015em;
-    color:var(--ink);
-  }
-  .math-card .big em{color:var(--accent);font-style:italic}
-  .math-card p{color:var(--ink-dim);margin-top:16px;max-width:420px}
-  .payoff-bars{display:flex;flex-direction:column;gap:18px;margin-top:8px}
-  .bar{position:relative;height:44px;border-radius:10px;background:#f4f2ec;overflow:hidden;border:1px solid var(--rule)}
-  .bar .fill{position:absolute;top:0;bottom:0;left:0;display:flex;align-items:center;padding:0 14px;font-family:var(--mono);font-size:12px;color:#fff;font-weight:500;letter-spacing:0.5px}
-  .bar .fill.before{width:100%;background:linear-gradient(90deg,#a97a16,#c99a2a);color:#fff}
-  .bar .fill.after{width:57%;background:linear-gradient(90deg,#1f7a4a,#2b9b72);color:#fff}
-  .bar-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
-  @media (max-width:860px){.math-card{grid-template-columns:1fr;padding:32px}}
-
-  /* FAQ */
-  .faq{background:#ffffff}
-  .faq-list{margin-top:50px;display:flex;flex-direction:column;gap:12px}
-  details.q{
-    background:#fafaf7;
-    border:1px solid var(--rule);
-    border-radius:14px;
-    padding:20px 22px;
-    transition:background .2s ease, border-color .2s ease;
-  }
-  details.q[open]{background:#eef5f1;border-color:rgba(31,122,74,0.26)}
-  details.q summary{
-    list-style:none;cursor:pointer;
-    display:flex;align-items:center;justify-content:space-between;gap:20px;
-    font-family:var(--serif);font-size:19px;font-weight:500;letter-spacing:-0.005em;color:var(--ink);
-  }
-  details.q summary::-webkit-details-marker{display:none}
-  details.q summary::after{content:"+";font-family:var(--sans);font-size:22px;color:var(--accent);transition:transform .25s ease}
-  details.q[open] summary::after{content:"−"}
-  details.q p{margin-top:14px;color:var(--ink-dim);font-size:15px}
-
-  /* Final CTA */
-  .final{
-    position:relative;padding:140px 24px;overflow:hidden;
-    background:var(--bg-soft);
-    border-top:1px solid var(--rule);
-    border-bottom:1px solid var(--rule);
-  }
-  .final .wrap{text-align:center}
-  .final h2.h2{max-width:900px;margin:0 auto;color:var(--ink)}
-  .final .hero-cta{margin-top:32px}
-
-  /* Footer */
-  footer{background:#ffffff;padding:44px 24px 70px;border-top:1px solid var(--rule);color:var(--ink-faint);font-size:13px}
-  footer .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
-  footer a{color:var(--ink-dim)}
-  footer a:hover{color:var(--ink)}
-  .foot-links{display:flex;gap:22px;flex-wrap:wrap}
-
-  /* Nav tabs (live inside top nav) */
-  .nav-tabs{display:flex;gap:4px;align-items:center;margin-right:8px}
-  .nav-tab{
-    appearance:none;border:1px solid transparent;background:transparent;
-    font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:0.3px;
-    color:var(--ink-dim);
-    padding:8px 14px;border-radius:999px;cursor:pointer;
-    transition:background .2s ease,color .2s ease,box-shadow .2s ease;
-  }
-  .nav-tab:hover{color:var(--ink);background:#f4f2ec}
-  .nav-tab.active{
-    background:var(--ink);color:#ffffff;
-    box-shadow:0 4px 12px rgba(20,20,20,0.14);
-  }
-  .tab-panel{display:none}
-  .tab-panel.active{display:block;animation:tabFade .35s ease}
-  .tab-panel.active .reveal{opacity:1;transform:none}
-  @keyframes tabFade{
-    from{opacity:0;transform:translateY(8px)}
-    to  {opacity:1;transform:translateY(0)}
-  }
-  @media (max-width:820px){
-    .nav-tab{padding:6px 10px;font-size:12px}
-  }
-  @media (max-width:620px){
-    .nav-tabs{display:none}
-  }
-
-  /* Reveal-on-scroll */
-  .reveal{opacity:0;transform:translateY(22px);transition:opacity .8s ease, transform .8s ease}
-  .reveal.in{opacity:1;transform:translateY(0)}
-
-  /* Reduced motion */
-  @media (prefers-reduced-motion: reduce){
-    *{animation:none !important;transition:none !important}
+  .hero .hero-cta{margin-top:26px}
+  .hero .hero-meta{margin-top:22px;gap:22px}
+  @media (max-height:720px){
+    .hero{padding-top:88px;padding-bottom:40px}
+    .hero h1.head{font-size:clamp(34px,5vw,62px);margin-top:16px}
+    .hero .hero-sub{margin-top:14px;font-size:15px}
+    .hero .hero-cta{margin-top:20px}
+    .hero .hero-meta{margin-top:18px}
   }
 </style>
 </head>
 <body>
 
-<!-- Page-wide rising coins overlay -->
+<!-- Page-wide rising coins overlay (intro only) -->
 <div class="floaters" id="floaters" aria-hidden="true"></div>
 
-<!-- ───────────────────────── NAV ───────────────────────── -->
+<!-- NAV -->
 <nav class="top" id="nav">
   <a href="./intro.html" class="brand">
-    <span class="brand-mark">W</span>
-    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Debt Freedom OS</small></span>
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
   </a>
   <div class="nav-links">
-    <div class="nav-tabs" role="tablist" aria-label="Sections">
-      <button class="nav-tab active" role="tab" aria-selected="true"  data-target="about">About</button>
-      <button class="nav-tab"        role="tab" aria-selected="false" data-target="how">How</button>
-      <button class="nav-tab"        role="tab" aria-selected="false" data-target="features">Features</button>
-      <button class="nav-tab"        role="tab" aria-selected="false" data-target="math">Math</button>
-      <button class="nav-tab"        role="tab" aria-selected="false" data-target="faq">FAQ</button>
-    </div>
+    <a class="link" href="./about.html">About</a>
+    <a class="link" href="./how.html">How</a>
+    <a class="link" href="./features.html">Features</a>
+    <a class="link" href="./math.html">Math</a>
+    <a class="link" href="./faq.html">FAQ</a>
     <a class="pill ghost" href="./signin.html">Sign in</a>
     <a class="pill accent" href="./signup.html">Start free →</a>
   </div>
 </nav>
 
-<!-- ───────────────────────── HERO (clean background + coins) ───────────────────────── -->
+<!-- HERO -->
 <section class="hero">
-  <!-- Hero copy -->
-  <div class="hero-content">
-    <span class="badge"><span class="dot"></span>AI-POWERED · V2.4 · LIVE</span>
-    <h1 class="head">Where your money <em>grows.</em></h1>
+  <div class="hero-flourish" aria-hidden="true"></div>
+  <div class="hero-content reveal">
+    <span class="badge"><span class="dot"></span>AI-POWERED · PRIVATE · READ-ONLY</span>
+    <h1 class="head">Debt-free isn't a dream.<br/>It's a <em>date on your calendar.</em></h1>
     <p class="hero-sub">
-      <b>WJP Budgetting</b> is the AI debt strategist that turns chaos into a clear path.
-      Plant every balance, grow a tailored payoff plan, and watch interest melt —
-      one branch of your money tree at a time.
+      <b>WJP</b> turns every paycheck into a plan. Real-time tracking, AI-engineered payoff strategy,
+      and reminders that show up before the bill does — so you stay on track without thinking about it.
     </p>
     <div class="hero-cta">
-      <a class="pill accent" href="./signup.html">Start free →</a>
+      <a class="pill accent" href="./signup.html">Start your free trial →</a>
       <a class="pill ghost" href="./signin.html">I have an account</a>
     </div>
     <div class="hero-meta">
-      <span>No credit card</span>
+      <span>No credit card required</span>
       <span>Bank-level encryption</span>
       <span>Cancel anytime</span>
     </div>
   </div>
 </section>
 
-<div class="tab-panels" id="tab-panels">
-
-<!-- ───────────────────────── ABOUT / PILLARS ───────────────────────── -->
-<section class="pad about tab-panel active" id="about" role="tabpanel">
-  <div class="wrap reveal">
-    <span class="eyebrow">What is WJP?</span>
-    <h2 class="h2">Your personal <em>debt strategist</em> — quiet, honest, and relentless.</h2>
-    <p class="lede">
-      Most apps hand you a budget and walk away. WJP stays with you. It learns how your
-      money actually moves, engineers the fastest path out of debt, and shows you — in plain English —
-      every dollar that used to bleed into interest.
-    </p>
-
-    <div class="pillars">
-      <div class="pillar">
-        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4dd6a1" stroke-width="1.8"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
-        <h4>Track</h4>
-        <p>Every card, loan, mortgage, and hidden fee — in one calm place.</p>
-      </div>
-      <div class="pillar">
-        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4dd6a1" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg></div>
-        <h4>Plan</h4>
-        <p>AI builds a month-by-month payoff strategy — snowball, avalanche, or hybrid.</p>
-      </div>
-      <div class="pillar">
-        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4dd6a1" stroke-width="1.8"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></div>
-        <h4>Pay off</h4>
-        <p>Smart nudges keep you on pace. Miss a month? WJP rebalances — no shame.</p>
-      </div>
-      <div class="pillar">
-        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4dd6a1" stroke-width="1.8"><path d="M7 21h10"/><path d="M12 17v4"/><path d="M17 4h2v4a7 7 0 0 1-14 0V4h2"/></svg></div>
-        <h4>Celebrate</h4>
-        <p>Every payoff is a milestone. Watch your money tree grow — literally.</p>
-      </div>
+<!-- VALUE PROPS -->
+<section class="value-props">
+  <div class="wrap reveal" style="text-align:center">
+    <span class="eyebrow">What WJP does</span>
+    <h2 class="h2">An <em>accountability partner</em> that never forgets.</h2>
+  </div>
+  <div class="vp-grid reveal">
+    <div class="vp-card">
+      <div class="num">01</div>
+      <h3>Every dollar, tracked automatically</h3>
+      <p>Link your bank, cards, and loans once. WJP pulls every balance, every payment, every pattern — no spreadsheets, no manual entry.</p>
+    </div>
+    <div class="vp-card">
+      <div class="num">02</div>
+      <h3>A payoff plan that actually closes</h3>
+      <p>Avalanche, snowball, or AI-engineered. Watch your debt-free date move closer every time a payment clears.</p>
+    </div>
+    <div class="vp-card">
+      <div class="num">03</div>
+      <h3>Accountability, not nagging</h3>
+      <p>Reminders before bills drop, alerts when spending drifts, insights when you're winning. Quiet encouragement, loud results.</p>
     </div>
   </div>
 </section>
 
-<!-- ───────────────────────── HOW IT WORKS ───────────────────────── -->
-<section class="pad how tab-panel" id="how" role="tabpanel">
-  <div class="wrap reveal">
-    <span class="eyebrow">How it works</span>
-    <h2 class="h2">Three steps. <em>Real freedom.</em></h2>
-    <p class="lede">No spreadsheets. No jargon. You're free in under four minutes.</p>
-
-    <div class="steps">
-      <div class="step">
-        <div class="num">1</div>
-        <h4>Plant your debts</h4>
-        <p>Add each balance — credit cards, student loans, auto, mortgage, "that one from 2019."
-           Paste from a statement, or link read-only. Takes under 3 minutes.</p>
-      </div>
-      <div class="step">
-        <div class="num">2</div>
-        <h4>Grow your plan</h4>
-        <p>Pick your style — snowball for momentum, avalanche for math. WJP calculates
-           exact payoff dates, interest saved, and where every dollar should go next.</p>
-      </div>
-      <div class="step">
-        <div class="num">3</div>
-        <h4>Harvest the freedom</h4>
-        <p>Check in weekly. Mark payments. Watch the interest curve fall — and your
-           money tree fill with coins. That's real wealth rising from the roots.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───────────────────────── FEATURES ───────────────────────── -->
-<section class="pad features tab-panel" id="features" role="tabpanel">
-  <div class="wrap reveal">
-    <span class="eyebrow">Features</span>
-    <h2 class="h2">Everything you need to <em>own your freedom.</em></h2>
-    <p class="lede">Built for real humans with real debts. No gimmicks. No 12-step upsells.</p>
-
-    <div class="feat-grid">
-      <div class="feat">
-        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11V3h-8"/><path d="M21 3l-9 9"/><path d="M3 13v8h8"/><path d="M3 21l9-9"/></svg></div>
-        <h5>AI co-pilot</h5>
-        <p>Ask anything. "When am I debt-free?" "Can I afford a $3k trip?" Get a real answer — not a chart.</p>
-      </div>
-      <div class="feat">
-        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-4 4 4 6-6"/></svg></div>
-        <h5>Snowball &amp; avalanche</h5>
-        <p>Both strategies side by side. See exactly how many months each saves — pick your path with clarity.</p>
-      </div>
-      <div class="feat">
-        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-        <h5>Bank-level security</h5>
-        <p>256-bit encryption. Read-only banking connections. We never store your passwords. Period.</p>
-      </div>
-      <div class="feat">
-        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-        <h5>Monthly insights</h5>
-        <p>A plain-English report every month. What worked, what slipped, and your updated freedom date.</p>
-      </div>
-      <div class="feat">
-        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg></div>
-        <h5>Goals that stick</h5>
-        <p>House down-payment. Emergency fund. A debt-free wedding. Stack them in priority — WJP optimizes all at once.</p>
-      </div>
-      <div class="feat">
-        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-12V5l-8-3-8 3v5c0 8 8 12 8 12z"/></svg></div>
-        <h5>Privacy first</h5>
-        <p>Your data is yours. No selling, no advertisers, no "anonymized" resale. Export or delete anytime.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───────────────────────── THE MATH ───────────────────────── -->
-<section class="pad math tab-panel" id="math" role="tabpanel">
-  <div class="wrap reveal">
-    <span class="eyebrow">The math of freedom</span>
-    <h2 class="h2">Typical user cuts <em>43%</em> of payoff time.</h2>
-    <div class="math-card">
-      <div>
-        <p class="big">From <em>9.2 yrs</em><br/>to <em>5.3 yrs</em>.</p>
-        <p>Based on a typical household carrying $28k across three credit cards and one personal loan
-          at 19.4% APR blended. Switching from minimums to an AI-optimized plan saves an average of
-          <b style="color:var(--accent-2)">$11,840 in interest</b>.</p>
-      </div>
-      <div>
-        <div class="bar-label">Paying minimums</div>
-        <div class="bar"><div class="fill before">9 years, 2 months · $18,420 interest</div></div>
-        <div class="bar-label" style="margin-top:14px">With WJP plan</div>
-        <div class="bar"><div class="fill after">5 years, 3 months · $6,580 interest</div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───────────────────────── FAQ ───────────────────────── -->
-<section class="pad faq tab-panel" id="faq" role="tabpanel">
-  <div class="wrap reveal">
-    <span class="eyebrow">Questions</span>
-    <h2 class="h2">Fair questions. <em>Honest answers.</em></h2>
-
-    <div class="faq-list">
-      <details class="q">
-        <summary>Is WJP really free?</summary>
-        <p>Yes — the core planner, tracker, and AI co-pilot are free forever. A future Pro tier adds
-          automated payment scheduling and tax-optimized debt payoff — but you'll never need Pro to get out of debt.</p>
-      </details>
-      <details class="q">
-        <summary>Do you connect to my bank?</summary>
-        <p>Optionally. You can type balances in manually and WJP works perfectly. If you link your bank,
-          we use read-only connections via Plaid — we can never move money, and we never store your login.</p>
-      </details>
-      <details class="q">
-        <summary>Snowball vs. avalanche — which should I use?</summary>
-        <p>Avalanche saves more money mathematically. Snowball feels more motivating because you clear small
-          balances first. WJP shows you both — and many people use a hybrid. There's no wrong answer if you stick to the plan.</p>
-      </details>
-      <details class="q">
-        <summary>What about my data?</summary>
-        <p>It's yours. We use bank-grade encryption at rest and in transit, we don't sell, and we don't advertise.
-          You can export everything as CSV or delete your account (and all data) in one click.</p>
-      </details>
-      <details class="q">
-        <summary>Who's behind WJP?</summary>
-        <p>An independent team — not a bank, not a lender, not a BNPL company. We make money from a single
-          optional Pro tier. That's our only business model, and it keeps our incentives aligned with yours.</p>
-      </details>
-    </div>
-  </div>
-</section>
-
-</div><!-- /.tab-panels -->
-
-<!-- ───────────────────────── FINAL CTA ───────────────────────── -->
+<!-- FINAL CTA -->
 <section class="final">
   <div class="wrap reveal">
     <span class="eyebrow">Start now</span>
-    <h2 class="h2">Plant the first seed. <em>Own your freedom.</em></h2>
+    <h2 class="h2">Put a <em>date</em> on debt-free.</h2>
     <p class="lede" style="margin:22px auto 0">
       Under four minutes to your personalized payoff plan. No credit card. No junk email. Just a clearer path.
     </p>
@@ -666,22 +130,37 @@
   </div>
 </section>
 
-<!-- ───────────────────────── FOOTER ───────────────────────── -->
+<!-- FOOTER -->
 <footer>
   <div class="wrap">
-    <div>© <span id="year"></span> WJP Budgetting · Debt Freedom OS</div>
-    <div class="foot-links">
-      <a href="#about">About</a>
-      <a href="#features">Features</a>
-      <a href="#faq">FAQ</a>
-      <a href="./signin.html">Sign in</a>
-      <a href="./signup.html">Sign up</a>
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+      We're an independent team — not a bank, not a lender, not a BNPL company. Our only business model is
+      a single optional Pro tier, which keeps our incentives aligned with yours.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
     </div>
   </div>
 </footer>
 
 <script type="module">
-  // ── Firebase: if already signed in, skip straight to the app
+  // If already signed in, skip straight to the app
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
     from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -712,9 +191,13 @@
   const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
   onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
 
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
-  // Rising coins — flow up the whole viewport, bottom → top
-  // Suppressed whenever the user is inside a tab panel (serious info).
+  // Rising coins — bottom to top, suppressed after scroll
   const floatEl = document.getElementById('floaters');
   let coinsSuppressed = false;
   function setCoinsSuppressed(on){
@@ -729,80 +212,34 @@
     const size = 12 + Math.random()*18;
     c.style.width = c.style.height = size+'px';
     c.style.left = (Math.random()*100) + '%';
-    c.style.top  = '100%';   // start just below viewport
+    c.style.top  = '100%';
     const drift = -12 + Math.random()*24;
     const dur   = (opts.fast ? 8 : 12) + Math.random()*6;
     c.animate([
-      { transform: 'translate(0,0) rotate(0deg)',                                opacity: 0 },
-      {                                                                           opacity: 0.95, offset: 0.10 },
-      {                                                                           opacity: 0.95, offset: 0.88 },
-      { transform: `translate(${drift}vw, -110vh) rotate(${drift*14}deg)`,       opacity: 0 }
+      { transform: 'translate(0,0) rotate(0deg)',                          opacity: 0 },
+      {                                                                     opacity: 0.95, offset: 0.10 },
+      {                                                                     opacity: 0.95, offset: 0.88 },
+      { transform: `translate(${drift}vw, -110vh) rotate(${drift*14}deg)`, opacity: 0 }
     ], { duration: dur*1000, easing: 'ease-out' });
     floatEl.appendChild(c);
     setTimeout(() => c.remove(), dur*1000);
   }
-
-  // First-visit welcome burst: moderate flood of coins bottom → top
+  // First-visit welcome burst
   if (!window.name || !window.name.includes('wjp-seen')) {
     window.name = (window.name || '') + '|wjp-seen';
-    for (let i = 0; i < 28; i++) {
-      setTimeout(() => spawnCoin({ fast: true }), i * 180);
-    }
+    for (let i = 0; i < 24; i++) setTimeout(() => spawnCoin({ fast: true }), i * 200);
   }
-
   // Ongoing ambient flow
-  setInterval(spawnCoin, 1600);
-  for (let i = 0; i < 4; i++) setTimeout(spawnCoin, i * 400);
-
-  // Coins flow ONLY when user is near the top of the welcome page.
-  // As soon as they scroll down at all, suppress — and keep suppressed until they're
-  // clearly back at the top, so coins never overlap tab content on scroll-up.
+  setInterval(spawnCoin, 1700);
+  for (let i = 0; i < 4; i++) setTimeout(spawnCoin, i * 420);
+  // Suppress coins as soon as user scrolls past hero
   function updateCoinSuppression(){
-    // Suppress once scrolled more than 120px; only un-suppress when within 40px of top.
-    if (window.scrollY > 120) setCoinsSuppressed(true);
+    if (window.scrollY > 140) setCoinsSuppressed(true);
     else if (window.scrollY < 40) setCoinsSuppressed(false);
   }
   updateCoinSuppression();
   window.addEventListener('scroll', updateCoinSuppression, { passive: true });
   window.addEventListener('resize', updateCoinSuppression, { passive: true });
-
-  // Tabs — swap panel and scroll past the hero
-  const tabButtons = document.querySelectorAll('.nav-tab');
-  const panels = document.querySelectorAll('.tab-panel');
-  const panelsEl = document.getElementById('tab-panels');
-  function activateTab(target){
-    tabButtons.forEach(b => {
-      const on = b.dataset.target === target;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-    panels.forEach(p => p.classList.toggle('active', p.id === target));
-    if (panelsEl) {
-      // Scroll far enough that the hero is fully out of the way
-      const y = panelsEl.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-    }
-    // Suppress coins immediately — don't wait for scroll to complete
-    setCoinsSuppressed(true);
-  }
-  tabButtons.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.target)));
-  // Footer links that point to section ids should also switch tabs
-  document.querySelectorAll('footer a[href^="#"]').forEach(link => {
-    const id = link.getAttribute('href').slice(1);
-    if (document.getElementById(id) && document.getElementById(id).classList.contains('tab-panel')) {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        activateTab(id);
-      });
-    }
-  });
-
-  // Reveal on scroll
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
-  }, { threshold: 0.12 });
-  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
-
 </script>
 
 </body>

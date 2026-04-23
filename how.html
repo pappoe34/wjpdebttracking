@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How it works — WJP Budgetting</title>
+<meta name="description" content="Three steps to a personalized debt payoff plan. Link your accounts, pick your strategy, and let WJP do the math. See how the app actually works — with real UI examples." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-7">
+<style>
+  .sub-hero{padding:130px 24px 50px}
+
+  /* Step split layouts */
+  .step-block{
+    padding:70px 24px;position:relative;overflow:hidden;
+  }
+  .step-block + .step-block{border-top:1px solid var(--rule)}
+  .step-block .wrap{max-width:1200px;margin:0 auto}
+  .step-split{
+    display:grid;grid-template-columns:1fr 1.1fr;gap:60px;align-items:center;
+  }
+  .step-split.reverse{grid-template-columns:1.1fr 1fr}
+  .step-text .step-num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:44px;height:44px;border-radius:50%;
+    background:linear-gradient(135deg,#2b9b72,#1f7a4a);
+    color:#fff;font-family:var(--sans);font-weight:800;font-size:16px;
+    box-shadow:0 6px 18px rgba(31,122,74,0.32);margin-bottom:16px;
+  }
+  .step-text h2{
+    font-family:var(--sans);font-weight:800;font-size:clamp(28px,3.4vw,42px);
+    line-height:1.06;letter-spacing:-0.038em;color:var(--ink);
+  }
+  .step-text h2 em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.038em}
+  .step-text p.lede{font-size:15.5px;margin-top:14px}
+  .step-text ul.bullets{margin-top:20px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  .step-text ul.bullets li{
+    display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;
+    font-size:14px;color:var(--ink-dim);line-height:1.5;
+  }
+  .step-text ul.bullets li::before{
+    content:"✓";width:22px;height:22px;border-radius:50%;
+    background:rgba(31,122,74,0.14);color:var(--accent);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;flex-shrink:0;
+  }
+
+  /* Demo card (glass panel on the right) */
+  .demo-card{
+    background:rgba(255,255,255,0.72);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    border-radius:20px;padding:22px;
+    box-shadow:0 16px 48px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .demo-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .demo-head .title{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .demo-head .dot-cluster{display:flex;gap:5px}
+  .demo-head .dot-cluster span{width:8px;height:8px;border-radius:50%;background:rgba(10,10,10,0.15)}
+
+  /* Bank row list (step 1) */
+  .bank-row{
+    display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+    padding:12px 0;border-top:1px solid var(--rule);
+  }
+  .bank-row:first-of-type{border-top:none}
+  .bank-logo{
+    width:34px;height:34px;border-radius:8px;
+    display:grid;place-items:center;
+    font-family:var(--sans);font-weight:800;font-size:13px;color:#fff;
+  }
+  .bank-logo.l1{background:linear-gradient(135deg,#1f78f0,#0e4db8)}
+  .bank-logo.l2{background:linear-gradient(135deg,#2a2a2a,#515151)}
+  .bank-logo.l3{background:linear-gradient(135deg,#c9a11f,#8f6a14)}
+  .bank-logo.l4{background:linear-gradient(135deg,#e53e3e,#9b2121)}
+  .bank-name{font-size:14px;font-weight:600;color:var(--ink)}
+  .bank-sub{font-size:11.5px;color:var(--ink-faint)}
+  .tag{
+    font-size:10px;letter-spacing:1.4px;text-transform:uppercase;font-weight:700;
+    padding:4px 10px;border-radius:999px;
+  }
+  .tag.connected{background:rgba(31,122,74,0.14);color:var(--accent)}
+  .tag.pending{background:rgba(201,154,42,0.18);color:var(--gold-deep)}
+
+  /* Strategy toggle (step 2) */
+  .strategy-tabs{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+    background:rgba(10,10,10,0.05);border-radius:10px;padding:4px;margin-bottom:16px;
+  }
+  .strategy-tabs button{
+    appearance:none;border:none;background:transparent;cursor:pointer;
+    font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-dim);
+    padding:8px;border-radius:8px;transition:background .2s ease,color .2s ease;
+  }
+  .strategy-tabs button.active{background:#ffffff;color:var(--ink);box-shadow:0 2px 8px rgba(20,20,20,0.08)}
+  .strategy-result{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  .result-row{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.6);
+    border:1px solid var(--rule);
+  }
+  .result-row .label{font-size:12px;color:var(--ink-dim);font-weight:500}
+  .result-row .val{font-family:var(--sans);font-size:15px;font-weight:700;color:var(--ink)}
+  .result-row .val em{font-family:var(--sans);font-style:normal;color:var(--accent)}
+
+  /* Mini SVG line chart */
+  .mini-chart{width:100%;height:120px;margin-top:8px}
+  .mini-chart .baseline{stroke:rgba(10,10,10,0.08);stroke-width:1}
+  .mini-chart .area-before{fill:rgba(201,154,42,0.14)}
+  .mini-chart .line-before{stroke:#c99a2a;stroke-width:2;fill:none}
+  .mini-chart .area-after{fill:rgba(31,122,74,0.14)}
+  .mini-chart .line-after{stroke:#1f7a4a;stroke-width:2.5;fill:none}
+  .mini-chart text{font-family:var(--mono);font-size:9px;fill:var(--ink-faint)}
+  .chart-legend{display:flex;gap:14px;margin-top:6px;font-size:10.5px;color:var(--ink-dim)}
+  .chart-legend .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .chart-legend .s-before{background:#c99a2a}
+  .chart-legend .s-after{background:#1f7a4a}
+
+  /* Reminder stack (step 3) */
+  .reminder{
+    display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;
+    padding:12px;margin-bottom:8px;
+    background:rgba(255,255,255,0.6);border:1px solid var(--rule);border-radius:10px;
+  }
+  .reminder:last-child{margin-bottom:0}
+  .reminder .ico{
+    width:28px;height:28px;border-radius:8px;
+    display:grid;place-items:center;
+    background:rgba(31,122,74,0.12);color:var(--accent);
+  }
+  .reminder .ico.gold{background:rgba(201,154,42,0.16);color:var(--gold-deep)}
+  .reminder .ico.ink{background:rgba(10,10,10,0.06);color:var(--ink-dim)}
+  .reminder .title{font-size:13px;font-weight:600;color:var(--ink);line-height:1.2}
+  .reminder .sub{font-size:11.5px;color:var(--ink-dim);margin-top:3px;line-height:1.35}
+  .reminder .time{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
+  /* Toggle row (inline small toggles under step 3) */
+  .toggle-row{
+    margin-top:14px;padding-top:14px;border-top:1px dashed rgba(10,10,10,0.12);
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .toggle-item{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12.5px}
+  .toggle-item .t-label{color:var(--ink-dim)}
+  .toggle-item .t-label b{color:var(--ink);font-weight:600;margin-right:6px}
+  .toggle{
+    position:relative;width:34px;height:20px;border-radius:999px;
+    background:rgba(31,122,74,0.85);flex-shrink:0;transition:background .2s ease;
+  }
+  .toggle::after{
+    content:"";position:absolute;top:2px;left:16px;width:16px;height:16px;border-radius:50%;
+    background:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.2);transition:left .2s ease;
+  }
+  .toggle.off{background:rgba(10,10,10,0.15)}
+  .toggle.off::after{left:2px}
+
+  /* Savings visual section */
+  .savings-vis{padding:90px 24px;position:relative;overflow:hidden}
+  .savings-card{
+    max-width:960px;margin:0 auto;padding:40px;
+    background:rgba(255,255,255,0.72);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);border-radius:24px;
+    box-shadow:0 20px 60px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    display:grid;grid-template-columns:1fr 1.2fr;gap:36px;align-items:center;
+  }
+  .savings-big{font-family:var(--sans);font-weight:800;font-size:clamp(34px,4.8vw,54px);line-height:1;letter-spacing:-0.042em;color:var(--ink)}
+  .savings-big em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.042em}
+
+  @media (max-width:900px){
+    .step-split, .step-split.reverse, .savings-card{grid-template-columns:1fr;gap:32px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a href="./intro.html" class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class="link" href="./about.html">About</a>
+    <a class="link active" href="./how.html">How</a>
+    <a class="link" href="./features.html">Features</a>
+    <a class="link" href="./math.html">Math</a>
+    <a class="link" href="./faq.html">FAQ</a>
+    <a class="pill ghost" href="./signin.html">Sign in</a>
+    <a class="pill accent" href="./signup.html">Start free →</a>
+  </div>
+</nav>
+
+<!-- SUB-HERO -->
+<section class="sub-hero">
+  <div class="wrap reveal">
+    <span class="eyebrow">How it works</span>
+    <h1 class="h2">Three steps. <em>Real freedom.</em></h1>
+    <p class="lede" style="margin-left:auto;margin-right:auto">
+      No spreadsheets. No jargon. You're on a plan in under four minutes — and everything after runs on autopilot.
+    </p>
+  </div>
+</section>
+
+<!-- STEP 1: Connect -->
+<section class="step-block">
+  <div class="wrap">
+    <div class="step-split reveal">
+      <div class="step-text">
+        <div class="step-num">1</div>
+        <h2>Connect every account — <em>once.</em></h2>
+        <p class="lede">
+          Link your banks, credit cards, student loans, auto loans, and mortgages through Plaid — the same
+          secure bridge used by Venmo, Robinhood, and Coinbase. No passwords stored on our servers. No way
+          for us to move money. Read-only, end-to-end encrypted.
+        </p>
+        <ul class="bullets">
+          <li><span>Takes under 3 minutes from the first click to every balance visible</span></li>
+          <li><span>Supports 12,000+ US financial institutions out of the box</span></li>
+          <li><span>Auto-refreshes balances and transactions in real time</span></li>
+          <li><span>Can't see: your PIN, your password, or your security questions</span></li>
+        </ul>
+      </div>
+      <div class="step-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Linked accounts · 4 of 4</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="bank-row">
+            <div class="bank-logo l1">C</div>
+            <div><div class="bank-name">Chase Freedom Unlimited</div><div class="bank-sub">•• 4182 · Credit card</div></div>
+            <span class="tag connected">Connected</span>
+          </div>
+          <div class="bank-row">
+            <div class="bank-logo l2">A</div>
+            <div><div class="bank-name">American Express Gold</div><div class="bank-sub">•• 7034 · Credit card</div></div>
+            <span class="tag connected">Connected</span>
+          </div>
+          <div class="bank-row">
+            <div class="bank-logo l3">S</div>
+            <div><div class="bank-name">Sallie Mae Student Loan</div><div class="bank-sub">•• 9921 · Loan</div></div>
+            <span class="tag connected">Connected</span>
+          </div>
+          <div class="bank-row">
+            <div class="bank-logo l4">W</div>
+            <div><div class="bank-name">Wells Fargo Auto</div><div class="bank-sub">•• 6605 · Loan</div></div>
+            <span class="tag connected">Connected</span>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--ink-dim)">Total imported</span>
+            <span style="font-family:var(--sans);font-size:18px;font-weight:800;color:var(--ink)">$28,400</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 2: Strategy -->
+<section class="step-block">
+  <div class="wrap">
+    <div class="step-split reverse reveal">
+      <div class="step-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Payoff strategy · preview</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="strategy-tabs">
+            <button>Snowball</button>
+            <button class="active">Avalanche</button>
+            <button>AI Hybrid</button>
+          </div>
+          <div class="strategy-result">
+            <div class="result-row"><span class="label">Debt-free by</span><span class="val"><em>Oct 2027</em></span></div>
+            <div class="result-row"><span class="label">Interest saved</span><span class="val">$11,840</span></div>
+            <div class="result-row"><span class="label">Months cut</span><span class="val">47 months</span></div>
+          </div>
+          <svg class="mini-chart" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
+            <line class="baseline" x1="0" y1="100" x2="320" y2="100"/>
+            <!-- Before (minimums) — slow decline -->
+            <path class="area-before" d="M0,30 C60,35 120,45 180,60 C240,75 280,90 320,100 L320,100 L0,100 Z"/>
+            <path class="line-before" d="M0,30 C60,35 120,45 180,60 C240,75 280,90 320,100"/>
+            <!-- After (WJP avalanche) — sharp decline -->
+            <path class="area-after" d="M0,30 C40,38 80,55 120,70 C160,85 200,94 240,99 C280,100 300,100 320,100 L320,100 L0,100 Z"/>
+            <path class="line-after" d="M0,30 C40,38 80,55 120,70 C160,85 200,94 240,99 C280,100 300,100 320,100"/>
+            <text x="4" y="14">$28,400</text>
+            <text x="290" y="114">$0</text>
+          </svg>
+          <div class="chart-legend">
+            <span><span class="swatch s-before"></span>Paying minimums</span>
+            <span><span class="swatch s-after"></span>With WJP</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-text">
+        <div class="step-num">2</div>
+        <h2>Pick a plan. Or let <em>AI pick one.</em></h2>
+        <p class="lede">
+          <b>Snowball</b> clears small balances first for psychological momentum. <b>Avalanche</b> kills
+          highest APR first for maximum math savings. <b>AI Hybrid</b> runs thousands of simulations
+          against your actual cash flow and adapts month to month. Every plan ships with an exact
+          debt-free date and the total interest you dodge.
+        </p>
+        <ul class="bullets">
+          <li><span>See all three strategies side by side — no guessing</span></li>
+          <li><span>Payoff date updates live as balances and rates change</span></li>
+          <li><span>Switch strategies anytime — WJP re-runs the math in under a second</span></li>
+          <li><span>Works with any mix of debt: cards, loans, BNPL, mortgage</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 3: Automate -->
+<section class="step-block">
+  <div class="wrap">
+    <div class="step-split reveal">
+      <div class="step-text">
+        <div class="step-num">3</div>
+        <h2>Let it run in the <em>background.</em></h2>
+        <p class="lede">
+          Reminders fire before bills drop. Transactions are auto-matched to the right debt the moment
+          they clear. If a payment slips, WJP rebalances the plan without a guilt trip. You can tune
+          exactly what you want to see — or mute everything and let it just work.
+        </p>
+        <ul class="bullets">
+          <li><span>Bill reminders 3, 2, and 1 day before due — configurable per account</span></li>
+          <li><span>Auto-matching catches every payment, with a 30-second undo window</span></li>
+          <li><span>Credit utilization alerts when a card crosses 30% — before your score reacts</span></li>
+          <li><span>Weekly email digest: progress, wins, drift, next week's targets</span></li>
+        </ul>
+      </div>
+      <div class="step-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">This week · Auto</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="reminder">
+            <div class="ico gold"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+            <div>
+              <div class="title">Chase Freedom · $124.00 due in 3 days</div>
+              <div class="sub">Minimum scheduled · pay more to cut 12 days off payoff</div>
+            </div>
+            <span class="time">Fri</span>
+          </div>
+          <div class="reminder">
+            <div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l5 5 9-11"/></svg></div>
+            <div>
+              <div class="title">Auto-matched: $520 → Sallie Mae</div>
+              <div class="sub">Cleared 2 days ago · plan re-balanced</div>
+            </div>
+            <span class="time">Tue</span>
+          </div>
+          <div class="reminder">
+            <div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></div>
+            <div>
+              <div class="title">Debt-free date: Oct 2027 · 2 weeks earlier</div>
+              <div class="sub">Extra $200 applied to Amex Gold this month</div>
+            </div>
+            <span class="time">Mon</span>
+          </div>
+          <div class="reminder">
+            <div class="ico ink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <div>
+              <div class="title">Weekly digest sent</div>
+              <div class="sub">3 wins, 1 drift, next week's targets inside</div>
+            </div>
+            <span class="time">Sun</span>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-item">
+              <span class="t-label"><b>Bill reminders</b> 3 days before due</span>
+              <span class="toggle" aria-hidden="true"></span>
+            </div>
+            <div class="toggle-item">
+              <span class="t-label"><b>Auto-matching</b> for transactions</span>
+              <span class="toggle" aria-hidden="true"></span>
+            </div>
+            <div class="toggle-item">
+              <span class="t-label"><b>Credit utilization</b> alerts</span>
+              <span class="toggle" aria-hidden="true"></span>
+            </div>
+            <div class="toggle-item">
+              <span class="t-label"><b>Weekly digest</b> email</span>
+              <span class="toggle off" aria-hidden="true"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SAVINGS VISUAL -->
+<section class="savings-vis">
+  <div class="wrap reveal">
+    <div class="savings-card">
+      <div>
+        <span class="eyebrow">What this actually saves you</span>
+        <div class="savings-big" style="margin-top:10px">Nearly <em>4 years</em> of payments.<br/><em>$11,840</em> in interest.</div>
+        <p style="color:var(--ink-dim);margin-top:16px;font-size:15px;max-width:440px">
+          For a typical household carrying $28k at 19.4% blended APR. Your numbers will be different —
+          sign up to see them.
+        </p>
+      </div>
+      <div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:6px"><span>Paying minimums</span><span>9 yrs 2 mo</span></div>
+            <div style="height:30px;background:rgba(10,10,10,0.05);border:1px solid var(--rule);border-radius:8px;overflow:hidden;position:relative">
+              <div style="position:absolute;inset:0;background:linear-gradient(90deg,#a97a16,#c99a2a);display:flex;align-items:center;padding:0 12px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:600">$18,420 interest</div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:6px"><span>With WJP plan</span><span>5 yrs 3 mo</span></div>
+            <div style="height:30px;background:rgba(10,10,10,0.05);border:1px solid var(--rule);border-radius:8px;overflow:hidden;position:relative">
+              <div style="position:absolute;inset:0;width:57%;background:linear-gradient(90deg,#1f7a4a,#2b9b72);display:flex;align-items:center;padding:0 12px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:600">$6,580 interest</div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--rule);margin-top:4px">
+            <span style="font-size:12px;color:var(--ink-dim)">Credit score change</span>
+            <span style="font-family:var(--sans);font-size:18px;font-weight:800;color:var(--accent)">+47 pts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="wrap reveal">
+    <span class="eyebrow">Ready?</span>
+    <h2 class="h2">Your plan is <em>four minutes</em> away.</h2>
+    <div class="hero-cta">
+      <a class="pill accent" href="./signup.html">Start free →</a>
+      <a class="pill ghost" href="./signin.html">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+  onAuthStateChanged(auth, (user) => { if (user) window.location.replace('./index.html'); });
+</script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Strategy tab interactivity — cosmetic
+  document.querySelectorAll('.strategy-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  // Toggle interactivity
+  document.querySelectorAll('.toggle').forEach(tg => {
+    tg.addEventListener('click', () => tg.classList.toggle('off'));
+  });
+</script>
+
+</body>
+</html>

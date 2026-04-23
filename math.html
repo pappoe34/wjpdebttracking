@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Math — WJP Budgetting</title>
+<meta name="description" content="Typical users cut 43% off payoff time and save over $11,000 in interest. See the math on how WJP turns minimum payments into real savings." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-8">
+<style>
+  .sub-hero{padding:130px 24px 50px}
+
+  /* Math block — split layout */
+  .math-block{padding:70px 24px;position:relative;overflow:hidden}
+  .math-block + .math-block{border-top:1px solid var(--rule)}
+  .math-block .wrap{max-width:1200px;margin:0 auto}
+  .math-split{display:grid;grid-template-columns:1fr 1.1fr;gap:60px;align-items:center}
+  .math-split.reverse{grid-template-columns:1.1fr 1fr}
+  .math-text .eyebrow{display:block;margin-bottom:14px}
+  .math-text h2{
+    font-family:var(--sans);font-weight:800;font-size:clamp(28px,3.4vw,42px);
+    line-height:1.06;letter-spacing:-0.038em;color:var(--ink);
+  }
+  .math-text h2 em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.038em}
+  .math-text p.lede{font-size:15.5px;margin-top:14px}
+  .math-text ul.bullets{margin-top:18px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  .math-text ul.bullets li{
+    display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;
+    font-size:14px;color:var(--ink-dim);line-height:1.5;
+  }
+  .math-text ul.bullets li::before{
+    content:"✓";width:22px;height:22px;border-radius:50%;
+    background:rgba(31,122,74,0.14);color:var(--accent);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;flex-shrink:0;
+  }
+
+  /* Glass demo card */
+  .demo-card{
+    background:rgba(255,255,255,0.72);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    border-radius:20px;padding:22px;
+    box-shadow:0 16px 48px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .demo-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .demo-head .title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .demo-head .dot-cluster{display:flex;gap:5px}
+  .demo-head .dot-cluster span{width:8px;height:8px;border-radius:50%;background:rgba(10,10,10,0.15)}
+
+  /* Big before/after comparison */
+  .compare-big{
+    font-family:var(--sans);font-weight:800;font-size:clamp(36px,4.6vw,56px);
+    line-height:1;letter-spacing:-0.042em;color:var(--ink);
+  }
+  .compare-big em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.042em}
+  .bar-set{margin-top:18px}
+  .bar-set + .bar-set{margin-top:14px}
+  .bar-label{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;font-weight:700;display:flex;justify-content:space-between}
+  .bar-track{position:relative;height:36px;border-radius:10px;background:rgba(10,10,10,0.05);overflow:hidden;border:1px solid var(--rule)}
+  .bar-fill{
+    position:absolute;top:0;bottom:0;left:0;display:flex;align-items:center;padding:0 12px;
+    font-family:var(--mono);font-size:11.5px;color:#fff;font-weight:600;letter-spacing:0.3px;
+  }
+  .bar-fill.before{width:100%;background:linear-gradient(90deg,#a97a16,#c99a2a)}
+  .bar-fill.after{width:57%;background:linear-gradient(90deg,#1f7a4a,#2b9b72)}
+
+  /* Calculator-style inputs (cosmetic) */
+  .calc-row{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:12px 14px;border-radius:10px;margin-top:8px;
+    background:rgba(255,255,255,0.6);border:1px solid var(--rule);
+  }
+  .calc-row:first-of-type{margin-top:0}
+  .calc-label{font-size:12px;color:var(--ink-dim);font-weight:500}
+  .calc-val{font-family:var(--sans);font-size:15px;font-weight:700;color:var(--ink)}
+  .calc-divider{height:1px;background:rgba(10,10,10,0.08);margin:12px 0}
+  .calc-result{
+    display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:12px;
+    background:linear-gradient(135deg, rgba(31,122,74,0.12), rgba(43,155,114,0.10));
+    border:1px solid rgba(31,122,74,0.22);
+  }
+  .calc-result-label{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:var(--ink-dim);font-weight:700}
+  .calc-result-val{font-family:var(--sans);font-size:20px;font-weight:800;color:var(--accent);letter-spacing:-0.02em}
+  .calc-hint{
+    margin-top:12px;text-align:center;font-size:11.5px;color:var(--ink-faint);
+    letter-spacing:0.3px;
+  }
+
+  /* Compounding chart area */
+  .chart-legend{display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--ink-dim)}
+  .chart-legend .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .chart-legend .s-interest{background:#c99a2a}
+  .chart-legend .s-savings{background:#1f7a4a}
+  .chart-legend .s-invest{background:#2b9b72}
+  .y-markers{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-top:6px}
+
+  /* Expandable outcome cards */
+  .outcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px;align-items:start}
+  @media (max-width:900px){.outcome-grid{grid-template-columns:1fr}}
+  details.outcome{
+    padding:26px 24px;cursor:pointer;border-radius:20px;
+    background:rgba(255,255,255,0.55);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow:0 8px 32px rgba(20,20,20,0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+    transition:background .25s ease, border-color .25s ease, box-shadow .25s ease;
+  }
+  details.outcome[open]{
+    background:rgba(255,255,255,0.88);
+    border-color:rgba(31,122,74,0.28);
+    box-shadow:0 18px 48px rgba(20,20,20,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  details.outcome > summary{list-style:none;cursor:pointer;outline:none;display:block}
+  details.outcome > summary::-webkit-details-marker{display:none}
+  details.outcome .head-row{display:flex;align-items:start;justify-content:space-between;gap:12px}
+  details.outcome .num{
+    font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--accent);font-weight:700;
+  }
+  details.outcome h3{
+    font-family:var(--sans);font-weight:700;font-size:20px;letter-spacing:-0.02em;color:var(--ink);
+    margin-top:10px;
+  }
+  details.outcome > summary p{
+    margin-top:8px;font-size:14px;color:var(--ink-dim);line-height:1.5;
+  }
+  details.outcome .toggle{
+    font-family:var(--sans);font-size:22px;color:var(--accent);font-weight:400;
+    line-height:1;width:24px;text-align:center;transition:transform .25s ease;flex-shrink:0;
+  }
+  details.outcome[open] .toggle{transform:rotate(45deg)}
+  .outcome-detail{
+    margin-top:16px;padding-top:16px;border-top:1px solid rgba(31,122,74,0.15);
+  }
+  .outcome-detail p{color:var(--ink-dim);font-size:13.5px;line-height:1.65}
+  .outcome-detail p + p{margin-top:10px}
+  .outcome-detail b{color:var(--ink);font-weight:600}
+  .outcome-chart{margin-top:12px}
+  .outcome-stat-row{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;
+  }
+  .outcome-stat{
+    padding:10px 12px;border-radius:10px;
+    background:rgba(31,122,74,0.06);border:1px solid rgba(31,122,74,0.14);
+  }
+  .outcome-stat .s-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .outcome-stat .s-val{font-family:var(--sans);font-size:18px;font-weight:800;color:var(--accent);margin-top:4px;letter-spacing:-0.02em}
+  .outcome-stat.gold{background:rgba(201,154,42,0.10);border-color:rgba(201,154,42,0.22)}
+  .outcome-stat.gold .s-val{color:var(--gold-deep)}
+
+  /* 10-year outlook */
+  .outlook-card{
+    padding:30px;border-radius:24px;
+    background:rgba(255,255,255,0.72);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow:0 20px 60px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .outlook-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  .outlook-stat{
+    padding:14px;border-radius:12px;
+    background:rgba(255,255,255,0.6);border:1px solid var(--rule);
+  }
+  .outlook-stat .lbl{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .outlook-stat .vl{font-family:var(--sans);font-size:22px;font-weight:800;color:var(--ink);margin-top:4px;letter-spacing:-0.02em}
+  .outlook-stat .vl em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent)}
+  @media (max-width:620px){.outlook-stats{grid-template-columns:1fr}}
+
+  @media (max-width:900px){
+    .math-split, .math-split.reverse{grid-template-columns:1fr;gap:32px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a href="./intro.html" class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class="link" href="./about.html">About</a>
+    <a class="link" href="./how.html">How</a>
+    <a class="link" href="./features.html">Features</a>
+    <a class="link active" href="./math.html">Math</a>
+    <a class="link" href="./faq.html">FAQ</a>
+    <a class="pill ghost" href="./signin.html">Sign in</a>
+    <a class="pill accent" href="./signup.html">Start free →</a>
+  </div>
+</nav>
+
+<!-- SUB-HERO -->
+<section class="sub-hero">
+  <div class="wrap reveal">
+    <span class="eyebrow">The math of freedom</span>
+    <h1 class="h2">Typical user cuts <em>43%</em> of payoff time.</h1>
+    <p class="lede" style="margin-left:auto;margin-right:auto">
+      Not marketing fluff. Here's the actual arithmetic behind why sticking to a real plan beats paying the minimums — every single time.
+    </p>
+  </div>
+</section>
+
+<!-- BLOCK 1: Headline math + calculator -->
+<section class="math-block">
+  <div class="wrap">
+    <div class="math-split reveal">
+      <div class="math-text">
+        <span class="eyebrow">Before vs. after</span>
+        <h2>From <em>9.2 years</em> to <em>5.3 years</em>.</h2>
+        <p class="lede">
+          Based on a typical household carrying $28,400 across three credit cards and one personal loan
+          at 19.4% APR blended. Switching from minimum payments to an AI-optimized plan saves the average
+          user <b style="color:var(--accent)">$11,840 in interest</b> and gets them debt-free nearly four
+          years earlier.
+        </p>
+        <ul class="bullets">
+          <li><span>Every dollar saved on interest becomes capacity for the next goal</span></li>
+          <li><span>47 months of payments back on your calendar</span></li>
+          <li><span>Credit utilization drops fast — FICO rewards the trend in 60 days</span></li>
+          <li><span>Your numbers will be different — plug yours in to see</span></li>
+        </ul>
+      </div>
+      <div class="math-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Payoff comparison · Live</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="compare-big">Save <em>$11,840</em> in interest.</div>
+          <div style="font-size:13px;color:var(--ink-dim);margin-top:6px">And <b style="color:var(--ink)">3 years, 11 months</b> of your life.</div>
+
+          <div class="bar-set">
+            <div class="bar-label"><span>Paying minimums</span><span>9 yrs 2 mo</span></div>
+            <div class="bar-track"><div class="bar-fill before">$18,420 interest</div></div>
+          </div>
+          <div class="bar-set">
+            <div class="bar-label"><span>With WJP plan</span><span>5 yrs 3 mo</span></div>
+            <div class="bar-track"><div class="bar-fill after">$6,580 interest</div></div>
+          </div>
+
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--rule);display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);font-weight:700">Time saved</div><div style="font-family:var(--sans);font-size:18px;font-weight:800;color:var(--accent);margin-top:3px">47 months</div></div>
+            <div style="text-align:right"><div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);font-weight:700">Credit score</div><div style="font-family:var(--sans);font-size:18px;font-weight:800;color:var(--accent);margin-top:3px">+47 pts</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BLOCK 2: Why it compounds (reverse) -->
+<section class="math-block">
+  <div class="wrap">
+    <div class="math-split reverse reveal">
+      <div class="math-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Your numbers · Preview</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="calc-row">
+            <span class="calc-label">Total debt</span>
+            <span class="calc-val">$28,400</span>
+          </div>
+          <div class="calc-row">
+            <span class="calc-label">Blended APR</span>
+            <span class="calc-val">19.4%</span>
+          </div>
+          <div class="calc-row">
+            <span class="calc-label">Monthly payment</span>
+            <span class="calc-val">$620</span>
+          </div>
+          <div class="calc-row">
+            <span class="calc-label">Strategy</span>
+            <span class="calc-val" style="color:var(--accent)">AI Hybrid</span>
+          </div>
+          <div class="calc-divider"></div>
+          <div class="calc-result">
+            <div>
+              <div class="calc-result-label">Debt-free by</div>
+              <div class="calc-result-val">Oct 20, 2027</div>
+            </div>
+            <div style="text-align:right">
+              <div class="calc-result-label">Interest</div>
+              <div class="calc-result-val">$6,580</div>
+            </div>
+          </div>
+          <div class="calc-hint">Sign up to plug in your real numbers.</div>
+        </div>
+      </div>
+      <div class="math-text">
+        <span class="eyebrow">Why it compounds</span>
+        <h2>Every dollar saved <em>earns more dollars.</em></h2>
+        <p class="lede">
+          Interest you stop paying doesn't vanish — it becomes capacity for the next debt, the next goal,
+          the next opportunity. That's why the accountability matters. It's not about one payment;
+          it's about the cascade every payment sets off. Freed-up cash → next payoff target → credit score
+          rise → better refinance rates → more freed-up cash.
+        </p>
+        <ul class="bullets">
+          <li><span>Freed-up cash gets redirected to the next target automatically</span></li>
+          <li><span>Credit score climbs as utilization falls — unlocks better rates</span></li>
+          <li><span>Better rates = less interest = even more freed-up cash</span></li>
+          <li><span>Your debt-free date keeps moving up, not down</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BLOCK 3: Expandable outcome cards -->
+<section class="math-block">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center;max-width:800px;margin:0 auto 20px">
+      <span class="eyebrow">Three ways the math pays off</span>
+      <h2 style="font-family:var(--sans);font-weight:800;font-size:clamp(28px,3.4vw,42px);line-height:1.06;letter-spacing:-0.038em;color:var(--ink)">Click any card to see the <em>real numbers.</em></h2>
+    </div>
+
+    <div class="outcome-grid reveal">
+      <!-- SAVINGS -->
+      <details class="outcome">
+        <summary>
+          <div class="head-row">
+            <span class="num">01 · SAVINGS</span>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+          <h3>Freed-up cash, redirected</h3>
+          <p>Every dollar that was bleeding into APR becomes available for emergency fund, down payment, or the next payoff target.</p>
+        </summary>
+        <div class="outcome-detail">
+          <p>For the $28k / 19.4% example: by month 12, WJP's plan frees up <b>$182/month</b> that would have gone to interest under minimums. By month 24, that's $412/month.</p>
+          <p>WJP routes that capacity automatically — either into the next highest-priority debt or into a goal bucket you've set (emergency fund first, by default).</p>
+          <svg class="outcome-chart" viewBox="0 0 320 110" preserveAspectRatio="none" aria-hidden="true" style="width:100%;height:100px">
+            <line x1="0" y1="95" x2="320" y2="95" stroke="rgba(10,10,10,0.08)" stroke-width="1"/>
+            <!-- Interest saved growing area -->
+            <path d="M0,95 C40,92 80,84 120,70 C160,52 200,34 240,22 C280,14 300,10 320,8 L320,95 Z" fill="rgba(31,122,74,0.18)"/>
+            <path d="M0,95 C40,92 80,84 120,70 C160,52 200,34 240,22 C280,14 300,10 320,8" fill="none" stroke="#1f7a4a" stroke-width="2.5"/>
+            <text x="4" y="14" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.5)" font-weight="700">CUMULATIVE SAVED</text>
+            <text x="4" y="105" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.4)">Month 0</text>
+            <text x="290" y="105" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.4)">Month 60</text>
+          </svg>
+          <div class="outcome-stat-row">
+            <div class="outcome-stat"><div class="s-label">Year 1</div><div class="s-val">$1,840</div></div>
+            <div class="outcome-stat"><div class="s-label">Year 5</div><div class="s-val">$11,840</div></div>
+          </div>
+        </div>
+      </details>
+
+      <!-- CREDIT -->
+      <details class="outcome">
+        <summary>
+          <div class="head-row">
+            <span class="num">02 · CREDIT</span>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+          <h3>Utilization falls, score rises</h3>
+          <p>As revolving balances drop, credit utilization drops with them — and FICO rewards the trend, often within 60 days.</p>
+        </summary>
+        <div class="outcome-detail">
+          <p>Revolving utilization is <b>30% of your FICO score</b>. Dropping from 41% utilization to below 10% typically moves a score 40-60 points — sometimes more, depending on your starting point and credit mix.</p>
+          <p>WJP watches your utilization live and alerts you <b>before</b> a card crosses the 30% threshold that hurts your score — so you can pay it down or reallocate.</p>
+          <svg class="outcome-chart" viewBox="0 0 320 110" preserveAspectRatio="none" aria-hidden="true" style="width:100%;height:100px">
+            <line x1="0" y1="95" x2="320" y2="95" stroke="rgba(10,10,10,0.08)" stroke-width="1"/>
+            <!-- Score rising line -->
+            <path d="M0,80 C60,75 120,60 180,40 C220,26 260,18 320,14" fill="none" stroke="#1f7a4a" stroke-width="2.5"/>
+            <circle cx="320" cy="14" r="4" fill="#1f7a4a"/>
+            <!-- Utilization dropping line -->
+            <path d="M0,20 C60,28 120,50 180,68 C220,80 260,88 320,92" fill="none" stroke="#c99a2a" stroke-width="2" stroke-dasharray="4 3"/>
+            <text x="4" y="14" font-family="Inter" font-size="9" fill="#1f7a4a" font-weight="700">SCORE ↑</text>
+            <text x="4" y="86" font-family="Inter" font-size="9" fill="#8f6a14" font-weight="700">UTILIZATION ↓</text>
+          </svg>
+          <div class="outcome-stat-row">
+            <div class="outcome-stat gold"><div class="s-label">Starting</div><div class="s-val">698</div></div>
+            <div class="outcome-stat"><div class="s-label">Month 24</div><div class="s-val">745</div></div>
+          </div>
+        </div>
+      </details>
+
+      <!-- FUTURE -->
+      <details class="outcome">
+        <summary>
+          <div class="head-row">
+            <span class="num">03 · FUTURE</span>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+          <h3>Investment tracking, integrated</h3>
+          <p>When you're debt-free, WJP pivots to tracking your 401(k), IRA, and brokerage — same co-pilot, pointed at building wealth.</p>
+        </summary>
+        <div class="outcome-detail">
+          <p>The moment your last balance clears, your dashboard pivots. Obligation cards become <b>asset cards</b>. The AI co-pilot starts modeling investment scenarios instead of payoff scenarios — compounding returns, tax-advantaged contributions, risk-adjusted allocations.</p>
+          <p>If you keep redirecting the same $620/month that was going to debt into a diversified 7% portfolio, you'd have <b>~$373k</b> in 20 years. The cash flow was already there — WJP just points it somewhere new.</p>
+          <svg class="outcome-chart" viewBox="0 0 320 110" preserveAspectRatio="none" aria-hidden="true" style="width:100%;height:100px">
+            <line x1="0" y1="95" x2="320" y2="95" stroke="rgba(10,10,10,0.08)" stroke-width="1"/>
+            <!-- Compound growth curve -->
+            <path d="M0,90 C60,85 120,74 180,55 C220,38 260,22 320,10 L320,95 Z" fill="rgba(43,155,114,0.18)"/>
+            <path d="M0,90 C60,85 120,74 180,55 C220,38 260,22 320,10" fill="none" stroke="#2b9b72" stroke-width="2.5"/>
+            <text x="4" y="14" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.5)" font-weight="700">NET WORTH · 20 YR</text>
+            <text x="4" y="105" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.4)">Yr 0</text>
+            <text x="296" y="105" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.4)">Yr 20</text>
+          </svg>
+          <div class="outcome-stat-row">
+            <div class="outcome-stat"><div class="s-label">Year 10</div><div class="s-val">$104k</div></div>
+            <div class="outcome-stat"><div class="s-label">Year 20</div><div class="s-val">$373k</div></div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- BLOCK 4: The long view (reversed split with outlook chart) -->
+<section class="math-block">
+  <div class="wrap">
+    <div class="math-split reverse reveal">
+      <div class="math-visual">
+        <div class="outlook-card">
+          <div class="demo-head">
+            <span class="title">10-Year Outlook · Net Worth</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <svg viewBox="0 0 320 140" preserveAspectRatio="none" aria-hidden="true" style="width:100%;height:140px">
+            <line x1="0" y1="70" x2="320" y2="70" stroke="rgba(10,10,10,0.10)" stroke-width="1" stroke-dasharray="3 3"/>
+            <!-- Debt going to zero (below baseline) -->
+            <path d="M0,120 C40,118 80,112 120,100 C160,88 200,78 240,72 C260,71 280,70 320,70" fill="none" stroke="#c99a2a" stroke-width="2.5" stroke-dasharray="5 4"/>
+            <!-- Net worth climbing after zero -->
+            <path d="M0,70 L240,70 C260,68 280,60 300,48 C310,42 316,36 320,30" fill="none" stroke="#1f7a4a" stroke-width="2.5"/>
+            <path d="M240,70 C260,68 280,60 300,48 C310,42 316,36 320,30 L320,70 L240,70 Z" fill="rgba(31,122,74,0.18)"/>
+            <circle cx="240" cy="70" r="4" fill="#1f7a4a"/>
+            <text x="244" y="62" font-family="Inter" font-size="9" fill="#1f7a4a" font-weight="700">DEBT-FREE</text>
+            <text x="4" y="12" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.5)" font-weight="700">NET WORTH</text>
+            <text x="4" y="135" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.4)">Yr 0</text>
+            <text x="296" y="135" font-family="Inter" font-size="9" fill="rgba(10,10,10,0.4)">Yr 10</text>
+          </svg>
+          <div class="outlook-stats">
+            <div class="outlook-stat">
+              <div class="lbl">Debt-free</div>
+              <div class="vl"><em>Yr 4</em></div>
+            </div>
+            <div class="outlook-stat">
+              <div class="lbl">Net worth · Yr 5</div>
+              <div class="vl">$38k</div>
+            </div>
+            <div class="outlook-stat">
+              <div class="lbl">Net worth · Yr 10</div>
+              <div class="vl"><em>$142k</em></div>
+            </div>
+          </div>
+          <div class="calc-hint" style="margin-top:14px">Illustrative · based on $620/mo redirected at 7% avg return</div>
+        </div>
+      </div>
+      <div class="math-text">
+        <span class="eyebrow">The long view</span>
+        <h2>This isn't a diet app. It's a <em>life upgrade.</em></h2>
+        <p class="lede">
+          Getting out of debt is the hard part. Staying out is a habit. WJP is built for both — because after
+          the last balance clears, the tools don't go away. Your dashboard turns into a net-worth tracker,
+          your AI co-pilot starts modeling investments, and the accountability you built stays pointed forward.
+        </p>
+        <p class="lede" style="margin-top:14px">
+          That's the real math: <b>the next ten years of your money, compounded toward you</b> instead of away from you.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="wrap reveal">
+    <span class="eyebrow">Run your own numbers</span>
+    <h2 class="h2">See your <em>personal</em> math.</h2>
+    <div class="hero-cta">
+      <a class="pill accent" href="./signup.html">Start free →</a>
+      <a class="pill ghost" href="./signin.html">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+  onAuthStateChanged(auth, (user) => { if (user) window.location.replace('./index.html'); });
+</script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

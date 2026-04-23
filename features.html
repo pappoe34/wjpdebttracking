@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Features — WJP Budgetting</title>
+<meta name="description" content="An AI co-pilot that picks your payoff strategy, reminds you before bills drop, matches every payment automatically, and turns monthly chaos into plain-English insights." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-8">
+<style>
+  .sub-hero{padding:130px 24px 50px}
+
+  /* Feature block — split layout */
+  .feat-block{padding:70px 24px;position:relative;overflow:hidden}
+  .feat-block + .feat-block{border-top:1px solid var(--rule)}
+  .feat-block .wrap{max-width:1200px;margin:0 auto}
+  .feat-split{display:grid;grid-template-columns:1fr 1.1fr;gap:60px;align-items:center}
+  .feat-split.reverse{grid-template-columns:1.1fr 1fr}
+  .feat-text .eyebrow{display:block;margin-bottom:14px}
+  .feat-text h2{
+    font-family:var(--sans);font-weight:800;font-size:clamp(28px,3.4vw,42px);
+    line-height:1.06;letter-spacing:-0.038em;color:var(--ink);
+  }
+  .feat-text h2 em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.038em}
+  .feat-text p.lede{font-size:15.5px;margin-top:14px}
+  .feat-text ul.bullets{margin-top:18px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  .feat-text ul.bullets li{
+    display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;
+    font-size:14px;color:var(--ink-dim);line-height:1.5;
+  }
+  .feat-text ul.bullets li::before{
+    content:"✓";width:22px;height:22px;border-radius:50%;
+    background:rgba(31,122,74,0.14);color:var(--accent);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;flex-shrink:0;
+  }
+
+  /* Glass demo card (right panel) */
+  .demo-card{
+    background:rgba(255,255,255,0.72);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    border-radius:20px;padding:22px;
+    box-shadow:0 16px 48px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .demo-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .demo-head .title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .demo-head .dot-cluster{display:flex;gap:5px}
+  .demo-head .dot-cluster span{width:8px;height:8px;border-radius:50%;background:rgba(10,10,10,0.15)}
+
+  /* AI chat mockup */
+  .chat-stream{display:flex;flex-direction:column;gap:10px}
+  .bubble{
+    padding:12px 16px;border-radius:16px;max-width:88%;
+    font-size:13.5px;line-height:1.5;
+  }
+  .bubble.you{
+    align-self:flex-end;background:rgba(10,10,10,0.06);
+    border-bottom-right-radius:6px;color:var(--ink);
+  }
+  .bubble.ai{
+    align-self:flex-start;
+    background:linear-gradient(135deg, rgba(31,122,74,0.12), rgba(43,155,114,0.10));
+    border:1px solid rgba(31,122,74,0.18);
+    border-bottom-left-radius:6px;color:var(--ink);
+  }
+  .bubble.ai b{color:var(--accent);font-weight:700}
+  .bubble .who{
+    display:block;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:700;margin-bottom:6px;
+  }
+  .bubble .who.ai{color:var(--accent)}
+  .chat-typing{
+    display:inline-flex;gap:4px;align-items:center;padding:10px 14px;
+    background:rgba(31,122,74,0.08);border-radius:16px;border-bottom-left-radius:6px;
+    align-self:flex-start;margin-top:4px;
+  }
+  .chat-typing span{
+    width:6px;height:6px;border-radius:50%;background:var(--accent);
+    animation:typingDot 1.4s infinite ease-in-out;
+  }
+  .chat-typing span:nth-child(2){animation-delay:0.2s}
+  .chat-typing span:nth-child(3){animation-delay:0.4s}
+  @keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-4px);opacity:1}}
+
+  /* Strategy demo (reused pattern) */
+  .strategy-tabs{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+    background:rgba(10,10,10,0.05);border-radius:10px;padding:4px;margin-bottom:16px;
+  }
+  .strategy-tabs button{
+    appearance:none;border:none;background:transparent;cursor:pointer;
+    font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-dim);
+    padding:8px;border-radius:8px;transition:background .2s ease,color .2s ease;
+  }
+  .strategy-tabs button.active{background:#ffffff;color:var(--ink);box-shadow:0 2px 8px rgba(20,20,20,0.08)}
+  .result-row{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.6);
+    border:1px solid var(--rule);
+  }
+  .result-row + .result-row{margin-top:8px}
+  .result-row .label{font-size:12px;color:var(--ink-dim);font-weight:500}
+  .result-row .val{font-family:var(--sans);font-size:15px;font-weight:700;color:var(--ink)}
+  .result-row .val em{font-family:var(--sans);font-style:normal;color:var(--accent)}
+
+  /* Transaction stream (auto-match) */
+  .tx-group{margin-bottom:12px}
+  .tx-group:last-child{margin-bottom:0}
+  .tx-date{
+    font-size:10px;letter-spacing:2px;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:700;margin-bottom:6px;
+  }
+  .tx-row{
+    display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+    padding:10px 12px;border-radius:10px;
+    background:rgba(255,255,255,0.55);border:1px solid var(--rule);
+  }
+  .tx-row + .tx-row{margin-top:6px}
+  .tx-amt{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink)}
+  .tx-meta{font-size:12px;color:var(--ink-dim)}
+  .tx-meta b{color:var(--ink);font-weight:600}
+  .tx-meta .arrow{color:var(--accent);margin:0 6px;font-weight:700}
+  .tx-tag{
+    font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;
+    padding:3px 8px;border-radius:999px;
+    background:rgba(31,122,74,0.14);color:var(--accent);
+  }
+
+  /* Monthly report mockup */
+  .report-top{
+    display:flex;justify-content:space-between;align-items:end;gap:14px;
+    padding-bottom:14px;border-bottom:1px solid var(--rule);margin-bottom:14px;
+  }
+  .report-month{font-family:var(--sans);font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--ink)}
+  .report-tag{
+    font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;
+    color:var(--accent);background:rgba(31,122,74,0.12);
+    padding:4px 10px;border-radius:999px;
+  }
+  .report-bucket{margin-top:12px}
+  .report-bucket:first-child{margin-top:0}
+  .report-bucket .label{
+    font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;
+  }
+  .report-bucket .label.win{color:var(--accent)}
+  .report-bucket .label.drift{color:var(--gold-deep)}
+  .report-bucket .label.next{color:var(--ink-dim)}
+  .report-line{font-size:13px;color:var(--ink);padding:6px 0;line-height:1.4}
+  .report-line::before{content:"•";color:var(--accent);margin-right:8px;font-weight:700}
+  .report-line.drift::before{color:var(--gold-deep)}
+  .report-line.next::before{color:var(--ink-faint)}
+
+  /* Day/Night mode — side-by-side mini dashboards */
+  .theme-row{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:36px}
+  @media (max-width:860px){.theme-row{grid-template-columns:1fr}}
+  .dash{
+    padding:18px;border-radius:20px;position:relative;
+    box-shadow:0 20px 60px rgba(20,20,20,0.12);
+  }
+  .dash.light{
+    background:rgba(255,255,255,0.78);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+  }
+  .dash.dark{
+    background:linear-gradient(180deg, rgba(13,20,16,0.92), rgba(18,28,22,0.92));
+    border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);
+  }
+  .dash-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid rgba(10,10,10,0.08)}
+  .dash.dark .dash-head{border-color:rgba(255,255,255,0.08)}
+  .dash-brand{display:flex;align-items:center;gap:8px;font-family:var(--sans);font-weight:800;font-size:13px}
+  .dash.dark .dash-brand{color:rgba(255,255,255,0.92)}
+  .dash-brand .sq{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#1f7a4a,#2b9b72);display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700}
+  .dash-mode{
+    font-size:9.5px;letter-spacing:2px;text-transform:uppercase;font-weight:700;
+    padding:3px 8px;border-radius:999px;
+  }
+  .dash.light .dash-mode{background:rgba(31,122,74,0.12);color:var(--accent)}
+  .dash.dark .dash-mode{background:rgba(201,154,42,0.18);color:#e8c968}
+  .dash-big{font-family:var(--sans);font-size:28px;font-weight:800;letter-spacing:-0.03em;line-height:1;margin:4px 0 2px}
+  .dash.dark .dash-big{color:#fff}
+  .dash-sub{font-size:11px;color:var(--ink-faint)}
+  .dash.dark .dash-sub{color:rgba(255,255,255,0.5)}
+  .dash-chart{
+    height:64px;margin:14px 0;position:relative;
+    border-radius:10px;overflow:hidden;
+  }
+  .dash.light .dash-chart{background:rgba(31,122,74,0.06)}
+  .dash.dark .dash-chart{background:rgba(31,122,74,0.12)}
+  .dash-chart svg{width:100%;height:100%;display:block}
+  .dash-card{
+    padding:10px 12px;border-radius:10px;margin-top:8px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .dash.light .dash-card{background:rgba(255,255,255,0.65);border:1px solid var(--rule)}
+  .dash.dark .dash-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07)}
+  .dash-card .nm{font-size:12px;font-weight:600}
+  .dash-card .am{font-family:var(--mono);font-size:12px;font-weight:700}
+  .dash.light .dash-card .am{color:var(--accent)}
+  .dash.dark .dash-card .am{color:#8df2c5}
+
+  /* Bottom feature grid — expandable overflow features */
+  .feat-grid-compact{
+    margin-top:0;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;
+  }
+  @media (max-width:900px){.feat-grid-compact{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:500px){.feat-grid-compact{grid-template-columns:1fr}}
+  details.feat{padding:22px 20px;cursor:pointer;transition:background .25s ease, border-color .25s ease, box-shadow .25s ease}
+  details.feat[open]{
+    background:rgba(255,255,255,0.88);
+    border-color:rgba(31,122,74,0.28);
+    box-shadow:0 14px 40px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  details.feat > summary{list-style:none;cursor:pointer;outline:none;display:block}
+  details.feat > summary::-webkit-details-marker{display:none}
+  details.feat > summary .feat-head{
+    display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;margin-top:8px;
+  }
+  details.feat > summary h5{margin:0;font-size:15px}
+  details.feat > summary p{margin-top:6px;font-size:13px;color:var(--ink-dim)}
+  details.feat > summary .toggle{
+    font-family:var(--sans);font-size:20px;color:var(--accent);font-weight:400;
+    line-height:1;width:20px;text-align:center;transition:transform .25s ease;margin-top:2px;
+  }
+  details.feat[open] > summary .toggle{transform:rotate(45deg)}
+  .feat-detail{
+    margin-top:14px;padding-top:14px;border-top:1px solid rgba(31,122,74,0.15);
+    font-size:13px;line-height:1.6;color:var(--ink-dim);
+  }
+  .feat-detail b{color:var(--ink);font-weight:600}
+  .feat-detail ul{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .feat-detail ul li{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start}
+  .feat-detail ul li::before{
+    content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);
+    margin-top:8px;flex-shrink:0;
+  }
+
+  @media (max-width:900px){
+    .feat-split, .feat-split.reverse{grid-template-columns:1fr;gap:32px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a href="./intro.html" class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class="link" href="./about.html">About</a>
+    <a class="link" href="./how.html">How</a>
+    <a class="link active" href="./features.html">Features</a>
+    <a class="link" href="./math.html">Math</a>
+    <a class="link" href="./faq.html">FAQ</a>
+    <a class="pill ghost" href="./signin.html">Sign in</a>
+    <a class="pill accent" href="./signup.html">Start free →</a>
+  </div>
+</nav>
+
+<!-- SUB-HERO -->
+<section class="sub-hero">
+  <div class="wrap reveal">
+    <span class="eyebrow">Features</span>
+    <h1 class="h2">Built to make <em>debt-free</em> feel inevitable.</h1>
+    <p class="lede" style="margin-left:auto;margin-right:auto">
+      Not just tracking — strategy. An AI co-pilot that actually answers your questions, reminders that show up before bills do,
+      and insights that read like a person wrote them. Here's what you get.
+    </p>
+  </div>
+</section>
+
+<!-- FEATURE 1: AI Co-pilot -->
+<section class="feat-block">
+  <div class="wrap">
+    <div class="feat-split reveal">
+      <div class="feat-text">
+        <span class="eyebrow">AI Co-pilot</span>
+        <h2>A strategist in your pocket. <em>24/7.</em></h2>
+        <p class="lede">
+          Ask anything — "Can I afford a trip?", "When am I debt-free?", "What if I drop $2k on Amex today?"
+          WJP runs the simulations in seconds and answers in plain English. It knows your cash flow, your APRs,
+          your goals, and your pace. Not a chatbot — a co-pilot.
+        </p>
+        <ul class="bullets">
+          <li><span>Instant answers — ask anything, get real math, not a chart</span></li>
+          <li><span>What-if modeling — "what if I skip Chase next month?" answered in 2 seconds</span></li>
+          <li><span>Proactive nudges — AI spots wins and drifts before you do</span></li>
+          <li><span>Private — your data never trains third-party models</span></li>
+        </ul>
+      </div>
+      <div class="feat-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">AI Co-pilot · Chat</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="chat-stream">
+            <div class="bubble you">
+              <span class="who">You</span>
+              Can I afford a $3k trip in June without blowing my plan?
+            </div>
+            <div class="bubble ai">
+              <span class="who ai">WJP</span>
+              Yes — two options. <b>Option A:</b> pause extra payments 2 months, debt-free date slips 47 days to <b>Dec 2027</b>. <b>Option B:</b> split it — $1,500 now, $1,500 in Sept — only 21-day delay.
+            </div>
+            <div class="bubble you">
+              <span class="who">You</span>
+              Run option B.
+            </div>
+            <div class="bubble ai">
+              <span class="who ai">WJP</span>
+              Done. Updated your plan. New debt-free date: <b>Nov 20, 2027</b>. Interest cost: +$284 over baseline.
+            </div>
+            <div class="chat-typing"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE 2: Strategy engine -->
+<section class="feat-block">
+  <div class="wrap">
+    <div class="feat-split reverse reveal">
+      <div class="feat-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Strategy · Live comparison</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="strategy-tabs">
+            <button>Snowball</button>
+            <button class="active">Avalanche</button>
+            <button>AI Hybrid</button>
+          </div>
+          <div class="result-row"><span class="label">Debt-free by</span><span class="val"><em>Oct 20, 2027</em></span></div>
+          <div class="result-row"><span class="label">Interest saved</span><span class="val">$11,840</span></div>
+          <div class="result-row"><span class="label">Months cut</span><span class="val">47 months</span></div>
+          <div class="result-row"><span class="label">First target</span><span class="val">Amex Gold · 22.1%</span></div>
+          <svg viewBox="0 0 320 90" preserveAspectRatio="none" aria-hidden="true" style="width:100%;height:80px;margin-top:10px">
+            <line x1="0" y1="78" x2="320" y2="78" stroke="rgba(10,10,10,0.08)" stroke-width="1"/>
+            <path d="M0,20 C60,25 120,35 180,50 C240,65 280,76 320,78" fill="none" stroke="#c99a2a" stroke-width="2"/>
+            <path d="M0,20 C40,28 80,45 120,58 C160,72 200,78 240,78 C280,78 300,78 320,78" fill="none" stroke="#1f7a4a" stroke-width="2.5"/>
+          </svg>
+        </div>
+      </div>
+      <div class="feat-text">
+        <span class="eyebrow">Strategy Engine</span>
+        <h2>Snowball, avalanche, or <em>AI-engineered.</em></h2>
+        <p class="lede">
+          Both classic payoff strategies side by side — see the exact savings from each. Or let AI engineer
+          a hybrid that adapts to your cash flow monthly, pulling from both schools of thought to maximize
+          momentum AND math.
+        </p>
+        <ul class="bullets">
+          <li><span>Every plan ships with an exact debt-free date</span></li>
+          <li><span>Switch strategies anytime — math re-runs instantly</span></li>
+          <li><span>Accounts for APR changes, income shifts, and windfalls</span></li>
+          <li><span>Works with any mix: cards, loans, BNPL, mortgage</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE 3: Auto-match payments -->
+<section class="feat-block">
+  <div class="wrap">
+    <div class="feat-split reveal">
+      <div class="feat-text">
+        <span class="eyebrow">Auto-matched payments</span>
+        <h2>Every payment, in the <em>right bucket.</em></h2>
+        <p class="lede">
+          The moment a payment clears, WJP figures out which debt it went to and decrements the balance.
+          Your plan stays current in real time — no manual reconciliation, no missed payments falling
+          through the cracks. Miss something? 30-second undo window.
+        </p>
+        <ul class="bullets">
+          <li><span>Real-time via Plaid transaction webhooks</span></li>
+          <li><span>Handles automatic minimums AND extra payments</span></li>
+          <li><span>Catches "mystery" deposits and credits too</span></li>
+          <li><span>Re-balances your payoff date the instant a payment lands</span></li>
+        </ul>
+      </div>
+      <div class="feat-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Recent activity · Auto-matched</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="tx-group">
+            <div class="tx-date">Today</div>
+            <div class="tx-row">
+              <span class="tx-amt">$520.00</span>
+              <span class="tx-meta">Chase checking <span class="arrow">→</span> <b>Sallie Mae</b></span>
+              <span class="tx-tag">Matched</span>
+            </div>
+            <div class="tx-row">
+              <span class="tx-amt">$124.00</span>
+              <span class="tx-meta">Chase checking <span class="arrow">→</span> <b>Chase Freedom</b></span>
+              <span class="tx-tag">Matched</span>
+            </div>
+          </div>
+          <div class="tx-group">
+            <div class="tx-date">Yesterday</div>
+            <div class="tx-row">
+              <span class="tx-amt">$85.20</span>
+              <span class="tx-meta">Chase checking <span class="arrow">→</span> <b>Amex Gold</b></span>
+              <span class="tx-tag">Matched</span>
+            </div>
+            <div class="tx-row">
+              <span class="tx-amt">$2,400.00</span>
+              <span class="tx-meta">Chase checking <span class="arrow">→</span> <b>Wells Fargo Auto</b></span>
+              <span class="tx-tag">Matched</span>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--ink-dim)">Auto-matched this week</span>
+            <span style="font-family:var(--sans);font-size:18px;font-weight:800;color:var(--ink)">$3,129.20</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE 4: Monthly insights -->
+<section class="feat-block">
+  <div class="wrap">
+    <div class="feat-split reverse reveal">
+      <div class="feat-visual">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="title">Monthly insight · April 2026</span>
+            <span class="dot-cluster"><span></span><span></span><span></span></span>
+          </div>
+          <div class="report-top">
+            <div>
+              <div class="report-month">Strong month.</div>
+              <div style="font-size:12px;color:var(--ink-dim);margin-top:4px">Debt-free date moved up 18 days.</div>
+            </div>
+            <span class="report-tag">AI Report</span>
+          </div>
+          <div class="report-bucket">
+            <div class="label win">Wins</div>
+            <div class="report-line">Paid 2 months ahead on Amex Gold · saved $412 in interest</div>
+            <div class="report-line">Credit utilization dropped from 41% to 27% — FICO likely to rise</div>
+            <div class="report-line">Hit 38% of total payoff · next milestone (50%) in ~4 months</div>
+          </div>
+          <div class="report-bucket">
+            <div class="label drift">What to watch</div>
+            <div class="report-line drift">Groceries up 18% ($287 over budget) — reallocate or raise cap?</div>
+          </div>
+          <div class="report-bucket">
+            <div class="label next">Next best move</div>
+            <div class="report-line next">Push $200 extra to Chase Freedom · saves 12 days, $47 interest</div>
+          </div>
+        </div>
+      </div>
+      <div class="feat-text">
+        <span class="eyebrow">Plain-English Insights</span>
+        <h2>Reports you'll <em>actually read.</em></h2>
+        <p class="lede">
+          At the start of every month, WJP sends you a one-page report: wins, drifts, next best move.
+          Written in plain English by the AI co-pilot — not a chart dump, not a 20-tab spreadsheet.
+          You read it in 30 seconds and you know exactly where you stand.
+        </p>
+        <ul class="bullets">
+          <li><span>One page. No jargon. Real sentences, not dashboards.</span></li>
+          <li><span>Personalized — references your actual debts, balances, and pace</span></li>
+          <li><span>Highlights wins first — because motivation matters</span></li>
+          <li><span>Ships the "next best move" so you know exactly what to do</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE 5: Day & Night mode (full width) -->
+<section class="feat-block">
+  <div class="wrap">
+    <div class="reveal">
+      <div style="text-align:center;max-width:780px;margin:0 auto">
+        <span class="eyebrow">Day &amp; Night</span>
+        <h2 style="font-family:var(--sans);font-weight:800;font-size:clamp(28px,3.4vw,42px);line-height:1.06;letter-spacing:-0.038em;color:var(--ink);margin-bottom:12px">Light mode by day. <em>Dark mode by 11pm.</em></h2>
+        <p class="lede" style="margin:0 auto">
+          The app auto-matches your system — or lock it to whichever reads easier. Both modes run the same
+          glass aesthetic: frosted surfaces, hairline borders, and a green accent that never shouts.
+        </p>
+      </div>
+      <div class="theme-row">
+        <!-- LIGHT MODE -->
+        <div class="dash light">
+          <div class="dash-head">
+            <div class="dash-brand"><div class="sq">W</div>Budgetting</div>
+            <span class="dash-mode">Light</span>
+          </div>
+          <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);font-weight:700">Total debt</div>
+          <div class="dash-big" style="color:var(--ink)">$28,400</div>
+          <div class="dash-sub">Debt-free · Oct 20, 2027</div>
+          <div class="dash-chart">
+            <svg viewBox="0 0 320 64" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0,8 C60,14 120,28 180,38 C240,48 280,56 320,60 L320,64 L0,64 Z" fill="rgba(31,122,74,0.18)"/>
+              <path d="M0,8 C60,14 120,28 180,38 C240,48 280,56 320,60" fill="none" stroke="#1f7a4a" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="dash-card"><span class="nm">Amex Gold</span><span class="am">–$412 this month</span></div>
+          <div class="dash-card"><span class="nm">Chase Freedom</span><span class="am">–$124 this month</span></div>
+          <div class="dash-card"><span class="nm">Sallie Mae</span><span class="am">–$520 this month</span></div>
+        </div>
+
+        <!-- DARK MODE -->
+        <div class="dash dark">
+          <div class="dash-head">
+            <div class="dash-brand"><div class="sq">W</div>Budgetting</div>
+            <span class="dash-mode">Dark</span>
+          </div>
+          <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);font-weight:700">Total debt</div>
+          <div class="dash-big">$28,400</div>
+          <div class="dash-sub">Debt-free · Oct 20, 2027</div>
+          <div class="dash-chart">
+            <svg viewBox="0 0 320 64" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0,8 C60,14 120,28 180,38 C240,48 280,56 320,60 L320,64 L0,64 Z" fill="rgba(141,242,197,0.14)"/>
+              <path d="M0,8 C60,14 120,28 180,38 C240,48 280,56 320,60" fill="none" stroke="#8df2c5" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="dash-card"><span class="nm">Amex Gold</span><span class="am">–$412 this month</span></div>
+          <div class="dash-card"><span class="nm">Chase Freedom</span><span class="am">–$124 this month</span></div>
+          <div class="dash-card"><span class="nm">Sallie Mae</span><span class="am">–$520 this month</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECONDARY FEATURE GRID -->
+<section class="feat-block">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center;max-width:780px;margin:0 auto 40px">
+      <span class="eyebrow">And also</span>
+      <h2 style="font-family:var(--sans);font-weight:800;font-size:clamp(28px,3.4vw,42px);line-height:1.06;letter-spacing:-0.038em;color:var(--ink)">Every small thing, <em>done right.</em></h2>
+    </div>
+    <div class="feat-grid-compact reveal">
+      <details class="feat">
+        <summary>
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <div class="feat-head">
+            <div>
+              <h5>Bank-level security</h5>
+              <p>256-bit encryption. Read-only Plaid. Never store passwords.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+        </summary>
+        <div class="feat-detail">
+          <p>We built security the way a bank would — then added the layers a bank wouldn't bother with.</p>
+          <ul>
+            <li><span><b>TLS 1.3 in transit</b> — every connection between your device and ours is encrypted.</span></li>
+            <li><span><b>AES-256 at rest</b> — the industry standard used by US financial institutions.</span></li>
+            <li><span><b>Plaid read-only connections</b> — same secure bridge used by Venmo, Coinbase, Robinhood.</span></li>
+            <li><span><b>Zero password storage</b> — we literally cannot see or reuse your bank login.</span></li>
+            <li><span><b>Optional MFA</b> — add a second factor to your WJP account in Settings.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="feat">
+        <summary>
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-12V5l-8-3-8 3v5c0 8 8 12 8 12z"/></svg></div>
+          <div class="feat-head">
+            <div>
+              <h5>Privacy first</h5>
+              <p>Your data is yours. No selling, no advertisers, no resale. Ever.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+        </summary>
+        <div class="feat-detail">
+          <p>Our business model pays us when <b>you</b> pay off debt — not when advertisers pay us for your data.</p>
+          <ul>
+            <li><span><b>No data sales</b> — not to banks, not to advertisers, not to aggregators. Not even "anonymized."</span></li>
+            <li><span><b>No ad trackers</b> — no Facebook Pixel, no Google Analytics on authenticated pages.</span></li>
+            <li><span><b>Export anytime</b> — one click in Settings exports your full history as CSV.</span></li>
+            <li><span><b>Delete anytime</b> — account + all data gone permanently within 30 days.</span></li>
+            <li><span><b>Aligned incentives</b> — we profit from a $9.99 Pro tier. That's it.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="feat">
+        <summary>
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg></div>
+          <div class="feat-head">
+            <div>
+              <h5>Goals that stick</h5>
+              <p>Down-payment. Emergency fund. Wedding. Stack them, WJP optimizes.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+        </summary>
+        <div class="feat-detail">
+          <p>Most budgeting apps treat goals as a to-do list. WJP treats them as a system.</p>
+          <ul>
+            <li><span><b>Stack multiple goals</b> with priority — house, emergency fund, wedding, travel, anything.</span></li>
+            <li><span><b>AI splits your surplus</b> between debt payoff and goals based on your timeline.</span></li>
+            <li><span><b>Auto-adjusts</b> as life shifts — raise, windfall, slow month, new baby.</span></li>
+            <li><span><b>Milestone celebrations</b> — real moments at 25%, 50%, 75%, done.</span></li>
+            <li><span><b>After debt-free</b>, dashboard pivots to net-worth tracking + investment goals.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="feat">
+        <summary>
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+          <div class="feat-head">
+            <div>
+              <h5>Smart reminders</h5>
+              <p>Bills before they drop. Drift before it snowballs. Score changes live.</p>
+            </div>
+            <span class="toggle" aria-hidden="true">+</span>
+          </div>
+        </summary>
+        <div class="feat-detail">
+          <p>Reminders designed to prevent problems — not pile on after the fact.</p>
+          <ul>
+            <li><span><b>Bill alerts</b> 3, 2, and 1 day before due — configurable per account.</span></li>
+            <li><span><b>Utilization alerts</b> when a card crosses 30% — before your score reacts.</span></li>
+            <li><span><b>Budget drift</b> flags when a category overspends mid-month.</span></li>
+            <li><span><b>Credit score changes</b> the moment your bureau-fed score moves.</span></li>
+            <li><span><b>Weekly digest</b> email — wins, drifts, next week's targets, one scroll.</span></li>
+            <li><span><b>Mute any channel</b> — email, push, SMS, in-app. Cherry-pick what you see.</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="wrap reveal">
+    <span class="eyebrow">See it for yourself</span>
+    <h2 class="h2">Your plan is <em>four minutes</em> away.</h2>
+    <div class="hero-cta">
+      <a class="pill accent" href="./signup.html">Start free →</a>
+      <a class="pill ghost" href="./signin.html">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+  onAuthStateChanged(auth, (user) => { if (user) window.location.replace('./index.html'); });
+</script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Strategy tab interactivity
+  document.querySelectorAll('.strategy-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

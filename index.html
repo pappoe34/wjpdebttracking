@@ -73,6 +73,17 @@
         return;
       }
 
+      // Guard: unverified email-password accounts must verify before entering.
+      // (Google accounts are pre-verified, so they bypass this check.)
+      if (!user.emailVerified){
+        const providers = (user.providerData || []).map(p => p.providerId);
+        const emailPwOnly = providers.length === 0 || providers.every(p => p === 'password');
+        if (emailPwOnly){
+          window.location.replace('./verify.html');
+          return;
+        }
+      }
+
       // Signed in → reveal the app, tear down overlays.
       document.body.classList.add('wjp-auth-ready');
       const gate = document.getElementById('wjp-gate-screen');

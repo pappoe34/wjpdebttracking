@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FAQ — WJP Budgetting</title>
+<meta name="description" content="Answers to the questions people actually ask — pricing, security, privacy, bank connections, snowball vs avalanche, the team, and more." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./landing.css?v=phase2-8">
+<style>
+  .sub-hero{padding:130px 24px 40px}
+
+  /* Split layout: sticky sidebar + grouped FAQ */
+  .faq-split-block{padding:40px 24px 80px;position:relative;overflow:hidden}
+  .faq-split-block .wrap{max-width:1200px;margin:0 auto}
+  .faq-split{
+    display:grid;grid-template-columns:minmax(240px,300px) 1fr;gap:56px;align-items:start;
+  }
+  @media (max-width:900px){
+    .faq-split{grid-template-columns:1fr;gap:32px}
+  }
+
+  /* LEFT: Sticky nav + quick stats + Ask AI */
+  .faq-nav{position:sticky;top:110px;display:flex;flex-direction:column;gap:20px}
+  @media (max-width:900px){.faq-nav{position:static}}
+  .faq-nav .eyebrow{margin:0}
+  .cat-nav{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+  .cat-nav a{
+    padding:10px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--ink-dim);
+    transition:background .2s ease,color .2s ease;border:1px solid transparent;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .cat-nav a:hover{color:var(--ink);background:rgba(10,10,10,0.04)}
+  .cat-nav a.active{
+    color:var(--ink);background:rgba(255,255,255,0.75);
+    border-color:rgba(31,122,74,0.22);
+    box-shadow:0 6px 18px rgba(31,122,74,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .cat-nav a .count{
+    font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-faint);
+  }
+  .cat-nav a.active .count{color:var(--accent)}
+
+  .quick-stats{
+    padding:18px;border-radius:14px;
+    background:rgba(255,255,255,0.6);
+    backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.85);
+  }
+  .quick-stats .title{font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:10px}
+  .quick-stats .row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+  .quick-stats .row + .row{border-top:1px dashed rgba(10,10,10,0.08)}
+  .quick-stats .row .k{font-size:12.5px;color:var(--ink-dim)}
+  .quick-stats .row .v{font-family:var(--sans);font-size:14px;font-weight:700;color:var(--ink)}
+  .quick-stats .row .v em{font-family:var(--sans);font-style:normal;color:var(--accent)}
+
+  /* Sidebar Ask AI */
+  .ask-ai-sidebar{
+    padding:22px;border-radius:14px;text-align:left;
+    background:linear-gradient(135deg, rgba(31,122,74,0.10), rgba(201,154,42,0.08)), rgba(255,255,255,0.55);
+    backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
+    border:1px dashed rgba(31,122,74,0.35);
+  }
+  .ask-ai-sidebar .coming-soon{
+    display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    background:rgba(31,122,74,0.14);color:var(--accent);
+    font-size:9.5px;letter-spacing:1.8px;text-transform:uppercase;font-weight:700;margin-bottom:12px;
+  }
+  .ask-ai-sidebar h4{font-family:var(--sans);font-weight:700;font-size:17px;letter-spacing:-0.02em;color:var(--ink);margin-bottom:6px}
+  .ask-ai-sidebar p{font-size:12.5px;color:var(--ink-dim);line-height:1.5;margin-bottom:12px}
+  .ask-ai-sidebar .mini-input{
+    display:flex;align-items:center;gap:8px;padding:9px 12px;
+    background:rgba(255,255,255,0.7);border:1px solid var(--rule);border-radius:10px;
+    font-size:12px;color:var(--ink-faint);margin-bottom:10px;
+  }
+  .ask-ai-sidebar .mini-input::before{
+    content:"?";width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;
+    display:grid;place-items:center;font-size:10px;font-weight:700;
+  }
+  .ask-ai-sidebar a.pill{display:inline-flex;padding:9px 16px;font-size:12px}
+
+  /* RIGHT: Grouped FAQ lists */
+  .faq-content{display:flex;flex-direction:column;gap:44px}
+  .faq-group{scroll-margin-top:90px}
+  .faq-group-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--rule)}
+  .faq-group-head h2{
+    font-family:var(--sans);font-weight:800;font-size:22px;letter-spacing:-0.025em;color:var(--ink);
+  }
+  .faq-group-head .num{font-family:var(--mono);font-size:11px;letter-spacing:1.8px;color:var(--ink-faint);font-weight:700}
+
+  /* Inline FAQ mini visuals */
+  .security-stack{
+    display:flex;flex-direction:column;gap:6px;margin-top:14px;
+    padding:14px;border-radius:10px;background:rgba(31,122,74,0.06);border:1px solid rgba(31,122,74,0.15);
+  }
+  .sec-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:12.5px}
+  .sec-row .ico{
+    width:20px;height:20px;border-radius:6px;background:rgba(31,122,74,0.18);color:var(--accent);
+    display:grid;place-items:center;font-size:11px;font-weight:800;
+  }
+  .sec-row b{font-weight:600;color:var(--ink)}
+  .sec-row .tag{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);font-weight:700}
+
+  .pricing-mini{
+    margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .pricing-card{
+    padding:14px;border-radius:10px;
+    background:rgba(255,255,255,0.65);border:1px solid var(--rule);
+  }
+  .pricing-card.pro{background:linear-gradient(135deg, rgba(31,122,74,0.10), rgba(43,155,114,0.08));border-color:rgba(31,122,74,0.28)}
+  .pricing-card .lbl{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .pricing-card .vl{font-family:var(--sans);font-size:20px;font-weight:800;color:var(--ink);margin-top:4px;letter-spacing:-0.02em}
+  .pricing-card.pro .vl{color:var(--accent)}
+  .pricing-card .sv{font-size:11px;color:var(--ink-dim);margin-top:2px}
+
+  /* Big Ask AI section at bottom */
+  .ask-ai-big{
+    padding:80px 24px;position:relative;overflow:hidden;border-top:1px solid var(--rule);
+  }
+  .ask-ai-card{
+    max-width:960px;margin:0 auto;padding:40px;
+    background:linear-gradient(135deg, rgba(31,122,74,0.10), rgba(201,154,42,0.08)), rgba(255,255,255,0.72);
+    backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.7);border-radius:24px;
+    box-shadow:0 20px 60px rgba(20,20,20,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center;
+  }
+  @media (max-width:900px){.ask-ai-card{grid-template-columns:1fr}}
+  .ask-ai-card h2{
+    font-family:var(--sans);font-weight:800;font-size:clamp(26px,3.2vw,38px);
+    line-height:1.08;letter-spacing:-0.038em;color:var(--ink);
+  }
+  .ask-ai-card h2 em{font-family:var(--sans);font-style:normal;font-weight:800;color:var(--accent);letter-spacing:-0.038em}
+  .ask-demo{
+    background:rgba(255,255,255,0.7);border:1px solid var(--rule);border-radius:14px;padding:18px;
+  }
+  .ask-demo .row{
+    padding:10px 12px;border-radius:10px;margin-top:8px;font-size:13px;color:var(--ink-dim);
+    background:rgba(255,255,255,0.5);border:1px solid var(--rule);cursor:pointer;transition:background .2s ease;
+  }
+  .ask-demo .row:first-of-type{margin-top:0}
+  .ask-demo .row:hover{background:rgba(31,122,74,0.06);color:var(--ink)}
+  .ask-demo .row::before{content:"→";color:var(--accent);margin-right:8px;font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a href="./intro.html" class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class="link" href="./about.html">About</a>
+    <a class="link" href="./how.html">How</a>
+    <a class="link" href="./features.html">Features</a>
+    <a class="link" href="./math.html">Math</a>
+    <a class="link active" href="./faq.html">FAQ</a>
+    <a class="pill ghost" href="./signin.html">Sign in</a>
+    <a class="pill accent" href="./signup.html">Start free →</a>
+  </div>
+</nav>
+
+<!-- SUB-HERO -->
+<section class="sub-hero">
+  <div class="wrap reveal">
+    <span class="eyebrow">Questions</span>
+    <h1 class="h2">Fair questions. <em>Honest answers.</em></h1>
+    <p class="lede" style="margin-left:auto;margin-right:auto">
+      What people actually ask us — in plain English. Browse by category or scan the list.
+    </p>
+  </div>
+</section>
+
+<!-- SPLIT: sticky sidebar + grouped FAQ list -->
+<section class="faq-split-block">
+  <div class="wrap">
+    <div class="faq-split">
+
+      <!-- LEFT SIDEBAR -->
+      <aside class="faq-nav reveal">
+        <span class="eyebrow">Jump to</span>
+        <nav class="cat-nav" id="catNav">
+          <a href="#pricing" class="active">Pricing &amp; billing <span class="count">2</span></a>
+          <a href="#security">Security &amp; privacy <span class="count">2</span></a>
+          <a href="#product">Product &amp; strategy <span class="count">4</span></a>
+          <a href="#company">Team &amp; company <span class="count">1</span></a>
+          <a href="#platform">Platform &amp; access <span class="count">1</span></a>
+        </nav>
+
+        <div class="quick-stats">
+          <div class="title">Quick facts</div>
+          <div class="row"><span class="k">Free trial</span><span class="v"><em>3 months</em></span></div>
+          <div class="row"><span class="k">Credit card</span><span class="v">Not required</span></div>
+          <div class="row"><span class="k">Bank access</span><span class="v">Read-only</span></div>
+          <div class="row"><span class="k">Cancel anytime</span><span class="v">Yes</span></div>
+        </div>
+
+        <div class="ask-ai-sidebar">
+          <div class="coming-soon">Coming soon</div>
+          <h4>Ask the WJP AI.</h4>
+          <p>Not here? Soon: instant answers from the co-pilot.</p>
+          <div class="mini-input">Can I link a joint account?</div>
+          <a class="pill ghost" href="./signup.html">Get early access →</a>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Grouped FAQ -->
+      <div class="faq-content reveal">
+
+        <!-- GROUP: PRICING -->
+        <div id="pricing" class="faq-group">
+          <div class="faq-group-head">
+            <h2>Pricing &amp; billing</h2>
+            <span class="num">01 · 2 Qs</span>
+          </div>
+          <div class="faq-list">
+            <details class="q">
+              <summary>How much does WJP cost?</summary>
+              <p>Start with a <b>3-month free trial</b> — no credit card required. After the trial, Pro is $9.99/month or $79/year. One price, all features. No freemium paywall that blocks you from paying off debt — that would defeat the point.</p>
+              <div class="pricing-mini">
+                <div class="pricing-card">
+                  <div class="lbl">Trial</div>
+                  <div class="vl">Free</div>
+                  <div class="sv">3 months · no card</div>
+                </div>
+                <div class="pricing-card pro">
+                  <div class="lbl">Pro</div>
+                  <div class="vl">$9.99<span style="font-size:13px;font-weight:600;color:var(--ink-dim)">/mo</span></div>
+                  <div class="sv">or $79/yr · all features</div>
+                </div>
+              </div>
+            </details>
+            <details class="q">
+              <summary>What if I need to pause or cancel?</summary>
+              <p>Cancel anytime from Settings — no email, no chat, no "retention specialist." Your data stays available for 30 days in case you come back, then it's permanently deleted. You can also <b>pause</b> a subscription for up to 3 months and keep your plan intact.</p>
+            </details>
+          </div>
+        </div>
+
+        <!-- GROUP: SECURITY -->
+        <div id="security" class="faq-group">
+          <div class="faq-group-head">
+            <h2>Security &amp; privacy</h2>
+            <span class="num">02 · 2 Qs</span>
+          </div>
+          <div class="faq-list">
+            <details class="q">
+              <summary>Do you connect to my bank?</summary>
+              <p>Optionally. You can type balances in manually and WJP works perfectly. If you link your bank, we use <b>read-only</b> connections via Plaid — the same secure bridge used by Venmo, Coinbase, Robinhood, and most major fintechs. We can never move money, and we never store your bank login.</p>
+            </details>
+            <details class="q">
+              <summary>Is my data safe?</summary>
+              <p>Yes. All data is encrypted in transit (TLS 1.3) and at rest (AES-256). We don't sell data, don't serve ads, and don't run analytics on third-party trackers. You can export everything as CSV or delete your account (and all data) in one click from Settings.</p>
+              <div class="security-stack">
+                <div class="sec-row">
+                  <span class="ico">1</span>
+                  <span><b>TLS 1.3 in transit</b> — every byte between your device and our servers</span>
+                  <span class="tag">Active</span>
+                </div>
+                <div class="sec-row">
+                  <span class="ico">2</span>
+                  <span><b>AES-256 at rest</b> — industry-standard storage encryption</span>
+                  <span class="tag">Active</span>
+                </div>
+                <div class="sec-row">
+                  <span class="ico">3</span>
+                  <span><b>Plaid read-only</b> — we can't move money or see your password</span>
+                  <span class="tag">Active</span>
+                </div>
+                <div class="sec-row">
+                  <span class="ico">4</span>
+                  <span><b>Optional MFA</b> — add a second factor to your WJP login</span>
+                  <span class="tag">Available</span>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- GROUP: PRODUCT -->
+        <div id="product" class="faq-group">
+          <div class="faq-group-head">
+            <h2>Product &amp; strategy</h2>
+            <span class="num">03 · 4 Qs</span>
+          </div>
+          <div class="faq-list">
+            <details class="q">
+              <summary>Snowball vs. avalanche — which should I use?</summary>
+              <p>Avalanche saves more money mathematically — you pay off highest-APR debts first. Snowball feels more motivating because you clear small balances first, which builds momentum. WJP shows you both side-by-side, and many people use a hybrid approach. There's no wrong answer if you stick to the plan.</p>
+            </details>
+            <details class="q">
+              <summary>What debts does WJP track?</summary>
+              <p>Credit cards, personal loans, student loans, auto loans, mortgages, medical debt, and BNPL plans (Affirm, Afterpay, Klarna). Basically: <b>anything with a balance and an interest rate</b>. If it can be paid off, WJP can track it and plan for it.</p>
+            </details>
+            <details class="q">
+              <summary>Do you report to credit bureaus?</summary>
+              <p>No — WJP is a tracking and planning tool, not a lender. We don't report to bureaus because we don't lend. You can see your own credit score inside WJP (pulled via your banks' feeds when available), but we never send data to Equifax, TransUnion, or Experian.</p>
+            </details>
+            <details class="q">
+              <summary>Can I use WJP with my partner or family?</summary>
+              <p>Shared households are on the roadmap — currently in closed beta. For now, WJP is designed for individual accounts. Contact us if you want early access to multi-user mode.</p>
+            </details>
+          </div>
+        </div>
+
+        <!-- GROUP: COMPANY -->
+        <div id="company" class="faq-group">
+          <div class="faq-group-head">
+            <h2>Team &amp; company</h2>
+            <span class="num">04 · 1 Q</span>
+          </div>
+          <div class="faq-list">
+            <details class="q">
+              <summary>Who's behind WJP?</summary>
+              <p>An <b>independent team</b> — not a bank, not a lender, not a BNPL company. We make money from a single optional Pro tier. That's our only business model, and it keeps our incentives aligned with yours: we only do well when you actually pay off your debt. We're not optimizing for you to carry a balance or refinance into another loan.</p>
+            </details>
+          </div>
+        </div>
+
+        <!-- GROUP: PLATFORM -->
+        <div id="platform" class="faq-group">
+          <div class="faq-group-head">
+            <h2>Platform &amp; access</h2>
+            <span class="num">05 · 1 Q</span>
+          </div>
+          <div class="faq-list">
+            <details class="q">
+              <summary>Is there a mobile app?</summary>
+              <p>Not yet — the web app is designed <b>mobile-first</b>, so you can use it from any phone browser today and it feels native. Native iOS and Android apps are in development and will ship with the same account you use now. No data migration, no new sign-up.</p>
+            </details>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BIG ASK AI SECTION -->
+<section class="ask-ai-big">
+  <div class="wrap reveal">
+    <div class="ask-ai-card">
+      <div>
+        <div class="coming-soon" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(31,122,74,0.14);color:var(--accent);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:14px">Coming soon</div>
+        <h2>Still have questions? <em>Ask the AI.</em></h2>
+        <p style="color:var(--ink-dim);margin-top:14px;font-size:15px;line-height:1.55">
+          Your WJP co-pilot will answer anything about the product, your plan, or your numbers — instantly,
+          in plain English. For now, sign up and we'll email you the day it goes live.
+        </p>
+        <div class="hero-cta" style="justify-content:flex-start;margin-top:22px">
+          <a class="pill accent" href="./signup.html">Get early access →</a>
+        </div>
+      </div>
+      <div class="ask-demo">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:10px">Try asking</div>
+        <div class="row">What's the real cost if I take 2 months off?</div>
+        <div class="row">How does a $5k windfall change my debt-free date?</div>
+        <div class="row">Should I refinance my student loan at 4.5%?</div>
+        <div class="row">Can I afford a $3k vacation without slipping?</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="wrap reveal">
+    <span class="eyebrow">Try it</span>
+    <h2 class="h2">Free for <em>3 months,</em> no card needed.</h2>
+    <div class="hero-cta">
+      <a class="pill accent" href="./signup.html">Start free →</a>
+      <a class="pill ghost" href="./signin.html">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <p class="foot-about">
+      <b>WJP Budgetting &amp; Tracking OS</b> — a private debt strategist for people doing the work.
+      Built for the quiet commitment of paying off what you owe, without shame and without spreadsheets.
+    </p>
+    <div class="foot-row">
+      <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="./about.html">About</a>
+        <a href="./how.html">How</a>
+        <a href="./features.html">Features</a>
+        <a href="./math.html">Math</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </div>
+    <div class="foot-trust">
+      <span>Bank-level encryption</span>
+      <span>Plaid-powered security</span>
+      <span>Read-only bank access</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg",
+    authDomain: "wjp-debt-tracking.firebaseapp.com",
+    projectId: "wjp-debt-tracking",
+    storageBucket: "wjp-debt-tracking.firebasestorage.app",
+    messagingSenderId: "574332059449",
+    appId: "1:574332059449:web:aef179231662df0c8ab2e8",
+    measurementId: "G-34XNECQF3Q"
+  };
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+  onAuthStateChanged(auth, (user) => { if (user) window.location.replace('./index.html'); });
+</script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Category nav: smooth scroll + highlight active section
+  const catNav = document.getElementById('catNav');
+  const links = catNav.querySelectorAll('a');
+  links.forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = a.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) { window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth' }); }
+    });
+  });
+  // Highlight based on scroll position
+  const sections = Array.from(links).map(a => document.getElementById(a.getAttribute('href').slice(1)));
+  const catObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+  sections.forEach(s => s && catObs.observe(s));
+
+  // Ask demo rows — friendly cursor feedback (cosmetic)
+  document.querySelectorAll('.ask-demo .row').forEach(r => {
+    r.addEventListener('click', () => {
+      window.location.href = './signup.html';
+    });
+  });
+</script>
+
+</body>
+</html>
