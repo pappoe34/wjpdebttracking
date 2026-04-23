@@ -4353,6 +4353,91 @@ body.dark .top-header{
   /* Push the sticky header down so the rotate banner doesn't cover it */
   body:not(.rotate-dismissed) .top-header{ top: 52px; }
   body:not(.rotate-dismissed) .main-area{ padding-top: 52px; box-sizing: border-box; }
+
+  /* --- HEADER LAYOUT ON PHONE ---------------------------------
+     Let the header flex-wrap so tabs (Portfolio/Budgets/Strategy)
+     can land on a second row instead of scrolling off-screen.
+  --------------------------------------------------------------- */
+  .top-header{
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: var(--header-height);
+    padding: 8px 10px !important;
+    row-gap: 6px !important;
+    overflow-x: visible !important;
+  }
+  /* Row 1: hamburger + brand + spacer + icons */
+  .app-menu-btn{ order: 1 !important; }
+  .header-brand{ order: 2 !important; flex: 1 1 auto; min-width: 0; }
+  .header-icons{ order: 3 !important; flex: 0 0 auto; }
+  /* Row 2: the tab pills — span full width, scrollable if needed */
+  .header-nav{
+    order: 4 !important;
+    flex: 0 0 100% !important;
+    width: 100%;
+    margin: 0 !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .header-nav::-webkit-scrollbar{ display: none; }
+  .header-nav-item{
+    padding: 7px 12px !important;
+    font-size: 12.5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  /* Brand mark — compact tile + "WJP" wordmark, then page title */
+  .header-brand{
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-right: 4px !important;
+    min-width: 0;
+  }
+  .header-brand-mark{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .header-brand-mark svg{
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    box-shadow: 0 4px 10px rgba(31,122,74,0.25);
+  }
+  .header-brand-name{
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .header-brand-text{
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    color: var(--text-2) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+  }
+  .header-search{ display: none !important; }
+  /* Keep icons compact */
+  .header-icons{ gap: 6px !important; }
+  .header-icons .icon-btn, .header-icons .theme-toggle{
+    width: 32px; height: 32px;
+  }
+}
+
+/* Desktop: hide the compact mark (WJP tile+wordmark) — sidebar shows it. */
+@media (min-width: 561px){
+  .header-brand-mark{ display: none !important; }
+  .header-brand-text{ padding-left: 0; border-left: 0; }
 }
 
 @keyframes rotateHint{

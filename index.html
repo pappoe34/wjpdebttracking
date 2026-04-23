@@ -173,7 +173,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WJP Debt">
   
-  <link rel="stylesheet" href="style.css?v=41-stack">
+  <link rel="stylesheet" href="style.css?v=42-hdr">
   <!-- Use Phosphor icons for aesthetic UI -->
   <!-- UI Libraries -->
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -603,6 +603,23 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
         </button>
         <div class="header-brand">
+          <div class="header-brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" width="22" height="22" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="10" fill="url(#hbm-grad)"/>
+              <path d="M20 8 L14 22 L17 22 L17 30 L23 30 L23 22 L26 22 Z" fill="#c99a2a" opacity="0.95"/>
+              <circle cx="10" cy="12" r="1.2" fill="#c99a2a" opacity="0.7"/>
+              <circle cx="31" cy="10" r="1" fill="#c99a2a" opacity="0.7"/>
+              <circle cx="33" cy="26" r="1.2" fill="#c99a2a" opacity="0.7"/>
+              <circle cx="8" cy="30" r="1" fill="#c99a2a" opacity="0.7"/>
+              <defs>
+                <linearGradient id="hbm-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#1f7a4a"/>
+                  <stop offset="1" stop-color="#2b9b72"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <span class="header-brand-name">WJP</span>
+          </div>
           <div class="header-brand-text" id="header-title">Financial Strategy</div>
         </div>
 
