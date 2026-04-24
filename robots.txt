@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Don't crawl the app shell, admin, or auth pages
+Disallow: /index.html
+Disallow: /admin.html
+Disallow: /verify.html
+Disallow: /.netlify/
+
+# Point to sitemap
+Sitemap: https://wjpdebttracking.com/sitemap.xml

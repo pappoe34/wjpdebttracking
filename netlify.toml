@@ -8,8 +8,22 @@
 [functions]
   node_bundler = "esbuild"
 
+# Serve the landing page at the root URL so bots, AI crawlers, and social
+# previews get crawlable marketing content instead of the auth-gated app shell.
+# The actual app still lives at /index.html (direct file match bypasses this rewrite).
+[[redirects]]
+  from = "/"
+  to = "/intro.html"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
+
+# Let fonts be cached aggressively for repeat visits
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
