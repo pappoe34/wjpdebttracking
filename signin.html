@@ -469,9 +469,23 @@
     (async () => {
       try {
         await persistenceReady;
-        await signInWithPopup(auth, p);
+        const cred = await signInWithPopup(auth, p);
         await auth.authStateReady();
-        showToast('Welcome — opening your dashboard');
+        // Stash for the "Welcome back, [Name]" greeting on future visits.
+        // Google SSO returns displayName; use first token as the friendly first name.
+        try {
+          const u = cred && cred.user;
+          if (u) {
+            if (u.email) localStorage.setItem('wjp_last_email', u.email);
+            if (u.displayName) {
+              const first = u.displayName.split(' ')[0];
+              localStorage.setItem('wjp_last_name', first);
+            }
+          }
+        } catch(_){}
+        try { window.wjp && wjp.track && wjp.track('signin_completed', { method: 'google' }); } catch(_){}
+        const first = (cred && cred.user && cred.user.displayName) ? cred.user.displayName.split(' ')[0] : '';
+        showToast(first ? ('Welcome back, ' + first + ' — opening your dashboard') : 'Welcome — opening your dashboard');
         setTimeout(() => window.location.replace('./index.html'), 400);
       } catch (err) {
         showToast(mapAuthError(err.code));

@@ -522,8 +522,22 @@
     (async () => {
       try {
         await persistenceReady;
-        await signInWithPopup(auth, p);
+        const cred = await signInWithPopup(auth, p);
         await auth.authStateReady();
+        // Stash name + email so the NEXT visit greets them by name
+        try {
+          const u = cred && cred.user;
+          if (u) {
+            if (u.email) localStorage.setItem('wjp_last_email', u.email);
+            if (u.displayName) {
+              const first = u.displayName.split(' ')[0];
+              localStorage.setItem('wjp_last_name', first);
+            }
+          }
+        } catch(_){}
+        // Brand-new user — clear onboarding flag so the first-run flow shows.
+        try { localStorage.removeItem('wjp_onboarded'); } catch(_){}
+        try { window.wjp && wjp.track && wjp.track('signup_completed', { method: 'google' }); } catch(_){}
         showToast('Account created — let\u2019s connect your bank');
         // ?new=1 tells the dashboard this is a brand-new user so it can surface
         // the first-link prompt instead of the cluttered default UI.
