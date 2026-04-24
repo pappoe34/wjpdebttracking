@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WJP Debt calculator</title>
-  <meta name="description" content="AI Financial Budget & Strategy Calculator">
+  <title>WJP · Your debt dashboard</title>
+  <meta name="description" content="Track your debts, see your debt-free date, and stay on plan. Powered by Plaid.">
 
   <!-- ── AUTH GATE (must run before any app script) ───────────────────────── -->
   <style id="wjp-gate-css">
@@ -178,7 +178,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=55-dfd">
+  <link rel="stylesheet" href="style.css?v=56-sprint">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used. -->
@@ -213,6 +213,123 @@
     </div>
   </div>
   <button type="button" id="rotate-dismiss" class="rotate-btn" aria-label="Dismiss banner">Got it</button>
+</div>
+
+<!-- ============================================================
+     FIRST-RUN ONBOARDING — "Put a date on debt-free" in ~60s
+     Shown automatically on first signed-in visit when there are no
+     debts yet (localStorage.wjp_onboarded = '1' marks completion).
+     Users can also return to it via the dashboard empty-state CTA.
+     ============================================================ -->
+<div id="ob-overlay" style="display:none;" aria-modal="true" role="dialog" aria-label="Welcome to WJP">
+  <div class="ob-backdrop"></div>
+  <div class="ob-card">
+    <button type="button" id="ob-skip" class="ob-skip" aria-label="Skip for now">Skip for now ✕</button>
+
+    <!-- Progress dots -->
+    <div class="ob-dots">
+      <span class="ob-dot active" data-step="0"></span>
+      <span class="ob-dot" data-step="1"></span>
+      <span class="ob-dot" data-step="2"></span>
+      <span class="ob-dot" data-step="3"></span>
+      <span class="ob-dot" data-step="4"></span>
+    </div>
+
+    <!-- Step 0: Welcome -->
+    <section class="ob-step active" data-step="0">
+      <div class="ob-eyebrow">Welcome to WJP</div>
+      <h2 class="ob-h2">Let's put a <em>date</em> on your debt-free day.</h2>
+      <p class="ob-lede">Takes about 60 seconds. We'll ask what you're paying off, what you earn, and then show you the exact date you'll pay off the last balance.</p>
+      <div class="ob-cta">
+        <button type="button" class="btn btn-primary ob-next" data-go="1">Let's go →</button>
+      </div>
+    </section>
+
+    <!-- Step 1: Pick debt types -->
+    <section class="ob-step" data-step="1">
+      <div class="ob-eyebrow">Step 1 of 4</div>
+      <h2 class="ob-h2">What are you paying off?</h2>
+      <p class="ob-lede">Pick one or more. You can add more later.</p>
+      <div class="ob-types">
+        <button type="button" class="ob-type" data-type="credit_card">
+          <div class="ob-type-icon">💳</div>
+          <div class="ob-type-label">Credit card</div>
+        </button>
+        <button type="button" class="ob-type" data-type="student_loan">
+          <div class="ob-type-icon">🎓</div>
+          <div class="ob-type-label">Student loan</div>
+        </button>
+        <button type="button" class="ob-type" data-type="auto">
+          <div class="ob-type-icon">🚗</div>
+          <div class="ob-type-label">Auto loan</div>
+        </button>
+        <button type="button" class="ob-type" data-type="mortgage">
+          <div class="ob-type-icon">🏠</div>
+          <div class="ob-type-label">Mortgage</div>
+        </button>
+        <button type="button" class="ob-type" data-type="personal">
+          <div class="ob-type-icon">👤</div>
+          <div class="ob-type-label">Personal loan</div>
+        </button>
+        <button type="button" class="ob-type" data-type="medical">
+          <div class="ob-type-icon">🏥</div>
+          <div class="ob-type-label">Medical debt</div>
+        </button>
+        <button type="button" class="ob-type" data-type="other">
+          <div class="ob-type-icon">💼</div>
+          <div class="ob-type-label">Other</div>
+        </button>
+      </div>
+      <div class="ob-cta">
+        <button type="button" class="btn btn-ghost ob-back" data-go="0">← Back</button>
+        <button type="button" class="btn btn-primary ob-next" id="ob-types-next" data-go="2" disabled>Continue →</button>
+      </div>
+    </section>
+
+    <!-- Step 2: Details — dynamically generated based on selected types -->
+    <section class="ob-step" data-step="2">
+      <div class="ob-eyebrow">Step 2 of 4</div>
+      <h2 class="ob-h2">Tell us about each one.</h2>
+      <p class="ob-lede">Just a balance, minimum monthly payment, and the APR. You can refine these later.</p>
+      <div id="ob-details-list"></div>
+      <div class="ob-cta">
+        <button type="button" class="btn btn-ghost ob-back" data-go="1">← Back</button>
+        <button type="button" class="btn btn-primary ob-next" id="ob-details-next" data-go="3">Continue →</button>
+      </div>
+    </section>
+
+    <!-- Step 3: Income -->
+    <section class="ob-step" data-step="3">
+      <div class="ob-eyebrow">Step 3 of 4</div>
+      <h2 class="ob-h2">What's your monthly take-home?</h2>
+      <p class="ob-lede">We use this to recommend how much extra to throw at debt each month. Your guess is fine — you can update it anytime.</p>
+      <div class="ob-income">
+        <span class="ob-dollar">$</span>
+        <input id="ob-income-input" type="number" inputmode="decimal" placeholder="5,200" min="0" step="100" />
+        <span class="ob-income-suffix">/ month</span>
+      </div>
+      <div class="ob-cta">
+        <button type="button" class="btn btn-ghost ob-back" data-go="2">← Back</button>
+        <button type="button" class="btn btn-primary ob-next" id="ob-income-next" data-go="4">See my date →</button>
+      </div>
+    </section>
+
+    <!-- Step 4: Reveal -->
+    <section class="ob-step" data-step="4">
+      <div class="ob-eyebrow">Your date is locked in</div>
+      <div class="ob-reveal-date-eyebrow">You'll be debt-free on</div>
+      <div class="ob-reveal-date" id="ob-reveal-date">—</div>
+      <div class="ob-reveal-meta" id="ob-reveal-meta">Calculating your personalized plan…</div>
+
+      <div class="ob-reveal-stats" id="ob-reveal-stats"></div>
+
+      <p class="ob-reveal-copy">We loaded everything into your dashboard. From here you can link a bank for automatic tracking, tweak your strategy, or simulate paying extra.</p>
+
+      <div class="ob-cta">
+        <button type="button" class="btn btn-primary ob-finish" id="ob-finish-btn">Take me to my dashboard →</button>
+      </div>
+    </section>
+  </div>
 </div>
 
 <div id="landing-page">
@@ -493,7 +610,7 @@
       <div class="lp-feat-card">
         <div class="lp-feat-icon"><i class="ph-fill ph-rocket-launch"></i></div>
         <h3>AI Debt Strategy</h3>
-        <p>Our Evergreen Algorithm analyzes your finances and builds a personalized debt elimination plan tailored to your goals.</p>
+        <p>Our AI analyzes your finances and builds a personalized debt-payoff plan tailored to your goals.</p>
       </div>
       <div class="lp-feat-card">
         <div class="lp-feat-icon"><i class="ph-fill ph-piggy-bank"></i></div>
@@ -558,7 +675,7 @@
           </span>
           <div class="logo-text">
             <div class="logo-title"><b>WJP</b><i>Budgetting</i></div>
-            <div class="logo-sub">Tracking OS</div>
+            <div class="logo-sub">Debt Tracker</div>
           </div>
         </a>
       </div>
@@ -631,7 +748,7 @@
             </svg>
             <span class="header-brand-name">WJP</span>
           </div>
-          <div class="header-brand-text" id="header-title">Financial Strategy</div>
+          <div class="header-brand-text" id="header-title">Your Dashboard</div>
         </div>
 
         <div class="header-nav">
@@ -734,8 +851,8 @@
                   <div class="ai-card-title">
                     <div class="ai-icon"><i class="ph ph-robot"></i></div>
                     <div>
-                      <div>AI Strategy Advisor</div>
-                      <div class="card-sub" style="font-weight:normal;font-size:10px;">EVERGREEN ALGORITHM V2.4</div>
+                      <div>AI Advisor</div>
+                      <div class="card-sub" style="font-weight:normal;font-size:10px;">POWERED BY AI</div>
                     </div>
                   </div>
                   <div class="badge badge-accent">Optimized</div>
@@ -1387,7 +1504,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px;">
                   <div>
                     <h3 style="font-size:18px; font-weight:800; letter-spacing:-0.02em;">Expense Dynamics</h3>
-                    <div class="card-sub" style="font-size:10px;">Monthly Allocation & Wealth Leakage</div>
+                    <div class="card-sub" style="font-size:10px;">Where your money goes each month</div>
                   </div>
                   <div class="icon-btn" id="btn-open-budget-matrix-debts" style="width:32px; height:32px; background:var(--card-2); cursor:pointer;"><i class="ph ph-sliders"></i></div>
                 </div>
@@ -1592,7 +1709,7 @@
             <!-- Header -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;" class="reveal">
               <div>
-                <div class="card-label" style="color:var(--accent)">Strategy / Debts</div>
+                <div class="card-label" style="color:var(--accent)">Transactions</div>
                 <h1 style="font-size:28px; font-weight:900; margin:4px 0 0;">Transactions</h1>
               </div>
               <div style="display:flex; gap:8px;">
@@ -1793,7 +1910,7 @@
             <!-- Header -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;" class="reveal">
               <div>
-                <div class="card-label" style="color:var(--accent)">Strategy Management</div>
+                <div class="card-label" style="color:var(--accent)">Recurring</div>
                 <h1 style="font-size:28px; font-weight:900; margin:4px 0 0;">Recurring Payments</h1>
               </div>
               <div style="display:flex; gap:8px; align-items:center;">
@@ -1844,7 +1961,7 @@
                 <div class="txn-icon" style="background:var(--accent); color:#0b0f1a; width:36px; height:36px; font-size:18px;"><i class="ph ph-shield-check"></i></div>
                 <div>
                   <h2 style="font-size:18px; font-weight:800;">Payment Optimization AI</h2>
-                  <div class="card-label" style="color:var(--accent)">Strategic Outflow Analysis</div>
+                  <div class="card-label" style="color:var(--accent)">Smart payment insights</div>
                 </div>
               </div>
 
@@ -1922,8 +2039,8 @@
             <!-- Header -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;" class="reveal">
               <div>
-                <div class="card-label" style="color:var(--accent)">Advanced Metrics</div>
-                <h1 style="font-size:28px; font-weight:900; margin:4px 0 0;">Debt Strategy Analysis</h1>
+                <div class="card-label" style="color:var(--accent)">Analysis</div>
+                <h1 style="font-size:28px; font-weight:900; margin:4px 0 0;">Deeper look at your debts</h1>
               </div>
               <div style="display:flex; align-items:center; gap:12px;">
                 <span class="card-label" style="margin:0;">Timeframe</span>
@@ -2079,7 +2196,7 @@
               <div style="display:grid; grid-template-columns:1.5fr 1fr;">
                 <!-- Left side arbitrage info -->
                 <div style="padding:32px;">
-                  <div class="badge badge-primary" style="margin-bottom:16px; padding:6px 10px; font-size:9px;">AI Strategic Analysis</div>
+                  <div class="badge badge-primary" style="margin-bottom:16px; padding:6px 10px; font-size:9px;">AI Analysis</div>
                   <h2 style="font-size:24px; font-weight:800; margin-bottom:24px;">Interest Arbitrage Opportunity</h2>
                   
                   <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:32px;">
@@ -2223,9 +2340,9 @@
 
             <!-- Header -->
             <div style="margin-bottom:32px;" class="reveal">
-              <div class="card-label" style="color:var(--accent)">Vault & Assets</div>
-              <h1 style="font-size:32px; font-weight:900; margin:4px 0 12px;">Strategic Archive</h1>
-              <p style="font-size:14px; color:var(--text-3); max-width:600px; line-height:1.6;">Centralized documentation hub for debt structures, legal agreements, and real-time bank connectivity. Powered by Evergreen AI for automated auditing.</p>
+              <div class="card-label" style="color:var(--accent)">Documents</div>
+              <h1 style="font-size:32px; font-weight:900; margin:4px 0 12px;">Your documents</h1>
+              <p style="font-size:14px; color:var(--text-3); max-width:600px; line-height:1.6;">Keep debt statements, payoff letters, and linked-bank records all in one place. Plaid syncs your real balances; AI flags inconsistencies.</p>
             </div>
 
             <!-- Top Grid -->
@@ -2324,11 +2441,11 @@
         <!-- PAGE: CALENDAR (Previously Recurring) -->
         <div class="page" id="page-recurring">
           <div style="margin-bottom:24px;" class="reveal">
-            <div class="section-label">Financial Timeline</div>
+            <div class="section-label">Calendar</div>
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
               <div>
-                <h1 class="section-title" style="margin:0">Interactive Calendar</h1>
-                <p style="font-size:12px; color:var(--text-3); margin-top:4px;">Map your liabilities and paydays across a chronological horizon.</p>
+                <h1 class="section-title" style="margin:0">Your payment calendar</h1>
+                <p style="font-size:12px; color:var(--text-3); margin-top:4px;">See every bill, every payday, and your debt-free date at a glance.</p>
               </div>
               <div style="display:flex; gap:12px;">
                 <button id="btn-rec-filter" class="btn btn-ghost" style="padding:10px 16px;"><i class="ph ph-calendar-check"></i> Filter</button>
@@ -2456,7 +2573,7 @@
         <div class="page" id="page-advisor">
            
            <div style="margin-bottom:32px;" class="reveal">
-             <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em; margin-bottom:8px;">ADVANCED DEBT INSIGHTS</div>
+             <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em; margin-bottom:8px;">AI coach</div>
              <h1 style="font-size:40px; font-weight:900; margin-bottom:16px;">AI Advisor</h1>
              <p style="font-size:14px; color:var(--text-3); max-width:650px; line-height:1.6;">Your architectural debt strategy, refined through real-time market analysis and liquidity forecasting.</p>
            </div>
@@ -2574,8 +2691,8 @@
         <!-- PAGE: ACTIVITY LOG -->
         <div class="page" id="page-activity">
            <div style="margin-bottom:32px;" class="reveal">
-             <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em; margin-bottom:8px;">AUDIT TRAIL & NOTIFICATIONS</div>
-             <h1 style="font-size:32px; font-weight:900; margin-bottom:12px;">Full Activity History</h1>
+             <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em; margin-bottom:8px;">Activity log</div>
+             <h1 style="font-size:32px; font-weight:900; margin-bottom:12px;">Activity log</h1>
              <p style="font-size:12px; color:var(--text-3); max-width:600px; line-height:1.6;">A chronological record of every AI insight, strategy adjustment, and system alert generated for your account.</p>
            </div>
            
@@ -2892,7 +3009,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px;">
                   <div>
                     <h3 style="font-size:18px; font-weight:800; letter-spacing:-0.02em;">Expense Dynamics</h3>
-                    <div class="card-sub" style="font-size:10px;">Monthly Allocation & Wealth Leakage</div>
+                    <div class="card-sub" style="font-size:10px;">Where your money goes each month</div>
                   </div>
                   <div class="icon-btn" id="btn-open-budget-matrix" style="width:32px; height:32px; background:var(--card-2); cursor:pointer;"><i class="ph ph-sliders"></i></div>
                 </div>
@@ -3119,8 +3236,8 @@
         <div class="page" id="page-activity">
           <div class="dash-header reveal">
             <div>
-              <div class="section-label">Audit & Compliance</div>
-              <h1 class="section-title">Global Activity</h1>
+              <div class="section-label">Activity log</div>
+              <h1 class="section-title">Activity log</h1>
             </div>
           </div>
           <div class="reveal reveal-1" style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px;">
@@ -3129,8 +3246,8 @@
                    <tr>
                       <th>Timestamp (Local)</th>
                       <th>System Event</th>
-                      <th>Platform Protocol</th>
-                      <th>Node Status</th>
+                      <th>Source</th>
+                      <th>Status</th>
                    </tr>
                 </thead>
                 <tbody id="activity-log-body">
@@ -4116,8 +4233,8 @@
                   <i class="ph ph-brain" style="color:#00d4a8; font-size:15px;"></i>
                 </div>
                 <div style="flex:1;">
-                  <div style="font-size:11px; font-weight:700; color:#f0f4ff;">AI Strategy Advisor</div>
-                  <div style="font-size:9px; color:rgba(255,255,255,0.35); letter-spacing:0.3px;">EVERGREEN ALGORITHM V2.4</div>
+                  <div style="font-size:11px; font-weight:700; color:#f0f4ff;">AI Advisor</div>
+                  <div style="font-size:9px; color:rgba(255,255,255,0.35); letter-spacing:0.3px;">POWERED BY AI</div>
                 </div>
                 <div style="background:rgba(0,212,168,0.15); color:#00d4a8; font-size:9px; font-weight:700; padding:2px 8px; border-radius:100px;">ACTIVE</div>
               </div>
@@ -4620,7 +4737,7 @@
 </div>
 
 
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

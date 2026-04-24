@@ -327,11 +327,13 @@ function recordScoreHistory(newScore) {
 
 /* ---------- SPA ROUTER ---------- */
 const titles = {
-    'dashboard': 'Financial Strategy',
-    'debts': 'WJP Strategy Sanctuary',
-    'recurring': 'Portfolio Analysis Hub',
-    'advisor': 'AI Strategic Analysis',
-    'settings': 'Account Settings'
+    'dashboard': 'Your Dashboard',
+    'debts': 'Your Debts',
+    'recurring': 'Calendar',
+    'advisor': 'AI Advisor',
+    'activity': 'Activity',
+    'budgets': 'Budget',
+    'settings': 'Settings'
 };
 
 function navigateSPA(target) {
@@ -2484,7 +2486,7 @@ function updateUI() {
             if (dfdHero) dfdHero.classList.add('empty');
             dfdEyebrow.textContent = 'You\'ll be debt-free on';
             dfdDate.textContent = '—';
-            dfdMeta.innerHTML = 'Add your first debt and we\'ll show you <strong>the exact date</strong> you\'ll pay off the last balance.';
+            dfdMeta.innerHTML = 'Add your first debt and we\'ll show you <strong>the exact date</strong> you\'ll pay off the last balance. <button type="button" onclick="window.wjpShowOnboarding && window.wjpShowOnboarding()" style="background:linear-gradient(135deg,#1f7a4a,#2b9b72);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;margin-left:4px;font-family:inherit;">Start setup →</button>';
         } else if (!hasMins) {
             if (dfdHero) dfdHero.classList.add('empty');
             dfdEyebrow.textContent = 'You\'ll be debt-free on';
@@ -13067,3 +13069,263 @@ window.addEventListener('pageshow', (e) => {
     }
   }
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  FIRST-RUN ONBOARDING (#ob-overlay)
+//  Shows on first app visit with no debts. Walks user through
+//  picking debt types, entering balances, income, then reveals
+//  their personalized debt-free date.
+// ══════════════════════════════════════════════════════════════
+(function(){
+  'use strict';
+  const STORAGE_KEY = 'wjp_onboarded';
+  const TYPE_LABELS = {
+    credit_card: 'Credit card',
+    student_loan: 'Student loan',
+    auto: 'Auto loan',
+    mortgage: 'Mortgage',
+    personal: 'Personal loan',
+    medical: 'Medical debt',
+    other: 'Other debt'
+  };
+  const TYPE_ICONS = {
+    credit_card: '💳', student_loan: '🎓', auto: '🚗',
+    mortgage: '🏠', personal: '👤', medical: '🏥', other: '💼'
+  };
+
+  let selectedTypes = new Set();
+  let debtEntries = []; // [{type, name, balance, minPayment, apr}, ...]
+
+  function $(id){ return document.getElementById(id); }
+
+  function showOnboarding(){
+    const ov = $('ob-overlay');
+    if (!ov) return;
+    ov.style.display = 'flex';
+    gotoStep(0);
+    // Lock body scroll
+    document.body.style.overflow = 'hidden';
+    try { window.wjp && wjp.track && wjp.track('tab_viewed', { tab: 'onboarding_started' }); } catch(_){}
+  }
+  function hideOnboarding(){
+    const ov = $('ob-overlay');
+    if (!ov) return;
+    ov.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  function gotoStep(n){
+    document.querySelectorAll('#ob-overlay .ob-step').forEach(s => s.classList.remove('active'));
+    const step = document.querySelector('#ob-overlay .ob-step[data-step="' + n + '"]');
+    if (step) step.classList.add('active');
+    document.querySelectorAll('#ob-overlay .ob-dot').forEach((d, i) => {
+      d.classList.remove('active', 'done');
+      if (i < n) d.classList.add('done');
+      else if (i === n) d.classList.add('active');
+    });
+    // Side effects per step
+    if (n === 2) renderDebtDetails();
+    if (n === 4) computeReveal();
+  }
+
+  function renderDebtDetails(){
+    const list = $('ob-details-list');
+    if (!list) return;
+    // Start with an empty entry per selected type if not yet created
+    debtEntries = Array.from(selectedTypes).map(type => {
+      const existing = debtEntries.find(d => d.type === type);
+      return existing || {
+        type,
+        name: TYPE_LABELS[type] || 'Debt',
+        balance: '',
+        minPayment: '',
+        apr: ''
+      };
+    });
+    list.innerHTML = debtEntries.map((d, idx) => `
+      <div class="ob-debt-row">
+        <div class="ob-debt-row-head">
+          <strong>${TYPE_ICONS[d.type] || '💼'} ${escapeHtml(TYPE_LABELS[d.type] || 'Debt')}</strong>
+        </div>
+        <div class="ob-debt-row-fields">
+          <div class="ob-field">
+            <label>Name</label>
+            <input data-idx="${idx}" data-k="name" value="${escapeHtml(d.name)}" placeholder="e.g. Chase Sapphire">
+          </div>
+          <div class="ob-field">
+            <label>Balance</label>
+            <input data-idx="${idx}" data-k="balance" type="number" value="${d.balance}" placeholder="0" inputmode="decimal">
+          </div>
+          <div class="ob-field">
+            <label>Min / mo</label>
+            <input data-idx="${idx}" data-k="minPayment" type="number" value="${d.minPayment}" placeholder="0" inputmode="decimal">
+          </div>
+          <div class="ob-field">
+            <label>APR %</label>
+            <input data-idx="${idx}" data-k="apr" type="number" value="${d.apr}" placeholder="0.0" inputmode="decimal" step="0.1">
+          </div>
+        </div>
+      </div>
+    `).join('');
+    // Wire inputs
+    list.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+        const k = e.target.getAttribute('data-k');
+        const v = e.target.value;
+        if (!debtEntries[idx]) return;
+        debtEntries[idx][k] = (k === 'name') ? v : v; // keep string while typing
+        updateDetailsNext();
+      });
+    });
+    updateDetailsNext();
+  }
+  function updateDetailsNext(){
+    const btn = $('ob-details-next');
+    if (!btn) return;
+    // Must have at least one valid entry with balance + min + apr
+    const valid = debtEntries.some(d =>
+      parseFloat(d.balance) > 0 && parseFloat(d.minPayment) > 0 && parseFloat(d.apr) >= 0
+    );
+    btn.disabled = !valid;
+    btn.style.opacity = valid ? '1' : '0.5';
+    btn.style.pointerEvents = valid ? '' : 'none';
+  }
+
+  function commitEntries(){
+    // Convert entries into appState.debts
+    const valid = debtEntries
+      .filter(d => parseFloat(d.balance) > 0 && parseFloat(d.minPayment) > 0)
+      .map(d => ({
+        id: 'ob-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+        name: d.name || TYPE_LABELS[d.type] || 'Debt',
+        balance: parseFloat(d.balance) || 0,
+        minPayment: parseFloat(d.minPayment) || 0,
+        apr: parseFloat(d.apr) || 0,
+        type: d.type,
+        dueDate: 15
+      }));
+    if (typeof appState !== 'undefined' && Array.isArray(appState.debts)) {
+      valid.forEach(d => appState.debts.push(d));
+    }
+    // Income
+    const incomeVal = parseFloat($('ob-income-input') && $('ob-income-input').value) || 0;
+    if (incomeVal > 0 && typeof appState !== 'undefined') {
+      appState.balances = appState.balances || {};
+      appState.balances.monthlyIncome = incomeVal;
+    }
+    // Persist
+    try { if (typeof saveState === 'function') saveState(); } catch(_){}
+  }
+
+  function computeReveal(){
+    commitEntries();
+    // Render overall stats
+    const dateEl = $('ob-reveal-date');
+    const metaEl = $('ob-reveal-meta');
+    const statsEl = $('ob-reveal-stats');
+    if (!dateEl) return;
+    try {
+      const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+      const stats = (typeof calcSimTotals === 'function') ? calcSimTotals(strategy, 0, 0, 0) : null;
+      const totalDebt = (appState.debts || []).reduce((s,d) => s + (d.balance || 0), 0);
+      const fmtUsd = n => '$' + Math.round(n).toLocaleString();
+      if (stats && stats.months > 0 && stats.months < 600) {
+        const payoff = new Date();
+        payoff.setMonth(payoff.getMonth() + stats.months);
+        const dateStr = payoff.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+        dateEl.textContent = dateStr;
+        const years = Math.floor(stats.months/12);
+        const months = stats.months % 12;
+        const timeText = years > 0
+          ? `${years} year${years===1?'':'s'}${months ? ', ' + months + ' month' + (months===1?'':'s') : ''}`
+          : `${stats.months} month${stats.months===1?'':'s'}`;
+        metaEl.innerHTML = `Starting from <strong>${fmtUsd(totalDebt)}</strong> across <strong>${appState.debts.length} debt${appState.debts.length===1?'':'s'}</strong>, following the <strong>${strategy}</strong> method.`;
+        statsEl.innerHTML = `
+          <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Time to freedom</div><div class="ob-reveal-stat-val">${timeText}</div></div>
+          <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Total interest</div><div class="ob-reveal-stat-val">${fmtUsd(stats.totalInterest)}</div></div>
+          <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Monthly min</div><div class="ob-reveal-stat-val">${fmtUsd((appState.debts||[]).reduce((s,d)=>s+(d.minPayment||0),0))}</div></div>
+        `;
+      } else {
+        dateEl.textContent = 'Not yet';
+        metaEl.innerHTML = 'At the minimums you entered, the balance isn\'t decreasing fast enough. <strong>Try adding extra payment</strong> in the dashboard.';
+        statsEl.innerHTML = '';
+      }
+    } catch (e) {
+      console.warn('onboarding reveal failed', e);
+      dateEl.textContent = '—';
+      metaEl.textContent = 'We saved your debts. Open the dashboard to see your plan.';
+    }
+    try { window.wjp && wjp.track && wjp.track('tab_viewed', { tab: 'onboarding_completed' }); } catch(_){}
+  }
+
+  function finishOnboarding(){
+    try { localStorage.setItem(STORAGE_KEY, '1'); } catch(_){}
+    hideOnboarding();
+    // Trigger a full render so dashboard picks up new data
+    try { if (typeof updateAllUI === 'function') updateAllUI(); } catch(_){}
+    try { if (typeof updateDashboard === 'function') updateDashboard(); } catch(_){}
+    try { if (typeof renderMainCalendar === 'function') renderMainCalendar(); } catch(_){}
+    // Ensure we're on the dashboard
+    try { if (typeof navigateSPA === 'function') navigateSPA('dashboard'); } catch(_){}
+  }
+
+  function skipOnboarding(){
+    try { localStorage.setItem(STORAGE_KEY, 'skipped'); } catch(_){}
+    hideOnboarding();
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[ch]));
+  }
+
+  function wire(){
+    // Type picker
+    document.querySelectorAll('#ob-overlay .ob-type').forEach(b => {
+      b.addEventListener('click', () => {
+        const t = b.getAttribute('data-type');
+        if (selectedTypes.has(t)) { selectedTypes.delete(t); b.classList.remove('selected'); }
+        else { selectedTypes.add(t); b.classList.add('selected'); }
+        const next = $('ob-types-next');
+        if (next) next.disabled = selectedTypes.size === 0;
+      });
+    });
+    // Step nav buttons
+    document.querySelectorAll('#ob-overlay .ob-next, #ob-overlay .ob-back').forEach(b => {
+      b.addEventListener('click', () => {
+        const n = parseInt(b.getAttribute('data-go'), 10);
+        if (!isNaN(n)) gotoStep(n);
+      });
+    });
+    // Skip + finish
+    const skipBtn = $('ob-skip');
+    if (skipBtn) skipBtn.addEventListener('click', skipOnboarding);
+    const finishBtn = $('ob-finish-btn');
+    if (finishBtn) finishBtn.addEventListener('click', finishOnboarding);
+  }
+
+  function maybeShow(){
+    try {
+      const done = localStorage.getItem(STORAGE_KEY);
+      if (done === '1') return; // completed
+      // Only show when authenticated app is visible
+      if (typeof appState === 'undefined') return;
+      const noDebts = !appState.debts || appState.debts.length === 0;
+      if (!noDebts) return;
+      // Wait a tick for DOM + auth to settle
+      setTimeout(showOnboarding, 400);
+    } catch(_) {}
+  }
+
+  // Expose for the dashboard empty-state CTA
+  window.wjpShowOnboarding = showOnboarding;
+
+  // Boot
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { wire(); maybeShow(); });
+  } else {
+    wire(); maybeShow();
+  }
+})();

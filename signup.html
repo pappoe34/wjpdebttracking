@@ -298,6 +298,14 @@
 
         <button class="pill" type="submit" id="submit-btn">Start free →</button>
 
+        <!-- Plaid trust reassurance — anticipates the "will this steal my bank data" objection -->
+        <div class="plaid-trust-row" aria-label="Secured by Plaid">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#1f7a4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Bank linking powered by <b>Plaid</b> · the same infrastructure used by Venmo, Robinhood, and Chime. <b>We never see your bank login.</b></span>
+        </div>
+
         <div class="swap">Already have an account?<a href="./signin.html">Sign in</a></div>
         <p class="terms">
           By creating an account, you agree to our
@@ -305,6 +313,18 @@
           Limited time offer during beta.
         </p>
       </form>
+      <style>
+        .plaid-trust-row{
+          display:flex; align-items:flex-start; gap:8px;
+          margin-top:14px; padding:10px 12px;
+          background:rgba(31,122,74,0.06);
+          border:1px solid rgba(31,122,74,0.14);
+          border-radius:10px;
+          font-size:11.5px; line-height:1.5; color:var(--ink, #0b0f1a);
+        }
+        .plaid-trust-row svg{ flex-shrink:0; margin-top:2px; }
+        .plaid-trust-row b{ color:#1f7a4a; }
+      </style>
     </section>
 
     <!-- RIGHT: warm promise + preview card -->

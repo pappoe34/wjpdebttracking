@@ -5227,3 +5227,221 @@ body.dark .top-header{
   .dfd-labels { flex-wrap: wrap !important; gap: 8px !important; font-size: 10px !important; }
   .dfd-strategy { order: 3; flex: 0 0 100%; }
 }
+
+/* ============================================================
+   FIRST-RUN ONBOARDING (#ob-overlay)
+   Full-viewport takeover that guides a brand-new user from
+   signup → seeing their debt-free date in ~60 seconds.
+   ============================================================ */
+#ob-overlay{
+  position:fixed; inset:0; z-index:2147482500;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+#ob-overlay .ob-backdrop{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(140% 100% at 20% 20%, rgba(31,122,74,0.22), transparent 65%),
+    radial-gradient(140% 100% at 80% 80%, rgba(201,154,42,0.18), transparent 65%),
+    rgba(10,14,22,0.94);
+  backdrop-filter:blur(12px) saturate(140%);
+  -webkit-backdrop-filter:blur(12px) saturate(140%);
+}
+#ob-overlay .ob-card{
+  position:relative;
+  width:min(640px, 100%);
+  max-height:92vh;
+  overflow-y:auto;
+  background:rgba(255,255,255,0.98);
+  border:1px solid rgba(31,122,74,0.18);
+  border-radius:24px;
+  padding:40px 44px 32px;
+  box-shadow:0 30px 80px rgba(0,0,0,0.35);
+  color:#0b0f1a;
+}
+.ob-skip{
+  position:absolute; top:14px; right:16px;
+  background:transparent; border:0; color:#6b7280;
+  font-family:inherit; font-size:11.5px; font-weight:600;
+  cursor:pointer; padding:6px 10px; border-radius:6px;
+}
+.ob-skip:hover{ color:#0b0f1a; background:#f0f1f4; }
+
+/* Progress dots */
+.ob-dots{
+  display:flex; gap:8px; justify-content:center; margin-bottom:28px;
+}
+.ob-dots .ob-dot{
+  width:7px; height:7px; border-radius:50%;
+  background:#e5e7eb; transition:all 0.3s;
+}
+.ob-dots .ob-dot.active{ background:#1f7a4a; }
+.ob-dots .ob-dot.done{ background:#2b9b72; opacity:0.6; }
+
+/* Steps */
+.ob-step{ display:none; animation:obFade 0.35s cubic-bezier(0.16,1,0.3,1); }
+.ob-step.active{ display:block; }
+@keyframes obFade{
+  from{opacity:0; transform:translateY(8px)}
+  to{opacity:1; transform:translateY(0)}
+}
+
+.ob-eyebrow{
+  font-size:10.5px; font-weight:700;
+  color:#1f7a4a; letter-spacing:0.16em; text-transform:uppercase;
+  margin-bottom:10px;
+}
+.ob-h2{
+  font-family:'Inter', system-ui, sans-serif;
+  font-weight:800; font-size:clamp(26px, 4.2vw, 34px);
+  line-height:1.1; letter-spacing:-0.025em;
+  color:#0b0f1a; margin:0 0 14px;
+}
+.ob-h2 em{
+  font-style:normal;
+  background:linear-gradient(135deg, #1f7a4a, #c99a2a);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.ob-lede{
+  font-size:14.5px; line-height:1.55;
+  color:#6b7280; margin:0 0 26px;
+}
+.ob-cta{
+  display:flex; gap:10px; justify-content:flex-end;
+  margin-top:24px; flex-wrap:wrap;
+}
+.ob-cta .btn{ min-width:120px; justify-content:center; }
+
+/* Step 1: type picker grid */
+.ob-types{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+  gap:10px; margin-bottom:8px;
+}
+.ob-type{
+  background:#f6f8fb; border:2px solid transparent;
+  border-radius:14px; padding:18px 10px 14px;
+  cursor:pointer; font-family:inherit;
+  text-align:center;
+  transition:all 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+.ob-type:hover{ background:#eef2f6; transform:translateY(-1px); }
+.ob-type.selected{
+  background:linear-gradient(135deg, rgba(31,122,74,0.10), rgba(201,154,42,0.08));
+  border-color:#1f7a4a;
+  box-shadow:0 6px 14px rgba(31,122,74,0.14);
+}
+.ob-type-icon{ font-size:28px; margin-bottom:6px; line-height:1; }
+.ob-type-label{ font-size:12px; font-weight:700; color:#0b0f1a; }
+
+/* Step 2: per-debt form rows */
+#ob-details-list{
+  display:flex; flex-direction:column; gap:14px;
+  max-height:50vh; overflow-y:auto; padding:2px;
+  margin:0 -2px 8px;
+}
+.ob-debt-row{
+  background:#f6f8fb; border:1px solid #e5e7eb;
+  border-radius:14px; padding:16px;
+}
+.ob-debt-row-head{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:12px;
+}
+.ob-debt-row-head strong{
+  font-size:14px; font-weight:700; color:#0b0f1a;
+  display:flex; align-items:center; gap:8px;
+}
+.ob-debt-row-fields{
+  display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:8px;
+}
+.ob-field{
+  display:flex; flex-direction:column; gap:4px;
+}
+.ob-field label{
+  font-size:10px; font-weight:700; color:#6b7280;
+  text-transform:uppercase; letter-spacing:0.06em;
+}
+.ob-field input{
+  background:#fff; border:1px solid #e5e7eb; border-radius:8px;
+  padding:8px 10px; font-size:13px; font-family:inherit; color:#0b0f1a;
+  outline:none; transition:border-color 0.15s;
+  width:100%;
+}
+.ob-field input:focus{ border-color:#1f7a4a; }
+
+/* Step 3: income input */
+.ob-income{
+  display:flex; align-items:center; gap:8px;
+  background:#f6f8fb; border:2px solid #e5e7eb; border-radius:14px;
+  padding:18px 20px;
+  transition:border-color 0.2s;
+}
+.ob-income:focus-within{ border-color:#1f7a4a; }
+.ob-dollar{ font-size:28px; font-weight:800; color:#6b7280; }
+#ob-income-input{
+  flex:1; background:transparent; border:0; outline:none;
+  font-family:inherit; font-size:32px; font-weight:800; color:#0b0f1a;
+  letter-spacing:-0.02em; min-width:0;
+}
+.ob-income-suffix{ font-size:14px; color:#6b7280; font-weight:500; }
+
+/* Step 4: reveal */
+.ob-reveal-date-eyebrow{
+  font-size:14px; color:#6b7280; font-weight:500;
+  margin:10px 0 4px;
+}
+.ob-reveal-date{
+  font-family:'Inter', system-ui, sans-serif;
+  font-weight:800; font-size:clamp(36px, 6vw, 56px);
+  line-height:1.05; letter-spacing:-0.03em;
+  background:linear-gradient(135deg, #1f7a4a 0%, #2b9b72 45%, #c99a2a 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:10px;
+  animation:obRevealPulse 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes obRevealPulse{
+  0%   { transform:scale(0.94); opacity:0; }
+  60%  { transform:scale(1.03); opacity:1; }
+  100% { transform:scale(1); opacity:1; }
+}
+.ob-reveal-meta{
+  font-size:13px; color:#6b7280; line-height:1.5; margin-bottom:20px;
+}
+.ob-reveal-stats{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;
+  margin-bottom:20px;
+}
+.ob-reveal-stat{
+  background:#f6f8fb; border-radius:12px; padding:14px;
+  text-align:center;
+}
+.ob-reveal-stat-label{
+  font-size:9.5px; font-weight:700; color:#6b7280;
+  text-transform:uppercase; letter-spacing:0.08em;
+  margin-bottom:4px;
+}
+.ob-reveal-stat-val{
+  font-size:18px; font-weight:800; color:#0b0f1a;
+  letter-spacing:-0.01em;
+}
+.ob-reveal-copy{
+  font-size:13px; line-height:1.55; color:#6b7280;
+  margin:0 0 10px;
+}
+
+/* Mobile — full-screen takeover, tighter spacing */
+@media (max-width:560px){
+  #ob-overlay{ padding:0; }
+  #ob-overlay .ob-card{
+    width:100%; height:100%; max-height:100vh;
+    border-radius:0; padding:64px 20px 32px;
+  }
+  .ob-skip{ top:18px; right:16px; }
+  .ob-h2{ font-size:24px; }
+  .ob-debt-row-fields{ grid-template-columns:1fr 1fr; }
+  .ob-reveal-stats{ grid-template-columns:1fr; }
+  .ob-cta{ flex-direction:column-reverse; }
+  .ob-cta .btn{ width:100%; }
+}
