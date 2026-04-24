@@ -4,6 +4,37 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>WJP Budgetting — Debt-free is a date on your calendar.</title>
+
+<!-- Auto-redirect signed-in users straight to their dashboard.
+     Runs BEFORE any render so there's no landing flash for returning users.
+     Checks Firebase's IndexedDB for an active auth session without loading
+     the Firebase SDK (fast, non-blocking for new visitors).
+     Escape hatch: add ?stay=1 or #stay to the URL to see the landing anyway
+     (e.g., if you want to show it to someone else while signed in). -->
+<script>
+(function(){
+  try {
+    if (location.hash === '#stay' || location.search.indexOf('stay=1') >= 0) return;
+    if (!window.indexedDB) return;
+    var req = indexedDB.open('firebaseLocalStorageDb');
+    req.onsuccess = function(e){
+      try {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains('firebaseLocalStorage')) return;
+        var tx = db.transaction('firebaseLocalStorage', 'readonly');
+        var store = tx.objectStore('firebaseLocalStorage');
+        var getAll = store.getAll();
+        getAll.onsuccess = function(){
+          var rec = (getAll.result || []).find(function(r){
+            return r && r.fbase_key && r.fbase_key.indexOf('firebase:authUser:') === 0;
+          });
+          if (rec) { window.location.replace('/index.html'); }
+        };
+      } catch(_){}
+    };
+  } catch(_){}
+})();
+</script>
 <meta name="description" content="WJP is your private debt strategist. Link your accounts, engineer a payoff plan, and hold yourself accountable — until the last balance hits zero. Bank-level security. No credit card required." />
 <link rel="canonical" href="https://wjpdebttracking.com/">
 
