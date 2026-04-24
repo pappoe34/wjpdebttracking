@@ -293,6 +293,107 @@ html, body {
 .locked { text-align: center; padding: 96px 24px; color: #6b7280; }
 .locked h2 { color: #0b0f1a; font-size: 20px; font-weight: 800; }
 
+/* TABS */
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.tabs button {
+  background: transparent; border: 0; border-bottom: 2px solid transparent;
+  padding: 10px 16px; font-size: 13px; font-weight: 600;
+  color: #6b7280; cursor: pointer; font-family: inherit;
+  margin-bottom: -1px;
+}
+.tabs button.active {
+  color: #1f7a4a; border-bottom-color: #1f7a4a;
+  font-weight: 700;
+}
+.tabs button:hover:not(.active) { color: #0b0f1a; }
+.tab-section { display: none; }
+.tab-section.active { display: block; }
+
+/* REVENUE-SPECIFIC */
+.banner-info {
+  background: linear-gradient(135deg, rgba(31,122,74,0.05), rgba(201,154,42,0.05));
+  border: 1px solid rgba(31,122,74,0.15);
+  border-radius: 12px; padding: 14px 18px;
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-bottom: 24px;
+}
+.banner-info .icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #1f7a4a, #2b9b72);
+  color: #fff; display: grid; place-items: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.banner-info .title {
+  font-size: 13px; font-weight: 800; color: #0b0f1a; margin-bottom: 2px;
+}
+.banner-info .msg {
+  font-size: 12px; color: #6b7280; line-height: 1.5;
+}
+
+.cohort-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 11px;
+}
+.cohort-table th, .cohort-table td {
+  padding: 8px 6px; text-align: center;
+  border: 1px solid #f0f1f4;
+  font-variant-numeric: tabular-nums;
+}
+.cohort-table th {
+  background: #f6f8fb; color: #6b7280; font-weight: 700;
+  text-align: left; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cohort-table th:first-child { width: 110px; }
+.cohort-table td.cohort-cell {
+  font-weight: 600;
+  position: relative;
+}
+.cohort-table td[data-pct="0"]   { background: #f6f8fb; color: #9ca3af; }
+.cohort-table td[data-pct="1"]   { background: rgba(31,122,74,0.08); }
+.cohort-table td[data-pct="2"]   { background: rgba(31,122,74,0.18); }
+.cohort-table td[data-pct="3"]   { background: rgba(31,122,74,0.32); }
+.cohort-table td[data-pct="4"]   { background: rgba(31,122,74,0.50); color: #fff; }
+.cohort-table td[data-pct="5"]   { background: #1f7a4a; color: #fff; }
+.cohort-table td.initial { background: #fff; font-weight: 700; color: #0b0f1a; }
+
+.sub-row {
+  display: flex; gap: 12px; align-items: center;
+  padding: 10px 4px; border-bottom: 1px solid #f4f5f8;
+  font-size: 12px;
+}
+.sub-row:last-child { border-bottom: 0; }
+.sub-row .avatar {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(135deg, #1f7a4a, #2b9b72);
+  color: #fff; display: grid; place-items: center;
+  font-weight: 800; font-size: 11px; flex-shrink: 0;
+}
+.sub-row .who { flex: 1; min-width: 0; }
+.sub-row .email {
+  font-weight: 600; color: #0b0f1a;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sub-row .meta {
+  font-size: 10.5px; color: #6b7280; margin-top: 2px;
+}
+.sub-row .plan {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 4px;
+  background: rgba(31,122,74,0.08); color: #1f7a4a;
+  flex-shrink: 0;
+}
+.sub-row .plan.churned { background: rgba(239,68,68,0.08); color: #ef4444; }
+.sub-row .plan.trial { background: rgba(201,154,42,0.10); color: #c99a2a; }
+.sub-row .amount {
+  font-weight: 700; color: #0b0f1a;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
 /* MOBILE */
 @media (max-width: 960px) {
   .kpi-grid { grid-template-columns: repeat(3, 1fr); }
@@ -350,79 +451,202 @@ html, body {
   </div>
   <p class="status-line"><span class="dot"></span> <span id="status-text">Idle</span></p>
 
-  <!-- KPI GRID -->
-  <div class="kpi-grid">
-    <div class="kpi accent"><div class="label">Events</div><div class="val" id="kpi-events">—</div><div class="sub" id="kpi-events-sub">—</div></div>
-    <div class="kpi accent"><div class="label">Visitors</div><div class="val" id="kpi-visitors">—</div><div class="sub" id="kpi-visitors-sub">unique</div></div>
-    <div class="kpi gold"><div class="label">New signups</div><div class="val" id="kpi-signups">—</div><div class="sub" id="kpi-signups-sub">—</div></div>
-    <div class="kpi gold"><div class="label">Conversion</div><div class="val" id="kpi-conv">—</div><div class="sub">visit → sign up</div></div>
-    <div class="kpi"><div class="label">Plaid success</div><div class="val" id="kpi-plaid">—</div><div class="sub" id="kpi-plaid-sub">—</div></div>
-    <div class="kpi alert"><div class="label">Errors</div><div class="val" id="kpi-errors">—</div><div class="sub" id="kpi-errors-sub">—</div></div>
+  <!-- TAB NAV -->
+  <div class="tabs">
+    <button data-tab="analytics" class="active" type="button">Analytics</button>
+    <button data-tab="revenue"   type="button">Revenue &amp; Growth</button>
+    <button data-tab="tax"       type="button">Taxes</button>
+    <button data-tab="users"     type="button">Users</button>
   </div>
 
-  <!-- TIME SERIES CHART + FUNNEL -->
-  <div class="panels-row chart-main">
-    <div class="panel">
-      <h2>Events over time</h2>
-      <div class="panel-sub">Daily activity grouped by category</div>
-      <div class="chart-wrap"><canvas id="chart-timeseries"></canvas></div>
+  <!-- ================== ANALYTICS TAB ================== -->
+  <section id="tab-analytics" class="tab-section active">
+    <!-- KPI GRID -->
+    <div class="kpi-grid">
+      <div class="kpi accent"><div class="label">Events</div><div class="val" id="kpi-events">—</div><div class="sub" id="kpi-events-sub">—</div></div>
+      <div class="kpi accent"><div class="label">Visitors</div><div class="val" id="kpi-visitors">—</div><div class="sub" id="kpi-visitors-sub">unique</div></div>
+      <div class="kpi gold"><div class="label">New signups</div><div class="val" id="kpi-signups">—</div><div class="sub" id="kpi-signups-sub">—</div></div>
+      <div class="kpi gold"><div class="label">Conversion</div><div class="val" id="kpi-conv">—</div><div class="sub">visit → sign up</div></div>
+      <div class="kpi"><div class="label">Plaid success</div><div class="val" id="kpi-plaid">—</div><div class="sub" id="kpi-plaid-sub">—</div></div>
+      <div class="kpi alert"><div class="label">Errors</div><div class="val" id="kpi-errors">—</div><div class="sub" id="kpi-errors-sub">—</div></div>
     </div>
-    <div class="panel">
-      <h2>Signup funnel</h2>
-      <div class="panel-sub">Where people drop off</div>
-      <div id="funnel-body">—</div>
-    </div>
-  </div>
 
-  <!-- TOP LISTS -->
-  <div class="panels-row cols-3">
-    <div class="panel">
-      <h2>Top events <span class="count" id="events-count">0</span></h2>
-      <div id="events-body"></div>
+    <div class="panels-row chart-main">
+      <div class="panel">
+        <h2>Events over time</h2>
+        <div class="panel-sub">Daily activity grouped by category</div>
+        <div class="chart-wrap"><canvas id="chart-timeseries"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Signup funnel</h2>
+        <div class="panel-sub">Where people drop off</div>
+        <div id="funnel-body">—</div>
+      </div>
     </div>
-    <div class="panel">
-      <h2>Top pages <span class="count" id="pages-count">0</span></h2>
-      <div id="pages-body"></div>
-    </div>
-    <div class="panel">
-      <h2>Top referrers <span class="count" id="refs-count">0</span></h2>
-      <div id="refs-body"></div>
-    </div>
-  </div>
 
-  <!-- TABS + HEATMAP + DEVICES -->
-  <div class="panels-row cols-3">
-    <div class="panel">
-      <h2>In-app tabs</h2>
-      <div class="panel-sub">Where signed-in users spend time</div>
-      <div id="tabs-body"></div>
+    <div class="panels-row cols-3">
+      <div class="panel"><h2>Top events <span class="count" id="events-count">0</span></h2><div id="events-body"></div></div>
+      <div class="panel"><h2>Top pages <span class="count" id="pages-count">0</span></h2><div id="pages-body"></div></div>
+      <div class="panel"><h2>Top referrers <span class="count" id="refs-count">0</span></h2><div id="refs-body"></div></div>
     </div>
-    <div class="panel">
-      <h2>Hour of day</h2>
-      <div class="panel-sub">When events happen (0 = midnight)</div>
-      <div class="heatmap" id="heatmap"></div>
-      <div class="heatmap-labels"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
-    </div>
-    <div class="panel">
-      <h2>Devices</h2>
-      <div class="panel-sub">Parsed from user agents</div>
-      <div id="devices-body"></div>
-    </div>
-  </div>
 
-  <!-- LIVE FEED + ERRORS -->
-  <div class="panels-row cols-2">
-    <div class="panel">
-      <h2>Live event feed <span class="count" id="feed-count">0</span></h2>
-      <div class="panel-sub">Most recent events, newest first</div>
-      <div class="event-feed" id="feed-body"></div>
+    <div class="panels-row cols-3">
+      <div class="panel">
+        <h2>In-app tabs</h2>
+        <div class="panel-sub">Where signed-in users spend time</div>
+        <div id="tabs-body"></div>
+      </div>
+      <div class="panel">
+        <h2>Hour of day</h2>
+        <div class="panel-sub">When events happen (0 = midnight)</div>
+        <div class="heatmap" id="heatmap"></div>
+        <div class="heatmap-labels"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+      </div>
+      <div class="panel">
+        <h2>Devices</h2>
+        <div class="panel-sub">Parsed from user agents</div>
+        <div id="devices-body"></div>
+      </div>
     </div>
-    <div class="panel">
-      <h2>Recent errors <span class="count" id="err-count">0</span></h2>
-      <div class="panel-sub">Client errors + Plaid link failures</div>
-      <div id="errors-body"></div>
+
+    <div class="panels-row cols-2">
+      <div class="panel">
+        <h2>Live event feed <span class="count" id="feed-count">0</span></h2>
+        <div class="panel-sub">Most recent events, newest first</div>
+        <div class="event-feed" id="feed-body"></div>
+      </div>
+      <div class="panel">
+        <h2>Recent errors <span class="count" id="err-count">0</span></h2>
+        <div class="panel-sub">Client errors + Plaid link failures</div>
+        <div id="errors-body"></div>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- ================== REVENUE & GROWTH TAB ================== -->
+  <section id="tab-revenue" class="tab-section">
+    <div class="banner-info">
+      <div class="icon">$</div>
+      <div>
+        <div class="title">Analytics-only mode · Stripe not yet connected</div>
+        <div class="msg">Subscription data below is derived from <code>trial_started</code>, <code>pro_upgraded</code>, and <code>trial_ended</code> events in <code>wjp_events</code>. Once you wire up Stripe, this panel will pull MRR/churn/receivable data directly from billing. Plan pricing assumed: <strong>Pro Monthly $9.99</strong> · <strong>Pro Yearly $79</strong>.</div>
+      </div>
+    </div>
+
+    <!-- REVENUE KPIS -->
+    <div class="kpi-grid">
+      <div class="kpi accent"><div class="label">MRR</div><div class="val" id="kpi-mrr">$0</div><div class="sub" id="kpi-mrr-sub">monthly recurring</div></div>
+      <div class="kpi accent"><div class="label">ARR</div><div class="val" id="kpi-arr">$0</div><div class="sub" id="kpi-arr-sub">annualized</div></div>
+      <div class="kpi gold"><div class="label">Active subs</div><div class="val" id="kpi-active-subs">0</div><div class="sub" id="kpi-active-subs-sub">—</div></div>
+      <div class="kpi gold"><div class="label">Trial → Paid</div><div class="val" id="kpi-trial-conv">—</div><div class="sub" id="kpi-trial-conv-sub">conversion rate</div></div>
+      <div class="kpi alert"><div class="label">Monthly churn</div><div class="val" id="kpi-churn">—</div><div class="sub" id="kpi-churn-sub">last 30 days</div></div>
+      <div class="kpi"><div class="label">ARPU</div><div class="val" id="kpi-arpu">$0</div><div class="sub">per paying user</div></div>
+    </div>
+
+    <div class="panels-row chart-main">
+      <div class="panel">
+        <h2>Revenue over time</h2>
+        <div class="panel-sub">New MRR added per day (from pro_upgraded events)</div>
+        <div class="chart-wrap"><canvas id="chart-revenue"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Trial funnel</h2>
+        <div class="panel-sub">Sign up → trial → paid → retained</div>
+        <div id="trial-funnel">—</div>
+      </div>
+    </div>
+
+    <div class="panels-row cols-2">
+      <div class="panel">
+        <h2>Subscription mix</h2>
+        <div class="panel-sub">Monthly vs Yearly, Active vs Cancelled</div>
+        <div id="sub-mix">—</div>
+      </div>
+      <div class="panel">
+        <h2>Retention cohort</h2>
+        <div class="panel-sub">% of each month's new users still active N months later</div>
+        <div id="cohort-body">—</div>
+      </div>
+    </div>
+
+    <div class="panels-row cols-2">
+      <div class="panel">
+        <h2>Subscribers <span class="count" id="subs-count">0</span></h2>
+        <div class="panel-sub">Individual paying users and their status</div>
+        <div id="subs-body"></div>
+      </div>
+      <div class="panel">
+        <h2>Growth opportunities</h2>
+        <div class="panel-sub">Signals pointing at expansion revenue</div>
+        <div id="growth-body">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== TAXES TAB ================== -->
+  <section id="tab-tax" class="tab-section">
+    <div class="banner-info">
+      <div class="icon">⚖︎</div>
+      <div>
+        <div class="title">Estimates only — not tax advice</div>
+        <div class="msg">These are rough projections based on recorded revenue to help you plan quarterly estimated payments and flag sales-tax nexus. Actual obligations depend on your business entity, state, and CPA's guidance. Confirm with your accountant before filing.</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi accent"><div class="label">Gross revenue</div><div class="val" id="kpi-gross">$0</div><div class="sub" id="kpi-gross-sub">year-to-date</div></div>
+      <div class="kpi gold"><div class="label">Est. federal tax</div><div class="val" id="kpi-fed-tax">$0</div><div class="sub">self-emp ~25%</div></div>
+      <div class="kpi gold"><div class="label">Est. state tax</div><div class="val" id="kpi-state-tax">$0</div><div class="sub">~5% blended</div></div>
+      <div class="kpi"><div class="label">Est. sales tax owed</div><div class="val" id="kpi-sales-tax">$0</div><div class="sub">SaaS-taxable states</div></div>
+      <div class="kpi accent"><div class="label">Net after tax</div><div class="val" id="kpi-net">$0</div><div class="sub">take-home estimate</div></div>
+      <div class="kpi alert"><div class="label">Next Q deadline</div><div class="val" id="kpi-q-deadline" style="font-size:18px;">—</div><div class="sub" id="kpi-q-sub">IRS estimated</div></div>
+    </div>
+
+    <div class="panels-row cols-2">
+      <div class="panel">
+        <h2>Revenue by state (nexus tracker)</h2>
+        <div class="panel-sub">Flag states where you cross the sales-tax threshold</div>
+        <div id="nexus-body">—</div>
+      </div>
+      <div class="panel">
+        <h2>Quarterly revenue</h2>
+        <div class="panel-sub">Track against estimated-tax filing calendar</div>
+        <div id="quarters-body">—</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Deductible expense tracker</h2>
+      <div class="panel-sub">Common SaaS-business deductible categories. Log actual receipts in your accounting tool; these are the categories to watch.</div>
+      <div id="deductions-body">—</div>
+    </div>
+  </section>
+
+  <!-- ================== USERS TAB ================== -->
+  <section id="tab-users" class="tab-section">
+    <div class="banner-info">
+      <div class="icon">👤</div>
+      <div>
+        <div class="title">User activity, derived from events</div>
+        <div class="msg">Each row is a unique user (by <code>uid</code> or <code>anon_id</code>). Event counts reflect activity within the selected range.</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi accent"><div class="label">Total users</div><div class="val" id="kpi-users-total">0</div><div class="sub">in range</div></div>
+      <div class="kpi gold"><div class="label">Signed-up</div><div class="val" id="kpi-users-signed">0</div><div class="sub">have a uid</div></div>
+      <div class="kpi"><div class="label">Anonymous</div><div class="val" id="kpi-users-anon">0</div><div class="sub">visitors only</div></div>
+      <div class="kpi accent"><div class="label">Power users</div><div class="val" id="kpi-power-users">0</div><div class="sub">50+ events</div></div>
+      <div class="kpi gold"><div class="label">Active today</div><div class="val" id="kpi-users-today">0</div><div class="sub">events in 24h</div></div>
+      <div class="kpi alert"><div class="label">Churned</div><div class="val" id="kpi-users-churned">0</div><div class="sub">no event 14+ days</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>All users <span class="count" id="users-count">0</span></h2>
+      <div class="panel-sub">Sorted by last-seen, newest first</div>
+      <div id="users-body"></div>
+    </div>
+  </section>
 
 </div>
 
@@ -494,6 +718,18 @@ html, body {
   let currentRange = 7;
   let lastRows = [];
   let chartInstance = null;
+  let revChartInstance = null;
+
+  // Pricing constants (update when plans change)
+  const PRICE_MONTHLY = 9.99;
+  const PRICE_YEARLY  = 79.00;
+  const YEARLY_MRR_EQ = PRICE_YEARLY / 12;
+  // Effective tax rates — conservative self-employment estimates
+  const FED_TAX_RATE = 0.25;
+  const STATE_TAX_RATE = 0.05;
+
+  // SaaS-taxable states (non-exhaustive; check with CPA before filing)
+  const SAAS_TAX_STATES = new Set(['CT','DC','HI','IA','NM','NY','OH','PA','RI','SC','SD','TN','TX','UT','WA','WV']);
 
   function init() {
     // Range buttons
@@ -503,6 +739,16 @@ html, body {
         b.classList.add('active');
         currentRange = parseInt(b.getAttribute('data-range'), 10);
         loadRange(currentRange);
+      });
+    });
+    // Tab buttons
+    document.querySelectorAll('.tabs button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-section').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const tab = b.getAttribute('data-tab');
+        document.getElementById('tab-' + tab).classList.add('active');
       });
     });
     document.getElementById('btn-refresh').addEventListener('click', () => loadRange(currentRange));
@@ -549,6 +795,7 @@ html, body {
 
   // ============== RENDERING ==============
   function renderAll(rows, days){
+    // Analytics
     renderKpis(rows, days);
     renderTimeSeries(rows, days);
     renderFunnel(rows);
@@ -560,6 +807,12 @@ html, body {
     renderDevices(rows);
     renderFeed(rows);
     renderErrors(rows);
+    // Revenue & Growth
+    renderRevenue(rows, days);
+    // Taxes
+    renderTaxes(rows);
+    // Users
+    renderUsers(rows);
   }
 
   function renderKpis(rows, days){
@@ -809,6 +1062,421 @@ html, body {
       <div class="ranked-row"><span class="label">${esc(k)}</span><span class="val">${v.toLocaleString()}</span></div>
       <div class="ranked-bar"><div class="fill" style="width:${Math.round(100*v/max)}%"></div></div>
     `).join('');
+  }
+
+  // ===================== REVENUE & GROWTH =====================
+  function extractSubs(rows){
+    /* Build a per-user subscription state from events.
+       Each subscriber goes: signup_completed → trial_started → pro_upgraded (paid) → trial_ended (churn).
+       Plan inferred from props.plan === 'yearly' | 'monthly'. Defaults to 'monthly'. */
+    const users = {};
+    const sorted = [...rows].sort((a,b) => {
+      const ta = a.ts && a.ts.toDate ? a.ts.toDate().getTime() : 0;
+      const tb = b.ts && b.ts.toDate ? b.ts.toDate().getTime() : 0;
+      return ta - tb;
+    });
+    for (const r of sorted){
+      const key = r.uid || r.email;
+      if (!key) continue;
+      const u = users[key] || (users[key] = { uid: r.uid, email: r.email, events: 0 });
+      u.events++;
+      const t = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      const ev = r.event;
+      if (ev === 'signup_completed' && !u.signedUp) u.signedUp = t;
+      if (ev === 'trial_started') { u.trialStart = t; u.status = 'trial'; }
+      if (ev === 'pro_upgraded') {
+        u.paidStart = t;
+        u.status = 'paid';
+        u.plan = (r.props && r.props.plan) || 'monthly';
+      }
+      if (ev === 'trial_ended' || ev === 'subscription_cancelled') {
+        u.churnedAt = t;
+        u.status = u.status === 'paid' ? 'churned' : 'trial_lost';
+      }
+      u.lastSeen = t;
+    }
+    return Object.values(users);
+  }
+
+  function renderRevenue(rows, days){
+    const subs = extractSubs(rows);
+    const active = subs.filter(s => s.status === 'paid');
+    const churned = subs.filter(s => s.status === 'churned');
+    const trials = subs.filter(s => s.status === 'trial');
+    const signedUp = subs.filter(s => s.signedUp);
+
+    const mrr = active.reduce((sum, s) => sum + (s.plan === 'yearly' ? YEARLY_MRR_EQ : PRICE_MONTHLY), 0);
+    const arr = mrr * 12;
+    const trialConvRate = signedUp.length ? Math.round(100 * active.length / signedUp.length) : 0;
+    const churnRate = (active.length + churned.length)
+      ? Math.round(100 * churned.length / (active.length + churned.length))
+      : 0;
+    const arpu = active.length ? (mrr / active.length) : 0;
+
+    el('kpi-mrr').textContent = '$' + mrr.toFixed(2);
+    el('kpi-mrr-sub').textContent = active.length ? `${active.length} paying users` : 'no paying users yet';
+    el('kpi-arr').textContent = '$' + arr.toFixed(0);
+    el('kpi-arr-sub').textContent = arr ? 'annualized from MRR' : 'waiting for first sub';
+    el('kpi-active-subs').textContent = active.length;
+    el('kpi-active-subs-sub').textContent = trials.length ? `${trials.length} on trial` : 'no active trials';
+    el('kpi-trial-conv').textContent = signedUp.length ? trialConvRate + '%' : '—';
+    el('kpi-trial-conv-sub').textContent = signedUp.length ? `${active.length} / ${signedUp.length}` : 'no signups yet';
+    el('kpi-churn').textContent = (active.length + churned.length) ? churnRate + '%' : '—';
+    el('kpi-churn-sub').textContent = churned.length ? `${churned.length} cancelled` : 'no churn yet';
+    el('kpi-arpu').textContent = '$' + arpu.toFixed(2);
+
+    // Revenue over time
+    renderRevenueChart(rows, days);
+
+    // Trial funnel
+    const signupCompleted = rows.filter(r => r.event === 'signup_completed').length;
+    const trialStarted = rows.filter(r => r.event === 'trial_started').length;
+    const upgraded = rows.filter(r => r.event === 'pro_upgraded').length;
+    const retained = active.length;
+    const funnel = [
+      ['Signed up', signupCompleted],
+      ['Trial started', trialStarted],
+      ['Upgraded to Pro', upgraded],
+      ['Still paying', retained]
+    ];
+    const max = Math.max(...funnel.map(f => f[1]), 1);
+    el('trial-funnel').innerHTML = funnel.map(([label, n], i) => {
+      const prev = i > 0 ? funnel[i-1][1] : n;
+      const conv = i === 0 ? '' : prev > 0 ? Math.round(100 * n / prev) + '%' : '0%';
+      return `
+        <div class="funnel-step">
+          <div class="funnel-row">
+            <span>${label}</span>
+            <span>${n.toLocaleString()}${conv ? `<span class="funnel-conv">↘ ${conv}</span>` : ''}</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/max)}%"></div></div>
+        </div>`;
+    }).join('');
+
+    // Subscription mix
+    const monthly = active.filter(s => s.plan !== 'yearly').length;
+    const yearly  = active.filter(s => s.plan === 'yearly').length;
+    el('sub-mix').innerHTML = (active.length + churned.length + trials.length) ? `
+      <div class="ranked-row"><span class="label">Pro Monthly ($9.99)</span><span class="val">${monthly}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${active.length ? Math.round(100*monthly/active.length) : 0}%"></div></div>
+      <div class="ranked-row"><span class="label">Pro Yearly ($79)</span><span class="val">${yearly}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${active.length ? Math.round(100*yearly/active.length) : 0}%; background:linear-gradient(90deg,#c99a2a,#e8c968);"></div></div>
+      <div class="ranked-row"><span class="label">Trials in progress</span><span class="val">${trials.length}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${trials.length ? 100 : 0}%; background:rgba(201,154,42,0.4);"></div></div>
+      <div class="ranked-row"><span class="label">Cancelled / churned</span><span class="val">${churned.length}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${churned.length ? 100 : 0}%; background:#ef4444;"></div></div>
+    ` : '<div class="empty">No subscription data yet. As users start trials and upgrade, they\'ll appear here.</div>';
+
+    // Cohort retention (by month of signup)
+    renderCohort(subs);
+
+    // Subscribers list
+    el('subs-count').textContent = subs.length;
+    const subsRows = subs.sort((a,b) => (b.lastSeen?.getTime()||0) - (a.lastSeen?.getTime()||0));
+    el('subs-body').innerHTML = subsRows.length ? subsRows.slice(0, 50).map(s => {
+      let planLabel = 'Signed up', planClass = '';
+      let amount = '';
+      if (s.status === 'trial')    { planLabel = 'Trial'; planClass = 'trial'; }
+      if (s.status === 'paid')     {
+        planLabel = s.plan === 'yearly' ? 'Pro Yearly' : 'Pro Monthly';
+        amount = '$' + (s.plan === 'yearly' ? PRICE_YEARLY.toFixed(0) + '/yr' : PRICE_MONTHLY.toFixed(2) + '/mo');
+      }
+      if (s.status === 'churned')  { planLabel = 'Cancelled'; planClass = 'churned'; }
+      if (s.status === 'trial_lost') { planLabel = 'Trial lapsed'; planClass = 'churned'; }
+      const email = s.email || (s.uid ? 'uid:' + s.uid.slice(0,8) : '—');
+      const initials = (s.email || 'u').slice(0,1).toUpperCase();
+      const since = s.signedUp ? s.signedUp.toLocaleDateString() : '—';
+      return `
+        <div class="sub-row">
+          <div class="avatar">${esc(initials)}</div>
+          <div class="who">
+            <div class="email">${esc(email)}</div>
+            <div class="meta">Joined ${esc(since)} · ${s.events} events</div>
+          </div>
+          <div class="plan ${planClass}">${esc(planLabel)}</div>
+          ${amount ? `<div class="amount">${esc(amount)}</div>` : ''}
+        </div>`;
+    }).join('') : '<div class="empty">No users with accounts yet in this range.</div>';
+
+    // Growth opportunities — heuristic: signed-up users with high activity but no Pro yet = upsell candidates
+    const upsellCandidates = subs.filter(s =>
+      s.signedUp && s.status !== 'paid' && s.events >= 30
+    ).length;
+    const neverTrialed = subs.filter(s => s.signedUp && !s.trialStart).length;
+    const yearlyAdopters = yearly;
+    const monthlyAdopters = monthly;
+    const yearlyShare = active.length ? Math.round(100 * yearly / active.length) : 0;
+    el('growth-body').innerHTML = `
+      <div class="ranked-row"><span class="label">🔥 Power users on free (upsell candidates)</span><span class="val">${upsellCandidates}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${upsellCandidates ? 100 : 0}%"></div></div>
+      <div class="ranked-row"><span class="label">🧊 Signed up but never started trial</span><span class="val">${neverTrialed}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${neverTrialed ? 100 : 0}%; background:rgba(156,163,175,0.6);"></div></div>
+      <div class="ranked-row"><span class="label">💰 Yearly-plan share (higher LTV)</span><span class="val">${yearlyShare}%</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${yearlyShare}%; background:linear-gradient(90deg,#c99a2a,#e8c968);"></div></div>
+      <div class="ranked-row"><span class="label">📈 Est. LTV (12 months at current churn)</span><span class="val">$${arpu && churnRate > 0 ? ((arpu * 100) / churnRate).toFixed(0) : (arpu * 24).toFixed(0)}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${arpu ? 100 : 0}%"></div></div>
+      <div style="margin-top:14px; font-size:11px; color:#6b7280; line-height:1.5;">
+        <strong>Next moves to try:</strong> (1) target power users with an in-app Pro prompt after they hit their 30th event;
+        (2) add a "Yearly saves 34%" banner on the upgrade screen to push toward higher-LTV plans;
+        (3) set up a win-back email 14 days after trial lapse; (4) add a referral credit to drop CAC.
+      </div>
+    `;
+  }
+
+  async function renderRevenueChart(rows, days){
+    await loadChartJs();
+    if (!window.Chart) return;
+    const buckets = {};
+    for (const r of rows) {
+      if (r.event !== 'pro_upgraded') continue;
+      const ts = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      if (!ts) continue;
+      const key = ts.toISOString().slice(0,10);
+      const amt = (r.props && r.props.plan === 'yearly') ? YEARLY_MRR_EQ : PRICE_MONTHLY;
+      buckets[key] = (buckets[key] || 0) + amt;
+    }
+    const dates = [];
+    for (let i = days - 1; i >= 0; i--){
+      const d = new Date(Date.now() - i * 86400000);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const data = dates.map(d => Math.round((buckets[d] || 0) * 100) / 100);
+    const labels = dates.map(d => {
+      const dt = new Date(d);
+      return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    });
+    const ctx = document.getElementById('chart-revenue').getContext('2d');
+    if (revChartInstance) revChartInstance.destroy();
+    revChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'New MRR ($)',
+          data,
+          borderColor: '#1f7a4a',
+          backgroundColor: 'rgba(31,122,74,0.12)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: data.filter(x => x > 0).length < 10 ? 3 : 0,
+          pointBackgroundColor: '#c99a2a'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => '$' + ctx.raw.toFixed(2) + ' new MRR' } }
+        },
+        scales: {
+          x: { ticks: { font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
+          y: { ticks: { font: { size: 10 }, callback: v => '$' + v }, grid: { color: '#f0f1f4' }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function renderCohort(subs){
+    const withSignup = subs.filter(s => s.signedUp);
+    if (!withSignup.length) {
+      el('cohort-body').innerHTML = '<div class="empty">No signups yet — cohorts will appear after users sign up.</div>';
+      return;
+    }
+    // Group by signup month
+    const cohorts = {};
+    for (const s of withSignup){
+      const m = s.signedUp.toISOString().slice(0,7); // YYYY-MM
+      if (!cohorts[m]) cohorts[m] = [];
+      cohorts[m].push(s);
+    }
+    const months = Object.keys(cohorts).sort().slice(-6); // last 6 months
+    const today = new Date();
+    let html = '<table class="cohort-table"><thead><tr><th>Cohort</th><th>Users</th>';
+    for (let i = 0; i < 6; i++) html += `<th>M${i}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const m of months){
+      const users = cohorts[m];
+      const cohortDate = new Date(m + '-01');
+      const monthsElapsed = (today.getFullYear() - cohortDate.getFullYear()) * 12 + (today.getMonth() - cohortDate.getMonth());
+      html += `<tr><td class="initial">${m}</td><td class="initial">${users.length}</td>`;
+      for (let i = 0; i < 6; i++){
+        if (i > monthsElapsed) { html += '<td></td>'; continue; }
+        // Who was still active i months later? proxy: lastSeen falls in that month
+        const retained = users.filter(u => {
+          if (!u.lastSeen) return false;
+          const diff = (u.lastSeen.getFullYear() - cohortDate.getFullYear()) * 12 + (u.lastSeen.getMonth() - cohortDate.getMonth());
+          return diff >= i;
+        }).length;
+        const pct = users.length ? Math.round(100 * retained / users.length) : 0;
+        const intensity = pct === 0 ? 0 : pct < 20 ? 1 : pct < 40 ? 2 : pct < 60 ? 3 : pct < 80 ? 4 : 5;
+        html += `<td class="cohort-cell" data-pct="${intensity}">${pct}%</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    el('cohort-body').innerHTML = html;
+  }
+
+  // ===================== TAXES =====================
+  function renderTaxes(rows){
+    const subs = extractSubs(rows);
+    const active = subs.filter(s => s.status === 'paid');
+    const mrr = active.reduce((sum, s) => sum + (s.plan === 'yearly' ? YEARLY_MRR_EQ : PRICE_MONTHLY), 0);
+    const yearlyRev = active.reduce((sum, s) => sum + (s.plan === 'yearly' ? PRICE_YEARLY : PRICE_MONTHLY * 12), 0);
+
+    // YTD gross — proxied by all pro_upgraded events so far this calendar year
+    const yearStart = new Date(new Date().getFullYear(), 0, 1);
+    const ytdUpgrades = rows.filter(r => {
+      if (r.event !== 'pro_upgraded') return false;
+      const ts = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      return ts && ts >= yearStart;
+    });
+    // YTD gross = sum of (plan price × elapsed months for paid users)
+    const now = new Date();
+    let ytdGross = 0;
+    for (const u of active){
+      if (!u.paidStart || u.paidStart < yearStart) {
+        // active all year (approximation)
+        const months = now.getMonth() + 1;
+        ytdGross += u.plan === 'yearly' ? (PRICE_YEARLY * (months/12)) : (PRICE_MONTHLY * months);
+      } else {
+        const monthsPaid = Math.max(1, (now.getMonth() - u.paidStart.getMonth()) + 1);
+        ytdGross += u.plan === 'yearly' ? (PRICE_YEARLY * (monthsPaid/12)) : (PRICE_MONTHLY * monthsPaid);
+      }
+    }
+
+    const fedTax = ytdGross * FED_TAX_RATE;
+    const stateTax = ytdGross * STATE_TAX_RATE;
+    const salesTax = 0; // require nexus data; zero until we track billing addresses
+    const netAfter = ytdGross - fedTax - stateTax - salesTax;
+
+    el('kpi-gross').textContent = '$' + ytdGross.toFixed(0);
+    el('kpi-gross-sub').textContent = `${active.length} paying users · YTD`;
+    el('kpi-fed-tax').textContent = '$' + fedTax.toFixed(0);
+    el('kpi-state-tax').textContent = '$' + stateTax.toFixed(0);
+    el('kpi-sales-tax').textContent = '$' + salesTax.toFixed(0);
+    el('kpi-net').textContent = '$' + netAfter.toFixed(0);
+
+    // Next quarterly deadline — Q1 Apr 15, Q2 Jun 15, Q3 Sep 15, Q4 Jan 15
+    const qDeadlines = [
+      new Date(now.getFullYear(), 3, 15), // Apr 15
+      new Date(now.getFullYear(), 5, 15), // Jun 15
+      new Date(now.getFullYear(), 8, 15), // Sep 15
+      new Date(now.getFullYear()+1, 0, 15) // Jan 15 next year
+    ];
+    const nextQ = qDeadlines.find(d => d >= now) || qDeadlines[3];
+    const daysToQ = Math.ceil((nextQ - now) / 86400000);
+    el('kpi-q-deadline').textContent = nextQ.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    el('kpi-q-sub').textContent = `${daysToQ} days out`;
+
+    // Nexus tracker — requires billing address data; show placeholder
+    el('nexus-body').innerHTML = active.length ? `
+      <div class="ranked-row"><span class="label">State-level revenue not yet tracked</span><span class="val">—</span></div>
+      <div style="margin-top:10px; font-size:11px; color:#6b7280; line-height:1.5;">
+        Wire up Stripe billing-address capture to populate this. Most states trigger nexus at $100K/yr in sales or 200 transactions.
+        SaaS-taxable states to watch: ${[...SAAS_TAX_STATES].join(', ')}.
+      </div>
+    ` : `
+      <div class="empty">No paying customers yet. Nexus tracking kicks in with first sale.</div>
+    `;
+
+    // Quarterly revenue
+    const quarters = [
+      { q: 'Q1', start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear(), 2, 31) },
+      { q: 'Q2', start: new Date(now.getFullYear(), 3, 1), end: new Date(now.getFullYear(), 5, 30) },
+      { q: 'Q3', start: new Date(now.getFullYear(), 6, 1), end: new Date(now.getFullYear(), 8, 30) },
+      { q: 'Q4', start: new Date(now.getFullYear(), 9, 1), end: new Date(now.getFullYear(), 11, 31) }
+    ];
+    el('quarters-body').innerHTML = quarters.map(q => {
+      const isPast = now > q.end;
+      const isCurrent = now >= q.start && now <= q.end;
+      const qGross = 0; // placeholder — will fill from Stripe
+      return `
+        <div class="ranked-row">
+          <span class="label">${q.q} ${now.getFullYear()} ${isCurrent ? '(current)' : isPast ? '(closed)' : ''}</span>
+          <span class="val">$${qGross}</span>
+        </div>
+        <div class="ranked-bar"><div class="fill" style="width:${qGross ? 100 : 0}%"></div></div>
+      `;
+    }).join('');
+
+    // Deductible categories checklist
+    const deductions = [
+      ['Software & SaaS tools', 'Netlify, Firebase, Plaid, Anthropic API, domain, email, etc.'],
+      ['Hardware & devices', 'Computers, phones, test devices — amortized or Section 179'],
+      ['Home office', 'Proportional rent/mortgage, internet, utilities (simplified method: $5/sqft up to 300)'],
+      ['Professional services', 'CPA fees, legal, contractor payments ($600+ requires 1099)'],
+      ['Marketing', 'Ads, content production, brand design'],
+      ['Education', 'Courses, books, conferences directly related to the business'],
+      ['Merchant fees', 'Stripe processing fees are fully deductible']
+    ];
+    el('deductions-body').innerHTML = deductions.map(([name, hint]) => `
+      <div style="padding:10px 0; border-bottom:1px dashed #f0f1f4;">
+        <div style="font-size:12.5px; font-weight:600; color:#0b0f1a;">${esc(name)}</div>
+        <div style="font-size:11px; color:#6b7280; margin-top:3px; line-height:1.5;">${esc(hint)}</div>
+      </div>
+    `).join('');
+  }
+
+  // ===================== USERS =====================
+  function renderUsers(rows){
+    // Aggregate per-user stats from events
+    const users = {};
+    for (const r of rows){
+      const key = r.uid || r.anon_id;
+      if (!key) continue;
+      const u = users[key] || (users[key] = {
+        uid: r.uid, anon_id: r.anon_id, email: r.email,
+        firstSeen: null, lastSeen: null, events: 0, tabsViewed: new Set(),
+        plaidLinked: false, signedUp: false
+      });
+      u.events++;
+      u.email = u.email || r.email;
+      const ts = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      if (ts){
+        if (!u.firstSeen || ts < u.firstSeen) u.firstSeen = ts;
+        if (!u.lastSeen || ts > u.lastSeen) u.lastSeen = ts;
+      }
+      if (r.event === 'tab_viewed' && r.props && r.props.tab) u.tabsViewed.add(r.props.tab);
+      if (r.event === 'plaid_link_success') u.plaidLinked = true;
+      if (r.event === 'signup_completed') u.signedUp = true;
+    }
+    const arr = Object.values(users).sort((a,b) => (b.lastSeen?.getTime()||0) - (a.lastSeen?.getTime()||0));
+    const signedIn = arr.filter(u => u.uid);
+    const anon = arr.filter(u => !u.uid);
+    const power = arr.filter(u => u.events >= 50);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const activeToday = arr.filter(u => u.lastSeen && u.lastSeen >= today);
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000);
+    const churned = signedIn.filter(u => u.lastSeen && u.lastSeen < fourteenDaysAgo);
+
+    el('kpi-users-total').textContent = arr.length;
+    el('kpi-users-signed').textContent = signedIn.length;
+    el('kpi-users-anon').textContent = anon.length;
+    el('kpi-power-users').textContent = power.length;
+    el('kpi-users-today').textContent = activeToday.length;
+    el('kpi-users-churned').textContent = churned.length;
+
+    el('users-count').textContent = arr.length;
+    el('users-body').innerHTML = arr.length ? arr.slice(0, 100).map(u => {
+      const email = u.email || (u.uid ? 'uid:' + u.uid.slice(0,8) : 'anon:' + (u.anon_id || '').slice(0,6));
+      const initials = (u.email || '?').slice(0,1).toUpperCase();
+      const planLabel = u.uid ? (u.plaidLinked ? 'Linked' : (u.signedUp ? 'Signed up' : 'Auth'))
+                              : 'Anonymous';
+      const planClass = u.uid ? (u.plaidLinked ? '' : 'trial') : 'churned';
+      const since = u.firstSeen ? u.firstSeen.toLocaleDateString() : '—';
+      const last = u.lastSeen ? relTime(u.lastSeen) : '—';
+      return `
+        <div class="sub-row">
+          <div class="avatar">${esc(initials)}</div>
+          <div class="who">
+            <div class="email">${esc(email)}</div>
+            <div class="meta">First seen ${esc(since)} · ${u.events} events · ${u.tabsViewed.size} tabs · last ${esc(last)}</div>
+          </div>
+          <div class="plan ${planClass}">${esc(planLabel)}</div>
+        </div>`;
+    }).join('') : '<div class="empty">No users in this range.</div>';
   }
 
   function exportCsv(){
