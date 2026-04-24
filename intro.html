@@ -38,8 +38,19 @@
     src: url('/fonts/fraunces-700.woff2') format('woff2');
   }
 </style>
-<link rel="stylesheet" href="./landing.css?v=phase2-14">
+<link rel="stylesheet" href="./landing.css?v=phase2-15">
 <style>
+  /* ==========================================================
+     CRITICAL CSS — hero renders instantly, no LCP/CLS penalty.
+     Below-the-fold styles come from landing.css (async below).
+     ========================================================== */
+  /* LCP fix: the hero content sits inside a `.reveal` wrapper which
+     normally starts at opacity:0 + translateY(22px) and animates in.
+     That delays LCP by 800ms and counts as CLS.  Force the hero to
+     be painted in its final state immediately. */
+  .hero .reveal,
+  .hero.reveal{ opacity:1 !important; transform:none !important; }
+
   /* intro-specific hero — fits viewport, no scroll needed */
   .hero{
     position:relative;
@@ -49,11 +60,11 @@
     overflow:hidden;
   }
   .hero-content{position:relative;z-index:2;max-width:900px;margin:0 auto;width:100%}
+  /* Single, lighter-weight gradient layer (was two radial gradients).
+     Static background is cheap; fewer compositor layers = faster FCP. */
   .hero-flourish{
     position:absolute;inset:0;z-index:1;pointer-events:none;
-    background:
-      radial-gradient(520px 340px at 12% 30%, rgba(31,122,74,0.12), transparent 70%),
-      radial-gradient(480px 320px at 88% 70%, rgba(201,154,42,0.10), transparent 70%);
+    background:radial-gradient(60% 40% at 50% 35%, rgba(31,122,74,0.10), transparent 75%);
   }
   /* Tighter display type for the hero so it fits comfortably */
   .hero h1.head{
