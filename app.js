@@ -13477,12 +13477,27 @@ window.addEventListener('pageshow', (e) => {
   function maybeShow(){
     try {
       const done = localStorage.getItem(STORAGE_KEY);
-      if (done === '1') return; // completed
-      // Only show when authenticated app is visible
+      if (done === '1') return;              // already completed or suppressed on signin
+      if (done === 'skipped') return;         // user explicitly dismissed this session
       if (typeof appState === 'undefined') return;
+
+      // Only auto-show for users coming from SIGNUP (not signin). Signup sets
+      // the wjp_first_run session flag and clears wjp_onboarded; signin sets
+      // wjp_onboarded='1' which is caught above.
+      // If neither the session flag nor an explicit "new user" URL marker is
+      // present, stay silent — sign-in stays seamless even when data hasn't
+      // hydrated from Firestore yet.
+      let isNewUser = false;
+      try {
+        if (sessionStorage.getItem('wjp_first_run') === '1') isNewUser = true;
+        if (location.search.indexOf('new=1') >= 0) isNewUser = true;
+      } catch(_){}
+      if (!isNewUser) return;
+
+      // Double-check: don't re-show if they actually have debts stored.
       const noDebts = !appState.debts || appState.debts.length === 0;
       if (!noDebts) return;
-      // Wait a tick for DOM + auth to settle
+
       setTimeout(showOnboarding, 400);
     } catch(_) {}
   }

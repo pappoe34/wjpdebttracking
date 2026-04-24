@@ -483,6 +483,8 @@
             }
           }
         } catch(_){}
+        // Suppress first-run onboarding — signin is for returning users.
+        try { localStorage.setItem('wjp_onboarded', '1'); } catch(_){}
         try { window.wjp && wjp.track && wjp.track('signin_completed', { method: 'google' }); } catch(_){}
         const first = (cred && cred.user && cred.user.displayName) ? cred.user.displayName.split(' ')[0] : '';
         showToast(first ? ('Welcome back, ' + first + ' — opening your dashboard') : 'Welcome — opening your dashboard');
@@ -534,7 +536,12 @@
         try {
           if (cred.user.displayName) localStorage.setItem('wjp_last_name', cred.user.displayName.split(' ')[0]);
         } catch(_){}
-        showToast('Welcome back — opening your dashboard');
+        // Suppress first-run onboarding for returning signins — sign-in should be
+        // seamless. If the user has no debts yet, the dashboard's empty-state CTA
+        // still surfaces "Start setup →" for them to kick off onboarding manually.
+        try { localStorage.setItem('wjp_onboarded', '1'); } catch(_){}
+        const firstName = (cred.user.displayName || '').split(' ')[0];
+        showToast(firstName ? ('Welcome back, ' + firstName + ' — opening your dashboard') : 'Welcome back — opening your dashboard');
         setTimeout(() => window.location.replace('./index.html'), 400);
       } catch (err) {
         btn.classList.remove('loading'); btn.disabled = false; btn.textContent = 'Sign in →';
