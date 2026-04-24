@@ -35,6 +35,62 @@ function ensureChartLoaded() {
     if (typeof Chart !== 'undefined') return Promise.resolve();
     return loadScriptOnce('https://cdn.jsdelivr.net/npm/chart.js');
 }
+
+/* ---------- Dashboard greeting (Welcome back, Winston) ----------
+   Pulls the user's first name from (a) Firebase currentUser.displayName,
+   (b) localStorage.wjp_last_name stashed at signin time, or
+   (c) the local-part of their email. Fails silent if nothing's known. */
+function populateDashboardGreeting() {
+    const el = document.getElementById('dash-greeting');
+    const textEl = document.getElementById('dash-greeting-text');
+    if (!el || !textEl) return;
+
+    let first = '';
+    try {
+        // Stashed at signin time
+        const stashed = localStorage.getItem('wjp_last_name');
+        if (stashed) first = stashed.trim();
+    } catch(_){}
+
+    // Fall back to Firebase user object if available
+    if (!first) {
+        try {
+            // auth module is imported in index.html's auth gate; expose currentUser on window for reading here
+            const fbUser = (window.firebase && window.firebase.auth && window.firebase.auth().currentUser)
+                        || (window.__wjpUser)
+                        || null;
+            if (fbUser) {
+                if (fbUser.displayName) first = fbUser.displayName.split(' ')[0];
+                else if (fbUser.email) first = fbUser.email.split('@')[0];
+            }
+        } catch(_){}
+    }
+
+    // Last resort: local-part of stashed email
+    if (!first) {
+        try {
+            const e = localStorage.getItem('wjp_last_email');
+            if (e) first = e.split('@')[0];
+        } catch(_){}
+    }
+
+    // Pick a time-of-day greeting for warmth
+    const hr = new Date().getHours();
+    let greet = 'Welcome back';
+    if (hr < 5)  greet = 'Burning the midnight oil';
+    else if (hr < 12) greet = 'Good morning';
+    else if (hr < 18) greet = 'Good afternoon';
+    else greet = 'Good evening';
+
+    if (first) {
+        const safe = first.replace(/[^\w\s\-']/g, '').replace(/^./, c => c.toUpperCase());
+        textEl.innerHTML = `${greet}, <strong>${safe}.</strong>`;
+        el.style.display = 'flex';
+    } else {
+        textEl.innerHTML = `${greet}.`;
+        el.style.display = 'flex';
+    }
+}
 function ensurePlaidLoaded() {
     if (typeof Plaid !== 'undefined') return Promise.resolve();
     return loadScriptOnce('https://cdn.plaid.com/link/v2/stable/link-initialize.js');
@@ -2482,6 +2538,9 @@ function updateUI() {
         }
     }
 
+    // --- Dashboard greeting ("Welcome back, Winston") ---
+    try { populateDashboardGreeting(); } catch(e) { console.warn('greeting fail', e); }
+
     // --- DEBT-FREE DATE HERO (the promise in the marketing made real) ---
     const dfdHero    = document.getElementById('dfd-hero');
     const dfdDate    = document.getElementById('dfd-date');
@@ -2491,20 +2550,23 @@ function updateUI() {
         const strategy = appState.settings.strategy || 'avalanche';
         const hasDebts = appState.debts && appState.debts.length > 0;
         const hasMins  = hasDebts && appState.debts.some(d => (d.minPayment || 0) > 0);
+        // Extra monthly from onboarding / budget settings — without this the
+        // dashboard number differs from the onboarding reveal number.
+        const extraMonthly = Math.max(0, parseFloat((appState.budget && appState.budget.contribution) || 0));
         if (!hasDebts) {
             if (dfdHero) dfdHero.classList.add('empty');
-            dfdEyebrow.textContent = 'You\'ll be debt-free on';
+            dfdEyebrow.textContent = 'Your debt-free date';
             dfdDate.textContent = '—';
-            dfdMeta.innerHTML = 'Add your first debt and we\'ll show you <strong>the exact date</strong> you\'ll pay off the last balance. <button type="button" onclick="window.wjpShowOnboarding && window.wjpShowOnboarding()" style="background:linear-gradient(135deg,#1f7a4a,#2b9b72);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;margin-left:4px;font-family:inherit;">Start setup →</button>';
+            dfdMeta.innerHTML = 'Add your debts and we\'ll show you <strong>the exact date</strong> you\'ll pay off the last balance. <button type="button" onclick="window.wjpShowOnboarding && window.wjpShowOnboarding()" style="background:linear-gradient(135deg,#1f7a4a,#2b9b72);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;margin-left:4px;font-family:inherit;">Start setup →</button>';
         } else if (!hasMins) {
             if (dfdHero) dfdHero.classList.add('empty');
-            dfdEyebrow.textContent = 'You\'ll be debt-free on';
+            dfdEyebrow.textContent = 'Your debt-free date';
             dfdDate.textContent = '—';
             dfdMeta.innerHTML = 'Add a <strong>minimum payment</strong> to each debt so we can project your payoff date.';
         } else {
             if (dfdHero) dfdHero.classList.remove('empty');
             try {
-                const stats = calcSimTotals(strategy, 0, 0, 0);
+                const stats = calcSimTotals(strategy, extraMonthly, 0, 0);
                 if (stats && stats.months > 0 && stats.months < 600) {
                     const payoff = new Date();
                     payoff.setMonth(payoff.getMonth() + stats.months);

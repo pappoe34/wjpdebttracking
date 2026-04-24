@@ -84,6 +84,20 @@
         }
       }
 
+      // Expose the current user to app.js so non-module code (like the
+      // dashboard greeting) can read displayName/email without re-initialising Firebase.
+      try { window.__wjpUser = user; } catch(_) {}
+
+      // Also stash name/email at login so future reloads hydrate the greeting
+      // even before auth state resolves.
+      try {
+        if (user.email) localStorage.setItem('wjp_last_email', user.email);
+        if (user.displayName) {
+          const first = user.displayName.split(' ')[0];
+          localStorage.setItem('wjp_last_name', first);
+        }
+      } catch(_) {}
+
       // Signed in → reveal the app, tear down overlays.
       document.body.classList.add('wjp-auth-ready');
       const gate = document.getElementById('wjp-gate-screen');
@@ -178,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=58-extra">
+  <link rel="stylesheet" href="style.css?v=59-hello">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -840,6 +854,13 @@
 
         <!-- PAGE: DASHBOARD -->
         <div class="page active" id="page-dashboard">
+          <!-- Personal greeting — "Good morning, Winston" style. Populated by
+               populateDashboardGreeting() on every dashboard render. -->
+          <div class="dash-greeting" id="dash-greeting" style="display:none;">
+            <span class="dash-greeting-wave" aria-hidden="true">👋</span>
+            <span class="dash-greeting-text" id="dash-greeting-text">Welcome back.</span>
+          </div>
+
           <!-- Debt-free-date HERO — the single most important thing on the page.
                Every app open reinforces the brand promise: "a date on your calendar." -->
           <div class="dfd-hero reveal" id="dfd-hero">
@@ -4755,7 +4776,7 @@
 </div>
 
 
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
