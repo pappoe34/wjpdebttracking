@@ -2,6 +2,36 @@
    AI BUDGET — APPLICATION LOGIC
    ============================================================ */
 
+/* ---------- Lazy script loaders ----------
+   Chart.js and Plaid Link are heavy (~200 KB + ~140 KB). Both were
+   loading synchronously in <head> even when the user never opens a
+   chart or links a bank. Now we fetch them on first need — the
+   browser has already prefetched them via <link rel="prefetch"> so
+   the actual load is near-instant when triggered. */
+const _scriptPromises = {};
+function loadScriptOnce(url) {
+    if (_scriptPromises[url]) return _scriptPromises[url];
+    _scriptPromises[url] = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        s.crossOrigin = 'anonymous';
+        s.onload = () => resolve();
+        s.onerror = (e) => { delete _scriptPromises[url]; reject(new Error('Failed to load ' + url)); };
+        document.head.appendChild(s);
+    });
+    return _scriptPromises[url];
+}
+function ensureChartLoaded() {
+    if (typeof Chart !== 'undefined') return Promise.resolve();
+    return loadScriptOnce('https://cdn.jsdelivr.net/npm/chart.js');
+}
+function ensurePlaidLoaded() {
+    if (typeof Plaid !== 'undefined') return Promise.resolve();
+    return loadScriptOnce('https://cdn.plaid.com/link/v2/stable/link-initialize.js');
+}
+
+
 const defaultState = {
     settings: { strategy: 'avalanche' },
     balances: { monthlyIncome: 0, availableCashflow: 0 },
@@ -309,6 +339,13 @@ function navigateSPA(target) {
 
     // Lightweight analytics — fire once per navigation
     try { window.wjp && wjp.track && wjp.track('tab_viewed', { tab: target }); } catch(_){}
+
+    // Lazy-load Chart.js the first time a chart-using page opens. Pages
+    // that don't need charts (Activity Log, Settings, Documents) skip this.
+    if (typeof ensureChartLoaded === 'function') {
+        const chartPages = ['dashboard', 'budgets', 'debts', 'recurring', 'advisor'];
+        if (chartPages.includes(target)) { ensureChartLoaded().catch(()=>{}); }
+    }
 
     // Reset scroll position on every navigation — both the in-app content
     // scroller AND the window/document (mobile portrait scrolls the window)
@@ -6367,6 +6404,10 @@ async function fetchLinkToken(opts) {
 async function openPlaidLink(opts) {
     opts = opts || {};
     // opts.updateItemId  → request update-mode link token (re-auth flow for ITEM_LOGIN_REQUIRED)
+    // Lazy-load Plaid Link SDK on first click (prefetched via <link rel="prefetch"> so load is near-instant)
+    if (typeof Plaid === 'undefined') {
+        try { await ensurePlaidLoaded(); } catch(e) {}
+    }
     if (typeof Plaid === 'undefined' || !Plaid || typeof Plaid.create !== 'function') {
         if (typeof showToast === 'function') showToast('Plaid Link script not loaded.');
         return;
@@ -9215,11 +9256,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnSyncBank && plaidModal) {
         btnSyncBank.addEventListener('click', () => {
-            // Real Plaid Link is the primary path. The legacy mockup is only a
-            // fallback for when Plaid isn't available (offline / script blocked).
-            const hasPlaid = (typeof Plaid !== 'undefined' && Plaid && typeof Plaid.create === 'function');
+            // Real Plaid Link is the primary path. openPlaidLink() now lazy-loads
+            // the Plaid SDK on demand, so we always try it first. If it throws
+            // synchronously (script blocked, CSP, etc.) we fall back to the mockup.
             const hasOpener = (typeof openPlaidLink === 'function' || typeof window.openPlaidLink === 'function');
-            if (hasPlaid && hasOpener) {
+            if (hasOpener) {
                 try {
                     (window.openPlaidLink || openPlaidLink)();
                     return;

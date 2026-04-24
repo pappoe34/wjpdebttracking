@@ -169,17 +169,28 @@
   
   <!-- PWA & Mobile Install Setup -->
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1f7a4a">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WJP Debt">
-  
-  <link rel="stylesheet" href="style.css?v=53-cal">
-  <!-- Use Phosphor icons for aesthetic UI -->
-  <!-- UI Libraries -->
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+
+  <link rel="stylesheet" href="style.css?v=54-perf">
+
+  <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
+       The actual scripts are loaded on demand in app.js when their feature is used. -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdn.plaid.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/chart.js" as="script" crossorigin>
+  <link rel="prefetch" href="https://cdn.plaid.com/link/v2/stable/link-initialize.js" as="script" crossorigin>
+
+  <!-- Phosphor icons — defers naturally; CSS/font-based so no JS blocking -->
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Plaid Link (real bank-sync) -->
-  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+
   <!-- Brand typography: Fraunces (editorial serif) + Inter (UI sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4612,9 +4623,7 @@
 </div>
 
 
-  <!-- Netlify Identity Widget -->
-  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
