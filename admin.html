@@ -5,100 +5,425 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WJP · Analytics</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="./landing.css?v=phase2-11">
+<link rel="preload" as="font" href="/fonts/inter-var.woff2" type="font/woff2" crossorigin>
 <style>
-  body { font-family: 'Inter', system-ui, sans-serif; background: #f7f8fb; color: #0b0f1a; }
-  .admin-wrap { max-width: 1180px; margin: 0 auto; padding: 48px 24px 96px; }
-  .admin-h1 { font-weight: 800; font-size: 32px; letter-spacing: -0.02em; margin: 0 0 4px; }
-  .admin-sub { color: #6b7280; font-size: 14px; margin: 0 0 32px; }
-  .card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; }
-  .stat-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; }
-  .stat-val { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-top: 4px; }
-  .stat-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
-  .panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
-  .panel h2 { font-size: 16px; font-weight: 800; margin: 0 0 12px; }
-  .row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f0f1f4; }
-  .row:last-child { border-bottom: 0; }
-  .row-label { font-size: 13px; color: #0b0f1a; font-weight: 500; }
-  .row-val { font-size: 13px; color: #0b0f1a; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .seg { display: inline-flex; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-  .seg button { background: #fff; border: 0; padding: 8px 14px; font-size: 12px; font-weight: 600; color: #6b7280; cursor: pointer; }
-  .seg button.active { background: #1f7a4a; color: #fff; }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .locked { text-align: center; padding: 96px 24px; color: #6b7280; }
-  .locked h2 { color: #0b0f1a; font-size: 20px; font-weight: 800; }
-  .bar-track { background: #f0f1f4; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 6px; }
-  .bar-fill { background: linear-gradient(90deg, #1f7a4a, #c99a2a); height: 100%; border-radius: 4px; }
-  .funnel-step { padding: 12px 0; border-bottom: 1px dashed #f0f1f4; }
-  .funnel-step:last-child { border-bottom: 0; }
-  .funnel-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }
-  .funnel-conv { color: #1f7a4a; font-weight: 700; font-size: 11px; }
-  @media (max-width: 820px) { .card-grid { grid-template-columns: repeat(2, 1fr); } .two-col { grid-template-columns: 1fr; } }
+@font-face {
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/inter-var.woff2') format('woff2-variations'),
+       url('/fonts/inter-var.woff2') format('woff2');
+}
+* { box-sizing: border-box; }
+html, body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #f6f8fb;
+  color: #0b0f1a;
+  margin: 0; padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1320px; margin: 0 auto; padding: 32px 20px 96px; }
+
+/* TOP BAR */
+.top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.brand-tile {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, #1f7a4a, #2b9b72);
+  display: grid; place-items: center;
+  color: #fff; font-weight: 800; font-size: 14px;
+  box-shadow: 0 6px 16px rgba(31,122,74,0.25);
+}
+.brand h1 {
+  font-size: 24px; font-weight: 800; letter-spacing: -0.02em;
+  margin: 0;
+}
+.brand .sub {
+  font-size: 12px; color: #6b7280; font-weight: 500;
+  margin-top: 2px;
+}
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  padding: 8px 14px; font-size: 12px; font-weight: 600;
+  color: #0b0f1a; cursor: pointer;
+  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+}
+.btn:hover { background: #f0f1f4; border-color: #d1d5db; }
+.btn.primary {
+  background: linear-gradient(135deg, #1f7a4a, #2b9b72);
+  color: #fff; border-color: transparent;
+}
+.btn.primary:hover { box-shadow: 0 4px 12px rgba(31,122,74,0.28); }
+.seg {
+  display: inline-flex; border: 1px solid #e5e7eb; border-radius: 10px;
+  overflow: hidden; background: #fff;
+}
+.seg button {
+  background: transparent; border: 0; padding: 8px 12px;
+  font-size: 11.5px; font-weight: 600; color: #6b7280;
+  cursor: pointer; font-family: inherit;
+}
+.seg button.active {
+  background: linear-gradient(135deg, #1f7a4a, #2b9b72);
+  color: #fff;
+}
+.status-line {
+  font-size: 12px; color: #6b7280; margin: 0 0 28px;
+}
+.status-line .dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: #1f7a4a; margin-right: 6px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* KPI GRID */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
+  margin-bottom: 28px;
+}
+.kpi {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+  padding: 18px 20px;
+  position: relative; overflow: hidden;
+}
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%; background: transparent;
+}
+.kpi.accent::before { background: linear-gradient(180deg, #1f7a4a, #2b9b72); }
+.kpi.gold::before { background: linear-gradient(180deg, #c99a2a, #e8c968); }
+.kpi.alert::before { background: #ef4444; }
+.kpi .label {
+  font-size: 10.5px; font-weight: 700; color: #6b7280;
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.kpi .val {
+  font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+  margin-top: 4px; font-variant-numeric: tabular-nums;
+}
+.kpi .sub {
+  font-size: 11px; color: #6b7280; margin-top: 2px;
+  font-weight: 500;
+}
+.kpi .delta {
+  font-size: 10px; font-weight: 700; margin-top: 4px;
+  padding: 2px 6px; border-radius: 4px; display: inline-block;
+}
+.kpi .delta.up { color: #1f7a4a; background: rgba(31,122,74,0.08); }
+.kpi .delta.down { color: #ef4444; background: rgba(239,68,68,0.08); }
+
+/* PANELS */
+.panels-row {
+  display: grid; gap: 14px; margin-bottom: 14px;
+}
+.panels-row.cols-2 { grid-template-columns: 1fr 1fr; }
+.panels-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.panels-row.chart-main { grid-template-columns: 2.2fr 1fr; }
+
+.panel {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+  padding: 20px;
+  position: relative;
+}
+.panel h2 {
+  font-size: 13px; font-weight: 800; letter-spacing: -0.005em;
+  margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+  color: #0b0f1a;
+}
+.panel h2 .count {
+  font-size: 10px; font-weight: 700; color: #6b7280;
+  background: #f0f1f4; padding: 2px 8px; border-radius: 10px;
+}
+.panel-sub {
+  font-size: 11px; color: #6b7280;
+  margin: -10px 0 14px;
+}
+
+/* TIME SERIES CHART */
+.chart-wrap { position: relative; height: 260px; }
+.chart-wrap canvas { max-width: 100%; }
+
+/* FUNNEL */
+.funnel-step {
+  padding: 10px 0; border-bottom: 1px dashed #f0f1f4;
+}
+.funnel-step:last-child { border-bottom: 0; }
+.funnel-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; font-weight: 600;
+  margin-bottom: 5px;
+}
+.funnel-conv {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(31,122,74,0.08); color: #1f7a4a;
+  margin-left: 6px;
+}
+.bar-track { background: #f0f1f4; height: 7px; border-radius: 4px; overflow: hidden; }
+.bar-fill {
+  background: linear-gradient(90deg, #1f7a4a, #c99a2a);
+  height: 100%; border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* RANKED LIST */
+.ranked-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0;
+}
+.ranked-row .label {
+  font-size: 12.5px; color: #0b0f1a; font-weight: 500;
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ranked-row .val {
+  font-size: 12px; color: #0b0f1a; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-left: 8px;
+}
+.ranked-bar {
+  background: #f0f1f4; height: 4px; border-radius: 2px; overflow: hidden;
+  margin: 0 0 6px;
+}
+.ranked-bar .fill {
+  height: 100%; background: linear-gradient(90deg, #1f7a4a, #c99a2a);
+}
+.empty { color: #9ca3af; font-size: 12px; text-align: center; padding: 20px 0; }
+
+/* HEATMAP */
+.heatmap { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; }
+.heatmap .cell {
+  aspect-ratio: 1;
+  background: #eef2f6;
+  border-radius: 3px;
+  position: relative;
+}
+.heatmap .cell[data-intensity="1"] { background: rgba(31,122,74,0.12); }
+.heatmap .cell[data-intensity="2"] { background: rgba(31,122,74,0.28); }
+.heatmap .cell[data-intensity="3"] { background: rgba(31,122,74,0.48); }
+.heatmap .cell[data-intensity="4"] { background: rgba(31,122,74,0.72); }
+.heatmap .cell[data-intensity="5"] { background: #1f7a4a; }
+.heatmap-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: #6b7280; margin-top: 6px;
+}
+
+/* LIVE EVENT FEED */
+.event-feed {
+  max-height: 420px; overflow-y: auto; margin: -8px -4px 0;
+  padding: 0 4px;
+}
+.event-feed::-webkit-scrollbar { width: 4px; }
+.event-feed::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+.event-row {
+  display: flex; gap: 10px; padding: 8px 6px;
+  border-bottom: 1px solid #f4f5f8;
+  font-size: 11.5px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.event-row:last-child { border-bottom: 0; }
+.event-pill {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em;
+  padding: 3px 7px; border-radius: 4px; flex-shrink: 0;
+  background: #f0f1f4; color: #6b7280;
+  text-transform: uppercase;
+  align-self: flex-start; margin-top: 1px;
+}
+.event-pill.ok { background: rgba(31,122,74,0.08); color: #1f7a4a; }
+.event-pill.warn { background: rgba(201,154,42,0.10); color: #c99a2a; }
+.event-pill.err { background: rgba(239,68,68,0.10); color: #ef4444; }
+.event-row .meta {
+  flex: 1; min-width: 0;
+}
+.event-row .who {
+  font-weight: 600; color: #0b0f1a;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.event-row .detail {
+  color: #6b7280; font-size: 10.5px;
+  margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.event-row .time {
+  color: #9ca3af; font-size: 10px;
+  flex-shrink: 0; margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ERROR SECTION */
+.err-row {
+  padding: 10px 0; border-bottom: 1px dashed #f0f1f4;
+  display: flex; gap: 10px; font-size: 12px;
+}
+.err-row:last-child { border-bottom: 0; }
+.err-row .code {
+  font-family: ui-monospace, monospace; font-size: 11px;
+  background: rgba(239,68,68,0.08); color: #ef4444;
+  padding: 2px 6px; border-radius: 4px; flex-shrink: 0;
+  font-weight: 600; align-self: flex-start;
+}
+.err-row .where { flex: 1; min-width: 0; }
+.err-row .where .msg {
+  color: #6b7280; font-size: 11px; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.err-row .time {
+  color: #9ca3af; font-size: 10.5px; flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* LOCKED VIEW */
+.locked { text-align: center; padding: 96px 24px; color: #6b7280; }
+.locked h2 { color: #0b0f1a; font-size: 20px; font-weight: 800; }
+
+/* MOBILE */
+@media (max-width: 960px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .panels-row.cols-3 { grid-template-columns: 1fr; }
+  .panels-row.cols-2 { grid-template-columns: 1fr; }
+  .panels-row.chart-main { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .wrap { padding: 20px 14px 64px; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi { padding: 14px; }
+  .kpi .val { font-size: 20px; }
+  .panel { padding: 16px; }
+  .brand h1 { font-size: 20px; }
+  .brand-tile { width: 36px; height: 36px; font-size: 12px; }
+  .chart-wrap { height: 200px; }
+  .heatmap { gap: 2px; }
+}
 </style>
 </head>
 <body>
 
-<div id="loading-view" class="admin-wrap locked">
+<div id="loading-view" class="wrap locked">
   <h2>Checking access…</h2>
   <p style="font-size:13px;">Restoring your session…</p>
 </div>
 
-<div id="locked-view" class="admin-wrap locked" style="display:none;">
+<div id="locked-view" class="wrap locked" style="display:none;">
   <h2 id="locked-title">Admin only</h2>
   <p id="locked-msg" style="font-size:13px;">This page is restricted to the WJP admin.</p>
   <p style="margin-top:16px;"><a id="locked-signin-link" href="./signin.html?next=/admin.html" style="color:#1f7a4a; font-weight:600;">Sign in</a> &nbsp;·&nbsp; <a href="./intro.html" style="color:#6b7280;">Back to home</a></p>
 </div>
 
-<div id="admin-view" class="admin-wrap" style="display:none;">
-  <h1 class="admin-h1">Analytics</h1>
-  <p class="admin-sub" id="admin-sub">Loading…</p>
+<div id="admin-view" class="wrap" style="display:none;">
 
-  <div class="seg" role="tablist">
-    <button data-range="1" type="button">Today</button>
-    <button data-range="7" type="button" class="active">7 days</button>
-    <button data-range="30" type="button">30 days</button>
-    <button data-range="90" type="button">90 days</button>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-tile">WJP</div>
+      <div>
+        <h1>Analytics</h1>
+        <div class="sub" id="brand-sub">Loading…</div>
+      </div>
+    </div>
+    <div class="actions">
+      <div class="seg" role="tablist">
+        <button data-range="1" type="button">24h</button>
+        <button data-range="7" type="button" class="active">7d</button>
+        <button data-range="30" type="button">30d</button>
+        <button data-range="90" type="button">90d</button>
+      </div>
+      <button class="btn" id="btn-refresh" type="button">↻ Refresh</button>
+      <button class="btn primary" id="btn-export" type="button">Export CSV</button>
+    </div>
+  </div>
+  <p class="status-line"><span class="dot"></span> <span id="status-text">Idle</span></p>
+
+  <!-- KPI GRID -->
+  <div class="kpi-grid">
+    <div class="kpi accent"><div class="label">Events</div><div class="val" id="kpi-events">—</div><div class="sub" id="kpi-events-sub">—</div></div>
+    <div class="kpi accent"><div class="label">Visitors</div><div class="val" id="kpi-visitors">—</div><div class="sub" id="kpi-visitors-sub">unique</div></div>
+    <div class="kpi gold"><div class="label">New signups</div><div class="val" id="kpi-signups">—</div><div class="sub" id="kpi-signups-sub">—</div></div>
+    <div class="kpi gold"><div class="label">Conversion</div><div class="val" id="kpi-conv">—</div><div class="sub">visit → sign up</div></div>
+    <div class="kpi"><div class="label">Plaid success</div><div class="val" id="kpi-plaid">—</div><div class="sub" id="kpi-plaid-sub">—</div></div>
+    <div class="kpi alert"><div class="label">Errors</div><div class="val" id="kpi-errors">—</div><div class="sub" id="kpi-errors-sub">—</div></div>
   </div>
 
-  <div class="card-grid">
-    <div class="stat-card"><div class="stat-label">Total events</div><div class="stat-val" id="stat-total">—</div><div class="stat-sub" id="stat-total-sub">—</div></div>
-    <div class="stat-card"><div class="stat-label">Unique visitors</div><div class="stat-val" id="stat-visitors">—</div><div class="stat-sub">by anon_id</div></div>
-    <div class="stat-card"><div class="stat-label">Signups</div><div class="stat-val" id="stat-signups">—</div><div class="stat-sub" id="stat-signups-sub">—</div></div>
-    <div class="stat-card"><div class="stat-label">Plaid links</div><div class="stat-val" id="stat-plaid">—</div><div class="stat-sub" id="stat-plaid-sub">—</div></div>
-  </div>
-
-  <div class="two-col">
+  <!-- TIME SERIES CHART + FUNNEL -->
+  <div class="panels-row chart-main">
+    <div class="panel">
+      <h2>Events over time</h2>
+      <div class="panel-sub">Daily activity grouped by category</div>
+      <div class="chart-wrap"><canvas id="chart-timeseries"></canvas></div>
+    </div>
     <div class="panel">
       <h2>Signup funnel</h2>
+      <div class="panel-sub">Where people drop off</div>
       <div id="funnel-body">—</div>
     </div>
+  </div>
+
+  <!-- TOP LISTS -->
+  <div class="panels-row cols-3">
     <div class="panel">
-      <h2>Event breakdown</h2>
-      <div id="events-body">—</div>
+      <h2>Top events <span class="count" id="events-count">0</span></h2>
+      <div id="events-body"></div>
+    </div>
+    <div class="panel">
+      <h2>Top pages <span class="count" id="pages-count">0</span></h2>
+      <div id="pages-body"></div>
+    </div>
+    <div class="panel">
+      <h2>Top referrers <span class="count" id="refs-count">0</span></h2>
+      <div id="refs-body"></div>
     </div>
   </div>
 
-  <div class="two-col">
+  <!-- TABS + HEATMAP + DEVICES -->
+  <div class="panels-row cols-3">
     <div class="panel">
-      <h2>Top pages</h2>
-      <div id="pages-body">—</div>
+      <h2>In-app tabs</h2>
+      <div class="panel-sub">Where signed-in users spend time</div>
+      <div id="tabs-body"></div>
     </div>
     <div class="panel">
-      <h2>Top referrers</h2>
-      <div id="refs-body">—</div>
+      <h2>Hour of day</h2>
+      <div class="panel-sub">When events happen (0 = midnight)</div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="heatmap-labels"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+    </div>
+    <div class="panel">
+      <h2>Devices</h2>
+      <div class="panel-sub">Parsed from user agents</div>
+      <div id="devices-body"></div>
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Most-viewed in-app tabs</h2>
-    <div id="tabs-body">—</div>
+  <!-- LIVE FEED + ERRORS -->
+  <div class="panels-row cols-2">
+    <div class="panel">
+      <h2>Live event feed <span class="count" id="feed-count">0</span></h2>
+      <div class="panel-sub">Most recent events, newest first</div>
+      <div class="event-feed" id="feed-body"></div>
+    </div>
+    <div class="panel">
+      <h2>Recent errors <span class="count" id="err-count">0</span></h2>
+      <div class="panel-sub">Client errors + Plaid link failures</div>
+      <div id="errors-body"></div>
+    </div>
   </div>
 
-  <div class="panel">
-    <h2>Recent errors</h2>
-    <div id="errors-body">—</div>
-  </div>
 </div>
 
 <script type="module">
@@ -120,7 +445,6 @@
   };
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // Match signin.html persistence so the session restores reliably
   setPersistence(auth, browserLocalPersistence).catch(()=>{});
   const db = getFirestore(app);
 
@@ -143,16 +467,14 @@
     loadingView.style.display = 'none';
     locked.style.display = 'none';
     view.style.display = 'block';
-    wireSegControls();
-    loadRange(7);
+    init();
   }
 
-  // Wait for the persisted session to restore (can be a tick after onAuthStateChanged first fires)
   (async () => {
     try { await auth.authStateReady(); } catch(e) {}
     const user = auth.currentUser;
     if (!user) {
-      showLocked('Please sign in', 'You need to sign in with the WJP admin account to view analytics.');
+      showLocked('Please sign in', 'Sign in with the WJP admin account to view analytics.');
       return;
     }
     const em = (user.email || '').toLowerCase();
@@ -162,156 +484,376 @@
     }
     showAdmin();
   })();
-
-  // Also listen for future sign-in/out events
   onAuthStateChanged(auth, (user) => {
-    if (!user) { showLocked('Please sign in', 'You need to sign in with the WJP admin account to view analytics.'); return; }
+    if (!user) { showLocked('Please sign in', 'Sign in with the WJP admin account to view analytics.'); return; }
     const em = (user.email || '').toLowerCase();
     if (!ADMIN_EMAILS.has(em)) { showLocked('Not authorized', `Signed in as ${user.email || 'unknown'} — this account isn't on the admin list.`); return; }
-    showAdmin();
   });
 
+  // ============== APP STATE ==============
   let currentRange = 7;
-  function wireSegControls(){
+  let lastRows = [];
+  let chartInstance = null;
+
+  function init() {
+    // Range buttons
     document.querySelectorAll('.seg button').forEach(b => {
       b.addEventListener('click', () => {
         document.querySelectorAll('.seg button').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
-        const days = parseInt(b.getAttribute('data-range'), 10);
-        currentRange = days;
-        loadRange(days);
+        currentRange = parseInt(b.getAttribute('data-range'), 10);
+        loadRange(currentRange);
       });
+    });
+    document.getElementById('btn-refresh').addEventListener('click', () => loadRange(currentRange));
+    document.getElementById('btn-export').addEventListener('click', exportCsv);
+
+    // Initial load
+    loadRange(currentRange);
+
+    // Load Chart.js in parallel
+    loadChartJs();
+  }
+
+  function loadChartJs(){
+    return new Promise((resolve) => {
+      if (window.Chart) return resolve();
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+      s.onload = resolve; s.onerror = resolve;
+      document.head.appendChild(s);
     });
   }
 
+  function setStatus(msg){ document.getElementById('status-text').textContent = msg; }
+
   async function loadRange(days){
-    document.getElementById('admin-sub').textContent = `Loading last ${days} day${days===1?'':'s'}…`;
+    setStatus(`Loading last ${days} day${days===1?'':'s'}…`);
     try {
       const since = new Date(Date.now() - days * 86400000);
       const q = query(
         collection(db, 'wjp_events'),
         where('ts', '>=', since),
         orderBy('ts', 'desc'),
-        limit(5000)
+        limit(10000)
       );
       const snap = await getDocs(q);
-      const rows = snap.docs.map(d => d.data());
-      render(rows, days);
+      lastRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setStatus(`Last ${days} day${days===1?'':'s'} · ${lastRows.length.toLocaleString()} events loaded`);
+      document.getElementById('brand-sub').textContent = `${lastRows.length.toLocaleString()} events · last ${days}d`;
+      renderAll(lastRows, days);
     } catch (e) {
-      document.getElementById('admin-sub').textContent = `Load error: ${e.message}`;
+      setStatus(`Load error: ${e.message}`);
     }
   }
 
-  function render(rows, days){
-    document.getElementById('admin-sub').textContent =
-      `Last ${days} day${days===1?'':'s'} · ${rows.length.toLocaleString()} events loaded`;
+  // ============== RENDERING ==============
+  function renderAll(rows, days){
+    renderKpis(rows, days);
+    renderTimeSeries(rows, days);
+    renderFunnel(rows);
+    renderTopEvents(rows);
+    renderTopPages(rows);
+    renderReferrers(rows);
+    renderTabs(rows);
+    renderHeatmap(rows);
+    renderDevices(rows);
+    renderFeed(rows);
+    renderErrors(rows);
+  }
 
-    // Stats
+  function renderKpis(rows, days){
     const visitors = new Set(rows.map(r => r.anon_id).filter(Boolean));
-    const signups = rows.filter(r => r.event === 'signup_completed').length;
     const signupStarts = rows.filter(r => r.event === 'signup_started').length;
-    const plaidSuccess = rows.filter(r => r.event === 'plaid_link_success').length;
-    const plaidOpens = rows.filter(r => r.event === 'plaid_link_opened').length;
+    const signupDone = rows.filter(r => r.event === 'signup_completed').length;
+    const plaidOpen = rows.filter(r => r.event === 'plaid_link_opened').length;
+    const plaidOk = rows.filter(r => r.event === 'plaid_link_success').length;
+    const errors = rows.filter(r => r.event === 'client_error' || r.event === 'plaid_link_error').length;
 
-    document.getElementById('stat-total').textContent = rows.length.toLocaleString();
-    document.getElementById('stat-total-sub').textContent =
-      (rows.length / Math.max(days,1)).toFixed(1) + '/day avg';
-    document.getElementById('stat-visitors').textContent = visitors.size.toLocaleString();
-    document.getElementById('stat-signups').textContent = signups.toLocaleString();
-    document.getElementById('stat-signups-sub').textContent =
-      signupStarts > 0 ? Math.round(100 * signups / signupStarts) + '% completion' : 'no attempts';
-    document.getElementById('stat-plaid').textContent = plaidSuccess.toLocaleString();
-    document.getElementById('stat-plaid-sub').textContent =
-      plaidOpens > 0 ? Math.round(100 * plaidSuccess / plaidOpens) + '% success' : 'no opens';
+    el('kpi-events').textContent = rows.length.toLocaleString();
+    el('kpi-events-sub').textContent = `${(rows.length / Math.max(days,1)).toFixed(1)}/day`;
+    el('kpi-visitors').textContent = visitors.size.toLocaleString();
+    el('kpi-signups').textContent = signupDone.toLocaleString();
+    el('kpi-signups-sub').textContent = signupStarts ? `${signupStarts} started` : 'no attempts';
+    const conv = visitors.size ? Math.round(100 * signupDone / visitors.size) : 0;
+    el('kpi-conv').textContent = conv + '%';
+    el('kpi-plaid').textContent = plaidOpen ? Math.round(100 * plaidOk / plaidOpen) + '%' : '—';
+    el('kpi-plaid-sub').textContent = `${plaidOk} / ${plaidOpen} opens`;
+    el('kpi-errors').textContent = errors.toLocaleString();
+    el('kpi-errors-sub').textContent = rows.length ? `${((errors/rows.length)*100).toFixed(1)}% of events` : '—';
+  }
 
-    // Funnel
+  async function renderTimeSeries(rows, days){
+    await loadChartJs();
+    if (!window.Chart) return;
+
+    // Bucket events by day × category
+    const buckets = {};
+    for (const r of rows){
+      const ts = r.ts && r.ts.toDate ? r.ts.toDate() : (r.ts ? new Date(r.ts) : null);
+      if (!ts) continue;
+      const key = ts.toISOString().slice(0, 10); // YYYY-MM-DD
+      if (!buckets[key]) buckets[key] = { page_view:0, signup:0, plaid:0, tab:0, error:0, other:0 };
+      const ev = r.event || '';
+      if (ev === 'page_view') buckets[key].page_view++;
+      else if (ev.startsWith('signup')) buckets[key].signup++;
+      else if (ev.startsWith('plaid_')) buckets[key].plaid++;
+      else if (ev === 'tab_viewed') buckets[key].tab++;
+      else if (ev === 'client_error' || ev === 'plaid_link_error') buckets[key].error++;
+      else buckets[key].other++;
+    }
+    // Generate full date range so empty days show as zeros
+    const dates = [];
+    for (let i = days - 1; i >= 0; i--){
+      const d = new Date(Date.now() - i * 86400000);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const ds = (key, color) => dates.map(d => (buckets[d] && buckets[d][key]) || 0);
+    const labels = dates.map(d => {
+      const dt = new Date(d);
+      return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    });
+
+    const ctx = document.getElementById('chart-timeseries').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'Page views', data: ds('page_view'), backgroundColor:'rgba(31,122,74,0.8)', stack:'s', borderRadius:4 },
+          { label:'Signups',    data: ds('signup'),    backgroundColor:'rgba(201,154,42,0.9)', stack:'s', borderRadius:4 },
+          { label:'Plaid',      data: ds('plaid'),     backgroundColor:'rgba(102,126,234,0.8)', stack:'s', borderRadius:4 },
+          { label:'Tab views',  data: ds('tab'),       backgroundColor:'rgba(156,163,175,0.6)', stack:'s', borderRadius:4 },
+          { label:'Errors',     data: ds('error'),     backgroundColor:'rgba(239,68,68,0.8)', stack:'s', borderRadius:4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } },
+          tooltip: { mode: 'index' }
+        },
+        scales: {
+          x: { stacked: true, ticks: { font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
+          y: { stacked: true, ticks: { font: { size: 10 } }, grid: { color: '#f0f1f4' } }
+        }
+      }
+    });
+  }
+
+  function renderFunnel(rows){
+    const visitors = new Set(rows.map(r => r.anon_id).filter(Boolean)).size;
     const pageViews = rows.filter(r => r.event === 'page_view').length;
-    const uniqueVisitors = visitors.size;
+    const signupStart = rows.filter(r => r.event === 'signup_started').length;
+    const signupDone = rows.filter(r => r.event === 'signup_completed').length;
+    const verified = rows.filter(r => r.event === 'email_verified').length;
+    const plaidSuccess = rows.filter(r => r.event === 'plaid_link_success').length;
     const funnel = [
-      ['Unique visitors', uniqueVisitors],
+      ['Unique visitors', visitors],
       ['Page views', pageViews],
-      ['Signup started', signupStarts],
-      ['Signup completed', signups],
-      ['Plaid linked', plaidSuccess]
+      ['Signup started', signupStart],
+      ['Signup completed', signupDone],
+      ['Email verified', verified],
+      ['Bank linked', plaidSuccess]
     ];
-    const maxF = Math.max(...funnel.map(f => f[1]), 1);
-    document.getElementById('funnel-body').innerHTML = funnel.map(([label, n], i) => {
+    const max = Math.max(...funnel.map(f => f[1]), 1);
+    el('funnel-body').innerHTML = funnel.map(([label, n], i) => {
       const prev = i > 0 ? funnel[i-1][1] : n;
-      const conv = prev > 0 ? Math.round(100 * n / prev) + '%' : '—';
+      const conv = i === 0 ? '' : prev > 0 ? Math.round(100 * n / prev) + '%' : '0%';
       return `
         <div class="funnel-step">
           <div class="funnel-row">
             <span>${label}</span>
-            <span>${n.toLocaleString()} <span class="funnel-conv">${i>0?'↘ '+conv:''}</span></span>
+            <span>${n.toLocaleString()}${conv ? `<span class="funnel-conv">↘ ${conv}</span>` : ''}</span>
           </div>
-          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxF)}%"></div></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/max)}%"></div></div>
         </div>`;
     }).join('');
+  }
 
-    // Event breakdown
-    const eventCounts = {};
-    rows.forEach(r => { eventCounts[r.event] = (eventCounts[r.event] || 0) + 1; });
-    document.getElementById('events-body').innerHTML =
-      rankedRows(eventCounts, 12);
+  function renderTopEvents(rows){
+    const counts = {};
+    rows.forEach(r => { counts[r.event] = (counts[r.event] || 0) + 1; });
+    el('events-count').textContent = Object.keys(counts).length;
+    el('events-body').innerHTML = rankedList(counts, 10);
+  }
 
-    // Pages
-    const pageCounts = {};
+  function renderTopPages(rows){
+    const counts = {};
     rows.filter(r => r.event === 'page_view').forEach(r => {
       const p = (r.page || '/').replace(/\?.*$/,'') || '/';
-      pageCounts[p] = (pageCounts[p] || 0) + 1;
+      counts[p] = (counts[p] || 0) + 1;
     });
-    document.getElementById('pages-body').innerHTML = rankedRows(pageCounts, 10);
+    el('pages-count').textContent = Object.keys(counts).length;
+    el('pages-body').innerHTML = rankedList(counts, 10);
+  }
 
-    // Referrers
-    const refCounts = {};
+  function renderReferrers(rows){
+    const counts = {};
     rows.filter(r => r.event === 'page_view' && r.referrer).forEach(r => {
       let host = '(direct)';
       try { host = new URL(r.referrer).hostname; } catch(_) {}
       if (host === location.hostname) return;
-      refCounts[host] = (refCounts[host] || 0) + 1;
+      counts[host] = (counts[host] || 0) + 1;
     });
-    const refHtml = rankedRows(refCounts, 10);
-    document.getElementById('refs-body').innerHTML =
-      Object.keys(refCounts).length ? refHtml : '<div class="row-label">No external referrers yet</div>';
+    el('refs-count').textContent = Object.keys(counts).length;
+    const html = rankedList(counts, 10);
+    el('refs-body').innerHTML = Object.keys(counts).length ? html : '<div class="empty">No external referrers</div>';
+  }
 
-    // In-app tabs
-    const tabCounts = {};
+  function renderTabs(rows){
+    const counts = {};
     rows.filter(r => r.event === 'tab_viewed').forEach(r => {
       const t = (r.props && r.props.tab) || 'unknown';
-      tabCounts[t] = (tabCounts[t] || 0) + 1;
+      counts[t] = (counts[t] || 0) + 1;
     });
-    document.getElementById('tabs-body').innerHTML =
-      Object.keys(tabCounts).length ? rankedRows(tabCounts, 10)
-        : '<div class="row-label">No tab views recorded yet</div>';
+    el('tabs-body').innerHTML = Object.keys(counts).length
+      ? rankedList(counts, 10)
+      : '<div class="empty">No tab views yet</div>';
+  }
 
-    // Errors
+  function renderHeatmap(rows){
+    const buckets = new Array(24).fill(0);
+    rows.forEach(r => {
+      const ts = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      if (!ts) return;
+      buckets[ts.getHours()]++;
+    });
+    const max = Math.max(...buckets, 1);
+    const hm = el('heatmap');
+    hm.innerHTML = buckets.map((n, h) => {
+      let intensity = 0;
+      if (n > 0) intensity = Math.max(1, Math.ceil((n/max) * 5));
+      return `<div class="cell" data-intensity="${intensity}" title="${h}:00 · ${n} events"></div>`;
+    }).join('');
+  }
+
+  function renderDevices(rows){
+    // Very lightweight UA parser — enough to bucket desktop/mobile/tablet + browser
+    const counts = {};
+    rows.forEach(r => {
+      const ua = r.ua || '';
+      if (!ua) return;
+      const isMob = /Mobi|Android|iPhone/.test(ua);
+      const isTab = /iPad|Tablet/.test(ua);
+      const isAndroid = /Android/.test(ua);
+      const isIOS = /iPhone|iPad|iOS/.test(ua);
+      let browser = 'Other';
+      if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) browser = 'Chrome';
+      else if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) browser = 'Safari';
+      else if (/Firefox\//.test(ua)) browser = 'Firefox';
+      else if (/Edg\//.test(ua)) browser = 'Edge';
+      const device = isTab ? 'Tablet' : (isMob ? (isIOS ? 'iPhone' : isAndroid ? 'Android' : 'Mobile') : 'Desktop');
+      const key = `${device} · ${browser}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    el('devices-body').innerHTML = Object.keys(counts).length
+      ? rankedList(counts, 10)
+      : '<div class="empty">No device data</div>';
+  }
+
+  function renderFeed(rows){
+    const recent = rows.slice(0, 50);
+    el('feed-count').textContent = recent.length;
+    el('feed-body').innerHTML = recent.map(r => {
+      const ts = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      const timeAgo = ts ? relTime(ts) : '';
+      const ev = r.event || 'unknown';
+      let pillClass = '';
+      if (ev.endsWith('_success') || ev === 'signup_completed' || ev === 'signin_completed' || ev === 'email_verified') pillClass = 'ok';
+      else if (ev.endsWith('_error') || ev === 'client_error') pillClass = 'err';
+      else if (ev.endsWith('_exit') || ev === 'signup_started' || ev === 'signin_started') pillClass = 'warn';
+
+      const who = r.email || (r.uid ? `uid:${r.uid.slice(0,8)}` : (r.anon_id ? `anon:${r.anon_id.slice(0,6)}` : 'unknown'));
+      const detail = r.page || (r.props ? Object.entries(r.props).slice(0,3).map(([k,v]) => `${k}:${v}`).join(' · ') : '');
+      return `
+        <div class="event-row">
+          <span class="event-pill ${pillClass}">${esc(ev)}</span>
+          <div class="meta">
+            <div class="who">${esc(who)}</div>
+            ${detail ? `<div class="detail">${esc(detail)}</div>` : ''}
+          </div>
+          <div class="time">${timeAgo}</div>
+        </div>`;
+    }).join('') || '<div class="empty">No events yet</div>';
+  }
+
+  function renderErrors(rows){
     const errs = rows.filter(r => r.event === 'client_error' || r.event === 'plaid_link_error').slice(0, 15);
-    document.getElementById('errors-body').innerHTML = errs.length
+    el('err-count').textContent = errs.length;
+    el('errors-body').innerHTML = errs.length
       ? errs.map(r => {
-          const ts = r.ts && r.ts.toDate ? r.ts.toDate().toLocaleString() : '';
-          const where = (r.props && (r.props.where || r.props.code)) || r.event;
-          const msg = (r.props && (r.props.msg || r.props.type || r.props.code)) || '';
-          return `<div class="row"><span class="row-label">${escapeHtml(where)} <span style="color:#9ca3af">· ${escapeHtml(msg)}</span></span><span class="row-val">${ts}</span></div>`;
+          const ts = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+          const code = (r.props && (r.props.code || r.props.type)) || r.event;
+          const where = (r.props && r.props.where) || '—';
+          const msg = (r.props && r.props.msg) || '';
+          return `
+            <div class="err-row">
+              <span class="code">${esc(String(code).slice(0,20))}</span>
+              <div class="where">
+                <div>${esc(where)}</div>
+                ${msg ? `<div class="msg">${esc(msg)}</div>` : ''}
+              </div>
+              <div class="time">${ts ? relTime(ts) : ''}</div>
+            </div>`;
         }).join('')
-      : '<div class="row-label">No errors logged.</div>';
+      : '<div class="empty">No errors. 🎉</div>';
   }
 
-  function rankedRows(counts, n){
+  function rankedList(counts, n){
     const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, n);
-    const max = sorted[0] ? sorted[0][1] : 1;
+    if (!sorted.length) return '<div class="empty">No data</div>';
+    const max = sorted[0][1];
     return sorted.map(([k, v]) => `
-      <div class="row">
-        <span class="row-label">${escapeHtml(k)}</span>
-        <span class="row-val">${v.toLocaleString()}</span>
-      </div>
-      <div class="bar-track" style="margin-bottom:8px;"><div class="bar-fill" style="width:${Math.round(100*v/max)}%"></div></div>
-    `).join('') || '<div class="row-label">No data</div>';
+      <div class="ranked-row"><span class="label">${esc(k)}</span><span class="val">${v.toLocaleString()}</span></div>
+      <div class="ranked-bar"><div class="fill" style="width:${Math.round(100*v/max)}%"></div></div>
+    `).join('');
   }
 
-  function escapeHtml(s){
+  function exportCsv(){
+    if (!lastRows.length) return;
+    const headers = ['ts', 'event', 'uid', 'email', 'anon_id', 'session_id', 'page', 'referrer', 'viewport', 'ua', 'props'];
+    const csv = [headers.join(',')];
+    lastRows.forEach(r => {
+      const row = [
+        r.ts && r.ts.toDate ? r.ts.toDate().toISOString() : '',
+        r.event || '',
+        r.uid || '',
+        r.email || '',
+        r.anon_id || '',
+        r.session_id || '',
+        (r.page || '').replace(/"/g, '""'),
+        (r.referrer || '').replace(/"/g, '""'),
+        r.viewport || '',
+        (r.ua || '').replace(/"/g, '""').slice(0,120),
+        JSON.stringify(r.props || {}).replace(/"/g, '""')
+      ].map(f => `"${f}"`).join(',');
+      csv.push(row);
+    });
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wjp-events-${new Date().toISOString().slice(0,10)}-${currentRange}d.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Utils
+  function el(id){ return document.getElementById(id); }
+  function esc(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[ch]));
+  }
+  function relTime(d){
+    const s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 10) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
   }
 </script>
 <script defer src="./wjp-analytics.js?v=1"></script>
