@@ -4594,6 +4594,79 @@ body.dark .top-header{
   /* ===== RESILIENCE — custom stress test row ===== */
   #resilience-tab-content input[type="range"]{ width: 100% !important; }
 
+  /* ===== INTERACTIVE CALENDAR (page-recurring) ===== */
+  /* Header row: title + prev/next + MONTH/WEEK toggle */
+  #page-recurring .card > div[style*="justify-content:space-between"]{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    margin-bottom: 18px !important;
+  }
+  /* Month label + prev/next group → center */
+  #page-recurring .card > div[style*="justify-content:space-between"] > div:first-child{
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  #cal-month-year{ font-size: 18px !important; }
+  /* MONTH/WEEK segmented toggle → center, full width */
+  #page-recurring .card > div[style*="justify-content:space-between"] > div:last-child{
+    justify-content: center !important;
+    align-self: center !important;
+    display: inline-flex !important;
+    margin: 0 auto !important;
+  }
+  /* Calendar main layout (1fr 340px → 1fr) */
+  #page-recurring > div[style*="grid-template-columns: 1fr 340px"],
+  #page-recurring > div[style*="grid-template-columns:1fr 340px"]{
+    grid-template-columns: 1fr !important;
+  }
+  /* Page header h1 + filter/add buttons */
+  #page-recurring > div.reveal:first-child > div[style*="justify-content:space-between"]{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  #page-recurring > div.reveal:first-child > div[style*="justify-content:space-between"] > div:last-child{
+    display: flex !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+  #page-recurring > div.reveal:first-child > div[style*="justify-content:space-between"] > div:last-child > button{
+    flex: 1 1 auto !important;
+  }
+
+  /* ===== PAYMENT CALENDAR (inside Strategy → Recurring Payments subtab) ===== */
+  /* Title header row (icon + title on left, prev/label/next on right) */
+  .debts-subtab-content[data-subtab="recurring"] .card > div[style*="justify-content:space-between"]:first-child{
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    justify-content: space-between !important;
+  }
+  /* Daily/Weekly/Monthly/Yearly buttons — centered segmented control */
+  .rec-cal-view-btn{
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    text-align: center !important;
+    font-size: 11px !important;
+    padding: 8px 6px !important;
+  }
+  /* The flex container that holds the view buttons — center + full width */
+  .debts-subtab-content[data-subtab="recurring"] div[style*="display:flex"][style*="gap:4px"]{
+    justify-content: center !important;
+    width: 100% !important;
+    background: var(--card-2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    padding: 3px !important;
+    margin-bottom: 14px !important;
+    gap: 3px !important;
+  }
+  /* The individual buttons inside get equal flex */
+  .debts-subtab-content[data-subtab="recurring"] .rec-cal-view-btn.btn{
+    border-radius: 7px !important;
+  }
+
   /* ===== AI ADVISOR TAB (page-advisor) ===== */
   .advisor-layout-grid{
     grid-template-columns: 1fr !important;
