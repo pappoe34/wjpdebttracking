@@ -9,15 +9,24 @@
    browser has already prefetched them via <link rel="prefetch"> so
    the actual load is near-instant when triggered. */
 const _scriptPromises = {};
-function loadScriptOnce(url) {
+function loadScriptOnce(url, opts) {
+    opts = opts || {};
     if (_scriptPromises[url]) return _scriptPromises[url];
     _scriptPromises[url] = new Promise((resolve, reject) => {
         const s = document.createElement('script');
         s.src = url;
         s.async = true;
-        s.crossOrigin = 'anonymous';
-        s.onload = () => resolve();
-        s.onerror = (e) => { delete _scriptPromises[url]; reject(new Error('Failed to load ' + url)); };
+        // Only set crossOrigin if explicitly requested — default plain-script loads
+        // let the browser handle CORS per-server, which is what CDNs like plaid.com
+        // actually expect. Setting 'anonymous' was breaking the load when the CDN
+        // doesn't return Access-Control-Allow-Origin.
+        if (opts.cors) s.crossOrigin = 'anonymous';
+        s.onload = () => { console.log('[loaded]', url); resolve(); };
+        s.onerror = (e) => {
+            delete _scriptPromises[url];
+            console.error('[script load failed]', url, e);
+            reject(new Error('Failed to load ' + url));
+        };
         document.head.appendChild(s);
     });
     return _scriptPromises[url];
@@ -6463,10 +6472,20 @@ async function fetchLinkToken(opts) {
 
 async function openPlaidLink(opts) {
     opts = opts || {};
-    // opts.updateItemId  → request update-mode link token (re-auth flow for ITEM_LOGIN_REQUIRED)
-    // Lazy-load Plaid Link SDK on first click (prefetched via <link rel="prefetch"> so load is near-instant)
+    // Immediate feedback so the user knows the click registered while Plaid loads.
+    if (typeof showToast === 'function') {
+        showToast(opts.updateItemId ? 'Reconnecting to your bank…' : 'Preparing bank link…');
+    }
+    // Lazy-load Plaid Link SDK on first click. Prefetch hint warms the cache,
+    // but on a cold load this can still take ~1s on slow networks.
     if (typeof Plaid === 'undefined') {
-        try { await ensurePlaidLoaded(); } catch(e) {}
+        try {
+            await ensurePlaidLoaded();
+        } catch(e) {
+            console.error('[plaid] SDK failed to load', e);
+            if (typeof showToast === 'function') showToast('Could not load bank link. Check your connection and try again.');
+            return;
+        }
     }
     if (typeof Plaid === 'undefined' || !Plaid || typeof Plaid.create !== 'function') {
         if (typeof showToast === 'function') showToast('Plaid Link script not loaded.');
@@ -6477,9 +6496,7 @@ async function openPlaidLink(opts) {
         if (typeof showToast === 'function') showToast("You're offline — try again when you're back online.");
         return;
     }
-    if (typeof showToast === 'function') {
-        showToast(opts.updateItemId ? 'Reconnecting to your bank…' : 'Contacting your bank…');
-    }
+    // (Already toasted "Preparing bank link…" above — avoid a second toast burst.)
     let linkToken;
     try {
         linkToken = await fetchLinkToken(opts.updateItemId ? { itemId: opts.updateItemId } : undefined);
@@ -12232,9 +12249,24 @@ function initAllButtonHandlers() {
     }
 
     // ── Link New Bank Institution ─────────────────────────────
+    // This button was previously showing a "coming soon" toast. Wire it to
+    // the real Plaid Link opener (which lazy-loads the SDK on demand).
     const btnLinkBank = document.getElementById('btn-link-bank');
     if (btnLinkBank) {
-        btnLinkBank.onclick = () => showToast('Bank sync via Plaid coming soon — stay tuned!');
+        btnLinkBank.onclick = () => {
+            try {
+                if (typeof openPlaidLink === 'function') {
+                    openPlaidLink();
+                } else if (typeof window.openPlaidLink === 'function') {
+                    window.openPlaidLink();
+                } else {
+                    showToast && showToast('Bank link isn\'t ready yet — please refresh and try again.');
+                }
+            } catch (e) {
+                console.error('btn-link-bank click failed', e);
+                showToast && showToast('Could not open bank link. Check your connection and try again.');
+            }
+        };
     }
 
     // ── Document Vault: Grid / List toggle ───────────────────
