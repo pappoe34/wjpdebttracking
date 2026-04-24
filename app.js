@@ -2462,9 +2462,67 @@ function updateUI() {
         const progressPct = targetGoal > 0 ? Math.min(100, Math.round((totalPaid / targetGoal) * 100)) : 0;
 
         freedomFill.style.width = `${progressPct}%`;
-        if (freedomBadge) freedomBadge.textContent = `${progressPct}% Progress • ${appState.settings.strategy.charAt(0).toUpperCase() + appState.settings.strategy.slice(1)} Strategy`;
-        if (freedomPaid) freedomPaid.textContent = `$${totalPaid.toLocaleString()} Paid`;
-        if (freedomTarget) freedomTarget.textContent = targetGoal > 0 ? `$${targetGoal.toLocaleString()} Target` : 'Set a target goal';
+        if (freedomPaid) freedomPaid.textContent = `$${totalPaid.toLocaleString()} paid`;
+        if (freedomTarget) freedomTarget.textContent = targetGoal > 0 ? `$${targetGoal.toLocaleString()} target` : 'No target yet';
+        // Strategy pill replaces old center badge
+        if (freedomBadge) {
+            const strat = appState.settings.strategy || 'avalanche';
+            freedomBadge.textContent = strat.charAt(0).toUpperCase() + strat.slice(1) + ' strategy';
+        }
+    }
+
+    // --- DEBT-FREE DATE HERO (the promise in the marketing made real) ---
+    const dfdHero    = document.getElementById('dfd-hero');
+    const dfdDate    = document.getElementById('dfd-date');
+    const dfdEyebrow = document.getElementById('dfd-eyebrow');
+    const dfdMeta    = document.getElementById('dfd-meta');
+    if (dfdDate && dfdMeta && dfdEyebrow) {
+        const strategy = appState.settings.strategy || 'avalanche';
+        const hasDebts = appState.debts && appState.debts.length > 0;
+        const hasMins  = hasDebts && appState.debts.some(d => (d.minPayment || 0) > 0);
+        if (!hasDebts) {
+            if (dfdHero) dfdHero.classList.add('empty');
+            dfdEyebrow.textContent = 'You\'ll be debt-free on';
+            dfdDate.textContent = '—';
+            dfdMeta.innerHTML = 'Add your first debt and we\'ll show you <strong>the exact date</strong> you\'ll pay off the last balance.';
+        } else if (!hasMins) {
+            if (dfdHero) dfdHero.classList.add('empty');
+            dfdEyebrow.textContent = 'You\'ll be debt-free on';
+            dfdDate.textContent = '—';
+            dfdMeta.innerHTML = 'Add a <strong>minimum payment</strong> to each debt so we can project your payoff date.';
+        } else {
+            if (dfdHero) dfdHero.classList.remove('empty');
+            try {
+                const stats = calcSimTotals(strategy, 0, 0, 0);
+                if (stats && stats.months > 0 && stats.months < 600) {
+                    const payoff = new Date();
+                    payoff.setMonth(payoff.getMonth() + stats.months);
+                    const dateStr = payoff.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    const fmtUsd = n => '$' + Math.round(n).toLocaleString();
+                    const yearsText = stats.months >= 12
+                        ? `${Math.floor(stats.months/12)} year${Math.floor(stats.months/12) === 1 ? '' : 's'}${stats.months % 12 ? `, ${stats.months % 12} month${stats.months % 12 === 1 ? '' : 's'}` : ''}`
+                        : `${stats.months} month${stats.months === 1 ? '' : 's'}`;
+                    // Pulse the date if it changed from what was last shown
+                    const prev = dfdDate.getAttribute('data-prev');
+                    if (prev && prev !== dateStr && dfdHero) {
+                        dfdHero.classList.remove('updated');
+                        void dfdHero.offsetWidth; // reflow so animation restarts
+                        dfdHero.classList.add('updated');
+                    }
+                    dfdDate.setAttribute('data-prev', dateStr);
+                    dfdEyebrow.textContent = 'You\'ll be debt-free on';
+                    dfdDate.textContent = dateStr;
+                    dfdMeta.innerHTML = `<strong>${fmtUsd(totalDebt)}</strong> remaining · <strong>${yearsText}</strong> to go · <strong>${fmtUsd(stats.totalInterest)}</strong> total interest at current plan.`;
+                } else {
+                    dfdEyebrow.textContent = 'Can\'t reach debt-free';
+                    dfdDate.textContent = '—';
+                    dfdMeta.innerHTML = 'At current minimums your balance isn\'t decreasing. <strong>Add more to your monthly payment</strong> or restructure the debt.';
+                }
+            } catch (e) {
+                console.warn('Debt-free date calc failed:', e);
+                dfdDate.textContent = '—';
+            }
+        }
     }
 
     // --- AI Focus Text (dynamic, no hardcoded debt names) ---

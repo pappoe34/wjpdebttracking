@@ -178,7 +178,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=54-perf">
+  <link rel="stylesheet" href="style.css?v=55-dfd">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used. -->
@@ -705,28 +705,25 @@
 
         <!-- PAGE: DASHBOARD -->
         <div class="page active" id="page-dashboard">
-          <div class="dash-header reveal">
-            <div>
-              <div class="section-label">Executive Summary</div>
-              <h1 class="section-title">Financial Freedom</h1>
-            </div>
-            <div class="dash-total-card">
-              <div class="card-label">Total Debt Remaining</div>
-              <div class="card-value accent" id="val-total-debt">$42,850.00</div>
-            </div>
-          </div>
+          <!-- Debt-free-date HERO — the single most important thing on the page.
+               Every app open reinforces the brand promise: "a date on your calendar." -->
+          <div class="dfd-hero reveal" id="dfd-hero">
+            <div class="section-label">Executive Summary</div>
+            <div class="dfd-eyebrow" id="dfd-eyebrow">You'll be debt-free on</div>
+            <div class="dfd-date" id="dfd-date">—</div>
+            <div class="dfd-meta" id="dfd-meta">Add your first debt to see your personalized date.</div>
 
-          <div class="dash-progress-section progress-container reveal reveal-1">
-            <div class="progress-track progress-bar-tall">
-              <div class="progress-fill" id="freedom-progress-fill" style="width: 65%;"></div>
+            <div class="progress-track progress-bar-tall dfd-progress">
+              <div class="progress-fill" id="freedom-progress-fill" style="width: 0%;"></div>
             </div>
-            <div class="progress-center">
-              <div class="progress-badge-center" id="freedom-badge-text">65% Progress • Avalanche Method</div>
-            </div>
-            <div class="progress-labels">
+            <div class="progress-labels dfd-labels">
               <span id="freedom-paid-amt">$0 Paid</span>
-              <span id="freedom-target-amt">$120,000 Target</span>
+              <span id="freedom-badge-text" class="dfd-strategy">—</span>
+              <span id="freedom-target-amt">—</span>
             </div>
+
+            <!-- Hidden but kept for back-compat: other code reads val-total-debt -->
+            <div id="val-total-debt" style="display:none">$0.00</div>
           </div>
 
           <div class="dash-grid">
@@ -4623,7 +4620,7 @@
 </div>
 
 
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

@@ -5112,3 +5112,118 @@ body.dark .top-header{
   55%  { transform: rotate(-90deg); }
   100% { transform: rotate(0deg); }
 }
+
+/* ============================================================
+   DEBT-FREE-DATE HERO (dashboard)
+   The single most important thing on the page: reinforces the
+   brand promise — "a date on your calendar" — at every app open.
+   ============================================================ */
+.dfd-hero {
+  background: linear-gradient(135deg, rgba(31,122,74,0.08) 0%, rgba(201,154,42,0.06) 100%);
+  border: 1px solid rgba(31,122,74,0.18);
+  border-radius: 20px;
+  padding: 32px 36px 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.dfd-hero::before {
+  content: '';
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 260px; height: 260px;
+  background: radial-gradient(circle, rgba(201,154,42,0.14), transparent 70%);
+  pointer-events: none;
+}
+.dfd-hero .section-label {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  margin-bottom: 12px;
+}
+.dfd-eyebrow {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  color: var(--text-2);
+  font-weight: 500;
+  margin-bottom: 6px;
+  letter-spacing: -0.005em;
+}
+.dfd-date {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(36px, 6.5vw, 64px);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--text);
+  background: linear-gradient(135deg, #1f7a4a 0%, #2b9b72 45%, #c99a2a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dfd-hero.updated .dfd-date {
+  animation: dfdPulse 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dfdPulse {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.035); }
+  100% { transform: scale(1); }
+}
+.dfd-meta {
+  font-size: 13px;
+  color: var(--text-3);
+  font-weight: 500;
+  line-height: 1.55;
+  margin-bottom: 22px;
+  max-width: 520px;
+}
+.dfd-meta strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.dfd-progress {
+  margin-bottom: 10px;
+}
+.dfd-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+  gap: 12px;
+}
+.dfd-strategy {
+  color: var(--accent) !important;
+  background: var(--accent-dim);
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+/* Empty state (no debts) */
+.dfd-hero.empty .dfd-date {
+  background: linear-gradient(135deg, var(--text-3), var(--text-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 0.55;
+}
+
+/* Mobile — hero scales but stays readable */
+@media (max-width: 560px) and (orientation: portrait) {
+  .dfd-hero {
+    padding: 22px 18px 18px !important;
+    border-radius: 16px !important;
+  }
+  .dfd-date { font-size: clamp(30px, 9vw, 44px) !important; }
+  .dfd-eyebrow { font-size: 13px !important; }
+  .dfd-meta { font-size: 12px !important; margin-bottom: 16px !important; }
+  .dfd-labels { flex-wrap: wrap !important; gap: 8px !important; font-size: 10px !important; }
+  .dfd-strategy { order: 3; flex: 0 0 100%; }
+}
