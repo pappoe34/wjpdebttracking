@@ -19,14 +19,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Fonts: Inter (used everywhere) + one Fraunces weight for accents.
-     Dropped: JetBrains Mono (fell back to system ui-monospace),
-              Fraunces italic + optical-size axis (unused after Winston rejected Fraunces italic),
-              overly wide Fraunces weight range (was 300-700, now just 700).
-     Added:   Inter 800 (the hero-display weight — was being fake-bolded). -->
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+<!-- Slim font payload: just Inter (all weights we use) + one Fraunces weight.
+     Saved ~60 KB by dropping JetBrains Mono and Fraunces italic/opsz axes. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="./landing.css?v=phase2-13">
 <style>
   /* intro-specific hero — fits viewport, no scroll needed */
