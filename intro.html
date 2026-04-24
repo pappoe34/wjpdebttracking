@@ -5,10 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>WJP Budgetting — Debt-free is a date on your calendar.</title>
 <meta name="description" content="WJP is your private debt strategist. Link your accounts, engineer a payoff plan, and hold yourself accountable — until the last balance hits zero. Bank-level security. No credit card required." />
+
+<!-- PWA / installability -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1f7a4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WJP Debt">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./landing.css?v=phase2-11">
+<link rel="stylesheet" href="./landing.css?v=phase2-12">
 <style>
   /* intro-specific hero — fits viewport, no scroll needed */
   .hero{
@@ -262,5 +274,14 @@
 
 <script defer src="./landing-menu.js?v=phase2-11"></script>
 <script defer src="./wjp-analytics.js?v=1"></script>
+<script>
+  // Register service worker (PWA installability). Runs after load so it
+  // never blocks the hero render.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('/sw.js').catch(function(){});
+    });
+  }
+</script>
 </body>
 </html>
