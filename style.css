@@ -4759,24 +4759,35 @@ body.dark .top-header{
   }
 
   /* ===== NOTIFICATION PANEL — mobile drawer =====
-     Desktop: anchored to bell button with 380px width. Mobile: pin
-     to viewport edges under the header so it never gets clipped. */
+     Panel is moved to <body> via JS (out of the backdrop-filter'd
+     header stacking context). It uses position:fixed to pin to the
+     viewport edges under the header so it never gets clipped. */
   .notification-panel{
     position: fixed !important;
-    top: 56px !important;
+    top: 64px !important;
     left: 10px !important;
     right: 10px !important;
     width: auto !important;
     max-width: none !important;
-    max-height: calc(100vh - 80px) !important;
+    max-height: calc(100vh - 90px) !important;
     margin-top: 0 !important;
     border-radius: 16px !important;
+    z-index: 2147482000 !important;  /* above drawer (1200) + below rotate banner */
   }
   /* When the rotate banner is visible, push panel further down so it
      sits below both the banner AND the sticky header */
   body:not(.rotate-dismissed) .notification-panel{
     top: 118px !important;
     max-height: calc(100vh - 140px) !important;
+  }
+  /* Backdrop so the panel feels modal-ish on mobile */
+  .notification-panel.active::before{
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: -1;
+    height: auto !important;
   }
   .notification-header{
     padding: 16px 18px !important;

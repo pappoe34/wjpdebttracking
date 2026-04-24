@@ -8597,6 +8597,13 @@ function initDashboardInteractivity() {
     const btnClear = document.getElementById('btn-clear-notifications');
 
     if (btnNotify && panelNotify) {
+        // Move panel to <body> so its position:fixed anchors to the viewport
+        // (the top-header has backdrop-filter which would otherwise create
+        //  a containing block and trap the panel under other layers).
+        if (panelNotify.parentElement !== document.body) {
+            document.body.appendChild(panelNotify);
+        }
+
         btnNotify.addEventListener('click', (e) => {
             e.stopPropagation();
             panelNotify.classList.toggle('active');
