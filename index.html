@@ -691,7 +691,11 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-logo">
-        <a href="./intro.html" class="logo-mark" style="text-decoration:none;color:inherit">
+        <!-- Logo click keeps the user INSIDE the app — SPA-nav to dashboard.
+             If somehow the router isn't available we fall back to a no-op (not a redirect)
+             so the user never feels like they've been signed out. -->
+        <a href="#dashboard" class="logo-mark" style="text-decoration:none;color:inherit"
+           onclick="event.preventDefault(); try { if (typeof navigateSPA === 'function') navigateSPA('dashboard'); else if (window.navigateSPA) window.navigateSPA('dashboard'); } catch(_){}">
           <span class="logo-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/>
