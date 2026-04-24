@@ -4758,6 +4758,48 @@ body.dark .top-header{
     gap: 8px !important;
   }
 
+  /* ===== NOTIFICATION PANEL — mobile drawer =====
+     Desktop: anchored to bell button with 380px width. Mobile: pin
+     to viewport edges under the header so it never gets clipped. */
+  .notification-panel{
+    position: fixed !important;
+    top: 56px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100vh - 80px) !important;
+    margin-top: 0 !important;
+    border-radius: 16px !important;
+  }
+  /* When the rotate banner is visible, push panel further down so it
+     sits below both the banner AND the sticky header */
+  body:not(.rotate-dismissed) .notification-panel{
+    top: 118px !important;
+    max-height: calc(100vh - 140px) !important;
+  }
+  .notification-header{
+    padding: 16px 18px !important;
+  }
+  .notification-header h3{ font-size: 15px !important; }
+  .notification-list{
+    max-height: calc(100vh - 200px) !important;
+    padding: 4px 0 !important;
+  }
+  .notification-item{
+    padding: 14px 18px !important;
+    gap: 12px !important;
+  }
+  .notification-item:hover{ padding-left: 18px !important; }
+  .notification-item .ni-icon{
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0;
+  }
+  .notification-item .ni-title{ font-size: 13px !important; }
+  .notification-item .ni-text{ font-size: 12px !important; line-height: 1.45 !important; }
+  .notification-item .ni-time{ font-size: 10px !important; }
+
   /* ===== GENERIC AI-PERF-GRID (used across multiple pages) ===== */
   .ai-perf-grid{
     grid-template-columns: 1fr !important;
