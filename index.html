@@ -178,7 +178,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=57-audit">
+  <link rel="stylesheet" href="style.css?v=58-extra">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used. -->
@@ -298,19 +298,30 @@
       </div>
     </section>
 
-    <!-- Step 3: Income -->
+    <!-- Step 3: Income + extra-toward-debt -->
     <section class="ob-step" data-step="3">
       <div class="ob-eyebrow">Step 3 of 4</div>
-      <h2 class="ob-h2">What's your monthly take-home?</h2>
-      <p class="ob-lede">We use this to recommend how much extra to throw at debt each month. Your guess is fine — you can update it anytime.</p>
+      <h2 class="ob-h2">Income &amp; extra cushion</h2>
+      <p class="ob-lede">Your guess is fine. We use these to show the <em>real</em> savings difference between payoff strategies (without extra, they all look the same).</p>
+
+      <label class="ob-field-label">Monthly take-home</label>
       <div class="ob-income">
         <span class="ob-dollar">$</span>
         <input id="ob-income-input" type="number" inputmode="decimal" placeholder="5,200" min="0" step="100" />
         <span class="ob-income-suffix">/ month</span>
       </div>
+
+      <label class="ob-field-label" style="margin-top:20px;">Extra toward debt each month <span class="ob-optional">(we'll suggest a number)</span></label>
+      <div class="ob-income">
+        <span class="ob-dollar">$</span>
+        <input id="ob-extra-input" type="number" inputmode="decimal" placeholder="auto" min="0" step="25" />
+        <span class="ob-income-suffix">/ month</span>
+      </div>
+      <p class="ob-hint">This is money on top of your minimum payments. Even $50 extra makes a big difference — and reveals which strategy actually saves you more.</p>
+
       <div class="ob-cta">
         <button type="button" class="btn btn-ghost ob-back" data-go="2">← Back</button>
-        <button type="button" class="btn btn-primary ob-next" id="ob-income-next" data-go="4">See my date →</button>
+        <button type="button" class="btn btn-primary ob-next" id="ob-income-next" data-go="4">See my plan →</button>
       </div>
     </section>
 
@@ -4742,7 +4753,7 @@
 </div>
 
 
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

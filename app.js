@@ -13146,7 +13146,32 @@ window.addEventListener('pageshow', (e) => {
     });
     // Side effects per step
     if (n === 2) renderDebtDetails();
+    if (n === 3) prefillExtraSuggestion();
     if (n === 4) computeReveal();
+  }
+
+  function prefillExtraSuggestion(){
+    // When the user lands on step 3, auto-suggest an extra-monthly amount
+    // based on income + total minimum payments so the 3-strategy comparison
+    // actually shows meaningful savings differences.
+    const extraInp = $('ob-extra-input');
+    const incomeInp = $('ob-income-input');
+    if (!extraInp || !incomeInp) return;
+    // Only prefill if user hasn't already typed something
+    if (extraInp.value) return;
+    const income = parseFloat(incomeInp.value) || 0;
+    const totalMin = debtEntries.reduce((s, d) => s + (parseFloat(d.minPayment) || 0), 0);
+    // Rough rule: after minimums and ~60% living expenses, put ~25% of what's left toward extra.
+    // Cap at $500 so the suggestion feels attainable; floor at $50 so strategies differ.
+    let suggested = 0;
+    if (income > 0) {
+      const afterMins = income - totalMin;
+      const afterLiving = afterMins - (income * 0.6);
+      suggested = Math.max(50, Math.min(500, Math.round(afterLiving * 0.25 / 25) * 25));
+    } else {
+      suggested = 100; // sane default if no income given
+    }
+    extraInp.value = suggested;
   }
 
   function renderDebtDetails(){
@@ -13240,6 +13265,13 @@ window.addEventListener('pageshow', (e) => {
       appState.balances = appState.balances || {};
       appState.balances.monthlyIncome = incomeVal;
     }
+    // Extra monthly commitment — stored on budget.contribution so it's visible
+    // in Simulations too, and feeds the live dashboard date calculations.
+    const extraVal = parseFloat($('ob-extra-input') && $('ob-extra-input').value) || 0;
+    if (typeof appState !== 'undefined') {
+      appState.budget = appState.budget || {};
+      appState.budget.contribution = extraVal;
+    }
     // Persist
     try { if (typeof saveState === 'function') saveState(); } catch(_){}
   }
@@ -13253,27 +13285,30 @@ window.addEventListener('pageshow', (e) => {
     if (!dateEl) return;
     try {
       const totalDebt = (appState.debts || []).reduce((s,d) => s + (d.balance || 0), 0);
+      const extraMonthly = Math.max(0, parseFloat((appState.budget && appState.budget.contribution) || 0));
       const fmtUsd = n => '$' + Math.round(n).toLocaleString();
       const fmtDate = n => {
         const d = new Date(); d.setMonth(d.getMonth() + n);
         return d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
       };
 
-      // Compute all three strategies
       const STRATEGIES = [
-        { key:'avalanche', name:'Avalanche', blurb:'Highest APR first — mathematically saves the most interest.' },
-        { key:'snowball',  name:'Snowball',  blurb:'Smallest balance first — quickest emotional wins.' },
-        { key:'hybrid',    name:'Hybrid',    blurb:'Balances APR and balance — a middle path between the two.' }
+        { key:'avalanche', name:'Avalanche', blurb:'Attack the highest-APR debt first. You end up paying the least interest overall — the math-optimal choice.' },
+        { key:'snowball',  name:'Snowball',  blurb:'Kill the smallest balance first. You pay a bit more interest, but the quick wins build motivation.' },
+        { key:'hybrid',    name:'Hybrid',    blurb:'Weighs APR against balance. A middle path that often finishes between avalanche and snowball.' }
       ];
+      // Run each strategy WITH the user's extra monthly so the differences are real.
       const results = STRATEGIES.map(s => {
-        const r = (typeof calcSimTotals === 'function') ? calcSimTotals(s.key, 0, 0, 0) : null;
+        const r = (typeof calcSimTotals === 'function')
+          ? calcSimTotals(s.key, extraMonthly, 0, 0)
+          : null;
         return { ...s, ...(r || {months:0, totalInterest:0}) };
       });
       const solved = results.filter(r => r.months > 0 && r.months < 600);
 
       if (solved.length === 0) {
         dateEl.textContent = 'Not yet';
-        metaEl.innerHTML = 'At the minimum payments you entered, the balance isn\'t decreasing fast enough. <strong>Try adding extra payment</strong> in the dashboard.';
+        metaEl.innerHTML = 'At these payment amounts the balance isn\'t decreasing fast enough. <strong>Go back and add an extra monthly amount</strong> — even $50/mo changes everything.';
         statsEl.innerHTML = '';
         if (stratsEl) stratsEl.innerHTML = '';
         return;
@@ -13285,9 +13320,19 @@ window.addEventListener('pageshow', (e) => {
         (a.totalInterest > b.totalInterest) ? b :
         (a.months <= b.months ? a : b)
       );
-      // Save best as the user's default strategy
       if (appState && appState.settings) {
         appState.settings.strategy = best.key;
+      }
+
+      // Also compute the "if you did nothing extra" baseline for the best strategy
+      // so we can tell the user how much the extra is ACTUALLY saving them.
+      let baselineSaved = 0, baselineMonthsSaved = 0;
+      if (extraMonthly > 0 && typeof calcSimTotals === 'function') {
+        const baseline = calcSimTotals(best.key, 0, 0, 0);
+        if (baseline && baseline.months > 0 && baseline.months < 600) {
+          baselineSaved = Math.max(0, baseline.totalInterest - best.totalInterest);
+          baselineMonthsSaved = Math.max(0, baseline.months - best.months);
+        }
       }
 
       // Hero date = best strategy
@@ -13297,24 +13342,38 @@ window.addEventListener('pageshow', (e) => {
       const timeText = years > 0
         ? `${years} year${years===1?'':'s'}${monthsRem ? ', ' + monthsRem + ' month' + (monthsRem===1?'':'s') : ''}`
         : `${best.months} month${best.months===1?'':'s'}`;
-      metaEl.innerHTML = `Starting from <strong>${fmtUsd(totalDebt)}</strong> across <strong>${appState.debts.length} debt${appState.debts.length===1?'':'s'}</strong>, on the recommended <strong>${best.name}</strong> plan.`;
+
+      const extraCopy = extraMonthly > 0
+        ? `With <strong>${fmtUsd(extraMonthly)}/mo extra</strong> on top of minimums, the <strong>${best.name}</strong> plan is your fastest path.`
+        : `At minimums only, the <strong>${best.name}</strong> plan is your fastest path. Add any extra monthly amount and the savings jump fast.`;
+      metaEl.innerHTML = `${fmtUsd(totalDebt)} across ${appState.debts.length} debt${appState.debts.length===1?'':'s'}. ${extraCopy}`;
+
+      const savedBanner = baselineSaved > 0
+        ? `<div class="ob-reveal-stat" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(31,122,74,0.10),rgba(201,154,42,0.08));border:1px solid rgba(31,122,74,0.22);"><div class="ob-reveal-stat-label" style="color:#1f7a4a;">What your extra is actually buying you</div><div class="ob-reveal-stat-val" style="color:#1f7a4a;">${fmtUsd(baselineSaved)} saved · ${baselineMonthsSaved} months earlier</div></div>`
+        : '';
       statsEl.innerHTML = `
+        ${savedBanner}
         <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Time to freedom</div><div class="ob-reveal-stat-val">${timeText}</div></div>
         <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Total interest</div><div class="ob-reveal-stat-val">${fmtUsd(best.totalInterest)}</div></div>
-        <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Monthly min</div><div class="ob-reveal-stat-val">${fmtUsd((appState.debts||[]).reduce((s,d)=>s+(d.minPayment||0),0))}</div></div>
+        <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Monthly commitment</div><div class="ob-reveal-stat-val">${fmtUsd((appState.debts||[]).reduce((s,d)=>s+(d.minPayment||0),0) + extraMonthly)}</div></div>
       `;
 
-      // All-three comparison. Sort by months asc. Mark best.
+      // All-three comparison.
       if (stratsEl) {
         const sorted = solved.slice().sort((a,b) => a.totalInterest - b.totalInterest);
         const bestInterest = sorted[0].totalInterest;
-        stratsEl.innerHTML = sorted.map(r => {
-          const savedVs = r.totalInterest - bestInterest;
-          const savesText = r === sorted[0]
-            ? `Saves ${fmtUsd(Math.max(0, sorted[sorted.length-1].totalInterest - r.totalInterest))}`
-            : `+${fmtUsd(savedVs)} more interest`;
+        const worstInterest = sorted[sorted.length-1].totalInterest;
+        stratsEl.innerHTML = sorted.map((r, idx) => {
+          const isBest = idx === 0;
+          let savesText;
+          if (isBest) {
+            const saveVsWorst = worstInterest - bestInterest;
+            savesText = saveVsWorst > 0 ? `Saves ${fmtUsd(saveVsWorst)}` : 'Recommended';
+          } else {
+            savesText = `+${fmtUsd(r.totalInterest - bestInterest)} more interest`;
+          }
           return `
-            <div class="ob-strategy ${r === sorted[0] ? 'best' : ''}">
+            <div class="ob-strategy ${isBest ? 'best' : ''}">
               <div>
                 <div class="ob-strategy-name">${r.name}</div>
               </div>
@@ -13322,7 +13381,7 @@ window.addEventListener('pageshow', (e) => {
                 Debt-free by <b>${fmtDate(r.months)}</b> · ${fmtUsd(r.totalInterest)} total interest
               </div>
               <div class="ob-strategy-saves">${savesText}</div>
-              ${r === sorted[0] ? `<div class="ob-strategy-reason">${r.blurb}</div>` : ''}
+              ${isBest ? `<div class="ob-strategy-reason">${r.blurb}</div>` : ''}
             </div>`;
         }).join('');
       }

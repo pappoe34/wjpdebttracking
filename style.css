@@ -5418,21 +5418,32 @@ body.dark .top-header{
   margin-top:4px;
 }
 
-/* Step 3: income input */
+/* Step 3: income + extra inputs */
+.ob-field-label{
+  display:block;
+  font-size:11px; font-weight:700; color:#6b7280;
+  text-transform:uppercase; letter-spacing:0.1em;
+  margin-bottom:8px;
+}
+.ob-optional{ color:#9ca3af; font-weight:500; text-transform:none; letter-spacing:0; }
 .ob-income{
   display:flex; align-items:center; gap:8px;
   background:#f6f8fb; border:2px solid #e5e7eb; border-radius:14px;
-  padding:18px 20px;
+  padding:16px 20px;
   transition:border-color 0.2s;
 }
 .ob-income:focus-within{ border-color:#1f7a4a; }
-.ob-dollar{ font-size:28px; font-weight:800; color:#6b7280; }
-#ob-income-input{
+.ob-dollar{ font-size:26px; font-weight:800; color:#6b7280; }
+#ob-income-input, #ob-extra-input{
   flex:1; background:transparent; border:0; outline:none;
-  font-family:inherit; font-size:32px; font-weight:800; color:#0b0f1a;
+  font-family:inherit; font-size:28px; font-weight:800; color:#0b0f1a;
   letter-spacing:-0.02em; min-width:0;
 }
 .ob-income-suffix{ font-size:14px; color:#6b7280; font-weight:500; }
+.ob-hint{
+  font-size:12px; color:#6b7280; line-height:1.55;
+  margin:10px 0 0;
+}
 
 /* Step 4: reveal */
 .ob-reveal-date-eyebrow{
