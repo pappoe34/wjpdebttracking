@@ -39,9 +39,15 @@
 </head>
 <body>
 
+<div id="loading-view" class="admin-wrap locked">
+  <h2>Checking access…</h2>
+  <p style="font-size:13px;">Restoring your session…</p>
+</div>
+
 <div id="locked-view" class="admin-wrap locked" style="display:none;">
-  <h2>Admin only</h2>
-  <p>This page is restricted. <a href="./intro.html">Back to home</a></p>
+  <h2 id="locked-title">Admin only</h2>
+  <p id="locked-msg" style="font-size:13px;">This page is restricted to the WJP admin.</p>
+  <p style="margin-top:16px;"><a id="locked-signin-link" href="./signin.html?next=/admin.html" style="color:#1f7a4a; font-weight:600;">Sign in</a> &nbsp;·&nbsp; <a href="./intro.html" style="color:#6b7280;">Back to home</a></p>
 </div>
 
 <div id="admin-view" class="admin-wrap" style="display:none;">
@@ -98,7 +104,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import {
-    getAuth, onAuthStateChanged
+    getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   import {
     getFirestore, collection, query, where, orderBy, limit, getDocs
@@ -114,23 +120,55 @@
   };
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  // Match signin.html persistence so the session restores reliably
+  setPersistence(auth, browserLocalPersistence).catch(()=>{});
   const db = getFirestore(app);
 
   const ADMIN_EMAILS = new Set(['pappoe34@gmail.com']);
 
+  const loadingView = document.getElementById('loading-view');
   const locked = document.getElementById('locked-view');
+  const lockedTitle = document.getElementById('locked-title');
+  const lockedMsg = document.getElementById('locked-msg');
   const view = document.getElementById('admin-view');
 
-  onAuthStateChanged(auth, (user) => {
-    if (!user || !ADMIN_EMAILS.has((user.email || '').toLowerCase())) {
-      locked.style.display = 'block';
-      view.style.display = 'none';
-      return;
-    }
+  function showLocked(title, msg){
+    loadingView.style.display = 'none';
+    locked.style.display = 'block';
+    view.style.display = 'none';
+    if (lockedTitle) lockedTitle.textContent = title;
+    if (lockedMsg) lockedMsg.textContent = msg;
+  }
+  function showAdmin(){
+    loadingView.style.display = 'none';
     locked.style.display = 'none';
     view.style.display = 'block';
     wireSegControls();
     loadRange(7);
+  }
+
+  // Wait for the persisted session to restore (can be a tick after onAuthStateChanged first fires)
+  (async () => {
+    try { await auth.authStateReady(); } catch(e) {}
+    const user = auth.currentUser;
+    if (!user) {
+      showLocked('Please sign in', 'You need to sign in with the WJP admin account to view analytics.');
+      return;
+    }
+    const em = (user.email || '').toLowerCase();
+    if (!ADMIN_EMAILS.has(em)) {
+      showLocked('Not authorized', `Signed in as ${user.email || 'unknown'} — this account isn't on the admin list.`);
+      return;
+    }
+    showAdmin();
+  })();
+
+  // Also listen for future sign-in/out events
+  onAuthStateChanged(auth, (user) => {
+    if (!user) { showLocked('Please sign in', 'You need to sign in with the WJP admin account to view analytics.'); return; }
+    const em = (user.email || '').toLowerCase();
+    if (!ADMIN_EMAILS.has(em)) { showLocked('Not authorized', `Signed in as ${user.email || 'unknown'} — this account isn't on the admin list.`); return; }
+    showAdmin();
   });
 
   let currentRange = 7;
