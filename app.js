@@ -6853,7 +6853,28 @@ async function refreshLinkedAccounts() {
                 }
             }
 
-            const existing = appState.debts.find(d => d.id === id);
+            let existing = appState.debts.find(d => d.id === id);
+            // Fuzzy-merge: if the user manually added this debt during onboarding
+            // and is now linking their bank, treat the Plaid account as the same
+            // record instead of creating a duplicate. Match by type-compatibility
+            // plus balance within 15%.
+            if (!existing) {
+                const manualTypeMatches = (m) =>
+                    m === mappedType ||
+                    (mappedType === 'credit card' && m === 'credit_card') ||
+                    (mappedType === 'loan' && ['student_loan','auto','mortgage','personal','medical','other'].indexOf(m) !== -1);
+                const withinRange = (a, b) => {
+                    const biggest = Math.max(1, Math.max(Math.abs(a), Math.abs(b)));
+                    return Math.abs(a - b) / biggest < 0.15;
+                };
+                existing = appState.debts.find(d =>
+                    d && d.source !== 'plaid' && manualTypeMatches(d.type || d.manualType) && withinRange(d.balance || 0, balance)
+                );
+                if (existing) {
+                    console.log('[plaid-merge] merging manual entry', existing.name, 'with Plaid account', account.name);
+                    existing.id = id;
+                }
+            }
             // Trust local balance if syncBankTransactions just decremented it.
             // Plaid's /accounts can lag a payment by a few seconds; without this guard the
             // user sees their balance go down then snap back up. Window picked to outlast
@@ -13153,16 +13174,19 @@ window.addEventListener('pageshow', (e) => {
             <input data-idx="${idx}" data-k="name" value="${escapeHtml(d.name)}" placeholder="e.g. Chase Sapphire">
           </div>
           <div class="ob-field">
-            <label>Balance</label>
-            <input data-idx="${idx}" data-k="balance" type="number" value="${d.balance}" placeholder="0" inputmode="decimal">
+            <label>Current balance</label>
+            <input data-idx="${idx}" data-k="balance" type="number" value="${d.balance}" placeholder="$0" inputmode="decimal">
+            <span class="ob-field-hint">What you still owe</span>
           </div>
           <div class="ob-field">
-            <label>Min / mo</label>
-            <input data-idx="${idx}" data-k="minPayment" type="number" value="${d.minPayment}" placeholder="0" inputmode="decimal">
+            <label>Minimum monthly payment</label>
+            <input data-idx="${idx}" data-k="minPayment" type="number" value="${d.minPayment}" placeholder="$0" inputmode="decimal">
+            <span class="ob-field-hint">The required payment, not months left</span>
           </div>
           <div class="ob-field">
-            <label>APR %</label>
+            <label>Interest rate (APR)</label>
             <input data-idx="${idx}" data-k="apr" type="number" value="${d.apr}" placeholder="0.0" inputmode="decimal" step="0.1">
+            <span class="ob-field-hint">Annual % on the statement</span>
           </div>
         </div>
       </div>
@@ -13203,7 +13227,9 @@ window.addEventListener('pageshow', (e) => {
         minPayment: parseFloat(d.minPayment) || 0,
         apr: parseFloat(d.apr) || 0,
         type: d.type,
-        dueDate: 15
+        dueDate: 15,
+        source: 'manual',             // mark as user-entered so Plaid can merge later
+        manualType: d.type            // keep the original onboarding key for fuzzy-matching
       }));
     if (typeof appState !== 'undefined' && Array.isArray(appState.debts)) {
       valid.forEach(d => appState.debts.push(d));
@@ -13220,36 +13246,85 @@ window.addEventListener('pageshow', (e) => {
 
   function computeReveal(){
     commitEntries();
-    // Render overall stats
     const dateEl = $('ob-reveal-date');
     const metaEl = $('ob-reveal-meta');
     const statsEl = $('ob-reveal-stats');
+    const stratsEl = $('ob-strategies');
     if (!dateEl) return;
     try {
-      const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
-      const stats = (typeof calcSimTotals === 'function') ? calcSimTotals(strategy, 0, 0, 0) : null;
       const totalDebt = (appState.debts || []).reduce((s,d) => s + (d.balance || 0), 0);
       const fmtUsd = n => '$' + Math.round(n).toLocaleString();
-      if (stats && stats.months > 0 && stats.months < 600) {
-        const payoff = new Date();
-        payoff.setMonth(payoff.getMonth() + stats.months);
-        const dateStr = payoff.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
-        dateEl.textContent = dateStr;
-        const years = Math.floor(stats.months/12);
-        const months = stats.months % 12;
-        const timeText = years > 0
-          ? `${years} year${years===1?'':'s'}${months ? ', ' + months + ' month' + (months===1?'':'s') : ''}`
-          : `${stats.months} month${stats.months===1?'':'s'}`;
-        metaEl.innerHTML = `Starting from <strong>${fmtUsd(totalDebt)}</strong> across <strong>${appState.debts.length} debt${appState.debts.length===1?'':'s'}</strong>, following the <strong>${strategy}</strong> method.`;
-        statsEl.innerHTML = `
-          <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Time to freedom</div><div class="ob-reveal-stat-val">${timeText}</div></div>
-          <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Total interest</div><div class="ob-reveal-stat-val">${fmtUsd(stats.totalInterest)}</div></div>
-          <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Monthly min</div><div class="ob-reveal-stat-val">${fmtUsd((appState.debts||[]).reduce((s,d)=>s+(d.minPayment||0),0))}</div></div>
-        `;
-      } else {
+      const fmtDate = n => {
+        const d = new Date(); d.setMonth(d.getMonth() + n);
+        return d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+      };
+
+      // Compute all three strategies
+      const STRATEGIES = [
+        { key:'avalanche', name:'Avalanche', blurb:'Highest APR first — mathematically saves the most interest.' },
+        { key:'snowball',  name:'Snowball',  blurb:'Smallest balance first — quickest emotional wins.' },
+        { key:'hybrid',    name:'Hybrid',    blurb:'Balances APR and balance — a middle path between the two.' }
+      ];
+      const results = STRATEGIES.map(s => {
+        const r = (typeof calcSimTotals === 'function') ? calcSimTotals(s.key, 0, 0, 0) : null;
+        return { ...s, ...(r || {months:0, totalInterest:0}) };
+      });
+      const solved = results.filter(r => r.months > 0 && r.months < 600);
+
+      if (solved.length === 0) {
         dateEl.textContent = 'Not yet';
-        metaEl.innerHTML = 'At the minimums you entered, the balance isn\'t decreasing fast enough. <strong>Try adding extra payment</strong> in the dashboard.';
+        metaEl.innerHTML = 'At the minimum payments you entered, the balance isn\'t decreasing fast enough. <strong>Try adding extra payment</strong> in the dashboard.';
         statsEl.innerHTML = '';
+        if (stratsEl) stratsEl.innerHTML = '';
+        return;
+      }
+
+      // Best = lowest totalInterest (breaks ties with fewer months)
+      const best = solved.reduce((a,b) =>
+        (a.totalInterest < b.totalInterest) ? a :
+        (a.totalInterest > b.totalInterest) ? b :
+        (a.months <= b.months ? a : b)
+      );
+      // Save best as the user's default strategy
+      if (appState && appState.settings) {
+        appState.settings.strategy = best.key;
+      }
+
+      // Hero date = best strategy
+      dateEl.textContent = fmtDate(best.months);
+      const years = Math.floor(best.months/12);
+      const monthsRem = best.months % 12;
+      const timeText = years > 0
+        ? `${years} year${years===1?'':'s'}${monthsRem ? ', ' + monthsRem + ' month' + (monthsRem===1?'':'s') : ''}`
+        : `${best.months} month${best.months===1?'':'s'}`;
+      metaEl.innerHTML = `Starting from <strong>${fmtUsd(totalDebt)}</strong> across <strong>${appState.debts.length} debt${appState.debts.length===1?'':'s'}</strong>, on the recommended <strong>${best.name}</strong> plan.`;
+      statsEl.innerHTML = `
+        <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Time to freedom</div><div class="ob-reveal-stat-val">${timeText}</div></div>
+        <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Total interest</div><div class="ob-reveal-stat-val">${fmtUsd(best.totalInterest)}</div></div>
+        <div class="ob-reveal-stat"><div class="ob-reveal-stat-label">Monthly min</div><div class="ob-reveal-stat-val">${fmtUsd((appState.debts||[]).reduce((s,d)=>s+(d.minPayment||0),0))}</div></div>
+      `;
+
+      // All-three comparison. Sort by months asc. Mark best.
+      if (stratsEl) {
+        const sorted = solved.slice().sort((a,b) => a.totalInterest - b.totalInterest);
+        const bestInterest = sorted[0].totalInterest;
+        stratsEl.innerHTML = sorted.map(r => {
+          const savedVs = r.totalInterest - bestInterest;
+          const savesText = r === sorted[0]
+            ? `Saves ${fmtUsd(Math.max(0, sorted[sorted.length-1].totalInterest - r.totalInterest))}`
+            : `+${fmtUsd(savedVs)} more interest`;
+          return `
+            <div class="ob-strategy ${r === sorted[0] ? 'best' : ''}">
+              <div>
+                <div class="ob-strategy-name">${r.name}</div>
+              </div>
+              <div class="ob-strategy-date">
+                Debt-free by <b>${fmtDate(r.months)}</b> · ${fmtUsd(r.totalInterest)} total interest
+              </div>
+              <div class="ob-strategy-saves">${savesText}</div>
+              ${r === sorted[0] ? `<div class="ob-strategy-reason">${r.blurb}</div>` : ''}
+            </div>`;
+        }).join('');
       }
     } catch (e) {
       console.warn('onboarding reveal failed', e);
@@ -13262,11 +13337,13 @@ window.addEventListener('pageshow', (e) => {
   function finishOnboarding(){
     try { localStorage.setItem(STORAGE_KEY, '1'); } catch(_){}
     hideOnboarding();
-    // Trigger a full render so dashboard picks up new data
-    try { if (typeof updateAllUI === 'function') updateAllUI(); } catch(_){}
-    try { if (typeof updateDashboard === 'function') updateDashboard(); } catch(_){}
+    // Trigger a full render so dashboard picks up new data.
+    // The actual fn in app.js is updateUI() — our first attempt called
+    // updateAllUI/updateDashboard which don't exist, so the dashboard
+    // silently stayed empty.
+    try { if (typeof updateUI === 'function') updateUI(); } catch(e){ console.warn('updateUI failed', e); }
     try { if (typeof renderMainCalendar === 'function') renderMainCalendar(); } catch(_){}
-    // Ensure we're on the dashboard
+    // Ensure we're on the dashboard (scroll to top happens inside navigateSPA)
     try { if (typeof navigateSPA === 'function') navigateSPA('dashboard'); } catch(_){}
   }
 

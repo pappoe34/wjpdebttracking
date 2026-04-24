@@ -221,29 +221,56 @@
       <span>Set up in 4 minutes</span>
     </div>
 
-    <!-- Plaid trust row -->
-    <div class="plaid-trust" aria-label="Secured by Plaid">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1f7a4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    <!-- Plaid trust row — uses Plaid's official wordmark per their brand kit -->
+    <a class="plaid-trust" href="https://plaid.com/safety/" target="_blank" rel="noopener" aria-label="Secured by Plaid">
+      <span class="plaid-trust-label">Secured by</span>
+      <svg class="plaid-mark" viewBox="0 0 82 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g fill="#111">
+          <path d="M16 4 L26 9 L26 23 L16 28 L6 23 L6 9 Z" fill="#000"/>
+          <path d="M16 8 L22 11 L22 21 L16 24 L10 21 L10 11 Z" fill="#fff"/>
+          <text x="34" y="22" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="17" font-weight="700" letter-spacing="-0.02em">Plaid</text>
+        </g>
       </svg>
-      <span>Secured by <b>Plaid</b> — the bank-link infrastructure behind Venmo, Robinhood, and Chime. We never see your login.</span>
-    </div>
+      <span class="plaid-trust-tag">The bank-link infrastructure behind Venmo, Robinhood, and Chime. We never see your login.</span>
+    </a>
   </div>
 </section>
 
 <style>
   .plaid-trust{
-    display:inline-flex; align-items:center; gap:8px;
-    margin-top:22px; padding:8px 14px;
-    background:rgba(31,122,74,0.06);
-    border:1px solid rgba(31,122,74,0.14);
-    border-radius:10px;
+    display:inline-flex; align-items:center; gap:10px;
+    margin-top:22px; padding:10px 16px;
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
     font-size:12px; color:var(--ink, #0b0f1a); line-height:1.4;
-    max-width:560px;
+    max-width:620px; text-decoration:none;
+    box-shadow:0 2px 8px rgba(0,0,0,0.04);
+    transition:all 0.2s cubic-bezier(0.16,1,0.3,1);
+    flex-wrap:wrap;
   }
-  .plaid-trust b{ color:var(--accent, #1f7a4a); }
+  .plaid-trust:hover{
+    border-color:#1f7a4a;
+    box-shadow:0 6px 16px rgba(31,122,74,0.10);
+  }
+  .plaid-trust-label{
+    font-size:10.5px; color:#6b7280; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.08em;
+    flex-shrink:0;
+  }
+  .plaid-mark{
+    width:76px; height:26px;
+    flex-shrink:0;
+    display:block;
+  }
+  .plaid-trust-tag{
+    font-size:11.5px; color:#6b7280; line-height:1.5;
+    border-left:1px solid #e5e7eb; padding-left:10px;
+    flex:1; min-width:220px;
+  }
   @media (max-width:820px){
-    .plaid-trust{ font-size:11.5px; padding:8px 12px; }
+    .plaid-trust{ padding:10px 14px; gap:8px; }
+    .plaid-trust-tag{ border-left:0; padding-left:0; flex:0 0 100%; }
   }
 </style>
 
@@ -338,33 +365,38 @@
   </div>
 
   <div class="price-grid reveal">
-    <!-- FREE -->
+    <!-- FREE — now the "real" tracker. Bank sync included. No AI. -->
     <div class="price-card">
       <div class="price-tag">Free</div>
       <div class="price-amount"><span class="p-num">$0</span><span class="p-unit">/ forever</span></div>
-      <div class="price-sub">For trying it out</div>
+      <div class="price-sub">Everything you need to get to zero</div>
       <ul class="price-feat">
-        <li>Track up to 3 debts</li>
-        <li>Manual entry</li>
-        <li>Basic payoff projection</li>
-        <li>Calendar view</li>
+        <li><b>Unlimited</b> debts</li>
+        <li>Bank &amp; credit card sync via Plaid</li>
+        <li>Automatic balance &amp; payment tracking</li>
+        <li>Debt-free date calculator</li>
+        <li>Calendar view with payment reminders</li>
+        <li>Avalanche, snowball &amp; hybrid payoff plans</li>
+        <li>Transaction history &amp; categorization</li>
       </ul>
       <a class="pill ghost" href="./signup.html" style="width:100%; justify-content:center;">Start for free</a>
     </div>
 
-    <!-- PRO MONTHLY -->
+    <!-- PRO MONTHLY — Free + AI on top -->
     <div class="price-card featured">
       <div class="price-badge">Most popular</div>
       <div class="price-tag">Pro Monthly</div>
       <div class="price-amount"><span class="p-num">$9.99</span><span class="p-unit">/ month</span></div>
       <div class="price-sub">Three months free, cancel anytime</div>
       <ul class="price-feat">
-        <li><b>Unlimited</b> debts + bank sync via Plaid</li>
-        <li>AI payoff strategy + simulations</li>
+        <li><b>Everything in Free</b>, plus:</li>
+        <li>AI coach with personalized recommendations</li>
+        <li>AI-engineered payoff strategy</li>
+        <li>What-if simulations (lump sums, extra payments)</li>
         <li>Stress tests (job loss, rate hikes)</li>
         <li>Weekly email digest of your progress</li>
-        <li>Accountability partner (optional)</li>
-        <li>Milestone notifications</li>
+        <li>Milestone notifications &amp; accountability partner</li>
+        <li>Advanced analytics &amp; insights</li>
       </ul>
       <a class="pill accent" href="./signup.html" style="width:100%; justify-content:center;">Start free trial →</a>
     </div>

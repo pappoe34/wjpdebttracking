@@ -253,8 +253,26 @@
           <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
         </div>
 
-        <h1>Welcome <em>back.</em></h1>
-        <p class="sub">Sign in to continue your payoff plan.</p>
+        <h1 id="signin-greeting">Welcome <em>back.</em></h1>
+        <p class="sub" id="signin-sub">Good to see you again. Let's keep going.</p>
+        <script>
+          // Personalize if we stashed the email from a previous signin
+          (function(){
+            try {
+              var last = localStorage.getItem('wjp_last_email');
+              if (!last) return;
+              // First-name guess: part before @ or the first word of a stored name
+              var storedName = localStorage.getItem('wjp_last_name');
+              var first = storedName || last.split('@')[0];
+              // Capitalize first letter
+              first = first.charAt(0).toUpperCase() + first.slice(1);
+              var greeting = document.getElementById('signin-greeting');
+              if (greeting) greeting.innerHTML = 'Welcome back, <em>' + first.replace(/[^\w\s-]/g,'') + '.</em>';
+              var emailInput = document.getElementById('email');
+              if (emailInput && !emailInput.value) emailInput.value = last;
+            } catch(_){}
+          })();
+        </script>
 
         <div class="sso">
           <button type="button" aria-label="Continue with Google" onclick="ssoStub('Google')">
@@ -497,6 +515,11 @@
           return;
         }
         try { window.wjp && wjp.track && wjp.track('signin_completed', { method: 'email' }); } catch(_){}
+        // Stash email for next signin's "Welcome back, X" greeting.
+        try { localStorage.setItem('wjp_last_email', cred.user.email || emailEl.value.trim()); } catch(_){}
+        try {
+          if (cred.user.displayName) localStorage.setItem('wjp_last_name', cred.user.displayName.split(' ')[0]);
+        } catch(_){}
         showToast('Welcome back — opening your dashboard');
         setTimeout(() => window.location.replace('./index.html'), 400);
       } catch (err) {

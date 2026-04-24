@@ -298,13 +298,18 @@
 
         <button class="pill" type="submit" id="submit-btn">Start free →</button>
 
-        <!-- Plaid trust reassurance — anticipates the "will this steal my bank data" objection -->
-        <div class="plaid-trust-row" aria-label="Secured by Plaid">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#1f7a4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <!-- Plaid trust reassurance — official wordmark, links to Plaid safety page -->
+        <a class="plaid-trust-row" href="https://plaid.com/safety/" target="_blank" rel="noopener" aria-label="Secured by Plaid">
+          <span class="plaid-row-label">Secured by</span>
+          <svg class="plaid-row-mark" viewBox="0 0 82 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g fill="#111">
+              <path d="M16 4 L26 9 L26 23 L16 28 L6 23 L6 9 Z" fill="#000"/>
+              <path d="M16 8 L22 11 L22 21 L16 24 L10 21 L10 11 Z" fill="#fff"/>
+              <text x="34" y="22" font-family="Inter, system-ui, sans-serif" font-size="17" font-weight="700" letter-spacing="-0.02em">Plaid</text>
+            </g>
           </svg>
-          <span>Bank linking powered by <b>Plaid</b> · the same infrastructure used by Venmo, Robinhood, and Chime. <b>We never see your bank login.</b></span>
-        </div>
+          <span class="plaid-row-tag">The bank-link infrastructure used by Venmo, Robinhood &amp; Chime. <b>We never see your login.</b></span>
+        </a>
 
         <div class="swap">Already have an account?<a href="./signin.html">Sign in</a></div>
         <p class="terms">
@@ -315,15 +320,32 @@
       </form>
       <style>
         .plaid-trust-row{
-          display:flex; align-items:flex-start; gap:8px;
-          margin-top:14px; padding:10px 12px;
-          background:rgba(31,122,74,0.06);
-          border:1px solid rgba(31,122,74,0.14);
-          border-radius:10px;
+          display:flex; align-items:center; gap:10px;
+          margin-top:14px; padding:10px 14px;
+          background:#fff;
+          border:1px solid #e5e7eb;
+          border-radius:12px;
           font-size:11.5px; line-height:1.5; color:var(--ink, #0b0f1a);
+          text-decoration:none;
+          box-shadow:0 2px 8px rgba(0,0,0,0.04);
+          flex-wrap:wrap;
         }
-        .plaid-trust-row svg{ flex-shrink:0; margin-top:2px; }
-        .plaid-trust-row b{ color:#1f7a4a; }
+        .plaid-trust-row:hover{ border-color:#1f7a4a; }
+        .plaid-row-label{
+          font-size:10px; color:#6b7280; font-weight:700;
+          text-transform:uppercase; letter-spacing:0.08em;
+          flex-shrink:0;
+        }
+        .plaid-row-mark{ width:70px; height:24px; flex-shrink:0; }
+        .plaid-row-tag{
+          font-size:11px; color:#6b7280; line-height:1.5;
+          border-left:1px solid #e5e7eb; padding-left:10px;
+          flex:1; min-width:180px;
+        }
+        .plaid-row-tag b{ color:#1f7a4a; }
+        @media (max-width:540px){
+          .plaid-row-tag{ border-left:0; padding-left:0; flex:0 0 100%; }
+        }
       </style>
     </section>
 
@@ -543,6 +565,11 @@
           });
         } catch(_){}
         await auth.authStateReady();
+        // Stash email so the next signin greets them by their address
+        try { localStorage.setItem('wjp_last_email', emailEl.value.trim()); } catch(_){}
+        // Clear onboarding flag so the first-run flow triggers for this brand-new user
+        // (prevents a previous user's "done" state from suppressing it)
+        try { localStorage.removeItem('wjp_onboarded'); } catch(_){}
         try { window.wjp && wjp.track && wjp.track('signup_completed', { method: 'email' }); } catch(_){}
         showToast('Account created — check your email to verify');
         setTimeout(() => window.location.replace('./verify.html'), 600);

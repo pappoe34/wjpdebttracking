@@ -178,7 +178,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=56-sprint">
+  <link rel="stylesheet" href="style.css?v=57-audit">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used. -->
@@ -323,7 +323,12 @@
 
       <div class="ob-reveal-stats" id="ob-reveal-stats"></div>
 
-      <p class="ob-reveal-copy">We loaded everything into your dashboard. From here you can link a bank for automatic tracking, tweak your strategy, or simulate paying extra.</p>
+      <div style="margin-top:22px;">
+        <div class="ob-eyebrow" style="margin-bottom:6px;">Your three options</div>
+        <div class="ob-strategies" id="ob-strategies"></div>
+      </div>
+
+      <p class="ob-reveal-copy">Your dashboard is ready. Link a bank next for automatic tracking — or tweak numbers later in Settings.</p>
 
       <div class="ob-cta">
         <button type="button" class="btn btn-primary ob-finish" id="ob-finish-btn">Take me to my dashboard →</button>
@@ -4737,7 +4742,7 @@
 </div>
 
 
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=23"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
