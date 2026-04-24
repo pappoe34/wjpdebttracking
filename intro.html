@@ -17,12 +17,28 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Slim font payload: just Inter (all weights we use) + one Fraunces weight.
-     Saved ~60 KB by dropping JetBrains Mono and Fraunces italic/opsz axes. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="./landing.css?v=phase2-13">
+<!-- Self-hosted fonts — no round-trip to Google Fonts CDN.
+     Inter is a variable font covering weights 100–900 in a single 47 KB file.
+     Preload so the browser starts fetching it parallel to landing.css. -->
+<link rel="preload" as="font" href="/fonts/inter-var.woff2" type="font/woff2" crossorigin>
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/inter-var.woff2') format('woff2-variations'),
+         url('/fonts/inter-var.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/fraunces-700.woff2') format('woff2');
+  }
+</style>
+<link rel="stylesheet" href="./landing.css?v=phase2-14">
 <style>
   /* intro-specific hero — fits viewport, no scroll needed */
   .hero{
