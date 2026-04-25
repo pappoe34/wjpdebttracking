@@ -3271,8 +3271,11 @@ function renderTop3Strategy() {
     const top3 = sorted.slice(0, 3);
     const fmt = n => '$' + Math.round(n || 0).toLocaleString();
 
-    // Per-strategy "why this one" copy so each card explains its priority
+    // Per-strategy "why this one" copy uses the new debtRationale helper which
+    // surfaces real numbers (monthly bleed, APR, time-to-clear) so the user sees
+    // exactly why each debt is ranked.
     const reasonFor = (d, idx) => {
+        try { return debtRationale(d, strategy, idx); } catch(_) {}
         if (strategy === 'snowball') return `Smallest balance${idx === 0 ? ' — quickest win' : ''}`;
         if (strategy === 'avalanche') return `Highest APR${idx === 0 ? ' — biggest interest drain' : ''}`;
         return `Best balance/APR mix${idx === 0 ? ' — top priority' : ''}`;
@@ -5351,38 +5354,103 @@ window.addEventListener('resize', () => {
 // Debt Engine Calculator
 /**
  * sortDebtsByStrategy — single source of truth for strategy ordering.
+ * Works on EVERY debt type: credit cards, student loans, personal loans,
+ * auto loans, mortgages — anything in appState.debts flows through here.
  *
  *  • Snowball   → smallest balance first. Suboptimal mathematically but the
  *                 fastest psychological wins keep people on track. (Dave Ramsey method.)
- *  • Avalanche  → highest APR first. Mathematically optimal — minimum total
- *                 interest paid, fastest math-only payoff.
- *  • Hybrid     → blended score 70% APR weight + 30% small-balance weight.
- *                 Captures most of avalanche's interest savings while still
- *                 letting small debts get knocked out for momentum.
  *
- * The previous hybrid used `apr / balance` which exploded for tiny high-APR
- * debts (e.g. a $50 store card at 27% would dominate over a $20K loan at 22%)
- * and produced clearly wrong results. Returns a NEW sorted array — the input
- * is not mutated.
+ *  • Avalanche  → highest APR first. Mathematically optimal: every $1 paid
+ *                 against the highest-APR debt yields the most future interest
+ *                 saved per dollar, regardless of balance size. This is the
+ *                 universally accepted definition — keeping it pure.
+ *
+ *  • Hybrid     → 4-factor blend:
+ *                   40% APR             (per-dollar interest savings)
+ *                   30% interest dollars (current monthly bleed = balance × APR/12)
+ *                   15% small balance    (quick-win bonus)
+ *                   15% payment efficiency (min/balance ratio — high means clears fast)
+ *                 The interest-dollars factor is what addresses Winston's intuition:
+ *                 a $5K card at 24% generates $100/mo of bleed even at a moderate
+ *                 APR — Hybrid surfaces that, where pure Avalanche only sees the rate.
+ *
+ * Returns a NEW sorted array. Input is not mutated.
  */
 function sortDebtsByStrategy(debts, strategy) {
     const list = [...debts];
     if (!list.length) return list;
-    if (strategy === 'avalanche') {
-        return list.sort((a, b) => (b.apr || 0) - (a.apr || 0));
-    }
+
     if (strategy === 'snowball') {
         return list.sort((a, b) => (a.balance || 0) - (b.balance || 0));
     }
-    // Hybrid: composite score — APR scaled vs portfolio max + small-balance bonus
+    if (strategy === 'avalanche') {
+        // Pure APR sort. Tie-breaker: interest dollars (higher = higher priority)
+        return list.sort((a, b) => {
+            const aprDelta = (b.apr || 0) - (a.apr || 0);
+            if (Math.abs(aprDelta) > 0.001) return aprDelta;
+            const aBleed = (a.balance || 0) * (a.apr || 0) / 100 / 12;
+            const bBleed = (b.balance || 0) * (b.apr || 0) / 100 / 12;
+            return bBleed - aBleed;
+        });
+    }
+
+    // Hybrid: 4-factor composite score
     const maxApr = Math.max(1, ...list.map(d => d.apr || 0));
+    const maxBleed = Math.max(0.01, ...list.map(d =>
+        ((d.balance || 0) * (d.apr || 0) / 100 / 12)
+    ));
     const minBal = Math.max(1, Math.min(...list.map(d => d.balance || Infinity)));
+
     const score = (d) => {
-        const aprScore = (d.apr || 0) / maxApr;            // 0..1, higher APR = higher
-        const balScore = minBal / Math.max(1, d.balance);  // 0..1, smallest balance = 1
-        return aprScore * 0.7 + balScore * 0.3;
+        const balance = Math.max(0, d.balance || 0);
+        const minPay = Math.max(0, d.minPayment || 0);
+        const apr = Math.max(0, d.apr || 0);
+
+        // 1. APR weight: per-dollar interest-savings rate
+        const aprScore = apr / maxApr;
+        // 2. Interest dollars: monthly bleed in real $$$
+        const bleedScore = (balance * apr / 100 / 12) / maxBleed;
+        // 3. Balance: smaller = quick win
+        const balScore = minBal / Math.max(1, balance);
+        // 4. Payment efficiency: min/balance — high = clears fast at minimums alone
+        const annualMinAsPctOfBalance = balance > 0 ? Math.min(1, (minPay * 12) / balance) : 0;
+
+        return aprScore * 0.40
+             + bleedScore * 0.30
+             + balScore * 0.15
+             + annualMinAsPctOfBalance * 0.15;
     };
     return list.sort((a, b) => score(b) - score(a));
+}
+
+/**
+ * Compute a per-debt rationale label for surfacing on cards. Tells the user
+ * WHY this debt is ranked where it is under the selected strategy.
+ */
+function debtRationale(debt, strategy, rank) {
+    if (!debt) return '';
+    const balance = debt.balance || 0;
+    const apr = debt.apr || 0;
+    const minPay = debt.minPayment || 0;
+    const monthlyInterest = balance * apr / 100 / 12;
+    const monthsAtMin = (minPay > 0 && minPay > monthlyInterest)
+        ? Math.ceil(balance / (minPay - monthlyInterest))
+        : null;
+
+    if (strategy === 'snowball') {
+        if (rank === 0) return `Smallest balance — knock out fastest`;
+        if (monthsAtMin) return `Clears in ~${monthsAtMin} mo at minimum`;
+        return `Quick win after the priority debt`;
+    }
+    if (strategy === 'avalanche') {
+        const bleedTxt = monthlyInterest > 1 ? ` · bleeds $${Math.round(monthlyInterest)}/mo` : '';
+        if (rank === 0) return `Highest APR ${apr.toFixed(2)}%${bleedTxt}`;
+        return `${apr.toFixed(2)}% APR${bleedTxt}`;
+    }
+    // hybrid
+    const bleedTxt = monthlyInterest > 1 ? `bleeds $${Math.round(monthlyInterest)}/mo at ${apr.toFixed(1)}% APR` : `${apr.toFixed(1)}% APR`;
+    if (rank === 0) return `Top blend — ${bleedTxt}`;
+    return bleedTxt;
 }
 
 function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
@@ -5391,34 +5459,67 @@ function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
     let debts = JSON.parse(JSON.stringify(appState.debts));
     const strategy = strategyOverride || appState.settings.strategy || 'avalanche';
     debts = sortDebtsByStrategy(debts, strategy);
-    
-    const extraContrib = extraOverride !== null ? extraOverride : (appState.budget.contribution || 0);
+
+    // Use the same effective-extra logic as calcSimTotals so simulateAllStrategies
+    // (which calls this) produces meaningfully different numbers across strategies.
+    // Previously this defaulted to budget.contribution || 0 — when users hadn't set
+    // a manual contribution, extra was $0 and all 3 strategies converged.
+    let extraContrib;
+    if (extraOverride !== null) {
+        extraContrib = extraOverride;
+    } else if (typeof getEffectiveExtraContribution === 'function') {
+        extraContrib = getEffectiveExtraContribution().extra;
+    } else {
+        extraContrib = (appState.budget && appState.budget.contribution) || 0;
+    }
+
     const results = {};
-    debts.forEach(d => { results[d.id] = { months: 0, balance: d.balance, min: d.minPayment, apr: d.apr, totalInterest: 0 }; });
-    
+    debts.forEach(d => {
+        results[d.id] = {
+            months: 0,
+            balance: d.balance,
+            min: d.minPayment,
+            apr: d.apr,
+            type: d.type,
+            statementDay: d.statementDay,
+            totalInterest: 0
+        };
+    });
+
     let totalMonths = 0;
     let allPaid = false;
-    
+
     while (!allPaid && totalMonths < 600) { // 50 year timeout
         totalMonths++;
         let cascade = extraContrib;
         allPaid = true;
-        
+
         for (let i = 0; i < debts.length; i++) {
             let d = debts[i];
             let res = results[d.id];
-            
+
             if (res.balance > 0) {
                 allPaid = false;
-                let interest = res.balance * (res.apr / 100 / 12);
-                res.balance += interest;
-                res.totalInterest += interest;
-                
+
+                // Same credit-card grace-period logic as calcSimTotals so DFD hero,
+                // simulateAllStrategies, calcSimTotals, and calcBalanceTrajectory all
+                // produce the same numbers for the same inputs.
+                const dtype = (res.type || '').toString().toLowerCase();
+                const isCard = dtype.includes('credit') || dtype.includes('card');
+                const totalAvailToPay = res.min + cascade;
+                const wouldPayInFull = isCard && res.statementDay && totalAvailToPay >= res.balance;
+                let interest = 0;
+                if (!wouldPayInFull) {
+                    interest = res.balance * (res.apr / 100 / 12);
+                    res.balance += interest;
+                    res.totalInterest += interest;
+                }
+
                 let payment = res.min + cascade;
-                cascade = 0; 
-                
+                cascade = 0;
+
                 if (res.balance <= payment) {
-                    cascade += (payment - res.balance); 
+                    cascade += (payment - res.balance);
                     res.balance = 0;
                     res.months = totalMonths;
                 } else {
