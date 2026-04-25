@@ -1753,7 +1753,11 @@ function drawCharts() {
 
         const style = (appState.settings && appState.settings.activeChartStyle) || 'line';
         const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
-        const userExtra = (appState.budget && parseFloat(appState.budget.contribution)) || 0;
+        // Same effective-extra logic the DFD hero uses — chart matches the date promised
+        const _eeiChart = (typeof getEffectiveExtraContribution === 'function')
+            ? getEffectiveExtraContribution()
+            : { extra: 0 };
+        const userExtra = _eeiChart.extra;
         const hasDebts = (appState.debts || []).length > 0;
 
         // Strategy color mapping — chart adopts the strategy's identity color
@@ -3613,9 +3617,14 @@ function updateUI() {
         const strategy = appState.settings.strategy || 'avalanche';
         const hasDebts = appState.debts && appState.debts.length > 0;
         const hasMins  = hasDebts && appState.debts.some(d => (d.minPayment || 0) > 0);
-        // Extra monthly from onboarding / budget settings — without this the
-        // dashboard number differs from the onboarding reveal number.
-        const extraMonthly = Math.max(0, parseFloat((appState.budget && appState.budget.contribution) || 0));
+
+        // Effective extra contribution — manual setting OR auto-derived from
+        // (income − expenses − minimums − non-debt recurring). This is what was
+        // previously missing: even users who haven't set a "contribution" but DO
+        // have surplus income now get a realistic projection.
+        const extraInfo = getEffectiveExtraContribution();
+        const extraMonthly = extraInfo.extra;
+
         if (!hasDebts) {
             if (dfdHero) dfdHero.classList.add('empty');
             dfdEyebrow.textContent = 'Your debt-free date';
@@ -3638,21 +3647,33 @@ function updateUI() {
                     const yearsText = stats.months >= 12
                         ? `${Math.floor(stats.months/12)} year${Math.floor(stats.months/12) === 1 ? '' : 's'}${stats.months % 12 ? `, ${stats.months % 12} month${stats.months % 12 === 1 ? '' : 's'}` : ''}`
                         : `${stats.months} month${stats.months === 1 ? '' : 's'}`;
+
                     // Pulse the date if it changed from what was last shown
                     const prev = dfdDate.getAttribute('data-prev');
                     if (prev && prev !== dateStr && dfdHero) {
                         dfdHero.classList.remove('updated');
-                        void dfdHero.offsetWidth; // reflow so animation restarts
+                        void dfdHero.offsetWidth;
                         dfdHero.classList.add('updated');
                     }
                     dfdDate.setAttribute('data-prev', dateStr);
                     dfdEyebrow.textContent = 'You\'ll be debt-free on';
                     dfdDate.textContent = dateStr;
-                    dfdMeta.innerHTML = `<strong>${fmtUsd(totalDebt)}</strong> remaining · <strong>${yearsText}</strong> to go · <strong>${fmtUsd(stats.totalInterest)}</strong> total interest at current plan.`;
+
+                    // Transparent meta — show exactly what's factored in
+                    const stratLabel = strategy[0].toUpperCase() + strategy.slice(1);
+                    const totalMin = appState.debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+                    const debtCount = appState.debts.length;
+                    let extraLine = '';
+                    if (extraMonthly > 0 && extraInfo.source === 'manual') {
+                        extraLine = ` + <strong>${fmtUsd(extraMonthly)}</strong> extra/mo`;
+                    } else if (extraMonthly > 0 && extraInfo.source === 'auto-surplus') {
+                        extraLine = ` + <strong>${fmtUsd(extraMonthly)}</strong> from your monthly surplus`;
+                    }
+                    dfdMeta.innerHTML = `<strong>${fmtUsd(totalDebt)}</strong> across <strong>${debtCount}</strong> debt${debtCount === 1 ? '' : 's'} · <strong>${stratLabel}</strong> strategy · <strong>${fmtUsd(totalMin)}</strong>/mo minimums${extraLine} · <strong>${yearsText}</strong> to go · <strong>${fmtUsd(stats.totalInterest)}</strong> total interest`;
                 } else {
                     dfdEyebrow.textContent = 'Can\'t reach debt-free';
                     dfdDate.textContent = '—';
-                    dfdMeta.innerHTML = 'At current minimums your balance isn\'t decreasing. <strong>Add more to your monthly payment</strong> or restructure the debt.';
+                    dfdMeta.innerHTML = 'At current minimums your balance isn\'t decreasing — interest is outpacing payments. <strong>Add extra contribution</strong>, increase a minimum, or refinance to a lower APR.';
                 }
             } catch (e) {
                 console.warn('Debt-free date calc failed:', e);
@@ -3685,10 +3706,12 @@ function updateUI() {
 
             const income = (appState.balances && appState.balances.monthlyIncome) || 0;
             const totalMin = appState.debts.reduce((s, d) => s + (d.minPayment || 0), 0);
-            const userExtra = (appState.budget && parseFloat(appState.budget.contribution)) || 0;
-            const extra = userExtra > 0 ? userExtra
-                : income > 0 ? Math.max(0, Math.round((income - totalMin) * 0.1))
-                : 0;
+            // Use the same effective-extra logic as the DFD hero so all dashboard
+            // numbers tell the same story.
+            const _eei = (typeof getEffectiveExtraContribution === 'function')
+                ? getEffectiveExtraContribution()
+                : { extra: 0, source: 'none' };
+            const extra = _eei.extra;
 
             // Strategy-specific reasoning copy — the WHY behind picking this debt
             const fmtUsd = n => '$' + Math.round(n).toLocaleString();
@@ -5781,6 +5804,56 @@ function getBalanceTimeline(strategy, extraMonthly, lumpSum, rateAdj) {
 let _simCache = new Map();
 function _clearSimCache() { _simCache = new Map(); }
 
+/**
+ * Compute the user's "available cash flow" — what's actually left over each month
+ * after income, expenses, and non-debt recurring outflows. Used to auto-derive an
+ * extra monthly contribution if they haven't set one manually. The simulator uses
+ * this to give a realistic debt-free date instead of one that ignores their actual
+ * surplus.
+ *
+ * Returns: { income, expenses, totalMin, recurringNonDebt, available }
+ *   available = income - expenses - totalMin - recurringNonDebt
+ *
+ * If income is 0 (user hasn't entered it), returns available = 0 — no auto-extra.
+ */
+function getAvailableCashflow() {
+    const income = (appState.balances && parseFloat(appState.balances.monthlyIncome)) || 0;
+    const expensesObj = (appState.budget && appState.budget.expenses) || {};
+    const expenses = Object.values(expensesObj).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const totalMin = (appState.debts || []).reduce((s, d) => s + (parseFloat(d.minPayment) || 0), 0);
+
+    // Recurring outflows that aren't already captured as debt minimums or
+    // expense buckets — typically subscriptions, utilities, rent if not in expenses.
+    const recurring = (appState.recurringPayments || [])
+        .filter(r => r && !r.linkedIncome && r.category !== 'income' && !r.linkedDebtId)
+        .reduce((s, r) => {
+            const freq = (r.frequency || 'monthly').toLowerCase();
+            const amt = parseFloat(r.amount) || 0;
+            if (freq === 'weekly') return s + amt * 52 / 12;
+            if (freq === 'biweekly') return s + amt * 26 / 12;
+            if (freq === 'semimonthly') return s + amt * 2;
+            if (freq === 'quarterly') return s + amt / 3;
+            if (freq === 'annually') return s + amt / 12;
+            return s + amt; // monthly
+        }, 0);
+
+    const available = Math.max(0, income - expenses - totalMin - recurring);
+    return { income, expenses, totalMin, recurringNonDebt: recurring, available };
+}
+
+/**
+ * Effective extra contribution — picks user's manual setting if they have one,
+ * otherwise auto-uses available cash flow so the projection is realistic.
+ * Returns: { extra, source } — source is 'manual' or 'auto-surplus' or 'none'.
+ */
+function getEffectiveExtraContribution() {
+    const manual = (appState.budget && parseFloat(appState.budget.contribution)) || 0;
+    if (manual > 0) return { extra: manual, source: 'manual' };
+    const cf = getAvailableCashflow();
+    if (cf.available > 0) return { extra: cf.available, source: 'auto-surplus' };
+    return { extra: 0, source: 'none' };
+}
+
 function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
     if (!appState || !appState.debts.length) return { months: 0, totalInterest: 0, totalPaid: 0 };
     const key = `T:${strategy}:${extraMonthly}:${lumpSum}:${rateAdj || 0}`;
@@ -5800,9 +5873,26 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
             const d = debts[i];
             if (d.balance > 0) {
                 allPaid = false;
-                const int = d.balance * (d.apr / 100 / 12);
-                d.balance += int;
-                totalInterest += int;
+
+                // Type-aware interest accrual:
+                //   • Credit cards with statementDay + due day set: assume the user
+                //     pays statement balance by due date → grace period applies →
+                //     interest = $0 if minPayment alone would cover the full balance
+                //     (the realistic "I pay off the card every month" scenario).
+                //     If they're carrying a balance bigger than minPayment, normal
+                //     monthly interest accrues.
+                //   • All other debts: standard monthly compounding (APR/12).
+                const dtype = (d.type || '').toString().toLowerCase();
+                const isCard = dtype.includes('credit') || dtype.includes('card');
+                const totalAvailToPay = d.minPayment + cascade;
+                const wouldPayInFull = isCard && d.statementDay && totalAvailToPay >= d.balance;
+                let int = 0;
+                if (!wouldPayInFull) {
+                    int = d.balance * (d.apr / 100 / 12);
+                    d.balance += int;
+                    totalInterest += int;
+                }
+
                 const pay = d.minPayment + cascade;
                 cascade = 0;
                 if (d.balance <= pay) { totalPaid += d.balance; cascade += pay - d.balance; d.balance = 0; }
@@ -5841,8 +5931,15 @@ function calcBalanceTrajectory(strategy, extraMonthly, monthLimit) {
             const d = debts[i];
             if (d.balance > 0) {
                 allPaid = false;
-                const int = d.balance * (d.apr / 100 / 12);
-                d.balance += int;
+                // Same statement-grace logic as calcSimTotals so the chart matches
+                const dtype = (d.type || '').toString().toLowerCase();
+                const isCard = dtype.includes('credit') || dtype.includes('card');
+                const totalAvailToPay = d.minPayment + cascade;
+                const wouldPayInFull = isCard && d.statementDay && totalAvailToPay >= d.balance;
+                if (!wouldPayInFull) {
+                    const int = d.balance * (d.apr / 100 / 12);
+                    d.balance += int;
+                }
                 const pay = d.minPayment + cascade;
                 cascade = 0;
                 if (d.balance <= pay) { cascade += pay - d.balance; d.balance = 0; }
