@@ -3197,9 +3197,167 @@ function updateDfdEncouragement(pct) {
     el._t = setTimeout(() => { el.style.display = 'none'; }, 6000);
 }
 
+/* ---------- AUTO-MATERIALIZE TRANSACTIONS FROM RECURRING PAYMENTS ----------
+ * In real life every recurring bill, paycheck, and debt minimum produces a
+ * bank transaction — they don't live in a separate "recurring" bucket. Until
+ * Plaid is wired up, we synthesize that for the user: every time updateUI
+ * runs, walk each recurring record and back-fill any monthly occurrences that
+ * have already happened but don't yet have a matching synthetic transaction.
+ *
+ * Each synthetic transaction is tagged with synthetic:true and parentRecurringId
+ * so we never double-create or confuse it with a manually-logged transaction.
+ */
+function materializeRecurringTransactions() {
+    if (!appState) return;
+    if (!Array.isArray(appState.recurringPayments)) appState.recurringPayments = [];
+    if (!Array.isArray(appState.transactions)) appState.transactions = [];
+
+    const now = new Date();
+    const horizonMonths = 6;
+    let createdAny = false;
+
+    // CLEANUP: drop synthetic transactions whose parent recurring/debt no longer
+    // exists, so deletions feed cleanly back into the count and chart.
+    const recIds = new Set(appState.recurringPayments.map(r => r && r.id).filter(Boolean));
+    const debtIds = new Set((appState.debts || []).map(d => d && d.id).filter(Boolean));
+    const before = appState.transactions.length;
+    appState.transactions = appState.transactions.filter(t => {
+        if (!t.synthetic) return true;
+        if (t.parentRecurringId && !recIds.has(t.parentRecurringId)) return false;
+        if (t.parentDebtId && !debtIds.has(t.parentDebtId)) return false;
+        return true;
+    });
+    if (appState.transactions.length !== before) createdAny = true;
+
+    appState.recurringPayments.forEach(rec => {
+        if (!rec || !rec.amount) return;
+        const isIncome = rec.linkedIncome || rec.category === 'income';
+        const freq = (rec.frequency || 'monthly').toLowerCase();
+        // Only materialize monthly+ frequencies for now — daily/weekly would
+        // flood the table. Weekly/biweekly use approximation.
+        let stepDays;
+        if (freq === 'weekly') stepDays = 7;
+        else if (freq === 'biweekly') stepDays = 14;
+        else if (freq === 'semimonthly') stepDays = 15;
+        else if (freq === 'quarterly') stepDays = 90;
+        else if (freq === 'annually') stepDays = 365;
+        else stepDays = 30; // monthly default
+
+        // Determine the anchor date: nextDate if provided, else the recurring's
+        // creation timestamp month, else today.
+        let anchor;
+        if (rec.nextDate) {
+            anchor = new Date(rec.nextDate + 'T12:00:00');
+        } else if (rec.createdAt) {
+            anchor = new Date(rec.createdAt);
+        } else {
+            anchor = new Date(now);
+        }
+
+        // Walk backwards from the anchor by stepDays until we exceed horizon.
+        // Walk forwards too if anchor is in the past (fill in subsequent occurrences).
+        const horizon = new Date(now); horizon.setMonth(horizon.getMonth() - horizonMonths);
+        const futureCap = new Date(now); futureCap.setHours(23,59,59,999);
+
+        // Build set of occurrence dates between [horizon, today]
+        const dates = [];
+        // Walk backwards from anchor
+        let d = new Date(anchor);
+        while (d >= horizon && d <= futureCap) {
+            dates.push(new Date(d));
+            d = new Date(d); d.setDate(d.getDate() - stepDays);
+        }
+        // Walk forwards from anchor
+        d = new Date(anchor); d.setDate(d.getDate() + stepDays);
+        while (d <= futureCap) {
+            dates.push(new Date(d));
+            d = new Date(d); d.setDate(d.getDate() + stepDays);
+        }
+        // Dedupe
+        const seenIso = new Set();
+        const uniqueDates = dates
+            .map(x => x.toISOString().slice(0,10))
+            .filter(iso => { if (seenIso.has(iso)) return false; seenIso.add(iso); return true; });
+
+        // For each occurrence date, ensure a synthetic transaction exists
+        uniqueDates.forEach(iso => {
+            const exists = appState.transactions.some(t =>
+                t.synthetic === true &&
+                t.parentRecurringId === rec.id &&
+                t.date && t.date.slice(0, 10) === iso
+            );
+            if (exists) return;
+
+            const dateObj = new Date(iso + 'T12:00:00');
+            const cat = (rec.category || '').toLowerCase();
+            const txnCategory = cat === 'income' ? 'Income'
+                : cat === 'rent' ? 'Housing'
+                : cat === 'utility' ? 'Utilities'
+                : cat === 'debt' ? 'Debt Payment'
+                : cat === 'insurance' ? 'Insurance'
+                : cat === 'membership' ? 'Membership'
+                : 'Recurring';
+            const amount = isIncome ? Math.abs(rec.amount) : -Math.abs(rec.amount);
+
+            appState.transactions.push({
+                id: 'rec-' + rec.id + '-' + iso,
+                date: dateObj.toISOString(),
+                merchant: rec.name || 'Recurring',
+                category: txnCategory,
+                amount: amount,
+                method: 'Auto (recurring)',
+                status: dateObj <= now ? 'completed' : 'scheduled',
+                synthetic: true,
+                parentRecurringId: rec.id
+            });
+            createdAny = true;
+        });
+    });
+
+    // Walk debts too — every debt with a minimum payment + due day generates
+    // a monthly synthetic transaction tagged parentDebtId.
+    const horizon = new Date(now); horizon.setMonth(horizon.getMonth() - 6);
+    (appState.debts || []).forEach(debt => {
+        if (!debt || !debt.minPayment || debt.minPayment <= 0) return;
+        const dueDay = parseInt(debt.dueDay || debt.dueDate, 10) || 15;
+        // Walk back 6 calendar months
+        for (let m = 0; m < 6; m++) {
+            const target = new Date(now.getFullYear(), now.getMonth() - m, Math.min(dueDay, 28), 12, 0, 0, 0);
+            if (target < horizon || target > now) continue;
+            const iso = target.toISOString().slice(0, 10);
+            const exists = appState.transactions.some(t =>
+                t.synthetic === true &&
+                t.parentDebtId === debt.id &&
+                t.date && t.date.slice(0, 10) === iso
+            );
+            if (exists) continue;
+            appState.transactions.push({
+                id: 'debt-' + debt.id + '-' + iso,
+                date: target.toISOString(),
+                merchant: debt.name || 'Debt payment',
+                category: 'Debt Payment',
+                amount: -Math.abs(debt.minPayment),
+                method: 'Auto (minimum)',
+                status: 'completed',
+                synthetic: true,
+                parentDebtId: debt.id
+            });
+            createdAny = true;
+        }
+    });
+
+    if (createdAny) {
+        appState.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+}
+
 /* ---------- UI RENDER ENGINE ---------- */
 function updateUI() {
     if (!appState) return;
+
+    // Synthesize transactions from recurring payments BEFORE we render so
+    // the spending tracker, count, charts, and lists all reflect them.
+    try { materializeRecurringTransactions(); } catch(e) { console.warn('materialize fail', e); }
 
     const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
     
