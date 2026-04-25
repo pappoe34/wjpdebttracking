@@ -2220,12 +2220,20 @@ function initModal() {
 
     if(!btnNew || !modal) return;
 
+    // Always scroll the modal-content back to the top when we switch views,
+    // otherwise a long form leaves the user mid-form on the next open.
+    const resetModalScroll = () => {
+        const mc = modal.querySelector('.modal-content');
+        if (mc) mc.scrollTop = 0;
+    };
+
     const showPicker = () => {
         if (pickerStep) pickerStep.style.display = 'block';
         if (formStep) formStep.style.display = 'none';
         if (titleEl) titleEl.textContent = 'Add';
         const banner = document.getElementById('entry-success-banner');
         if (banner) banner.style.display = 'none';
+        resetModalScroll();
     };
     const showFormStep = (tabName, title) => {
         if (pickerStep) pickerStep.style.display = 'none';
@@ -2243,6 +2251,7 @@ function initModal() {
         forms.forEach(f => f.style.display = 'none');
         const targetForm = document.getElementById(tabName + '-form');
         if (targetForm) targetForm.style.display = 'block';
+        resetModalScroll();
     };
 
     const closeModal = () => {
@@ -2516,11 +2525,13 @@ function initModal() {
             });
             tab.classList.add('active');
             tab.style.opacity = '1';
-            
+
             const targetId = tab.getAttribute('data-tab') + '-form';
             forms.forEach(f => f.style.display = 'none');
             const targetForm = document.getElementById(targetId);
             if (targetForm) targetForm.style.display = 'block';
+            // Re-snap to top so the user starts at the first field of the new form
+            resetModalScroll();
         });
     });
 

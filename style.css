@@ -3379,7 +3379,22 @@ body.light .theme-toggle .toggle-thumb {
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
   transform: translateY(10px);
   animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* When the form is taller than the viewport, scroll inside the modal
+     instead of clipping the bottom. Bottom action buttons remain reachable. */
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
+
+/* Custom scrollbar so the modal still feels native on desktop */
+.modal-content::-webkit-scrollbar { width: 8px; }
+.modal-content::-webkit-scrollbar-track { background: transparent; }
+.modal-content::-webkit-scrollbar-thumb {
+  background: var(--card-2);
+  border-radius: 4px;
+}
+.modal-content::-webkit-scrollbar-thumb:hover { background: var(--border-accent); }
 
 @keyframes modalSlideUp {
   to { transform: translateY(0); }
@@ -3390,6 +3405,16 @@ body.light .theme-toggle .toggle-thumb {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  /* Keep the X-close pinned to the top of the scroll container so the user
+     can dismiss the modal at any scroll position. Negative margins counter
+     the modal-content padding so the sticky bar fully covers the gradient. */
+  position: sticky;
+  top: -32px;
+  margin: -32px -32px 16px;
+  padding: 20px 32px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  z-index: 5;
 }
 
 .modal-title {
@@ -5829,12 +5854,41 @@ body.dark .top-header{
   outline-offset:2px;
 }
 @media (max-width:560px){
+  /* On phones: take the full viewport so long forms have room to scroll
+     without competing with the OS chrome. The modal-content keeps its
+     internal scroll, the sticky header stays pinned. */
+  .modal {
+    align-items: flex-start;
+  }
+  .modal-content {
+    max-width: 100%;
+    max-height: 100vh;
+    min-height: 100vh;
+    border-radius: 0;
+    padding: 24px 18px;
+    /* Pad bottom so the action buttons clear the iOS home indicator + keyboard */
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 24px));
+  }
+  .modal-header {
+    top: -24px;
+    margin: -24px -18px 14px;
+    padding: 16px 18px 12px;
+  }
   .entry-picker-grid{
     grid-template-columns: 1fr 1fr !important;
   }
   #entry-modal .modal-actions{
     flex-direction: column-reverse !important;
     align-items: stretch !important;
+    /* Sticky action bar so Save & Add Another / Save & Close are always
+       within thumb reach even on tall forms. */
+    position: sticky;
+    bottom: -24px;
+    margin: 24px -18px -24px;
+    padding: 14px 18px max(14px, env(safe-area-inset-bottom, 14px));
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    z-index: 4;
   }
   #entry-modal .modal-actions .btn{
     width: 100%;
