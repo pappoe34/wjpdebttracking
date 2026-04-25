@@ -5260,9 +5260,13 @@ function renderStrategyIndicators() {
         avalanche: {
             icon: 'ph-mountains',
             color: '#00d4a8',
-            why: 'Attacks debts that bleed the most interest dollars per month — combining balance and APR to find your biggest dollar drain. A $10K loan at 18% beats a $500 card at 30% because it costs you more every month.',
-            benefit: 'Best for: Stopping the biggest monthly interest bleed first.',
-            sort: (a, b) => (b.balance * b.apr) - (a.balance * a.apr)
+            why: 'Attacks the highest APR first — mathematically optimal. Every $1 paid against a 30% card saves $0.30/year in interest forever; the same $1 paid against an 18% loan only saves $0.18/year. So a $500 card at 30% ranks ahead of a $10K loan at 18%. Within same APR, bigger balance wins (more dollar bleed at that rate).',
+            benefit: 'Best for: Lowest total interest paid. Provably optimal — no other strategy beats it on math.',
+            sort: (a, b) => {
+                const aprDelta = (b.apr || 0) - (a.apr || 0);
+                if (Math.abs(aprDelta) > 0.001) return aprDelta;
+                return (b.balance || 0) - (a.balance || 0);
+            }
         }
     };
     
@@ -5377,19 +5381,29 @@ window.addEventListener('resize', () => {
  * Works on EVERY debt type: credit cards, student loans, personal loans,
  * auto loans, mortgages — anything in appState.debts flows through here.
  *
- *  • Snowball   → smallest balance first. Suboptimal mathematically but the
- *                 fastest psychological wins keep people on track. (Dave Ramsey method.)
+ *  • Snowball   → smallest balance first. Quick psychological wins.
  *
- *  • Avalanche  → highest interest DOLLARS first (balance × APR). Attacks the
- *                 biggest monthly bleed regardless of whether it's a small
- *                 high-APR card or a large medium-APR loan. A $10K loan at 18%
- *                 ($150/mo bleed) ranks ahead of a $500 card at 30% ($13/mo
- *                 bleed). Tie-breaker: APR%.
+ *  • Avalanche  → highest APR% first. MATHEMATICALLY OPTIMAL — produces the
+ *                 lowest total interest paid, period. Every $1 paid against
+ *                 a high-APR debt saves more in future interest than the same
+ *                 dollar against a low-APR debt, regardless of balance. So a
+ *                 $500 card at 30% ranks ahead of a $10K loan at 18% — the 30%
+ *                 card's interest accrues per dollar at 67% faster.
+ *                 Tie-breaker within same APR: bigger balance (more dollars
+ *                 of bleed at that rate). This addresses Winston's "amount and
+ *                 APR" instinct: APR drives the rank, balance breaks ties.
  *
- *  • Hybrid     → 60% interest dollars + 30% small-balance bonus + 10% pay
- *                 efficiency. Avalanche-leaning but rewards small debts that
- *                 can be knocked out for momentum. Sits between Snowball and
- *                 Avalanche on total interest paid — true "best of both worlds".
+ *  • Hybrid     → balance × APR (interest dollars) with quick-win bonus:
+ *                   60% interest dollars (balance × APR — Winston's "amount AND APR")
+ *                   30% small-balance bonus (quick wins)
+ *                   10% payment efficiency (clears fast at min)
+ *                 This is what "amount and APR" means as a single composite —
+ *                 prioritizes biggest dollar-bleed debts. Sits between
+ *                 Snowball and Avalanche but in some portfolios where small
+ *                 debts coincidentally also have high APR, the math is close.
+ *
+ * EXPECTED OUTCOME: Avalanche total interest ≤ Hybrid ≤ Snowball total interest
+ * (always, given any non-zero extra contribution). Avalanche is provably optimal.
  *
  * Returns a NEW sorted array. Input is not mutated.
  */
@@ -5401,22 +5415,17 @@ function sortDebtsByStrategy(debts, strategy) {
         return list.sort((a, b) => (a.balance || 0) - (b.balance || 0));
     }
     if (strategy === 'avalanche') {
-        // Sort by INTEREST DOLLARS descending (balance × APR). Bigger monthly
-        // bleed → higher priority. Tie-breaker: APR% (per-dollar savings rate).
+        // PURE APR sort — mathematically optimal for minimizing total interest.
+        // Tie-breaker: bigger balance wins within same APR (bigger dollar bleed
+        // at the same rate is the higher-priority target).
         return list.sort((a, b) => {
-            const aBleed = (a.balance || 0) * (a.apr || 0); // proportional to monthly $ interest
-            const bBleed = (b.balance || 0) * (b.apr || 0);
-            const bleedDelta = bBleed - aBleed;
-            if (Math.abs(bleedDelta) > 0.01) return bleedDelta;
-            return (b.apr || 0) - (a.apr || 0);
+            const aprDelta = (b.apr || 0) - (a.apr || 0);
+            if (Math.abs(aprDelta) > 0.001) return aprDelta;
+            return (b.balance || 0) - (a.balance || 0);
         });
     }
 
-    // Hybrid: bleed-dominated blend with quick-win bonus.
-    // 60% interest dollars (matches the new Avalanche logic) + 30% small balance
-    // + 10% payment efficiency. This sits between Snowball and Avalanche on
-    // total interest because it leans toward the bleed-first strategy but gives
-    // small debts a boost.
+    // Hybrid: interest-dollars-dominant blend with quick-win bonus.
     const maxBleed = Math.max(0.01, ...list.map(d =>
         (d.balance || 0) * (d.apr || 0)
     ));
@@ -5427,12 +5436,8 @@ function sortDebtsByStrategy(debts, strategy) {
         const minPay = Math.max(0, d.minPayment || 0);
         const apr = Math.max(0, d.apr || 0);
 
-        // 1. Interest-dollars weight (60%): the monthly bleed. Same metric
-        //    Avalanche uses, so Hybrid leans Avalanche-ward.
         const bleedScore = (balance * apr) / maxBleed;
-        // 2. Small-balance bonus (30%): rewards quick wins
         const balScore = minBal / Math.max(1, balance);
-        // 3. Payment efficiency (10%): rewards debts that clear fast at minimums
         const annualMinAsPctOfBalance = balance > 0 ? Math.min(1, (minPay * 12) / balance) : 0;
 
         return bleedScore * 0.60
