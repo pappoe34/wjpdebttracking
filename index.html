@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=73-advisor">
+  <link rel="stylesheet" href="style.css?v=74-customize">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -857,10 +857,20 @@
             <div id="val-active-liabilities" style="display:none">0 Active Liabilities</div>
           </div>
 
-          <!-- TOP-3 STRATEGY FOCUS BAR — three debts to attack first, ordered by selected strategy.
-               Snowball=smallest balances, Avalanche=highest APR, Hybrid=composite score.
-               Shown below the DFD hero so it's the user's second glance every visit. -->
-          <div class="top3-strategy reveal reveal-1" id="top3-strategy">
+          <!-- Customize Layout toolbar — toggles dashboard reorder mode -->
+          <div class="dash-customize-bar reveal" id="dash-customize-bar">
+            <button id="dash-customize-btn" type="button" class="btn btn-ghost dash-customize-btn">
+              <i class="ph ph-arrows-out-cardinal"></i>
+              <span>Customize layout</span>
+            </button>
+            <button id="dash-customize-reset" type="button" class="btn btn-ghost dash-reset-btn" style="display:none;">
+              <i class="ph ph-arrow-counter-clockwise"></i>
+              <span>Reset to default</span>
+            </button>
+          </div>
+
+          <!-- TOP-3 STRATEGY FOCUS BAR -->
+          <div class="top3-strategy reveal reveal-1 reorderable" id="top3-strategy" data-card-id="top3-strategy">
             <div class="top3-header">
               <div>
                 <div class="top3-eyebrow"><i class="ph-fill ph-target"></i> Focus this month · <span id="top3-strategy-label">Avalanche</span></div>
@@ -884,7 +894,7 @@
           <div class="dash-grid">
             <div class="dash-left">
               <!-- AI Card -->
-              <div class="ai-advisor-card reveal reveal-2">
+              <div class="ai-advisor-card reveal reveal-2 reorderable" id="ai-advisor-card" data-card-id="ai-advisor">
                 <div class="ai-card-header">
                   <div class="ai-card-title">
                     <div class="ai-icon"><i class="ph ph-robot"></i></div>
@@ -949,7 +959,7 @@
               </div>
 
               <!-- Spending Card -->
-              <div class="card reveal reveal-3" id="dash-spending-card" style="position:relative;">
+              <div class="card reveal reveal-3 reorderable" id="dash-spending-card" data-card-id="spending" style="position:relative;">
                 <button class="pin-card-btn" data-pin-id="dash-spending-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Spending card"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div class="spending-card-header">
                   <div class="spending-title">
@@ -1020,7 +1030,7 @@
               </div>
 
               <!-- Financial Resilience Card -->
-              <div class="card reveal reveal-3" id="dash-financial-resilience" style="margin-top:20px; flex: 1; min-height: 180px; cursor: pointer; position:relative;">
+              <div class="card reveal reveal-3 reorderable" id="dash-financial-resilience" data-card-id="resilience" style="margin-top:20px; flex: 1; min-height: 180px; cursor: pointer; position:relative;">
                 <button class="pin-card-btn" data-pin-id="dash-financial-resilience" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Resilience card"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
                   <h2 style="font-size:14px; font-weight:700;">Financial Resilience</h2>
@@ -1050,7 +1060,7 @@
             </div>
 
             <div class="dash-right">
-              <div id="upcoming-view-container" style="flex:1; display:flex; flex-direction:column; min-height:0; position:relative;">
+              <div id="upcoming-view-container" class="reorderable" data-card-id="upcoming" style="flex:1; display:flex; flex-direction:column; min-height:0; position:relative;">
                 <button class="pin-card-btn" data-pin-id="upcoming-view-container" title="Pin to top" style="position:absolute; top:-4px; right:0; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Upcoming Payments"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;" class="reveal reveal-1">
                   <div style="display:flex; align-items:center; gap:10px;">
@@ -1086,7 +1096,7 @@
               </div>
 
               <!-- Credit Score -->
-              <div class="card credit-score-card reveal reveal-5" id="credit-profile-card" style="position:relative;">
+              <div class="card credit-score-card reveal reveal-5 reorderable" id="credit-profile-card" data-card-id="credit-profile" style="position:relative;">
                 <button class="pin-card-btn" data-pin-id="credit-profile-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Credit Profile"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
                   <h3 style="font-size:14px; font-weight:700;">Credit Profile</h3>
@@ -1172,7 +1182,7 @@
           </div>
 
           <!-- Strategy Indicators -->
-          <div class="strategy-indicators reveal reveal-3" id="dash-strategy-card" style="position:relative;">
+          <div class="strategy-indicators reveal reveal-3 reorderable" id="dash-strategy-card" data-card-id="strategy-indicators" style="position:relative;">
             <button class="pin-card-btn" data-pin-id="dash-strategy-card" title="Pin to top" style="position:absolute; top:6px; right:6px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Strategy cards"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
             <!-- Snowball -->
             <div class="strategy-card" id="strat-card-snowball" data-strategy="snowball">
@@ -1218,7 +1228,7 @@
           </div>
 
           <!-- Bottom 3 cards -->
-          <div class="dash-stats-row reveal reveal-5" id="dash-stats-card">
+          <div class="dash-stats-row reveal reveal-5 reorderable" id="dash-stats-card" data-card-id="stats-row">
             <div class="stat-card stat-card-interactive" id="stat-interest-saved">
               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
                 <div class="card-label">Interest Saved</div>
@@ -4674,7 +4684,7 @@
 </div>
 
 
-  <script src="app.js?v=44-perf"></script>
+  <script src="app.js?v=45-customize"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

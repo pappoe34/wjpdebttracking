@@ -510,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initChatLogic();
     initAdvisorPageLogic();
     initDashboardInteractivity();
+    initDashCustomize();
     initSearch();
     
     // Draw charts and initialize UI state properly
@@ -4883,6 +4884,228 @@ function applyHouseholdModeLabel() {
         sidebarName.textContent = on ? 'Household' : orig;
     }
 }
+
+/* ---------- DASHBOARD LAYOUT CUSTOMIZATION ----------
+ * Lets the user reorder + hide cards on the dashboard. State lives in
+ *   appState.prefs.cardOrder = { 'spending': 2, 'credit-profile': 0, ... }
+ *   appState.prefs.cardHidden = { 'stats-row': true, ... }
+ * Cards keep their position within their parent container (preserves the
+ * left/right column layout). Up/Down arrow buttons reorder them in place.
+ *
+ * The toggle button at the top of the dashboard flips body.dash-customizing
+ * which CSS uses to surface drag handles, ↑↓ buttons, and hide toggles. */
+function initDashCustomize() {
+    const btn = document.getElementById('dash-customize-btn');
+    const resetBtn = document.getElementById('dash-customize-reset');
+    if (!btn) return;
+
+    const setMode = (on) => {
+        document.body.classList.toggle('dash-customizing', !!on);
+        btn.classList.toggle('active', !!on);
+        const labelSpan = btn.querySelector('span');
+        if (labelSpan) labelSpan.textContent = on ? 'Done' : 'Customize layout';
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = on ? 'ph ph-check' : 'ph ph-arrows-out-cardinal';
+        if (resetBtn) resetBtn.style.display = on ? 'inline-flex' : 'none';
+        // Inject controls into each card on entering, remove on exiting
+        if (on) injectCardControls();
+        else removeCardControls();
+    };
+
+    btn.onclick = () => {
+        setMode(!document.body.classList.contains('dash-customizing'));
+    };
+
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            if (!appState.prefs) appState.prefs = {};
+            appState.prefs.cardOrder = {};
+            appState.prefs.cardHidden = {};
+            saveState();
+            applyDashboardLayout();
+            // Re-inject controls so the order numbers reset
+            removeCardControls();
+            if (document.body.classList.contains('dash-customizing')) injectCardControls();
+        };
+    }
+
+    // Apply saved order on initial page load
+    applyDashboardLayout();
+}
+
+/** Inject ↑/↓/Hide controls onto every reorderable card. Idempotent — safe
+ *  to call multiple times. Removed by removeCardControls. */
+function injectCardControls() {
+    document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
+        if (card.querySelector(':scope > .card-reorder-controls')) return;
+        const cardId = card.getAttribute('data-card-id');
+        const wrap = document.createElement('div');
+        wrap.className = 'card-reorder-controls';
+        wrap.innerHTML = `
+            <button type="button" class="card-rc-btn" data-action="up" aria-label="Move up" title="Move up">
+                <i class="ph ph-arrow-up"></i>
+            </button>
+            <button type="button" class="card-rc-btn" data-action="down" aria-label="Move down" title="Move down">
+                <i class="ph ph-arrow-down"></i>
+            </button>
+            <button type="button" class="card-rc-btn card-rc-hide" data-action="hide" aria-label="Hide card" title="Hide card">
+                <i class="ph ph-eye-slash"></i>
+            </button>
+        `;
+        // Wire click handlers
+        wrap.querySelectorAll('.card-rc-btn').forEach(b => {
+            b.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const action = b.getAttribute('data-action');
+                if (action === 'up') moveCardWithinParent(card, -1);
+                else if (action === 'down') moveCardWithinParent(card, 1);
+                else if (action === 'hide') hideCard(cardId);
+            });
+        });
+        card.appendChild(wrap);
+    });
+
+    // Also surface hidden cards in customize mode so user can un-hide them.
+    showHiddenCardChips();
+}
+
+function removeCardControls() {
+    document.querySelectorAll('.card-reorder-controls').forEach(el => el.remove());
+    const tray = document.getElementById('hidden-cards-tray');
+    if (tray) tray.remove();
+}
+
+/** Move a card up or down within its parent container by 1 slot.
+ *  delta = -1 for up, +1 for down. Persists the order.  */
+function moveCardWithinParent(card, delta) {
+    const parent = card.parentElement;
+    if (!parent) return;
+    const siblings = Array.from(parent.children).filter(el => el.classList.contains('reorderable'));
+    const idx = siblings.indexOf(card);
+    if (idx < 0) return;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= siblings.length) return;
+
+    if (delta < 0) {
+        parent.insertBefore(card, siblings[newIdx]);
+    } else {
+        // Insert AFTER the next sibling — which means insert BEFORE the one after it
+        const after = siblings[newIdx];
+        if (after.nextSibling) parent.insertBefore(card, after.nextSibling);
+        else parent.appendChild(card);
+    }
+    persistDashboardLayout();
+}
+
+/** Hide a card from the dashboard. Adds it to a "hidden" chip tray so the
+ *  user can restore it from customize mode. */
+function hideCard(cardId) {
+    if (!appState.prefs) appState.prefs = {};
+    if (!appState.prefs.cardHidden) appState.prefs.cardHidden = {};
+    appState.prefs.cardHidden[cardId] = true;
+    saveState();
+    applyDashboardLayout();
+    showHiddenCardChips();
+}
+
+function unhideCard(cardId) {
+    if (!appState.prefs || !appState.prefs.cardHidden) return;
+    delete appState.prefs.cardHidden[cardId];
+    saveState();
+    applyDashboardLayout();
+    showHiddenCardChips();
+}
+
+/** Render a row of "hidden" chips so the user can restore cards. */
+function showHiddenCardChips() {
+    const old = document.getElementById('hidden-cards-tray');
+    if (old) old.remove();
+    const hidden = (appState.prefs && appState.prefs.cardHidden) || {};
+    const ids = Object.keys(hidden).filter(k => hidden[k]);
+    if (!ids.length) return;
+    if (!document.body.classList.contains('dash-customizing')) return;
+
+    const labelMap = {
+        'top3-strategy': 'Top 3 to Attack',
+        'ai-advisor': 'AI Advisor',
+        'spending': 'Spending Tracker',
+        'resilience': 'Financial Resilience',
+        'upcoming': 'Upcoming Payments',
+        'credit-profile': 'Credit Profile',
+        'strategy-indicators': 'Strategy Indicators',
+        'stats-row': 'Stats Row'
+    };
+
+    const tray = document.createElement('div');
+    tray.id = 'hidden-cards-tray';
+    tray.className = 'hidden-cards-tray';
+    tray.innerHTML = `
+        <span class="hidden-cards-label">Hidden:</span>
+        ${ids.map(id => `
+            <button type="button" class="hidden-card-chip" data-id="${id}">
+                <i class="ph ph-eye"></i> ${labelMap[id] || id}
+            </button>
+        `).join('')}
+    `;
+    tray.querySelectorAll('.hidden-card-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            unhideCard(chip.getAttribute('data-id'));
+        });
+    });
+    const bar = document.getElementById('dash-customize-bar');
+    if (bar) bar.appendChild(tray);
+}
+
+/** Persist current DOM order of reorderable cards to appState.prefs.cardOrder
+ *  as a map keyed by parent: { parentSelector: [cardId1, cardId2, ...] } */
+function persistDashboardLayout() {
+    if (!appState.prefs) appState.prefs = {};
+    const order = {};
+    document.querySelectorAll('#page-dashboard .reorderable').forEach((card, i) => {
+        const parent = card.parentElement;
+        if (!parent) return;
+        // Use parent ID or class as the key
+        const parentKey = parent.id || (parent.className.split(' ').filter(Boolean)[0]) || 'root';
+        if (!order[parentKey]) order[parentKey] = [];
+        const cid = card.getAttribute('data-card-id');
+        if (cid) order[parentKey].push(cid);
+    });
+    appState.prefs.cardOrder = order;
+    saveState();
+}
+
+/** Apply the saved card order + hidden state to the DOM. */
+function applyDashboardLayout() {
+    const prefs = (appState.prefs) || {};
+    const order = prefs.cardOrder || {};
+    const hidden = prefs.cardHidden || {};
+
+    // Hide / show
+    document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
+        const cid = card.getAttribute('data-card-id');
+        if (hidden[cid]) card.style.display = 'none';
+        else card.style.display = '';
+    });
+
+    // Reorder per parent: walk each saved parent → cardId list, move matching
+    // cards in DOM order. Cards not in the saved list keep their natural place
+    // after the saved ones.
+    Object.keys(order).forEach(parentKey => {
+        // Resolve parent — try id selector first, then class
+        let parent = document.getElementById(parentKey);
+        if (!parent) parent = document.querySelector('.' + parentKey);
+        if (!parent) return;
+        const idList = order[parentKey] || [];
+        idList.forEach(cid => {
+            const card = parent.querySelector(`.reorderable[data-card-id="${cid}"]`);
+            if (card) parent.appendChild(card); // appendChild moves it to end → maintaining list order
+        });
+    });
+}
+
+window.applyDashboardLayout = applyDashboardLayout;
+window.initDashCustomize = initDashCustomize;
 
 // Reorder pinned dashboard cards (Tier 2.6)
 function reorderPinnedCards() {
