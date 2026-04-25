@@ -4958,28 +4958,93 @@ body.dark .top-header{
     padding: 5px 10px !important;
   }
 
-  /* ===== RESILIENCE — Stress Test Scenario card proportions =====
-     Big number was 28px (overflows on small phones); padding/badge layout was crowded. */
+  /* ===== RESILIENCE TAB — bulletproof mobile layout =====
+     Two distinct sections to handle:
+     (a) The 3 stress scenario cards (Job Loss / Income Cut / Rate Hike)
+     (b) The Custom Stress Test card (slider + 3 live stat boxes) — was popping out. */
+
+  /* Outer card padding tightened on phone */
+  #resilience-tab-content .card{
+    padding: 16px !important;
+    overflow: hidden !important;        /* nothing inside can escape the rounded corners */
+  }
+
+  /* (a) Stress scenario cards: single-col stack, tighter inner padding,
+     responsive big-number, badge-row wraps. */
+  #resilience-tab-content .card > div[style*="grid-template-columns:repeat(2,1fr) 1fr"],
+  #resilience-tab-content .card > div[style*="repeat(2, 1fr) 1fr"]{
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
   #resilience-tab-content .card > div[style*="grid-template-columns:repeat(2,1fr) 1fr"] > div,
   #resilience-tab-content .card > div[style*="repeat(2, 1fr) 1fr"] > div{
     padding: 14px !important;
     border-radius: 12px !important;
+    overflow: hidden !important;
   }
-  #resilience-tab-content .card > div > div > div[style*="font-size:28px"]{
+  /* Big number ("3 months runway", "$X/mo extra"): scale down */
+  #resilience-tab-content [style*="font-size:28px"]{
     font-size: clamp(20px, 6vw, 26px) !important;
-    line-height: 1.1 !important;
-  }
-  #resilience-tab-content .card > div > div > div[style*="justify-content:space-between"][style*="display:flex"],
-  #resilience-tab-content .card > div > div > div[style*="justify-content:space-between"]:not([style*="grid"]) {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
+    line-height: 1.15 !important;
+    word-break: break-word !important;
   }
   #resilience-tab-content [style*="font-size:11px"][style*="/mo"]{
     font-size: 10px !important;
   }
-  /* Custom Stress Test slider — each card row stacked sane */
-  #resilience-tab-content .card div[style*="flex-wrap:wrap"]{
+  /* Badge + target footer flex-wraps so labels never collide */
+  #resilience-tab-content .card > div > div > div[style*="justify-content:space-between"][style*="display:flex"]{
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* (b) Custom Stress Test container — uses purple-ish bg color */
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"]{
+    padding: 14px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+  /* Inner flex (slider | 3-stat grid) — force COLUMN stack, not just wrap */
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] > div[style*="flex-wrap:wrap"]{
+    flex-direction: column !important;
+    align-items: stretch !important;
     gap: 12px !important;
+  }
+  /* Slider half + stats half — both go full width when stacked */
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] > div > div[style*="flex:1"],
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] > div > div[style*="flex:2"]{
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  /* 3-stat grid stays 3-col (compact) but with no min-width tyranny */
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] [style*="repeat(3,1fr)"]{
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  /* Each stat box — clip overflow, smaller value font, allow wrapping */
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] [style*="repeat(3,1fr)"] > div{
+    padding: 9px 6px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] [style*="repeat(3,1fr)"] > div > div[style*="font-size:15px"]{
+    font-size: 13px !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.15 !important;
+  }
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] [style*="repeat(3,1fr)"] > div > div[style*="font-size:9px"]{
+    font-size: 8.5px !important;
+    line-height: 1.2 !important;
+  }
+  /* The slider input itself — full width, comfortable thumb */
+  #resilience-tab-content [style*="rgba(102,126,234,0.06)"] input[type="range"]{
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
   /* ===== SETTINGS PAGE — mobile typography + grid + card spacing ===== */
