@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=72-cashflow">
+  <link rel="stylesheet" href="style.css?v=73-advisor">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -898,10 +898,34 @@
                 
                 <div class="ai-card-body">
                   <div>
-                    <div class="ai-focus-label">Current Focus</div>
+                    <div class="ai-focus-label">
+                      Current Focus
+                      <span class="ai-focus-strategy-tag" id="ai-focus-strategy-tag" style="display:none;"></span>
+                    </div>
                     <div class="ai-focus-text" id="ai-focus-text">
                       Add your debts and income to receive personalized AI strategy recommendations.
                     </div>
+
+                    <!-- Compact 4-stat progress strip — % paid · months left · interest saved · this-month plan -->
+                    <div class="ai-progress-strip" id="ai-progress-strip" style="display:none;">
+                      <div class="ai-prog-cell">
+                        <span class="ai-prog-label">Paid</span>
+                        <span class="ai-prog-val" id="ai-prog-paid">—</span>
+                      </div>
+                      <div class="ai-prog-cell">
+                        <span class="ai-prog-label">Months left</span>
+                        <span class="ai-prog-val" id="ai-prog-months">—</span>
+                      </div>
+                      <div class="ai-prog-cell">
+                        <span class="ai-prog-label">Interest saved</span>
+                        <span class="ai-prog-val" id="ai-prog-saved">—</span>
+                      </div>
+                      <div class="ai-prog-cell">
+                        <span class="ai-prog-label">This month</span>
+                        <span class="ai-prog-val" id="ai-prog-thismo">—</span>
+                      </div>
+                    </div>
+
                     <div class="ai-card-actions">
                       <button class="btn btn-primary" id="dash-btn-execute">Execute Strategy</button>
                       <button class="btn btn-ghost" id="dash-btn-review">Review Details</button>
@@ -4650,7 +4674,7 @@
 </div>
 
 
-  <script src="app.js?v=41-materialize"></script>
+  <script src="app.js?v=42-advisor"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

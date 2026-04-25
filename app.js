@@ -3484,24 +3484,90 @@ function updateUI() {
         }
     }
 
-    // --- AI Focus Text (dynamic, no hardcoded debt names) ---
+    // --- AI Focus Text (strategy-aware: snowball/avalanche/hybrid all reasoning differently) ---
     const aiFocusEl = document.getElementById('ai-focus-text');
+    const aiStratTag = document.getElementById('ai-focus-strategy-tag');
     const earlyBadge = document.getElementById('payoff-early-badge');
+    const progStrip = document.getElementById('ai-progress-strip');
+
     if (aiFocusEl) {
         if (appState.debts.length === 0) {
             aiFocusEl.innerHTML = 'Add your debts and income to receive personalized AI strategy recommendations.';
             if (earlyBadge) earlyBadge.style.display = 'none';
+            if (aiStratTag) aiStratTag.style.display = 'none';
+            if (progStrip) progStrip.style.display = 'none';
         } else {
-            // Find highest APR debt as focus
-            const focusDebt = [...appState.debts].sort((a,b) => (b.apr||0) - (a.apr||0))[0];
+            const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+            const stratLabel = strategy[0].toUpperCase() + strategy.slice(1);
+
+            // Sort by selected strategy → first is the focus debt
+            const sorted = (typeof sortDebtsByStrategy === 'function')
+                ? sortDebtsByStrategy(appState.debts, strategy)
+                : [...appState.debts];
+            const focusDebt = sorted[0];
+
             const income = (appState.balances && appState.balances.monthlyIncome) || 0;
-            const totalMin = appState.debts.reduce((s,d) => s + (d.minPayment||0), 0);
-            const extra = income > 0 ? Math.max(0, Math.round((income - totalMin) * 0.1)) : 0;
-            const interestSaved = extra > 0 ? Math.round(extra * ((focusDebt.apr||0) / 100) * 12) : 0;
-            aiFocusEl.innerHTML = extra > 0
-                ? `Based on your cash flow, we recommend accelerating the <span class="highlight">${focusDebt.name}</span> payment by $${extra.toLocaleString()} this month. This will save you <span class="highlight-gold">$${interestSaved.toLocaleString()} in future interest.</span>`
-                : `Your highest APR debt is <span class="highlight">${focusDebt.name}</span> at ${focusDebt.apr || 0}% APR. Add extra income to unlock acceleration recommendations.`;
-            // Show early badge only when we have real payoff data
+            const totalMin = appState.debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+            const userExtra = (appState.budget && parseFloat(appState.budget.contribution)) || 0;
+            const extra = userExtra > 0 ? userExtra
+                : income > 0 ? Math.max(0, Math.round((income - totalMin) * 0.1))
+                : 0;
+
+            // Strategy-specific reasoning copy — the WHY behind picking this debt
+            const fmtUsd = n => '$' + Math.round(n).toLocaleString();
+            const reason = strategy === 'snowball'
+                ? `it's your <strong>smallest balance</strong> — knocking it out first builds momentum and frees up its <strong>${fmtUsd(focusDebt.minPayment || 0)}/mo minimum</strong> to roll into the next debt`
+                : strategy === 'avalanche'
+                ? `it has the <strong>highest APR (${(focusDebt.apr || 0).toFixed(2)}%)</strong> — every dollar you throw at it eliminates the most interest cost in your portfolio`
+                : `it scores highest on the <strong>blended balance + APR weighting</strong> — best balance of momentum win and interest savings`;
+
+            const extraSentence = extra > 0
+                ? ` Add an extra <strong>${fmtUsd(extra)}</strong> on top of the minimum this month.`
+                : '';
+
+            aiFocusEl.innerHTML = `Focus on <span class="highlight">${focusDebt.name}</span> — ${reason}.${extraSentence}`;
+
+            if (aiStratTag) {
+                aiStratTag.textContent = `${stratLabel} strategy`;
+                aiStratTag.style.display = 'inline-flex';
+            }
+
+            // --- Progress strip: paid % · months left · interest saved · this-month plan ---
+            if (progStrip) {
+                progStrip.style.display = 'grid';
+
+                // Total paid + remaining (uses originalBalance backfilled by DFD render)
+                let originalSum = 0, currentSum = 0;
+                appState.debts.forEach(d => {
+                    if (d.originalBalance == null || d.originalBalance < d.balance) d.originalBalance = d.balance;
+                    originalSum += d.originalBalance || 0;
+                    currentSum  += d.balance || 0;
+                });
+                const paidPct = originalSum > 0 ? Math.round(((originalSum - currentSum) / originalSum) * 100) : 0;
+                const elPaid = document.getElementById('ai-prog-paid');
+                if (elPaid) elPaid.textContent = `${paidPct}%`;
+
+                // Months left + interest saved use the corrected simulator
+                let months = 0, interestNow = 0, interestNoExtra = 0;
+                try {
+                    const sim = calcSimTotals(strategy, extra, 0, 0);
+                    if (sim) { months = sim.months; interestNow = sim.totalInterest; }
+                    const naive = calcSimTotals(strategy, 0, 0, 0);
+                    if (naive) interestNoExtra = naive.totalInterest;
+                } catch(_){}
+                const saved = Math.max(0, interestNoExtra - interestNow);
+
+                const elMonths = document.getElementById('ai-prog-months');
+                if (elMonths) elMonths.textContent = (months > 0 && months < 600) ? `${months}` : '—';
+
+                const elSaved = document.getElementById('ai-prog-saved');
+                if (elSaved) elSaved.textContent = saved > 0 ? fmtUsd(saved) : '$0';
+
+                // This-month plan: total minimums + extra contribution
+                const elThis = document.getElementById('ai-prog-thismo');
+                if (elThis) elThis.textContent = fmtUsd(totalMin + extra);
+            }
+
             if (earlyBadge && income > 0 && totalMin > 0) {
                 const baseMonths = Math.ceil(totalDebt / totalMin);
                 const optimMonths = extra > 0 ? Math.ceil(totalDebt / (totalMin + extra)) : baseMonths;
@@ -10027,27 +10093,75 @@ function initDashboardInteractivity() {
 
     if (btnDashExec) {
         btnDashExec.onclick = () => {
+            if (!appState.debts || appState.debts.length === 0) {
+                if (typeof showToast === 'function') showToast('Add at least one debt before executing a strategy.');
+                return;
+            }
             const sim = simulateAllStrategies();
-            btnDashExec.innerHTML = `<i class="ph ph-check"></i> Executing...`;
+            // Lock in the strategy the user CHOSE — not auto-override to math-optimal.
+            // Snowball is sometimes correct even when Avalanche is mathematically faster
+            // because the psychological wins keep people on track. Respect the choice.
+            const chosen = (appState.settings && appState.settings.strategy) || 'avalanche';
+            const isOptimal = sim && sim.best === chosen;
+
+            btnDashExec.innerHTML = `<i class="ph ph-check"></i> Locking in...`;
+            btnDashExec.disabled = true;
+
             setTimeout(() => {
-                appState.settings.strategy = sim.best;
+                appState.settings.strategy = chosen;
+                appState.settings.strategyExecutedAt = Date.now();
                 saveState();
                 updateUI();
-                btnDashExec.innerHTML = `Execute Strategy`;
-                // Add a notification for the execution
-                if(!appState.notifications) appState.notifications = [];
-                pushNotification({
-                    id: Date.now(),
-                    title: 'Strategy Engaged',
-                    text: `Your portfolio has been realigned to the ${sim.best} protocol.`,
-                    type: 'ai',
-                    priority: 'high',
-                    time: 'Just now',
-                    read: false,
-                    cleared: false
-                }, 'strategyChange');
-                renderNotifications();
-            }, 800);
+                btnDashExec.innerHTML = `<i class="ph ph-check-circle"></i> Locked in`;
+                btnDashExec.style.background = 'var(--accent)';
+                btnDashExec.style.color = '#0b0f1a';
+
+                const stratLabel = chosen[0].toUpperCase() + chosen.slice(1);
+                const noteText = isOptimal
+                    ? `${stratLabel} is the math-optimal path for your portfolio. Plan locked in.`
+                    : `${stratLabel} locked in. (Avalanche is the math-optimal path, but ${chosen} can be the right call for momentum — your choice.)`;
+
+                if (typeof pushNotification === 'function') {
+                    pushNotification({
+                        id: Date.now(),
+                        title: 'Strategy Locked In',
+                        text: noteText,
+                        type: 'ai',
+                        priority: 'high',
+                        time: 'Just now',
+                        read: false,
+                        cleared: false
+                    }, 'strategyChange');
+                }
+                if (typeof renderNotifications === 'function') renderNotifications();
+                if (typeof logActivity === 'function') {
+                    logActivity({
+                        title: 'Strategy executed',
+                        text: noteText,
+                        type: 'ai',
+                        priority: 'normal',
+                        link: '#debts'
+                    });
+                }
+
+                // Auto-open the Review Details panel so the user immediately sees
+                // the breakdown of what just got locked in
+                setTimeout(() => {
+                    if (btnDashReview) {
+                        const panel = document.getElementById('dash-ai-explanation');
+                        if (!panel || panel.dataset.open !== '1') btnDashReview.click();
+                    }
+                }, 400);
+
+                // Restore button text after a moment so user can re-execute if they
+                // change strategy
+                setTimeout(() => {
+                    btnDashExec.innerHTML = `Execute Strategy`;
+                    btnDashExec.style.background = '';
+                    btnDashExec.style.color = '';
+                    btnDashExec.disabled = false;
+                }, 2400);
+            }, 600);
         };
     }
 
@@ -10055,69 +10169,146 @@ function initDashboardInteractivity() {
         btnDashReview.onclick = () => {
             const sim = simulateAllStrategies();
             if (!sim) return;
-            
-            const strategy = (appState.settings && appState.settings.strategy) ? appState.settings.strategy : 'avalanche';
-            // Correct path: sim.simulations[strategy]
-            const stratData = sim.simulations && sim.simulations[strategy] ? sim.simulations[strategy] : null;
-            
-            // Find or create the inline explanation panel
-            let explainPanel = document.getElementById('dash-ai-explanation');
-            if (!explainPanel) {
-                const btnRow = btnDashReview.closest('.btn-row') || btnDashReview.parentElement;
-                explainPanel = document.createElement('div');
-                explainPanel.id = 'dash-ai-explanation';
-                explainPanel.style.cssText = 'margin-top:16px; padding:16px; background:rgba(0,212,168,0.06); border:1px solid var(--border-accent); border-radius:var(--radius-sm); font-size:12px; line-height:1.7; color:var(--text-2); display:none;';
-                btnRow.parentElement.appendChild(explainPanel);
-            }
-            
-            if (explainPanel.style.display !== 'none') {
-                explainPanel.style.display = 'none';
-                btnDashReview.innerHTML = '<i class="ph ph-info"></i> Review Details';
+            if (!appState.debts || appState.debts.length === 0) {
+                if (typeof showToast === 'function') showToast('Add at least one debt to review the breakdown.');
                 return;
             }
-            
-            const fmt = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
-            const stratLabel = strategy.charAt(0).toUpperCase() + strategy.slice(1);
-            
-            // Correctly use .interest (not .totalInterest) and compute date from .months
-            const totalInterest = stratData ? stratData.interest : 0;
-            const months = stratData ? stratData.months : 0;
-            const debtFreeYear = months > 0
-                ? new Date(Date.now() + months * 30.44 * 24 * 3600 * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                : 'N/A';
-            
-            // Interest avoided = difference vs doing minimum payments (no extra contribution)
+
+            const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+            const stratLabel = strategy[0].toUpperCase() + strategy.slice(1);
+
+            // Reuse the inline panel — toggle if already open
+            let panel = document.getElementById('dash-ai-explanation');
+            if (!panel) {
+                const btnRow = btnDashReview.closest('.btn-row') || btnDashReview.parentElement;
+                panel = document.createElement('div');
+                panel.id = 'dash-ai-explanation';
+                panel.className = 'ai-review-panel';
+                btnRow.parentElement.appendChild(panel);
+            }
+            if (panel.style.display !== 'none' && panel.dataset.open === '1') {
+                panel.style.display = 'none';
+                panel.dataset.open = '0';
+                btnDashReview.innerHTML = 'Review Details';
+                return;
+            }
+
+            const fmt = n => '$' + Math.round(Number(n) || 0).toLocaleString();
+            const userExtra = (appState.budget && parseFloat(appState.budget.contribution)) || 0;
+
+            // Per-debt breakdown — months to clear + total interest under selected strategy
+            let perDebt = {};
+            try {
+                const r = calcDebtSimTotals(0, userExtra, 0, 0); // returns { base, sim }
+                perDebt = (r && r.sim) || {};
+            } catch(_){}
+
+            const sortedDebts = (typeof sortDebtsByStrategy === 'function')
+                ? sortDebtsByStrategy(appState.debts, strategy)
+                : [...appState.debts];
+
+            const debtRows = sortedDebts.map((d, idx) => {
+                const pd = perDebt[d.id] || {};
+                const months = pd.months || '—';
+                const intr = pd.interest != null ? fmt(pd.interest) : '—';
+                const rankColor = idx === 0 ? 'var(--accent)' : idx === 1 ? '#a855f7' : idx === 2 ? '#60a5fa' : 'var(--text-3)';
+                return `
+                    <tr>
+                        <td><span class="ai-rev-rank" style="background:${rankColor};">${idx + 1}</span> ${d.name || 'Unnamed'}</td>
+                        <td>${fmt(d.balance)}</td>
+                        <td>${(d.apr || 0).toFixed(2)}%</td>
+                        <td>${fmt(d.minPayment)}</td>
+                        <td>${months}${typeof months === 'number' ? ' mo' : ''}</td>
+                        <td style="color:var(--accent);">${intr}</td>
+                    </tr>`;
+            }).join('');
+
+            // Strategy comparison: snowball / hybrid / avalanche side-by-side
+            const stratOrder = ['snowball', 'hybrid', 'avalanche'];
+            const sims = sim.simulations || {};
+            const bestStrat = sim.best;
+            const compareCells = stratOrder.map(s => {
+                const data = sims[s] || { months: 0, interest: 0 };
+                const isActive = s === strategy;
+                const isBest = s === bestStrat;
+                const label = s[0].toUpperCase() + s.slice(1);
+                const tag = isActive && isBest ? 'Active · Optimal'
+                          : isActive ? 'Active'
+                          : isBest ? 'Optimal'
+                          : '';
+                return `
+                    <div class="ai-rev-strat ${isActive ? 'active' : ''} ${isBest ? 'optimal' : ''}">
+                        <div class="ai-rev-strat-head">
+                            <span class="ai-rev-strat-name">${label}</span>
+                            ${tag ? `<span class="ai-rev-strat-tag">${tag}</span>` : ''}
+                        </div>
+                        <div class="ai-rev-strat-stat">${data.months || '—'}<span> mo</span></div>
+                        <div class="ai-rev-strat-sub">${fmt(data.interest)} interest</div>
+                    </div>`;
+            }).join('');
+
+            // Recommended action — combines selected strategy + cash flow
+            const focus = sortedDebts[0];
+            const focusReason = strategy === 'snowball'
+                ? 'smallest balance — quickest psychological win'
+                : strategy === 'avalanche'
+                ? 'highest APR — biggest interest drain'
+                : 'best blend of balance and APR';
+            const actionPay = userExtra > 0 ? userExtra : 100;
+            const stratActiveData = sims[strategy] || { months: 0, interest: 0 };
+            const naiveData = sims[strategy] ? sims[strategy] : { interest: 0 };
             let naiveInterest = 0;
             try {
-                const naive = calculateDebtPayoff(strategy, 0);
-                Object.values(naive).forEach(r => { if (r) naiveInterest += r.totalInterest || 0; });
-            } catch(e) {}
-            const saved = Math.max(0, naiveInterest - totalInterest);
-            
-            explainPanel.innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                    <i class="ph-fill ph-lightning" style="color:var(--accent);font-size:16px;"></i>
-                    <strong style="color:var(--text);font-size:13px;">Strategy Execution Summary — ${stratLabel} Method</strong>
+                const naive = calcSimTotals(strategy, 0, 0, 0);
+                if (naive) naiveInterest = naive.totalInterest;
+            } catch(_){}
+            const saved = Math.max(0, naiveInterest - stratActiveData.interest);
+
+            panel.innerHTML = `
+                <div class="ai-rev-header">
+                    <div>
+                        <div class="ai-rev-eyebrow">Strategy breakdown · ${stratLabel}</div>
+                        <h4 class="ai-rev-title">Your debt-elimination plan</h4>
+                    </div>
+                    <button class="ai-rev-close" type="button" aria-label="Close" id="ai-rev-close-btn"><i class="ph ph-x"></i></button>
                 </div>
-                <p style="margin-bottom:10px;">Executing the <strong style="color:var(--accent);">${stratLabel}</strong> protocol has realigned your debt repayment queue. Extra monthly cash flow is now directed to your highest-impact liability first, compounding your payoff velocity.</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0;">
-                    <div style="background:var(--card-2);border-radius:6px;padding:10px;text-align:center;">
-                        <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Interest Avoided</div>
-                        <div style="font-size:16px;font-weight:800;color:var(--accent);">${saved > 0 ? fmt(saved) : fmt(totalInterest * 0.08)}</div>
-                    </div>
-                    <div style="background:var(--card-2);border-radius:6px;padding:10px;text-align:center;">
-                        <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Months to Freedom</div>
-                        <div style="font-size:16px;font-weight:800;color:var(--text);">${months || 'N/A'}</div>
-                    </div>
-                    <div style="background:var(--card-2);border-radius:6px;padding:10px;text-align:center;">
-                        <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Debt-Free Target</div>
-                        <div style="font-size:14px;font-weight:800;color:var(--accent);">${debtFreeYear}</div>
+
+                <p class="ai-rev-intro">You're running the <strong>${stratLabel}</strong> method. Below is a per-debt projection plus how Snowball, Hybrid, and Avalanche compare under your current cash flow (${fmt(userExtra)}/mo extra).</p>
+
+                <div class="ai-rev-section">
+                    <div class="ai-rev-section-label">Per-debt elimination order</div>
+                    <table class="ai-rev-table">
+                        <thead>
+                            <tr><th>Debt</th><th>Balance</th><th>APR</th><th>Min</th><th>Time to clear</th><th>Total interest</th></tr>
+                        </thead>
+                        <tbody>${debtRows}</tbody>
+                    </table>
+                </div>
+
+                <div class="ai-rev-section">
+                    <div class="ai-rev-section-label">Strategy comparison</div>
+                    <div class="ai-rev-strat-grid">${compareCells}</div>
+                </div>
+
+                <div class="ai-rev-action">
+                    <div class="ai-rev-action-icon"><i class="ph-fill ph-target"></i></div>
+                    <div class="ai-rev-action-body">
+                        <div class="ai-rev-action-title">Next move</div>
+                        <p>Throw an extra <strong>${fmt(actionPay)}</strong> at <strong>${focus.name}</strong> this month (${focusReason}). At your current pace, you'll be debt-free in <strong>${stratActiveData.months || '—'} months</strong>${saved > 0 ? `, saving <strong style="color:var(--accent);">${fmt(saved)}</strong> in interest vs. paying minimums only` : ''}.</p>
                     </div>
                 </div>
-                <p style="font-size:11px;color:var(--text-3);font-style:italic;">Tap "Execute Strategy" to lock this in and update your repayment timeline across all accounts.</p>
             `;
-            explainPanel.style.display = 'block';
+            panel.style.display = 'block';
+            panel.dataset.open = '1';
             btnDashReview.innerHTML = '<i class="ph ph-x"></i> Close';
+
+            // Wire close button inside the panel
+            const closeBtn = document.getElementById('ai-rev-close-btn');
+            if (closeBtn) closeBtn.onclick = () => {
+                panel.style.display = 'none';
+                panel.dataset.open = '0';
+                btnDashReview.innerHTML = 'Review Details';
+            };
         };
     }
 
