@@ -2279,11 +2279,13 @@ function initModal() {
         forms.forEach(f => f.reset());
         showPicker();
         if (limitGroup) limitGroup.style.display = 'none';
+        // Forget the last route so reopening the modal lands on the picker, not
+        // the previous form (would otherwise feel like the modal "remembers" stale state)
+        _lastPickerRoute = null;
     };
 
     // Track which submit button was clicked so we know whether to keep the modal open
-    // ("Save & Add Another") or close it ("Save & Close"). Without this, the form's
-    // implicit submit can't tell us the user's intent.
+    // ("Save & Add Another") or close it ("Save & Close").
     let _lastSubmitMode = 'save-close';
     document.addEventListener('click', (e) => {
         const target = e.target && e.target.closest && e.target.closest('button[data-mode]');
@@ -2291,6 +2293,30 @@ function initModal() {
             _lastSubmitMode = target.getAttribute('data-mode') || 'save-close';
         }
     }, true);
+
+    // Track which picker tile the user clicked. After "Save & Add Another" we
+    // re-apply the same preset so adding a credit card → save → adding another
+    // credit card keeps them in card-mode (limit + dates fields stay visible),
+    // not flipping back to generic Loan defaults. This is what users expect when
+    // batch-adding the same kind of entry.
+    let _lastPickerRoute = null;
+
+    // Hard-clear every input inside a form. form.reset() *should* be enough, but
+    // for selects whose value was set programmatically (we set debt-type from the
+    // picker route), reset only restores the HTML default. We also forcibly null
+    // the value of every text/number input so the user sees a truly empty form.
+    const hardResetForm = (form) => {
+        if (!form) return;
+        try { form.reset(); } catch(_){}
+        form.querySelectorAll('input').forEach(el => {
+            if (el.type === 'checkbox' || el.type === 'radio') el.checked = false;
+            else el.value = '';
+        });
+        form.querySelectorAll('select').forEach(el => {
+            if (el.options && el.options.length > 0) el.selectedIndex = 0;
+        });
+        form.querySelectorAll('textarea').forEach(el => { el.value = ''; });
+    };
 
     // Inline success banner — shown after a save when the user is staying in the modal
     const flashSuccessBanner = (msg) => {
@@ -2321,43 +2347,53 @@ function initModal() {
         if(updateCallback) updateCallback();
 
         if (mode === 'add-another') {
-            // KEEP MODAL OPEN — reset this form, restore the button, scroll to top.
-            // Critical: scroll AFTER reset, focus with preventScroll so the browser
-            // doesn't auto-scroll the focused field back into view (which is what
-            // was leaving the modal halfway down with no top-of-form visible).
+            // KEEP MODAL OPEN. Reset the fields IMMEDIATELY (don't wait 600ms —
+            // that delay was leaving the user staring at their previous entry).
+            // The button's "Saved" flash + success banner give the visual feedback;
+            // the empty form behind it confirms the reset worked.
             flashSuccessBanner(successMsg || 'Saved. Keep adding more or click Done when finished.');
-            setTimeout(() => {
-                form.reset();
-                if (limitGroup) limitGroup.style.display = 'none';
-                // Re-hide any conditional recurring detail panels
-                ['debt-recurring-detail','txn-recurring-detail','income-recurring-detail'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.style.display = 'none';
-                });
-                // Re-sync CC field visibility based on the just-reset type select
-                if (typeof syncDebtTypeFieldVisibility === 'function') syncDebtTypeFieldVisibility();
-                // Reset the CC savings-preview text so stale numbers from the last
-                // entry don't bleed into the next one
-                const sp = document.getElementById('debt-cc-savings-preview');
-                if (sp) sp.textContent = 'Fill in balance + APR + due day to see your projected savings.';
 
+            // 1. Hard-clear every input/select/checkbox in this form
+            hardResetForm(form);
+
+            // 2. Hide all conditional panels (limit group, recurring detail blocks)
+            if (limitGroup) limitGroup.style.display = 'none';
+            ['debt-recurring-detail','txn-recurring-detail','income-recurring-detail'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            // 3. Reset the CC savings-preview so last-entry numbers don't bleed
+            const sp = document.getElementById('debt-cc-savings-preview');
+            if (sp) sp.textContent = 'Fill in balance + APR + due day to see your projected savings.';
+
+            // 4. Re-apply the picker preset the user came in with so they stay in
+            //    "credit-card mode" (or loan mode, etc) for batch entry. Without
+            //    this, adding 5 credit cards in a row would flip every one of them
+            //    back to generic Loan defaults.
+            if (_lastPickerRoute && typeof applyPickerRoute === 'function') {
+                applyPickerRoute(_lastPickerRoute);
+            } else if (typeof syncDebtTypeFieldVisibility === 'function') {
+                syncDebtTypeFieldVisibility();
+            }
+
+            // 5. Restore the button after a brief flash so the user sees the save confirmation
+            setTimeout(() => {
                 btn.innerHTML = originalText;
                 btn.style.backgroundColor = '';
                 btn.style.color = '';
                 btn.style.pointerEvents = '';
-
-                // Snap modal scroll to the top BEFORE focusing the first field
-                resetModalScroll();
-                // Refocus first input — preventScroll keeps the modal at the top
-                const firstInput = form.querySelector('input:not([type=checkbox]), select');
-                if (firstInput) {
-                    try { firstInput.focus({ preventScroll: true }); }
-                    catch(_) { firstInput.focus(); }
-                }
-                // One more snap on the next paint in case any layout shift
-                // (banner appearing, sticky header settling) nudged scroll
-                requestAnimationFrame(resetModalScroll);
             }, 600);
+
+            // 6. Snap modal scroll to top + focus first input (preventScroll so
+            //    the browser doesn't fight the snap)
+            resetModalScroll();
+            const firstInput = form.querySelector('input:not([type=checkbox]), select');
+            if (firstInput) {
+                try { firstInput.focus({ preventScroll: true }); }
+                catch(_) { /* older browsers */ }
+            }
+            requestAnimationFrame(resetModalScroll);
             return;
         }
 
@@ -2387,25 +2423,34 @@ function initModal() {
         if(e.target === modal) closeModal();
     });
 
+    // Re-apply a picker route's preset to a freshly-cleared form.
+    // Pulled out of the click handler so handleSuccessState can call it after
+    // a "Save & Add Another" to keep the user in their original entry mode.
+    const applyPickerRoute = (route) => {
+        if (route === 'credit-card') {
+            showFormStep('new-debt', 'Add Credit Card');
+            if (debtTypeSel) debtTypeSel.value = 'credit card';
+            if (typeof syncDebtTypeFieldVisibility === 'function') syncDebtTypeFieldVisibility();
+        } else if (route === 'loan') {
+            showFormStep('new-debt', 'Add Loan');
+            if (debtTypeSel) debtTypeSel.value = 'loan';
+            if (typeof syncDebtTypeFieldVisibility === 'function') syncDebtTypeFieldVisibility();
+        } else if (route === 'transaction') {
+            showFormStep('new-transaction', 'New Transaction');
+        } else if (route === 'income') {
+            showFormStep('new-income', 'Add Income');
+        } else if (route === 'recurring') {
+            showFormStep('new-recurring', 'Add Recurring Payment');
+        }
+        // 'bank' route doesn't apply — that closes the modal entirely
+    };
+
     // Picker tile routing — each tile lands the user on the right tab pre-configured
     document.querySelectorAll('.entry-tile').forEach(tile => {
         tile.addEventListener('click', () => {
             const route = tile.getAttribute('data-route');
-            if (route === 'credit-card') {
-                showFormStep('new-debt', 'Add Credit Card');
-                if (debtTypeSel) debtTypeSel.value = 'credit card';
-                if (limitGroup) limitGroup.style.display = '';
-            } else if (route === 'loan') {
-                showFormStep('new-debt', 'Add Loan');
-                if (debtTypeSel) debtTypeSel.value = 'loan';
-                if (limitGroup) limitGroup.style.display = 'none';
-            } else if (route === 'transaction') {
-                showFormStep('new-transaction', 'New Transaction');
-            } else if (route === 'income') {
-                showFormStep('new-income', 'Add Income');
-            } else if (route === 'recurring') {
-                showFormStep('new-recurring', 'Add Recurring Payment');
-            } else if (route === 'bank') {
+            _lastPickerRoute = route;
+            if (route === 'bank') {
                 closeModal();
                 if (typeof openPlaidLink === 'function') {
                     openPlaidLink();
@@ -2414,7 +2459,9 @@ function initModal() {
                     if (btnBank) btnBank.click();
                     else if (typeof showToast === 'function') showToast('Open Settings → Link Bank Account.');
                 }
+                return;
             }
+            applyPickerRoute(route);
         });
     });
 
