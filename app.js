@@ -506,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotifications();
     initBudgetLogic();
     initModal();
+    initStatementEduCard();
     initChatLogic();
     initAdvisorPageLogic();
     initDashboardInteractivity();
@@ -2201,6 +2202,25 @@ function initBudgetLogic() {
     }, 150);
 }
 
+/* ---------- STATEMENT/DUE EDUCATION CARD ----------
+   Show the "Why Statement Day & Due Date matter" card unless the user has
+   dismissed it. We persist the dismissal flag in localStorage so it doesn't
+   pop back up on every page load. */
+function initStatementEduCard() {
+    const card = document.getElementById('stmt-edu-card');
+    const dismissBtn = document.getElementById('stmt-edu-dismiss');
+    if (!card || !dismissBtn) return;
+    try {
+        if (localStorage.getItem('wjp_stmt_edu_dismissed') === '1') {
+            card.style.display = 'none';
+        }
+    } catch(_){}
+    dismissBtn.addEventListener('click', () => {
+        card.style.display = 'none';
+        try { localStorage.setItem('wjp_stmt_edu_dismissed', '1'); } catch(_){}
+    });
+}
+
 /* ---------- MODAL LOGIC ---------- */
 function initModal() {
     const btnNew = document.getElementById('btn-new-entry');
@@ -3180,6 +3200,42 @@ function updateUI() {
                 ? `<i class="ph ph-paperclip"></i> ${attachCount} statement${attachCount>1?'s':''}`
                 : `<i class="ph ph-paperclip"></i> Attach statement`;
 
+            // "Pay by" recommendation — shown when statementDay (cards) or dueDay (loans) is set
+            // Math: best-practice is to pay 3 days before statement closes for cards, 5-7 days
+            // before due date for loans. Annual savings = (balance × dailyRate × daysSaved × 12).
+            let payByHtml = '';
+            const stmtDay = debt.statementDay;
+            const dueDay  = debt.dueDay || debt.dueDate;
+            if ((isCard && stmtDay) || (!isCard && dueDay)) {
+                const today = new Date();
+                const targetDayRaw = isCard ? stmtDay : dueDay;
+                const buffer = isCard ? 3 : 7;
+                let payByDate = new Date(today.getFullYear(), today.getMonth(), Math.min(targetDayRaw, 28) - buffer);
+                if (payByDate < today) payByDate.setMonth(payByDate.getMonth() + 1);
+                const dateLbl = payByDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                const dailyRate = (debt.apr || 0) / 100 / 365;
+                const annualSaving = Math.round((debt.balance || 0) * dailyRate * buffer * 12);
+                const helperText = isCard
+                    ? `Lowers reported utilization & saves ~${fmt(annualSaving)}/yr in interest.`
+                    : `Cuts daily-accrued interest, saves ~${fmt(annualSaving)}/yr.`;
+                payByHtml = `
+                    <div class="obl-pay-by" title="${helperText.replace(/"/g,'&quot;')}" style="margin-top:10px; padding:8px 10px; background:rgba(0,212,168,0.08); border:1px solid var(--border-accent); border-radius:6px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:6px; font-size:9px; color:var(--accent); font-weight:800; text-transform:uppercase; letter-spacing:0.06em;">
+                          <i class="ph-fill ph-calendar-check"></i> Pay by ${dateLbl}
+                        </div>
+                        ${annualSaving > 0 ? `<span style="font-size:10px; font-weight:700; color:var(--accent);">~${fmt(annualSaving)}/yr</span>` : ''}
+                      </div>
+                      <div style="font-size:9.5px; color:var(--text-3); margin-top:3px; line-height:1.4;">${helperText}</div>
+                    </div>`;
+            } else if (isCard || (!isCard && debt.balance > 0)) {
+                // Nudge to fill in the dates if missing — small inline hint
+                payByHtml = `
+                    <div class="obl-pay-by-empty" style="margin-top:10px; padding:6px 10px; background:var(--card-2); border:1px dashed var(--border); border-radius:6px; font-size:9.5px; color:var(--text-3); line-height:1.4; text-align:center;">
+                      <i class="ph ph-info" style="opacity:0.6;"></i> Add ${isCard ? 'statement &amp; due dates' : 'due date'} to unlock pay-by tips.
+                    </div>`;
+            }
+
             oblContainer.innerHTML += `
                <div class="obligation-card ${isPriority ? 'priority' : ''}" data-debt-id="${debt.id}" style="animation: fadeIn 0.3s ease; position:relative;">
                  <div class="obl-header">
@@ -3201,6 +3257,7 @@ function updateUI() {
                    <div class="obl-row"><span class="obl-stat-label">Min. Payment</span><span class="obl-stat-val">${fmt(debt.minPayment)}</span></div>
                  </div>
                  ${utilHtml}
+                 ${payByHtml}
                  ${updatedAgoHtml}
                  <button class="obl-attach-btn" data-debt-id="${debt.id}" style="width:100%; margin-top:10px; padding:6px 8px; background:var(--card-2); border:1px solid var(--border); border-radius:6px; color:var(--text-2); font-size:10px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; font-family:inherit;">
                    ${attachLabel}

@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=67-scrollmodal">
+  <link rel="stylesheet" href="style.css?v=68-stmtedu">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -1330,6 +1330,63 @@
                 <div class="card-sub">—</div>
                 <div class="card-sub">DEBT-FREE</div>
               </div>
+            </div>
+          </div>
+
+          <!-- Statement & Due Date education card — explains why these dates matter
+               and the dollar/FICO upside of timing payments well. Dismissable so
+               returning users don't see it forever. Hidden via JS once dismissed. -->
+          <div class="card reveal reveal-4" id="stmt-edu-card" style="margin-top:8px; border:1px solid var(--border-accent); background:linear-gradient(135deg, rgba(0,212,168,0.04), rgba(0,212,168,0.01)); position:relative;">
+            <button id="stmt-edu-dismiss" aria-label="Dismiss" style="position:absolute; top:12px; right:12px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; font-size:16px; line-height:1;"><i class="ph ph-x"></i></button>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+              <div style="width:36px; height:36px; border-radius:10px; background:var(--accent); color:#0b0f1a; display:flex; align-items:center; justify-content:center; font-size:18px;"><i class="ph-fill ph-calendar-check"></i></div>
+              <div>
+                <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em;">Money-saving habit</div>
+                <h3 style="font-size:16px; font-weight:800; margin:2px 0 0;">Why Statement Day &amp; Due Date matter</h3>
+              </div>
+            </div>
+            <p style="font-size:12px; color:var(--text-2); line-height:1.7; margin-bottom:14px;">
+              The two dates aren't the same — and the gap between them is where the savings live. Every credit card and most loans have a <strong style="color:var(--text);">statement closing day</strong> (when your balance is reported and interest calculations begin) and a <strong style="color:var(--text);">payment due date</strong> (the deadline to avoid late fees).
+            </p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+              <div style="padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:10px;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--accent); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">
+                  <i class="ph-fill ph-trend-up"></i> Credit-score lift
+                </div>
+                <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin:0;">
+                  Card issuers report your balance to the bureaus on the <strong style="color:var(--text);">statement closing day</strong>, not the due date. Pay it down <em>before</em> statement closes and the bureaus see lower utilization — typically a <strong style="color:var(--accent);">20-50 FICO point</strong> swing.
+                </p>
+              </div>
+              <div style="padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:10px;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--accent); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">
+                  <i class="ph-fill ph-coin"></i> Interest savings
+                </div>
+                <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin:0;">
+                  Cards charge interest from the purchase date if you carry a balance past the due date — paying full statement balance in time keeps your <strong style="color:var(--text);">grace period</strong> alive and your interest at <strong style="color:var(--accent);">$0</strong>.
+                </p>
+              </div>
+              <div style="padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:10px;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--accent); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">
+                  <i class="ph-fill ph-clock-countdown"></i> Loans accrue daily
+                </div>
+                <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin:0;">
+                  Most loans (student, auto, mortgage) accrue interest <strong style="color:var(--text);">every day</strong>. Paying ~7 days early on a $30K balance at 6.8% APR saves about <strong style="color:var(--accent);">$140/year</strong> — for free.
+                </p>
+              </div>
+              <div style="padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:10px;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--accent); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">
+                  <i class="ph-fill ph-arrows-clockwise"></i> Cascade effect
+                </div>
+                <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin:0;">
+                  Higher FICO unlocks better refinance rates. A score jump from 690 → 740 can cut your auto-loan APR by <strong style="color:var(--accent);">2-3 points</strong> — thousands saved over the life of the loan.
+                </p>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; padding:10px 14px; background:rgba(0,212,168,0.08); border:1px solid var(--border-accent); border-radius:8px;">
+              <i class="ph-fill ph-info" style="color:var(--accent); font-size:14px; flex-shrink:0;"></i>
+              <span style="font-size:11px; color:var(--text-2); line-height:1.5;">
+                Click <strong>Add</strong> at the top → choose Credit Card or Loan → fill in <strong>Statement closes</strong> and <strong>Payment due</strong>. WJP will mark your optimal pay-by date and run the savings math automatically.
+              </span>
             </div>
           </div>
 
@@ -3211,10 +3268,14 @@
 
         <!-- Credit-card / loan dates with info tooltip — visibility & explanation adapt to debt type -->
         <div class="form-group" id="debt-cc-dates-group" style="display:none;">
-          <label style="display:flex; align-items:center; gap:6px;">
+          <label style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span id="debt-cc-dates-label">Statement &amp; Due Dates</span>
+            <span style="font-size:9px; font-weight:800; color:var(--accent); background:rgba(0,212,168,0.12); padding:2px 8px; border-radius:10px; letter-spacing:0.04em; text-transform:uppercase;">Saves you money</span>
             <span class="info-pop" tabindex="0" role="button" aria-label="Why these dates matter" data-tip="cc-dates" style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:rgba(0,212,168,0.15); color:var(--accent); font-size:11px; cursor:help; border:1px solid var(--border-accent); user-select:none;">?</span>
           </label>
+          <div id="debt-cc-dates-helper" style="font-size:11px; color:var(--text-3); line-height:1.5; margin-bottom:10px;">
+            We use these to calculate your <strong style="color:var(--text-2);">optimal pay-by date</strong> — paying before the statement closes lowers your reported balance to the credit bureaus and avoids days of extra interest.
+          </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <div id="debt-statement-wrap">
               <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Statement closes (day)</label>
@@ -3225,7 +3286,7 @@
               <input type="number" id="debt-due-day" min="1" max="31" placeholder="28">
             </div>
           </div>
-          <div id="debt-cc-dates-tip" style="display:none; margin-top:10px; padding:12px 14px; background:rgba(0,212,168,0.06); border:1px solid var(--border-accent); border-radius:8px; font-size:11px; color:var(--text-2); line-height:1.6;">
+          <div id="debt-cc-dates-tip" style="display:block; margin-top:10px; padding:12px 14px; background:rgba(0,212,168,0.06); border:1px solid var(--border-accent); border-radius:8px; font-size:11px; color:var(--text-2); line-height:1.6;">
             <div style="font-weight:700; color:var(--accent); margin-bottom:6px;" id="debt-cc-tip-title">Why this saves you money</div>
             <div id="debt-cc-tip-body"></div>
             <div id="debt-cc-savings-preview" style="margin-top:8px; font-size:10.5px; color:var(--text-3);"></div>
@@ -4512,7 +4573,7 @@
 </div>
 
 
-  <script src="app.js?v=32-scrollmodal"></script>
+  <script src="app.js?v=33-stmtedu"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
