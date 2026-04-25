@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=70-spend">
+  <link rel="stylesheet" href="style.css?v=71-creditai">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -1107,17 +1107,32 @@
                 </div>
 
                 <div id="credit-ai-box" style="background:var(--card-2); border-radius:10px; padding:12px; border:1px solid var(--border); transition: all 0.3s ease;">
-                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                    <div class="ai-icon" style="width:18px; height:18px; font-size:10px; background:var(--accent); color:black; border-radius:50%; display:flex; align-items:center; justify-content:center;"><i class="ph-fill ph-lightning"></i></div>
-                    <div style="font-size:11px; font-weight:700; color:var(--text);">AI Optimization Insight</div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <div class="ai-icon" style="width:18px; height:18px; font-size:10px; background:var(--accent); color:black; border-radius:50%; display:flex; align-items:center; justify-content:center;"><i class="ph-fill ph-lightning"></i></div>
+                      <div style="font-size:11px; font-weight:700; color:var(--text);">AI Optimization Insight</div>
+                    </div>
+                    <button id="btn-credit-ai-expand" type="button" aria-expanded="false" style="background:transparent; border:1px solid var(--border); color:var(--text-3); padding:3px 8px; border-radius:6px; font-size:9px; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em;">In-depth <i class="ph ph-caret-down" style="font-size:9px;"></i></button>
                   </div>
-                  <p id="credit-ai-msg" style="font-size:10.5px; color:var(--text-3); line-height:1.4; margin-bottom:12px;">
+                  <p id="credit-ai-msg" style="font-size:10.5px; color:var(--text-2); line-height:1.5; margin-bottom:10px;">
                     Add your credit score and utilization in the Credit Score tab to receive personalized AI insights.
                   </p>
-                  <div style="display:flex; gap:8px;">
-                     <input type="text" id="credit-ask-input" placeholder="Ask about your score..." 
+
+                  <!-- Quick facts strip — top 3 score-impact stats. Auto-populated from real data. -->
+                  <div id="credit-ai-facts" class="credit-ai-facts" style="display:none;"></div>
+
+                  <!-- 5-factor in-depth breakdown — collapsed by default, expanded by the in-depth button. -->
+                  <div id="credit-ai-breakdown" class="credit-ai-breakdown" style="display:none;">
+                    <div class="card-label" style="font-size:9px; margin-bottom:8px; color:var(--accent);">Score factors (FICO weighting)</div>
+                    <div class="credit-factors-list" id="credit-factors-list"></div>
+                    <div class="card-label" style="font-size:9px; margin:12px 0 6px; color:var(--accent);">Top actions for the biggest lift</div>
+                    <ol class="credit-actions-list" id="credit-actions-list"></ol>
+                  </div>
+
+                  <div style="display:flex; gap:8px; margin-top:10px;">
+                     <input type="text" id="credit-ask-input" placeholder="Ask about your score..."
                             style="flex:1; background:var(--card-1); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:10.5px; color:var(--text); outline:none;">
-                     <button id="btn-ask-credit" style="background:var(--accent); color:black; border:none; border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                     <button id="btn-ask-credit" aria-label="Ask AI" style="background:var(--accent); color:black; border:none; border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
                        <i class="ph ph-paper-plane-right"></i>
                      </button>
                   </div>
@@ -4629,7 +4644,7 @@
 </div>
 
 
-  <script src="app.js?v=38-spendfix"></script>
+  <script src="app.js?v=39-creditai"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

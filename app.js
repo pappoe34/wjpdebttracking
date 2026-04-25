@@ -3205,6 +3205,9 @@ function updateUI() {
     // Render the Top-3 Strategy Focus bar
     try { renderTop3Strategy(); } catch(_){}
 
+    // Refresh the Credit Profile AI insights so it tracks any debt / limit changes
+    try { if (window.renderCreditAiInsights) window.renderCreditAiInsights(); } catch(_){}
+
     // --- Dashboard greeting ("Welcome back, Winston") ---
     try { populateDashboardGreeting(); } catch(e) { console.warn('greeting fail', e); }
 
@@ -10031,7 +10034,7 @@ function initDashboardInteractivity() {
         };
     }
 
-    // 9. Credit Profile AI Interaction
+    // 9. Credit Profile AI Interaction — REAL FICO 5-factor analysis
     const btnAskCredit = document.getElementById('btn-ask-credit');
     const inputAskCredit = document.getElementById('credit-ask-input');
     const msgCreditAi = document.getElementById('credit-ai-msg');
@@ -10040,28 +10043,347 @@ function initDashboardInteractivity() {
         const handleCreditAsk = () => {
             const query = inputAskCredit.value.trim();
             if (!query) return;
-
-            // Simple simulated credit logic
             inputAskCredit.value = '';
-            msgCreditAi.innerHTML = '<i class="ph ph-spinner-gap spinning"></i> Analyzing profile...';
-            
+            msgCreditAi.innerHTML = '<i class="ph ph-spinner-gap spinning"></i> Analyzing your profile...';
             setTimeout(() => {
-                let response = "That's a great question. Based on your current 12 accounts and 7.2-year history, your strongest lever is utilization. Focus on decreasing the Tesla Supercharger balance to see a near-immediate impact.";
-                
-                if (query.toLowerCase().includes('limit') || query.toLowerCase().includes('increase')) {
-                    response = "An automated limit increase request on your Chase Sapphire (Current: $5,400) would likely be approved based on your 100% payment history. This would drop your utilization to 6.2%.";
-                } else if (query.toLowerCase().includes('late') || query.toLowerCase().includes('missed')) {
-                    response = "You have 0 late payments in your 7.2-year history. This is your strongest asset, contributing to 35% of your total score.";
-                }
-
-                msgCreditAi.textContent = response;
-                msgCreditAi.style.color = 'var(--text)';
-            }, 1200);
+                msgCreditAi.innerHTML = answerCreditQuery(query);
+                msgCreditAi.style.color = 'var(--text-2)';
+            }, 700);
         };
-
         btnAskCredit.onclick = handleCreditAsk;
         inputAskCredit.onkeydown = (e) => { if(e.key === 'Enter') handleCreditAsk(); };
     }
+
+    // Wire the in-depth toggle
+    const btnExpand = document.getElementById('btn-credit-ai-expand');
+    const breakdown = document.getElementById('credit-ai-breakdown');
+    if (btnExpand && breakdown) {
+        btnExpand.onclick = () => {
+            const open = breakdown.style.display !== 'none';
+            breakdown.style.display = open ? 'none' : 'block';
+            btnExpand.setAttribute('aria-expanded', String(!open));
+            btnExpand.innerHTML = open
+                ? 'In-depth <i class="ph ph-caret-down" style="font-size:9px;"></i>'
+                : 'Hide details <i class="ph ph-caret-up" style="font-size:9px;"></i>';
+        };
+    }
+
+    // Auto-render insights on page load + after any state change
+    try { renderCreditAiInsights(); } catch(_){}
+
+/* ---------- CREDIT PROFILE AI ---------- */
+/**
+ * Pull credit data + debts and produce the 5-factor FICO breakdown,
+ * surface 2-3 quick facts, and list the top 3 actions to lift the score.
+ *
+ * FICO 8 weighting (industry standard):
+ *  - Payment history          35%
+ *  - Amounts owed (utilization) 30%
+ *  - Length of credit history 15%
+ *  - New credit / inquiries   10%
+ *  - Credit mix               10%
+ */
+function getCreditAnalysis() {
+    let cs = {};
+    try { cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch(_){}
+    const debts = (appState && appState.debts) ? appState.debts : [];
+    const cardLimits = cs.cardLimits || {};
+
+    const cards = debts.filter(d => {
+        const t = (d.type || d.category || '').toString().toLowerCase();
+        return t.includes('credit') || t.includes('card') || t === 'cc' || (cardLimits[d.id] && cardLimits[d.id] > 0);
+    });
+
+    let totalBal = 0, totalLim = 0;
+    cards.forEach(d => {
+        const lim = parseFloat(d.limit || cardLimits[d.id] || 0);
+        const bal = parseFloat(d.balance || 0);
+        if (lim > 0) { totalBal += bal; totalLim += lim; }
+    });
+    const utilPct = totalLim > 0 ? (totalBal / totalLim) * 100 : null;
+
+    const score = parseInt(cs.score, 10) || null;
+    const lates = parseInt(cs.latePayments12mo, 10) || 0;
+    const inq = parseInt(cs.hardInquiries12mo, 10) || 0;
+    const oldestYears = parseFloat(cs.oldestAccountYears) || 0;
+    const accountCount = debts.length;
+    const hasMix = (() => {
+        const types = new Set(debts.map(d => (d.type || '').toLowerCase().trim()).filter(Boolean));
+        return types.size >= 2;
+    })();
+
+    // Strength rating per factor (0-100 normalized)
+    // Formulas tuned to map common situations to STRONG/GOOD/WEAK bands
+    const factors = [
+        {
+            id: 'payment',
+            name: 'Payment history',
+            weight: 35,
+            stat: lates === 0 ? '0 late payments (12mo)' : `${lates} late ${lates === 1 ? 'payment' : 'payments'} (12mo)`,
+            score: lates === 0 ? 100 : Math.max(0, 100 - lates * 25),
+            help: 'Late or missed payments hurt the most — even one drops 60-100 pts. Set up autopay for at least the minimum.'
+        },
+        {
+            id: 'utilization',
+            name: 'Utilization',
+            weight: 30,
+            stat: utilPct == null ? 'No card limits set' : `${utilPct.toFixed(0)}% of credit used`,
+            score: utilPct == null ? 50
+                 : utilPct < 10 ? 100
+                 : utilPct < 30 ? 80
+                 : utilPct < 50 ? 60
+                 : utilPct < 70 ? 35
+                 : 15,
+            help: 'Lenders want to see you use less than 30% of your limit — under 10% is ideal. Pay down before statement closes.'
+        },
+        {
+            id: 'age',
+            name: 'Credit age',
+            weight: 15,
+            stat: oldestYears > 0 ? `${oldestYears.toFixed(1)} yr oldest account` : 'No history entered',
+            score: oldestYears <= 0 ? 50
+                 : oldestYears >= 7 ? 100
+                 : oldestYears >= 4 ? 75
+                 : oldestYears >= 2 ? 55
+                 : 35,
+            help: 'Length of credit history matters. Keep your oldest card open even if you don\'t use it — closing it hurts your score.'
+        },
+        {
+            id: 'inquiries',
+            name: 'New credit',
+            weight: 10,
+            stat: `${inq} hard ${inq === 1 ? 'inquiry' : 'inquiries'} (12mo)`,
+            score: inq === 0 ? 100
+                 : inq <= 2 ? 80
+                 : inq <= 4 ? 50
+                 : 25,
+            help: 'Each hard inquiry drops 5-10 pts and stays on your report for 2 years. Avoid applying for new credit during big purchase prep.'
+        },
+        {
+            id: 'mix',
+            name: 'Credit mix',
+            weight: 10,
+            stat: accountCount === 0 ? 'No accounts'
+                : `${accountCount} ${accountCount === 1 ? 'account' : 'accounts'}${hasMix ? ' (mixed)' : ''}`,
+            score: accountCount === 0 ? 30
+                 : hasMix && accountCount >= 3 ? 100
+                 : accountCount >= 2 ? 70
+                 : 50,
+            help: 'A mix of revolving (cards) and installment (loans, mortgage) shows lenders you can handle different debt types.'
+        }
+    ];
+
+    // Strength label maps
+    factors.forEach(f => {
+        f.label = f.score >= 80 ? 'STRONG' : f.score >= 55 ? 'GOOD' : 'WEAK';
+        f.color = f.score >= 80 ? '#00d4a8' : f.score >= 55 ? '#ffab40' : '#ff4d6d';
+    });
+
+    return {
+        score, lates, inq, oldestYears, accountCount, hasMix,
+        utilPct, totalBal, totalLim,
+        cards, debts, factors,
+        hasAnyData: !!(score || utilPct != null || debts.length > 0 || lates > 0 || inq > 0 || oldestYears > 0)
+    };
+}
+
+/** Generate the top 3 prioritized actions based on the weakest factors. */
+function getCreditActions(analysis) {
+    const actions = [];
+    const { utilPct, totalBal, totalLim, factors, lates, inq, oldestYears, debts, cards } = analysis;
+    const fmt = n => '$' + Math.round(n).toLocaleString();
+
+    // Action 1 — utilization is almost always the biggest movable lever
+    if (utilPct != null && utilPct >= 30 && totalLim > 0) {
+        const targetBal = Math.round(totalLim * 0.09);
+        const payDown = Math.max(0, totalBal - targetBal);
+        actions.push({
+            text: `Pay down <strong>${fmt(payDown)}</strong> across your cards to drop reported utilization under 10%.`,
+            impact: 'Typically lifts FICO 20-50 pts within one statement cycle.'
+        });
+    } else if (utilPct != null && utilPct >= 10 && totalLim > 0) {
+        actions.push({
+            text: `You're under 30% utilization — keep going. Pay down to under 10% of your <strong>${fmt(totalLim)}</strong> total limit for the FICO sweet spot.`,
+            impact: 'Worth roughly 10-20 pts.'
+        });
+    }
+
+    // Action 2 — late payments
+    if (lates > 0) {
+        actions.push({
+            text: 'Set up <strong>autopay for the minimum</strong> on every card and loan. Late payments are the #1 score killer.',
+            impact: 'Each future late payment costs you 60-100 pts.'
+        });
+    } else if (cards.some(d => !d.autopayActive)) {
+        actions.push({
+            text: 'Turn on autopay (minimum) for any card that doesn\'t have it. Locks in your perfect payment history.',
+            impact: 'Protects your strongest factor (35% of FICO).'
+        });
+    }
+
+    // Action 3 — inquiries
+    if (inq >= 3) {
+        actions.push({
+            text: 'Pause new credit applications for 6+ months. Each hard inquiry drops 5-10 pts.',
+            impact: 'Inquiries fade after 12 months and drop off after 2 years.'
+        });
+    }
+
+    // Action 4 — credit age (only if no other actions)
+    if (actions.length < 3 && oldestYears > 0 && oldestYears < 4) {
+        actions.push({
+            text: 'Keep your oldest card open and active (one small purchase a quarter). Don\'t close it.',
+            impact: 'Length of credit history is 15% of your score.'
+        });
+    }
+
+    // Action 5 — credit mix
+    if (actions.length < 3 && !analysis.hasMix && debts.length === 1) {
+        actions.push({
+            text: 'A diverse mix of revolving (cards) and installment (loans) helps. Consider a small credit-builder loan once utilization is under 30%.',
+            impact: 'Credit mix is 10% of your score.'
+        });
+    }
+
+    // Action 6 — request limit increase if utilization is the issue
+    if (actions.length < 3 && utilPct != null && utilPct >= 30) {
+        actions.push({
+            text: 'Request a credit limit increase on your strongest card. Higher limit + same balance = lower utilization.',
+            impact: 'Soft pull at most issuers — usually no score hit.'
+        });
+    }
+
+    // Always at least one action
+    if (actions.length === 0) {
+        actions.push({
+            text: 'Your credit profile is in great shape. Keep paying on time and stay under 10% utilization.',
+            impact: 'You\'re in the prime tier (740+) range.'
+        });
+    }
+
+    return actions.slice(0, 3);
+}
+
+/** Render the AI Optimization box on the dashboard with real data. */
+function renderCreditAiInsights() {
+    const msgEl = document.getElementById('credit-ai-msg');
+    const factsEl = document.getElementById('credit-ai-facts');
+    const factorsListEl = document.getElementById('credit-factors-list');
+    const actionsListEl = document.getElementById('credit-actions-list');
+    if (!msgEl) return;
+
+    const a = getCreditAnalysis();
+
+    if (!a.hasAnyData) {
+        msgEl.textContent = 'Add your credit score, card limits, and payment history in the Credit Score tab — I\'ll analyze every FICO factor and tell you exactly what to focus on.';
+        if (factsEl) factsEl.style.display = 'none';
+        if (factorsListEl) factorsListEl.innerHTML = '';
+        if (actionsListEl) actionsListEl.innerHTML = '';
+        return;
+    }
+
+    // Weakest factor → headline message
+    const weakest = a.factors.slice().sort((x, y) => x.score - y.score)[0];
+    const strongest = a.factors.slice().sort((x, y) => y.score - x.score)[0];
+    msgEl.innerHTML = `Your weakest factor is <strong style="color:${weakest.color};">${weakest.name}</strong> (${weakest.weight}% of your score). Strongest: <strong style="color:${strongest.color};">${strongest.name}</strong>. Open <em>In-depth</em> for the full breakdown and the top 3 actions to lift your score.`;
+
+    // Quick facts strip — three highest-impact data points
+    if (factsEl) {
+        const facts = [];
+        if (a.score) facts.push({ label: 'Score', val: a.score, sub: a.score >= 740 ? 'Excellent' : a.score >= 670 ? 'Good' : a.score >= 580 ? 'Fair' : 'Building' });
+        if (a.utilPct != null) {
+            const utilColor = a.utilPct < 10 ? '#00d4a8' : a.utilPct < 30 ? '#ffab40' : '#ff4d6d';
+            facts.push({ label: 'Utilization', val: `${a.utilPct.toFixed(0)}%`, sub: a.utilPct < 10 ? 'Sweet spot' : a.utilPct < 30 ? 'Healthy' : 'Too high', color: utilColor });
+        }
+        facts.push({ label: 'On-time', val: a.lates === 0 ? '100%' : `${a.lates} late`, sub: a.lates === 0 ? 'Last 12 mo' : 'Score risk' });
+        if (a.oldestYears > 0) facts.push({ label: 'Oldest', val: `${a.oldestYears.toFixed(1)} yr`, sub: 'Avg age' });
+        factsEl.innerHTML = facts.slice(0, 3).map(f => `
+            <div class="credit-fact">
+                <div class="credit-fact-label">${f.label}</div>
+                <div class="credit-fact-val" style="${f.color ? `color:${f.color};` : ''}">${f.val}</div>
+                <div class="credit-fact-sub">${f.sub}</div>
+            </div>
+        `).join('');
+        factsEl.style.display = 'grid';
+    }
+
+    // 5-factor breakdown (in-depth)
+    if (factorsListEl) {
+        factorsListEl.innerHTML = a.factors.map(f => `
+            <div class="credit-factor" title="${f.help}">
+                <div class="credit-factor-head">
+                    <span class="credit-factor-name">${f.name} <span class="credit-factor-weight">${f.weight}%</span></span>
+                    <span class="credit-factor-label" style="color:${f.color};">${f.label}</span>
+                </div>
+                <div class="credit-factor-stat">${f.stat}</div>
+                <div class="credit-factor-bar"><div style="width:${f.score}%; background:${f.color};"></div></div>
+            </div>
+        `).join('');
+    }
+
+    // Top 3 actions
+    if (actionsListEl) {
+        const actions = getCreditActions(a);
+        actionsListEl.innerHTML = actions.map(act => `
+            <li class="credit-action">
+                <div class="credit-action-text">${act.text}</div>
+                <div class="credit-action-impact">${act.impact}</div>
+            </li>
+        `).join('');
+    }
+}
+
+/** Smarter Q&A — reads real user data, not hardcoded card names. */
+function answerCreditQuery(query) {
+    const a = getCreditAnalysis();
+    const q = (query || '').toLowerCase();
+    const fmt = n => '$' + Math.round(n).toLocaleString();
+
+    if (!a.hasAnyData) {
+        return 'I don\'t have your credit data yet — add your score, card limits, and payment history in the Credit Score tab and I can answer specifically.';
+    }
+
+    if (q.includes('utilization') || q.includes('utilizati') || q.includes('use')) {
+        if (a.utilPct == null) return 'I don\'t have credit limits saved yet. Edit each card and add its limit so I can compute utilization.';
+        const target = Math.round((a.totalLim || 0) * 0.09);
+        const payDown = Math.max(0, a.totalBal - target);
+        return `Your utilization is <strong>${a.utilPct.toFixed(0)}%</strong> (${fmt(a.totalBal)} of ${fmt(a.totalLim)}). To drop under 10%, pay <strong>${fmt(payDown)}</strong> across your cards before the next statement closes — typically worth 20-50 FICO points.`;
+    }
+    if (q.includes('limit') || q.includes('increase')) {
+        const strongCard = a.cards.slice().sort((x, y) => (y.balance || 0) - (x.balance || 0))[0];
+        if (!strongCard) return 'Add at least one credit card with its limit and I can suggest where a limit increase would help most.';
+        const newLimit = (strongCard.limit || 0) * 1.3;
+        return `Request a limit increase on <strong>${strongCard.name}</strong>. Most issuers do a soft pull — no score impact. Pushing it from ${fmt(strongCard.limit || 0)} to ~${fmt(newLimit)} drops your overall utilization measurably.`;
+    }
+    if (q.includes('late') || q.includes('miss')) {
+        if (a.lates === 0) return `You have <strong>0 late payments</strong> in the last 12 months. Payment history is 35% of your score — this is your strongest asset. Keep autopay on for the minimum on every account.`;
+        return `You have <strong>${a.lates} late payment${a.lates === 1 ? '' : 's'}</strong> in 12 mo. Each one drops 60-100 FICO points and stays on your report for 7 years (impact fades after 2). Set up autopay-minimum on every card today.`;
+    }
+    if (q.includes('inquir') || q.includes('apply')) {
+        return `You have <strong>${a.inq} hard inquir${a.inq === 1 ? 'y' : 'ies'}</strong> in 12 mo. Each one is 5-10 points and stays on your report 2 years. Stop applying for new credit at least 6 months before any major loan or mortgage application.`;
+    }
+    if (q.includes('age') || q.includes('history') || q.includes('old')) {
+        if (a.oldestYears > 0) return `Your oldest account is <strong>${a.oldestYears.toFixed(1)} years</strong> old. Don't close it, even if unused — closing your oldest line shortens your average age and can drop your score 10-30 pts.`;
+        return 'Add the age of your oldest account in the Credit Score tab so I can advise on length-of-history impact.';
+    }
+    if (q.includes('mix')) {
+        const types = new Set(a.debts.map(d => (d.type || '').toLowerCase()).filter(Boolean));
+        return a.hasMix
+            ? `You have a healthy mix of ${[...types].join(' + ')} — that's 10% of your score covered.`
+            : 'You only have one type of credit. Adding an installment loan (or a credit-builder loan) once utilization is healthy can earn you up to 10 points.';
+    }
+    if (q.includes('boost') || q.includes('improve') || q.includes('lift') || q.includes('faster') || q.includes('quick')) {
+        const acts = getCreditActions(a);
+        return `Your top 3 moves right now: 1) ${acts[0].text} 2) ${acts[1] ? acts[1].text : '—'} 3) ${acts[2] ? acts[2].text : '—'}`;
+    }
+    if (q.includes('how') && q.includes('score')) {
+        return `Your score is computed from 5 factors: payment history (35%), utilization (30%), credit age (15%), new credit/inquiries (10%), and credit mix (10%). Open the In-depth panel above for your stats on each.`;
+    }
+
+    // Default: weakest factor advice
+    const weakest = a.factors.slice().sort((x, y) => x.score - y.score)[0];
+    return `Your weakest factor is <strong>${weakest.name}</strong> (${weakest.weight}% of your score). ${weakest.help}`;
+}
 
     // 10. Upcoming Payments View Toggle
     const upcomingBtns = document.querySelectorAll('.view-toggle .view-btn');
@@ -10148,6 +10470,15 @@ function initDashboardInteractivity() {
 
             grid.appendChild(dayEl);
         }
+    }
+
+    // Expose so updateUI() and other top-level code can re-render the credit
+    // AI box whenever debts/credit-inputs change. Without this, the box only
+    // refreshes on initial dashboard mount.
+    if (typeof window !== 'undefined') {
+        window.renderCreditAiInsights = renderCreditAiInsights;
+        window.getCreditAnalysis = getCreditAnalysis;
+        window.answerCreditQuery = answerCreditQuery;
     }
 }
 
