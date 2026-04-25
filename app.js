@@ -5286,12 +5286,16 @@ function renderStrategyIndicators() {
             if (r) { totalInterest += r.totalInterest || 0; maxMonths = Math.max(maxMonths, r.months || 0); }
         });
 
-        // Show full month + year, not just year — without this, e.g. 36 months
-        // and 41 months both rounded up to "year+4" looking identical
+        // Day-precise debt-free date so strategies don't all look identical
+        // when their months happen to round to the same calendar month.
+        // 30.44 = avg days/month; using days resolution distinguishes a 36.0mo
+        // payoff from a 36.6mo payoff visibly.
         const debtFreeDateObj = new Date();
-        debtFreeDateObj.setMonth(debtFreeDateObj.getMonth() + maxMonths);
+        if (maxMonths > 0 && maxMonths < 600) {
+            debtFreeDateObj.setDate(debtFreeDateObj.getDate() + Math.round(maxMonths * 30.44));
+        }
         const debtFreeStr = (maxMonths > 0 && maxMonths < 600)
-            ? debtFreeDateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+            ? debtFreeDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             : '—';
 
         listEl.innerHTML += `
@@ -5330,12 +5334,16 @@ function renderStrategyIndicators() {
             const base = baselineResults[debt.id];
             const saved = (base && res) ? Math.max(0, base.totalInterest - res.totalInterest) : 0;
             const months = res ? res.months : 0;
+            // Monthly interest bleed — shows WHY each debt is ranked. Crucial for
+            // Avalanche where the user needs to see that within the same APR tier,
+            // bigger balance = bigger $$$ bleed = higher priority.
+            const monthlyBleed = (debt.balance || 0) * (debt.apr || 0) / 100 / 12;
 
             listEl.innerHTML += `
                 <div class="strat-item" onclick="handleStratItemClick('${s}')" style="cursor:pointer; animation: slideInLeft ${0.2 + idx * 0.1}s ease forwards;">
                     <div class="strat-item-main">
                         <div class="strat-item-name">${debt.name}</div>
-                        <div class="strat-item-amt">${fmt(debt.balance)} • ${debt.apr}%</div>
+                        <div class="strat-item-amt">${fmt(debt.balance)} • ${debt.apr}% • ${fmt(Math.round(monthlyBleed))}/mo bleed</div>
                     </div>
                     <div class="strat-item-stats">
                         <div class="strat-item-months">${months} Mo.</div>
@@ -5377,14 +5385,13 @@ window.addEventListener('resize', () => {
  *                 saved per dollar, regardless of balance size. This is the
  *                 universally accepted definition — keeping it pure.
  *
- *  • Hybrid     → 4-factor blend:
- *                   40% APR             (per-dollar interest savings)
- *                   30% interest dollars (current monthly bleed = balance × APR/12)
- *                   15% small balance    (quick-win bonus)
- *                   15% payment efficiency (min/balance ratio — high means clears fast)
- *                 The interest-dollars factor is what addresses Winston's intuition:
- *                 a $5K card at 24% generates $100/mo of bleed even at a moderate
- *                 APR — Hybrid surfaces that, where pure Avalanche only sees the rate.
+ *  • Hybrid     → APR-dominated blend with a quick-win bonus:
+ *                   65% APR              (per-dollar interest savings — primary)
+ *                   25% small-balance    (quick-win bonus)
+ *                   10% payment efficiency (rewards debts that clear fast at min)
+ *                 Sits between Snowball and Avalanche on total interest paid —
+ *                 an Avalanche-leaning blend that gives small balances a nudge
+ *                 for psychological momentum.
  *
  * Returns a NEW sorted array. Input is not mutated.
  */
@@ -5406,11 +5413,13 @@ function sortDebtsByStrategy(debts, strategy) {
         });
     }
 
-    // Hybrid: 4-factor composite score
+    // Hybrid: APR-dominated blend with quick-win bonus.
+    // Earlier 4-factor with 30% "bleed" weight was double-counting APR
+    // (bleed = APR × balance), which gave big-balance medium-APR debts too much
+    // priority and made Hybrid total interest worse than Snowball. Reverting to
+    // a 3-factor formula where APR dominates so Hybrid behaves like Avalanche
+    // with a small-debt momentum bonus — the textbook "best of both worlds".
     const maxApr = Math.max(1, ...list.map(d => d.apr || 0));
-    const maxBleed = Math.max(0.01, ...list.map(d =>
-        ((d.balance || 0) * (d.apr || 0) / 100 / 12)
-    ));
     const minBal = Math.max(1, Math.min(...list.map(d => d.balance || Infinity)));
 
     const score = (d) => {
@@ -5418,19 +5427,17 @@ function sortDebtsByStrategy(debts, strategy) {
         const minPay = Math.max(0, d.minPayment || 0);
         const apr = Math.max(0, d.apr || 0);
 
-        // 1. APR weight: per-dollar interest-savings rate
+        // 1. APR weight (65%): per-dollar interest-savings rate. Dominant.
         const aprScore = apr / maxApr;
-        // 2. Interest dollars: monthly bleed in real $$$
-        const bleedScore = (balance * apr / 100 / 12) / maxBleed;
-        // 3. Balance: smaller = quick win
+        // 2. Small-balance bonus (25%): rewards quick wins
         const balScore = minBal / Math.max(1, balance);
-        // 4. Payment efficiency: min/balance — high = clears fast at minimums alone
+        // 3. Payment efficiency (10%): debts where min × 12 covers a lot of balance
+        //    clear faster on their own — a small extra nudge to prioritize them
         const annualMinAsPctOfBalance = balance > 0 ? Math.min(1, (minPay * 12) / balance) : 0;
 
-        return aprScore * 0.40
-             + bleedScore * 0.30
-             + balScore * 0.15
-             + annualMinAsPctOfBalance * 0.15;
+        return aprScore * 0.65
+             + balScore * 0.25
+             + annualMinAsPctOfBalance * 0.10;
     };
     return list.sort((a, b) => score(b) - score(a));
 }
