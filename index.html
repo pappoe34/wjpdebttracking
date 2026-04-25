@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=64-actions">
+  <link rel="stylesheet" href="style.css?v=65-fresh">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -798,30 +798,7 @@
                 <button id="btn-clear-notifications" aria-label="Clear notifications">Clear All</button>
               </div>
               <div class="notification-list">
-                  <div class="notification-item unread">
-                  <div class="ni-icon" style="background:rgba(0,212,168,0.1); color:var(--accent)"><i class="ph-fill ph-lightning"></i></div>
-                  <div class="ni-content">
-                    <div class="ni-title">Strategy Update</div>
-                    <div class="ni-text">AI Algorithm has detected a 2.4% interest optimization available.</div>
-                    <div class="ni-time">2m ago</div>
-                  </div>
-                </div>
-                <div class="notification-item unread">
-                  <div class="ni-icon" style="background:rgba(255,77,109,0.1); color:var(--danger)"><i class="ph-fill ph-warning-circle"></i></div>
-                  <div class="ni-content">
-                    <div class="ni-title">Payment Due</div>
-                    <div class="ni-text">Mortgage Principal payment of $2,450 is due in 4 days.</div>
-                    <div class="ni-time">1h ago</div>
-                  </div>
-                </div>
-                <div class="notification-item">
-                  <div class="ni-icon" style="background:rgba(255,255,255,0.05); color:var(--text-3)"><i class="ph-fill ph-shield-check"></i></div>
-                  <div class="ni-content">
-                    <div class="ni-title">Security Insight</div>
-                    <div class="ni-text">Your financial data is now encrypted with the latest AES-256 protocol.</div>
-                    <div class="ni-time">Yesterday</div>
-                  </div>
-                </div>
+                <!-- Empty by default; renderNotifications() populates from appState.notifications. -->
               </div>
               <div class="notification-footer">
                 <a role="button" tabindex="0" id="link-see-all-activity" aria-label="See all activity">See All Activity</a>
@@ -866,8 +843,10 @@
               <span id="freedom-target-amt">—</span>
             </div>
 
-            <!-- Hidden but kept for back-compat: other code reads val-total-debt -->
+            <!-- Hidden but kept for back-compat: other code reads val-total-debt.
+                 Default is $0.00 (was $42,850.00 demo data) so a fresh user truly starts at zero. -->
             <div id="val-total-debt" style="display:none">$0.00</div>
+            <div id="val-active-liabilities" style="display:none">0 Active Liabilities</div>
           </div>
 
           <div class="dash-grid">
@@ -944,21 +923,10 @@
                   <div>
                     <div class="card-label" style="font-size:10px;">Recent Transactions</div>
                     <div class="transaction-list" id="dash-spending-transactions">
-                      <div class="transaction-item">
-                        <div class="txn-icon"><i class="ph ph-shopping-cart"></i></div>
-                        <div>
-                          <div class="txn-name">Whole Foods</div>
-                          <div class="txn-cat">Groceries</div>
-                        </div>
-                        <div class="txn-amount neg">-$142.50</div>
-                      </div>
-                      <div class="transaction-item">
-                        <div class="txn-icon"><i class="ph ph-gas-pump"></i></div>
-                        <div>
-                          <div class="txn-name">Shell Station</div>
-                          <div class="txn-cat">Transport</div>
-                        </div>
-                        <div class="txn-amount neg">-$64.12</div>
+                      <!-- Empty by default; renderDashSpendingTransactions() populates from appState.transactions. -->
+                      <div class="transaction-empty" style="text-align:center; padding:20px 12px; color:var(--text-3); font-size:11px;">
+                        <i class="ph ph-receipt" style="font-size:20px; opacity:0.4; display:block; margin-bottom:6px;"></i>
+                        No transactions yet
                       </div>
                     </div>
                   </div>
@@ -970,29 +938,26 @@
                 <button class="pin-card-btn" data-pin-id="dash-financial-resilience" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Resilience card"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
                   <h2 style="font-size:14px; font-weight:700;">Financial Resilience</h2>
-                  <div class="badge badge-success" id="resilience-score" style="font-size: 10px;">84%</div>
+                  <div class="badge" id="resilience-score" style="font-size: 10px; background:rgba(255,255,255,0.06); color:var(--text-3);">—</div>
                 </div>
                 
                 <div class="resilience-metric" style="margin-bottom:20px;">
                   <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:var(--text-2);">
                       <span>Emergency Fund Progress</span>
-                      <span id="ef-progress-text">$4,200 / $5,000</span>
+                      <span id="ef-progress-text">—</span>
                   </div>
                   <div style="height:6px; background:var(--card-2); border-radius:10px; overflow:hidden;">
-                    <div id="ef-progress-bar" style="width:84%; height:100%; background:linear-gradient(90deg, var(--accent), #00ffca); border-radius:10px; transition: width 1s ease-out;"></div>
+                    <div id="ef-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent), #00ffca); border-radius:10px; transition: width 1s ease-out;"></div>
                   </div>
                 </div>
 
                 <div class="resilience-metric">
                   <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:var(--text-2);">
                       <span>Debt Payoff Milestone</span>
-                      <span id="milestone-progress-text">Level 4: Principal Crusher</span>
+                      <span id="milestone-progress-text">Add debts to unlock</span>
                   </div>
                   <div style="height:6px; background:var(--card-2); border-radius:10px; overflow:hidden;">
-                    <div id="milestone-progress-bar" style="width:68%; height:100%; background:linear-gradient(90deg, var(--accent), #00ffca); border-radius:10px; opacity:0.6; transition: width 1s ease-out;"></div>
-                  </div>
-                  <div style="font-size:9px; color:var(--text-3); margin-top:10px; display:flex; align-items:center; gap:4px; font-weight:600;">
-                    <i class="ph ph-trend-up"></i> +12.4% portfolio strength vs last month
+                    <div id="milestone-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent), #00ffca); border-radius:10px; opacity:0.6; transition: width 1s ease-out;"></div>
                   </div>
                 </div>
               </div>
@@ -1046,42 +1011,42 @@
                   <div style="position:relative; width:80px; height:80px; display:flex; align-items:center; justify-content:center;">
                     <svg width="80" height="80" viewBox="0 0 100 100" style="position:absolute; transform:rotate(-90deg);">
                       <circle cx="50" cy="50" r="42" fill="none" stroke="var(--card-2)" stroke-width="8"></circle>
-                      <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent)" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="65" stroke-linecap="round"></circle>
+                      <circle id="dash-credit-ring" cx="50" cy="50" r="42" fill="none" stroke="var(--accent)" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"></circle>
                     </svg>
                     <div style="text-align:center;">
-                      <div style="font-size:22px; font-weight:800; line-height:1; color:var(--text);">742</div>
+                      <div id="dash-credit-score" style="font-size:22px; font-weight:800; line-height:1; color:var(--text-3);">—</div>
                       <div style="font-size:9px; color:var(--text-3); font-weight:600; margin-top:2px;">PTS</div>
                     </div>
                   </div>
                   <div>
                     <div style="font-size:11px; color:var(--text-3); font-weight:600; text-transform:uppercase; margin-bottom:2px;">Overall Status</div>
-                    <div style="font-size:16px; font-weight:800; color:var(--accent);">Excellent</div>
-                    <div class="stat-pill up" style="margin-top:6px; font-size:10px; padding:2px 8px;"><i class="ph ph-arrow-up"></i> +12 PTS</div>
+                    <div id="dash-credit-status" style="font-size:16px; font-weight:800; color:var(--text-3);">Add your score</div>
+                    <div id="dash-credit-trend" class="stat-pill" style="margin-top:6px; font-size:10px; padding:2px 8px; display:none;"><i class="ph ph-minus"></i> No data</div>
                   </div>
                 </div>
 
                 <div class="credit-details-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:20px; border-top:1px solid var(--border); padding-top:16px;">
                   <div class="credit-metric">
                     <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Utilization</div>
-                    <div style="font-size:13px; font-weight:700;">8.4%</div>
+                    <div id="dash-credit-util" style="font-size:13px; font-weight:700; color:var(--text-3);">—</div>
                     <div style="height:3px; background:var(--card-2); border-radius:3px; margin-top:6px; overflow:hidden;">
-                      <div style="width:8%; height:100%; background:var(--accent);"></div>
+                      <div id="dash-credit-util-bar" style="width:0%; height:100%; background:var(--accent);"></div>
                     </div>
                   </div>
                   <div class="credit-metric">
                     <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">History</div>
-                    <div style="font-size:13px; font-weight:700;">100%</div>
+                    <div id="dash-credit-history" style="font-size:13px; font-weight:700; color:var(--text-3);">—</div>
                     <div style="height:3px; background:var(--card-2); border-radius:3px; margin-top:6px; overflow:hidden;">
-                      <div style="width:100%; height:100%; background:var(--accent);"></div>
+                      <div id="dash-credit-history-bar" style="width:0%; height:100%; background:var(--accent);"></div>
                     </div>
                   </div>
                   <div class="credit-metric">
                     <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Avg Age</div>
-                    <div style="font-size:13px; font-weight:700;">7.2 Yrs</div>
+                    <div id="dash-credit-age" style="font-size:13px; font-weight:700; color:var(--text-3);">—</div>
                   </div>
                   <div class="credit-metric">
                     <div style="font-size:9px; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Accounts</div>
-                    <div style="font-size:13px; font-weight:700;">12 Total</div>
+                    <div id="dash-credit-accounts" style="font-size:13px; font-weight:700; color:var(--text-3);">—</div>
                   </div>
                 </div>
 
@@ -1091,7 +1056,7 @@
                     <div style="font-size:11px; font-weight:700; color:var(--text);">AI Optimization Insight</div>
                   </div>
                   <p id="credit-ai-msg" style="font-size:10.5px; color:var(--text-3); line-height:1.4; margin-bottom:12px;">
-                    Your credit depth is exceptional. Reducing utilization on Tesla Finance below 30% could trigger a "Prime+" tier score jump.
+                    Add your credit score and utilization in the Credit Score tab to receive personalized AI insights.
                   </p>
                   <div style="display:flex; gap:8px;">
                      <input type="text" id="credit-ask-input" placeholder="Ask about your score..." 
@@ -1160,7 +1125,7 @@
                   <i class="ph ph-trend-up" style="font-size:18px;"></i>
                 </div>
               </div>
-              <div class="stat-value" id="val-interest-saved">$14,205 <span class="stat-pill up">+12%</span></div>
+              <div class="stat-value" id="val-interest-saved">$0</div>
               <div class="card-sub">LIFETIME OPTIMIZATION SAVINGS</div>
               <div class="stat-card-info">
                 <i class="ph ph-info" style="font-size:10px;"></i> Click to view interest breakdown
@@ -1174,7 +1139,7 @@
                   <i class="ph ph-scales" style="font-size:18px;"></i>
                 </div>
               </div>
-              <div class="stat-value accent" id="val-dti-ratio">22.4% <span class="stat-pill" style="background:var(--card-2); color:var(--text-3);">-2.1%</span></div>
+              <div class="stat-value accent" id="val-dti-ratio">0%</div>
               <div class="card-sub">SAFE ZONE: BELOW 36%</div>
               <div class="stat-card-info">
                 <i class="ph ph-info" style="font-size:10px;"></i> Click to view budget analysis
@@ -1188,8 +1153,8 @@
                   <i class="ph ph-calendar-check" style="font-size:18px;"></i>
                 </div>
               </div>
-              <div class="stat-value" id="val-freedom-date">Oct 2026</div>
-              <div class="card-sub">4 MONTHS AHEAD OF SCHEDULE</div>
+              <div class="stat-value" id="val-freedom-date">—</div>
+              <div class="card-sub">ADD DEBTS TO PROJECT</div>
               <div class="stat-card-info">
                 <i class="ph ph-info" style="font-size:10px;"></i> Click to view payoff timeline
               </div>
@@ -1317,65 +1282,13 @@
           <!-- Current Obligations (4 cards in a row) -->
           <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:4px;" class="reveal reveal-3">
              <h3 style="font-size:16px; font-weight:800;">Current Obligations</h3>
-             <div class="card-label" id="val-active-liabilities">4 Active Liabilities</div>
+             <div class="card-label" id="val-active-liabilities">0 Active Liabilities</div>
           </div>
 
           <div class="obligation-cards-row reveal reveal-3" id="dashboard-obligations">
-             <div class="obligation-card priority">
-               <div class="obl-header">
-                 <div class="obl-icon" style="color:var(--danger); background:rgba(255,77,109,0.1)"><i class="ph ph-credit-card"></i></div>
-                 <div class="badge badge-danger">Priority</div>
-               </div>
-               <div class="obl-name">Chase Sapphire</div>
-               <div class="obl-type">Primary Credit Line</div>
-               <div class="divider" style="margin:8px 0"></div>
-               <div class="obl-stats-col">
-                 <div class="obl-row"><span class="obl-stat-label">Balance</span><span class="obl-stat-val accent">$8,420</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">APR</span><span class="obl-stat-val danger">24.99%</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">Min. Payment</span><span class="obl-stat-val">$210.00</span></div>
-               </div>
-             </div>
-
-             <div class="obligation-card">
-               <div class="obl-header">
-                 <div class="obl-icon" style="color:#667eea; background:rgba(102,126,234,0.1)"><i class="ph ph-car"></i></div>
-               </div>
-               <div class="obl-name">Tesla Finance</div>
-               <div class="obl-type">Model 3 Lease</div>
-               <div class="divider" style="margin:8px 0"></div>
-               <div class="obl-stats-col">
-                 <div class="obl-row"><span class="obl-stat-label">Balance</span><span class="obl-stat-val accent">$32,150</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">APR</span><span class="obl-stat-val">4.50%</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">Min. Payment</span><span class="obl-stat-val">$640.00</span></div>
-               </div>
-             </div>
-             
-             <div class="obligation-card">
-               <div class="obl-header">
-                 <div class="obl-icon" style="color:var(--accent); background:var(--accent-dim)"><i class="ph ph-student"></i></div>
-               </div>
-               <div class="obl-name">Sallie Mae</div>
-               <div class="obl-type">Graduate Loan</div>
-               <div class="divider" style="margin:8px 0"></div>
-               <div class="obl-stats-col">
-                 <div class="obl-row"><span class="obl-stat-label">Balance</span><span class="obl-stat-val accent">$18,900</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">APR</span><span class="obl-stat-val">6.80%</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">Min. Payment</span><span class="obl-stat-val">$450.00</span></div>
-               </div>
-             </div>
-
-             <div class="obligation-card">
-               <div class="obl-header">
-                 <div class="obl-icon" style="color:var(--accent); background:var(--accent-dim)"><i class="ph ph-house"></i></div>
-               </div>
-               <div class="obl-name">Mortgage</div>
-               <div class="obl-type">Primary Residence</div>
-               <div class="divider" style="margin:8px 0"></div>
-               <div class="obl-stats-col">
-                 <div class="obl-row"><span class="obl-stat-label">Balance</span><span class="obl-stat-val accent">$412,000</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">APR</span><span class="obl-stat-val">3.25%</span></div>
-                 <div class="obl-row"><span class="obl-stat-label">Min. Payment</span><span class="obl-stat-val">$1,850.00</span></div>
-               </div>
+             <div class="obligation-empty" style="grid-column: 1/-1; text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px; line-height:1.5;">
+               <i class="ph ph-credit-card" style="font-size:32px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+               No obligations yet. Add a debt or connect your bank to begin.
              </div>
           </div>
 
@@ -1390,37 +1303,9 @@
                 </div>
               </div>
               <div class="transaction-list" id="strategy-overview-transactions">
-                <div class="transaction-item">
-                  <div class="txn-icon" style="background:rgba(255,77,109,0.1); color:var(--danger)"><i class="ph ph-credit-card"></i></div>
-                  <div>
-                    <div class="txn-name">Chase Sapphire</div>
-                    <div class="txn-cat">Scheduled Payment</div>
-                  </div>
-                  <div class="txn-amount neg">-$210.00</div>
-                </div>
-                <div class="transaction-item">
-                  <div class="txn-icon" style="background:var(--accent-dim); color:var(--accent)"><i class="ph ph-arrow-down"></i></div>
-                  <div>
-                    <div class="txn-name">Extra Contribution</div>
-                    <div class="txn-cat">Manual Payment</div>
-                  </div>
-                  <div class="txn-amount neg">-$500.00</div>
-                </div>
-                <div class="transaction-item">
-                  <div class="txn-icon" style="background:rgba(255,171,64,0.1); color:var(--warning)"><i class="ph ph-wifi-high"></i></div>
-                  <div>
-                    <div class="txn-name">Internet Charge</div>
-                    <div class="txn-cat">Auto-Debit</div>
-                  </div>
-                  <div class="txn-amount neg" style="color:var(--warning)">-$12.10</div>
-                </div>
-                <div class="transaction-item">
-                  <div class="txn-icon" style="background:rgba(102,126,234,0.1); color:#667eea"><i class="ph ph-car"></i></div>
-                  <div>
-                    <div class="txn-name">Tesla Finance</div>
-                    <div class="txn-cat">Automatic Payment</div>
-                  </div>
-                  <div class="txn-amount neg">-$640.00</div>
+                <div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                  <i class="ph ph-receipt" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                  No transactions yet.
                 </div>
               </div>
             </div>
@@ -1439,17 +1324,17 @@
               <div class="chart-wrap" style="height:160px;">
                 <canvas id="eliminationChart"></canvas>
               </div>
-              <div style="display:flex; justify-content:space-between; margin-top:8px;">
+              <div id="elimination-legend-row" style="display:flex; justify-content:space-between; margin-top:8px;">
                 <div class="card-sub">CURRENT</div>
-                <div class="card-sub">$4.5k</div>
-                <div class="card-sub">$2.5k</div>
-                <div class="card-sub">$20 COST</div>
+                <div class="card-sub">—</div>
+                <div class="card-sub">—</div>
+                <div class="card-sub">DEBT-FREE</div>
               </div>
             </div>
           </div>
 
           <!-- AI Performance Report -->
-          <div class="ai-performance-card reveal reveal-5">
+          <div class="ai-performance-card reveal reveal-5" id="ai-performance-card">
             <div class="ai-perf-header">
               <div class="ai-icon" style="background:var(--accent); color:#0b0f1a; width:34px;height:34px;font-size:18px;"><i class="ph ph-chart-line-up"></i></div>
               <div>
@@ -1457,40 +1342,36 @@
                  <div class="ai-perf-sub">Monthly Summary & Insight Matrix</div>
               </div>
             </div>
-            
+
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px;">
               <div>
-                <p style="font-size:12px; color:var(--text-2); line-height:1.7;">
-                  Based on your data from the last 30 days, you are currently <span style="color:var(--accent);font-weight:700;text-decoration:underline">outperforming</span> your initial debt-free projection by 42 days. Your shift toward the <em>Hybrid payoff model</em> has optimized your cash flow efficiency by 14% while maintaining high emotional momentum.
+                <p id="ai-perf-summary" style="font-size:12px; color:var(--text-2); line-height:1.7;">
+                  Add your debts and a few payments — your monthly performance summary will appear here once there's data to analyze.
                 </p>
               </div>
               <div>
                 <div class="ai-perf-grid" style="grid-template-columns:1fr 1fr; gap:12px;">
                    <div class="ai-perf-metric">
                      <div class="ai-perf-label">Repayment Velocity</div>
-                     <div class="ai-perf-val" style="color:#00d4a8">+1.2x Baseline</div>
+                     <div class="ai-perf-val" id="ai-perf-velocity" style="color:var(--text-3)">—</div>
                    </div>
                    <div class="ai-perf-metric">
                      <div class="ai-perf-label">Budget Adherence</div>
-                     <div class="ai-perf-val" style="color:#00d4a8">92% Precision</div>
+                     <div class="ai-perf-val" id="ai-perf-adherence" style="color:var(--text-3)">—</div>
                    </div>
                    <div class="ai-perf-metric">
                      <div class="ai-perf-label">Optimization Score</div>
-                     <div class="ai-perf-val" style="color:#667eea">Platinum Tier</div>
+                     <div class="ai-perf-val" id="ai-perf-optimization" style="color:var(--text-3)">—</div>
                    </div>
                 </div>
               </div>
             </div>
 
-            <div class="card-sub" style="margin-top:12px; font-size:10px; color:var(--text-3); line-height:1.5; font-style:italic;">
-              "Next Month Recommendation: Consider re-allocating 8% of your 'Others' category spending toward the Sallie Mae to capitalize on the upcoming interest adjustment period."
-            </div>
+            <div id="ai-perf-recommendation" class="card-sub" style="margin-top:12px; font-size:10px; color:var(--text-3); line-height:1.5; font-style:italic; display:none;"></div>
 
-            <div style="background:rgba(0,212,168,0.08); border:1px solid var(--border-accent); border-radius:var(--radius-sm); padding:12px 16px; margin-top:14px; display:flex; align-items:flex-start; gap:10px;">
+            <div id="ai-perf-keywin" style="background:rgba(0,212,168,0.08); border:1px solid var(--border-accent); border-radius:var(--radius-sm); padding:12px 16px; margin-top:14px; display:none; align-items:flex-start; gap:10px;">
               <div class="badge badge-accent" style="flex-shrink:0; font-size:8px;">KEY WIN</div>
-              <div style="font-size:11px; color:var(--text-2); line-height:1.5;">
-                Extra $500 contribution to Chase Sapphire saved approximately <strong style="color:var(--text)">$120 in future compound interest.</strong>
-              </div>
+              <div id="ai-perf-keywin-msg" style="font-size:11px; color:var(--text-2); line-height:1.5;"></div>
             </div>
           </div>
           </div><!-- end overview subtab -->
@@ -1504,24 +1385,24 @@
                   <div class="card-label" style="color:var(--accent)">Savings Rate</div>
                   <i class="ph ph-trend-up" style="font-size:18px; color:var(--accent)"></i>
                 </div>
-                <div class="budget-stat-value">24.8%</div>
-                <div class="stat-pill up" style="margin-top:4px;"><i class="ph ph-arrow-up"></i> 3.2% from last month</div>
+                <div class="budget-stat-value" id="dbg-savings-rate">0%</div>
+                <div class="card-sub" id="dbg-savings-rate-sub">Add income & expenses to track.</div>
               </div>
               <div class="budget-stat-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <div class="card-label" style="color:var(--accent)">Debt-to-Income</div>
                   <i class="ph ph-bank" style="font-size:18px; color:var(--accent)"></i>
                 </div>
-                <div class="budget-stat-value">32.1%</div>
-                <div class="card-sub">Healthy range (below 35%)</div>
+                <div class="budget-stat-value" id="dbg-dti-ratio">0%</div>
+                <div class="card-sub" id="dbg-dti-sub">Add income & debts to calculate.</div>
               </div>
               <div class="budget-stat-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <div class="card-label" style="color:var(--accent)">Spending Velocity</div>
                   <i class="ph ph-pencil-simple" style="font-size:18px; color:var(--accent)"></i>
                 </div>
-                <div class="budget-stat-value">$142<span style="font-size:14px; font-weight:500">/day</span></div>
-                <div class="card-sub">On track for monthly goal</div>
+                <div class="budget-stat-value" id="dbg-spending-velocity">$0<span style="font-size:14px; font-weight:500">/day</span></div>
+                <div class="card-sub" id="dbg-spending-velocity-sub">Log transactions to see velocity.</div>
               </div>
             </div>
 
@@ -1540,78 +1421,15 @@
                   <div style="position:relative; width:180px; height:180px;">
                     <canvas id="budgetDonut" width="180" height="180"></canvas>
                     <div class="donut-center">
-                      <div class="donut-val" style="font-size:24px; font-weight:900;">$4,820</div>
+                      <div class="donut-val" id="dbg-donut-total" style="font-size:24px; font-weight:900;">$0</div>
                       <div class="card-sub" style="font-size:9px; margin-top:2px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Total Liquidity</div>
                     </div>
                   </div>
-                  
-                  <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#00d4a8; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Housing</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$2,169 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(45%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:45%; background:#00d4a8;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Fixed Liability</span>
-                        <span style="color:var(--text-3); display:flex; align-items:center; gap:3px;"><i class="ph ph-check-circle" style="color:#00d4a8;"></i> Optimal</span>
-                      </div>
-                    </div>
 
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#667eea; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Strategy Fund (Savings)</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$964 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(20%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:20%; background:#667eea;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Growth Asset</span>
-                        <span style="color:#00d4a8; display:flex; align-items:center; gap:3px;"><i class="ph ph-trend-up"></i> +2.4% Momentum</span>
-                      </div>
-                    </div>
-
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#ff4d6d; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Lifestyle & Food</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$578 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(12%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:12%; background:#ff4d6d;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Managed Variable</span>
-                        <span style="color:#00d4a8; display:flex; align-items:center; gap:3px;"><i class="ph ph-trend-down"></i> Efficiency +8%</span>
-                      </div>
-                    </div>
-
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#ffab40; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Uncategorized / Debt Payoff</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$1,109 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(23%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:23%; background:#ffab40;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Strategic Overflow</span>
-                        <span style="color:var(--warning); display:flex; align-items:center; gap:3px;"><i class="ph ph-info"></i> Higher Exit ROI available</span>
-                      </div>
+                  <div id="dbg-allocation-list" style="display:flex; flex-direction:column; gap:14px;">
+                    <div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                      <i class="ph ph-chart-pie-slice" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                      No expense categories yet. Add transactions or recurring payments to see your allocation breakdown.
                     </div>
                   </div>
                 </div>
@@ -1648,31 +1466,11 @@
                     <th>Amount</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td style="color:var(--text-3)">Oct 24, 2023</td>
-                    <td style="font-weight:600">Amazon Web Services</td>
-                    <td><div class="badge badge-primary">Business</div></td>
-                    <td style="font-weight:700; color:var(--danger)">-$420.00</td>
-                  </tr>
-                  <tr>
-                    <td style="color:var(--text-3)">Oct 22, 2023</td>
-                    <td style="font-weight:600">Whole Foods Market</td>
-                    <td><div class="badge" style="background:rgba(255,77,109,0.15); color:#ff4d6d">Food</div></td>
-                    <td style="font-weight:700; color:var(--danger)">-$156.40</td>
-                  </tr>
-                  <tr>
-                    <td style="color:var(--text-3)">Oct 20, 2023</td>
-                    <td style="font-weight:600">Tesla Supercharger</td>
-                    <td><div class="badge" style="background:rgba(102,126,234,0.15); color:#667eea;">Transport</div></td>
-                    <td style="font-weight:700; color:var(--danger)">-$32.00</td>
-                  </tr>
-                  <tr>
-                    <td style="color:var(--text-3)">Oct 19, 2023</td>
-                    <td style="font-weight:600">Verizon Wireless</td>
-                    <td><div class="badge" style="background:rgba(255,171,64,0.15); color:var(--warning)">Utilities</div></td>
-                    <td style="font-weight:700; color:var(--danger)">-$112.99</td>
-                  </tr>
+                <tbody id="dbg-detailed-txn-body">
+                  <tr><td colspan="4" style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px;">
+                    <i class="ph ph-receipt" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                    No transactions yet. Connect a bank or add one manually to get started.
+                  </td></tr>
                 </tbody>
               </table>
             </div>
@@ -1690,35 +1488,24 @@
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px;">
                 <div>
                   <p style="font-size:12px; color:var(--text-2); line-height:1.7;">
-                    Based on your spending patterns from the last 30 days, your cash flow efficiency has increased by <span style="color:var(--accent); font-weight:700; text-decoration:underline">8.4%</span>. Your current trajectory suggests you can reach your next debt milestone 12 days ahead of schedule by maintaining your current savings rate.
+                    Add your income, expenses, and a few transactions — your spending patterns and savings trajectory will be analyzed here.
                   </p>
                 </div>
                 <div>
                   <div class="ai-perf-grid" style="grid-template-columns:1fr 1fr; gap:12px;">
                     <div class="ai-perf-metric">
                       <div class="ai-perf-label">Expense Efficiency</div>
-                      <div class="ai-perf-val" style="color:#00d4a8">+1.1x Baseline</div>
+                      <div class="ai-perf-val" style="color:var(--text-3)">—</div>
                     </div>
                     <div class="ai-perf-metric">
                       <div class="ai-perf-label">Savings Target Alignment</div>
-                      <div class="ai-perf-val" style="color:#00d4a8">96% Accuracy</div>
+                      <div class="ai-perf-val" style="color:var(--text-3)">—</div>
                     </div>
                     <div class="ai-perf-metric">
                       <div class="ai-perf-label">Financial Wellness Tier</div>
-                      <div class="ai-perf-val" style="color:#667eea">Emerald Class</div>
+                      <div class="ai-perf-val" style="color:var(--text-3)">—</div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div class="card-sub" style="margin-top:12px; font-size:10px; color:var(--text-3); line-height:1.5; font-style:italic;">
-                "AI Recommendation: Reduce Food & Dining by 5% to accelerate debt payoff. This small adjustment would free up an additional $240/month for high-interest liabilities."
-              </div>
-
-              <div style="background:rgba(0,212,168,0.08); border:1px solid var(--border-accent); border-radius:var(--radius-sm); padding:12px 16px; margin-top:14px;">
-                <div class="badge badge-accent" style="font-size:8px; margin-bottom:6px;">Performance Achievement</div>
-                <div style="font-size:11px; color:var(--text-2); line-height:1.5;">
-                  Your savings rate is up 3.2% this month—great job! You've successfully lowered non-essential spending for 3 consecutive weeks.
                 </div>
               </div>
             </div>
@@ -1908,24 +1695,13 @@
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px;">
                 <div>
                   <p style="font-size:12px; color:var(--text-2); line-height:1.7;">
-                    Your debt-to-income payment ratio has improved by <span style="color:var(--accent); font-weight:700; text-decoration:underline">4.2%</span> this month. The <strong style="color:var(--text)">Chase Sapphire</strong> payment was 12% higher than your predicted budget, accelerating your "Avalanche" strategy by <strong style="color:var(--accent)">8 days</strong>.
+                    Add a few transactions and recurring payments — your debt-to-income trends, payment alerts, and strategy impact will be analyzed here.
                   </p>
-                  <div style="display:flex; gap:8px; margin-top:12px;">
-                    <div class="badge badge-accent" style="font-size:8px;">Positive Momentum</div>
-                    <div class="badge badge-accent" style="font-size:8px;">Strategy Alpha</div>
-                  </div>
                 </div>
                 <div>
                   <div class="card-label" style="color:var(--accent); margin-bottom:10px;">Wealth Optimization Suggestions</div>
-                  <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div style="display:flex; gap:8px; align-items:flex-start;">
-                      <i class="ph ph-lightbulb" style="color:var(--accent); font-size:16px; flex-shrink:0; margin-top:2px;"></i>
-                      <div style="font-size:11px; color:var(--text-2); line-height:1.5;">Move the AWS billing to your Business Portfolio for tax-deductible shielding.</div>
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:flex-start;">
-                      <i class="ph ph-trend-up" style="color:var(--accent); font-size:16px; flex-shrink:0; margin-top:2px;"></i>
-                      <div style="font-size:11px; color:var(--text-2); line-height:1.5;">The failed Sallie Mae payment risks a credit dip; re-attempting from Savings Liquidity is advised.</div>
-                    </div>
+                  <div style="display:flex; flex-direction:column; gap:10px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                    <div>No suggestions yet. Add transactions to unlock optimization tips.</div>
                   </div>
                 </div>
               </div>
@@ -1983,7 +1759,7 @@
             </div>
 
             <!-- Middle: Payment Optimization AI -->
-            <div class="card reveal reveal-2" style="margin-bottom:20px; border-color:var(--border-accent);">
+            <div class="card reveal reveal-2" id="rec-optimization-ai" style="margin-bottom:20px; border-color:var(--border-accent);">
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
                 <div class="txn-icon" style="background:var(--accent); color:#0b0f1a; width:36px; height:36px; font-size:18px;"><i class="ph ph-shield-check"></i></div>
                 <div>
@@ -1992,31 +1768,34 @@
                 </div>
               </div>
 
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
-                <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
-                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                    <i class="ph ph-piggy-bank" style="color:var(--accent); font-size:16px;"></i>
-                    <div style="font-weight:700; font-size:12px;">Fee Prevention Strategy</div>
-                  </div>
-                  <p style="font-size:11px; color:var(--text-2); line-height:1.5;">
-                    Consolidating these payments into a single bi-weekly cycle could save <strong style="color:var(--accent)">$150 in annual late fees</strong> and missed grace periods.
-                  </p>
-                </div>
-
-                <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
-                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                    <i class="ph ph-calendar-check" style="color:var(--accent); font-size:16px;"></i>
-                    <div style="font-weight:700; font-size:12px;">Cash Flow Alignment</div>
-                  </div>
-                  <p style="font-size:11px; color:var(--text-2); line-height:1.5;">
-                    Your Chase payment is scheduled 2 days after payday; <span style="text-decoration:underline; color:var(--accent);">consider moving it</span> forward 3 days to increase your initial monthly cash flow buffer.
-                  </p>
-                </div>
+              <div id="rec-optimization-empty" style="text-align:center; padding:24px 16px; color:var(--text-3); font-size:12px; line-height:1.5;">
+                <i class="ph ph-shield-check" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                Add recurring payments to see fee-prevention and cash-flow optimization tips.
               </div>
 
-              <div style="display:flex; gap:12px;">
-                <button class="btn btn-primary" style="font-size:11px; padding:10px 18px;">Apply Optimizations</button>
-                <button id="btn-dismiss-suggestions" class="btn btn-ghost" style="font-size:11px; padding:10px 18px;">Dismiss Suggestions</button>
+              <div id="rec-optimization-content" style="display:none;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+                  <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <i class="ph ph-piggy-bank" style="color:var(--accent); font-size:16px;"></i>
+                      <div style="font-weight:700; font-size:12px;">Fee Prevention Strategy</div>
+                    </div>
+                    <p id="rec-fee-prevention-msg" style="font-size:11px; color:var(--text-2); line-height:1.5;"></p>
+                  </div>
+
+                  <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <i class="ph ph-calendar-check" style="color:var(--accent); font-size:16px;"></i>
+                      <div style="font-weight:700; font-size:12px;">Cash Flow Alignment</div>
+                    </div>
+                    <p id="rec-cashflow-msg" style="font-size:11px; color:var(--text-2); line-height:1.5;"></p>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:12px;">
+                  <button class="btn btn-primary" style="font-size:11px; padding:10px 18px;">Apply Optimizations</button>
+                  <button id="btn-dismiss-suggestions" class="btn btn-ghost" style="font-size:11px; padding:10px 18px;">Dismiss Suggestions</button>
+                </div>
               </div>
             </div>
 
@@ -2129,11 +1908,11 @@
                 <div style="display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--border); padding-top:16px; margin-top:20px;">
                   <div>
                     <div class="card-label" style="margin-bottom:4px;">AI Projected Freedom Date</div>
-                    <div style="font-size:18px; font-weight:800; color:var(--accent);">OCT 24, 2026</div>
+                    <div id="analysis-freedom-date" style="font-size:18px; font-weight:800; color:var(--text-3);">—</div>
                   </div>
                   <div style="text-align:right;">
                     <div class="card-label" style="margin-bottom:4px;">Velocity Trend</div>
-                    <div style="font-size:18px; font-weight:800; color:var(--accent); display:flex; align-items:center; justify-content:flex-end; gap:6px;"><i class="ph ph-trend-up"></i> +14.2%</div>
+                    <div id="analysis-velocity-trend" style="font-size:18px; font-weight:800; color:var(--text-3); display:flex; align-items:center; justify-content:flex-end; gap:6px;">—</div>
                   </div>
                 </div>
               </div>
@@ -2151,66 +1930,20 @@
                   </div>
                 </div>
 
-                <!-- Strategy A -->
-                <div style="display:grid; grid-template-columns:80px 1fr; gap:16px; align-items:center; margin-bottom:20px;">
-                  <div class="card-label" style="color:var(--text-3);">Strategy A</div>
-                  <div style="display:flex; height:28px; border-radius:4px; overflow:hidden;">
-                    <div style="background:rgba(255,77,109,0.8); width:68%; display:flex; align-items:center; padding-left:12px; font-size:10px; font-weight:700; color:#fff;">Paid: $42,100</div>
-                    <div style="background:rgba(0,212,168,0.3); width:32%; display:flex; align-items:center; justify-content:flex-end; padding-right:12px; font-size:10px; font-weight:700; color:var(--accent);">Saved: $18,200</div>
-                  </div>
-                </div>
-                
-                <!-- Hybrid Now -->
-                <div style="display:grid; grid-template-columns:80px 1fr; gap:16px; align-items:center; margin-bottom:32px;">
-                  <div class="card-label" style="color:var(--accent);">Hybrid<br>(Now)</div>
-                  <div style="display:flex; height:36px; border-radius:4px; overflow:hidden; box-shadow:0 0 10px rgba(0,212,168,0.1);">
-                    <div style="background:#ff4d6d; width:45%; display:flex; align-items:center; padding-left:12px; font-size:11px; font-weight:700; color:#fff;">Paid: $28,400</div>
-                    <div style="background:var(--accent); width:55%; display:flex; align-items:center; justify-content:flex-end; padding-right:12px; font-size:11px; font-weight:700; color:#0b0f1a;">Saved: $34,800</div>
-                  </div>
-                </div>
-
-                <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; display:flex; gap:16px; align-items:center;">
-                  <div style="background:rgba(0,212,168,0.15); color:var(--accent); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                    <i class="ph-fill ph-star" style="font-size:18px;"></i>
-                  </div>
-                  <div>
-                    <div style="font-weight:700; font-size:13px; margin-bottom:4px;">Strategy Efficiency: High</div>
-                    <p style="font-size:11px; color:var(--text-2); line-height:1.6;">Your current Hybrid strategy is saving you an average of <strong style="color:var(--accent)">$342 per month</strong> in interest compared to a standard linear repayment model.</p>
-                  </div>
+                <div id="interest-savings-empty" style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px; line-height:1.5;">
+                  <i class="ph ph-chart-bar" style="font-size:32px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                  Add debts to compare strategies and see interest paid vs. saved.
                 </div>
               </div>
 
               <!-- Strategy Rank -->
               <div class="card" style="display:flex; flex-direction:column;">
                 <h3 style="font-size:16px; font-weight:700; margin-bottom:24px;">Strategy Rank</h3>
-                
-                <div style="display:flex; flex-direction:column; gap:16px; flex:1;">
-                  <!-- Rank 1 -->
-                  <div style="background:rgba(0,212,168,0.05); border:1px solid var(--border-accent); border-radius:var(--radius-sm); padding:16px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                      <div class="card-label" style="color:var(--accent); margin-bottom:4px;">Rank 1</div>
-                      <div style="font-size:16px; font-weight:800;">Hybrid Model</div>
-                    </div>
-                    <div style="text-align:right;">
-                      <div style="font-size:22px; font-weight:800; color:var(--accent); line-height:1;">98/100</div>
-                      <div class="card-label" style="margin-top:4px;">Match</div>
-                    </div>
-                  </div>
-                  <!-- Rank 2 -->
-                  <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                      <div class="card-label" style="margin-bottom:4px;">Rank 2</div>
-                      <div style="font-size:14px; font-weight:600; color:var(--text-2);">Avalanche</div>
-                    </div>
-                    <div style="font-size:16px; font-weight:700; color:var(--text-3);">92/100</div>
-                  </div>
-                  <!-- Rank 3 -->
-                  <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                      <div class="card-label" style="margin-bottom:4px;">Rank 3</div>
-                      <div style="font-size:14px; font-weight:600; color:var(--text-2);">Snowball</div>
-                    </div>
-                    <div style="font-size:16px; font-weight:700; color:var(--text-3);">76/100</div>
+
+                <div id="strategy-rank-list" style="display:flex; flex-direction:column; gap:16px; flex:1;">
+                  <div style="text-align:center; padding:24px 16px; color:var(--text-3); font-size:12px; line-height:1.5;">
+                    <i class="ph ph-trophy" style="font-size:32px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                    Add debts to rank Snowball, Avalanche, and Hybrid for your situation.
                   </div>
                 </div>
 
@@ -2546,52 +2279,26 @@
                 </div>
                 
                 <div id="cal-detailed-upcoming" style="display:flex; flex-direction:column; gap:12px; flex:1; overflow-y:auto;">
-                  <!-- Mock Items -->
-                  <div style="display:flex; align-items:center; gap:16px; padding:12px; background:var(--bg); border-radius:12px; border:1px solid var(--border); position:relative; overflow:hidden;">
-                    <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--danger);"></div>
-                    <div style="text-align:center; min-width:36px;">
-                      <div style="font-size:9px; font-weight:800; color:var(--text-3); text-transform:uppercase;">JUN</div>
-                      <div style="font-size:18px; font-weight:900; line-height:1;">04</div>
-                    </div>
-                    <div style="flex:1;">
-                      <div style="font-size:13px; font-weight:800;">Mortgage</div>
-                      <div style="font-size:10px; color:var(--text-3);">$2,840.00 • 3.2% APR</div>
-                    </div>
-                    <div style="text-align:right;">
-                      <div class="badge" style="background:rgba(255,107,107,0.1); color:var(--danger); font-size:8px; padding:4px 8px;">DUE</div>
-                    </div>
-                  </div>
-
-                  <div style="display:flex; align-items:center; gap:16px; padding:12px; background:var(--bg); border-radius:12px; border:1px solid var(--border); position:relative; overflow:hidden;">
-                    <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--accent);"></div>
-                    <div style="text-align:center; min-width:36px;">
-                      <div style="font-size:9px; font-weight:800; color:var(--text-3); text-transform:uppercase;">JUN</div>
-                      <div style="font-size:18px; font-weight:900; line-height:1;">15</div>
-                    </div>
-                    <div style="flex:1;">
-                      <div style="font-size:13px; font-weight:800;">Payday</div>
-                      <div style="font-size:10px; color:var(--text-3);">Expected Surplus: $1,200</div>
-                    </div>
-                    <div style="text-align:right;">
-                      <div class="badge" style="background:rgba(0,212,168,0.1); color:var(--accent); font-size:8px; padding:4px 8px;">INCOME</div>
-                    </div>
+                  <!-- Empty by default; populated from appState.recurringPayments + paydays. -->
+                  <div style="text-align:center; padding:32px 16px; color:var(--text-3);">
+                    <i class="ph ph-calendar-x" style="font-size:32px; opacity:0.4; display:block; margin-bottom:10px;"></i>
+                    <div style="font-size:12px; font-weight:600; margin-bottom:4px;">Nothing scheduled</div>
+                    <div style="font-size:10px; line-height:1.5;">Add debts and recurring payments<br>to see your upcoming schedule.</div>
                   </div>
                 </div>
-                
+
                 <button id="btn-view-schedule" class="btn btn-ghost" style="width:100%; margin-top:16px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">VIEW FULL SCHEDULE</button>
               </div>
 
-              <!-- AI Insight -->
-              <div class="card card-glass" style="padding:20px; border-color:var(--border-accent);">
+              <!-- AI Insight (only meaningful once user has data) -->
+              <div class="card card-glass" id="dash-timeline-insight" style="padding:20px; border-color:var(--border-accent); display:none;">
                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                     <div style="background:var(--accent); color:#0b0f1a; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
                       <i class="ph ph-robot" style="font-size:16px;"></i>
                     </div>
                     <div style="font-size:12px; font-weight:800;">Timeline Insight</div>
                  </div>
-                 <p style="font-size:10.5px; color:var(--text-2); line-height:1.6; font-style:italic;">
-                   "Your cash flow peaks on the 15th. I recommend scheduling your Chase Sapphire payment for the 17th to maximize float."
-                 </p>
+                 <p id="dash-timeline-insight-msg" style="font-size:10.5px; color:var(--text-2); line-height:1.6; font-style:italic;"></p>
               </div>
             </div>
           </div>
@@ -2610,39 +2317,13 @@
              <!-- Left: Chat Interface -->
              <div class="card advisor-chat-container">
                
-               <div class="advisor-chat-scroll">
-                 <!-- AI Message -->
+               <div class="advisor-chat-scroll" id="advisor-chat-scroll">
+                 <!-- Greeting AI Message -->
                  <div class="chat-msg ai">
                    <div class="chat-avatar ai-avatar"><i class="ph-fill ph-robot"></i></div>
                    <div class="chat-content">
                      <div class="chat-bubble ai-bubble">
-                       <p style="margin-bottom:16px;">Analysis complete. Based on your current portfolio and upcoming tax obligations, I've identified a <strong style="color:var(--accent)">9.2% optimization opportunity</strong> in your debt-to-equity ratio.</p>
-                       <p>I suggest shifting the maturing bond proceeds into the high-yield liquidity pool we discussed yesterday. Would you like to see the simulation for this move?</p>
-                     </div>
-                     <div style="display:flex; gap:8px; margin-top:12px;">
-                       <div class="chat-metric-chip">SIMULATED IMPACT: +$14,200</div>
-                       <div class="chat-metric-chip">RISK SCORE: 1.2</div>
-                     </div>
-                   </div>
-                 </div>
-
-                 <!-- User Message -->
-                 <div class="chat-msg user" style="margin-top:32px;">
-                   <div class="chat-content" style="align-items:flex-end;">
-                     <div class="chat-bubble user-bubble">
-                       Yes, run the simulation. Also, how does this affect my primary budget for Q4 considering the interest rate hike?
-                     </div>
-                   </div>
-                   <div class="chat-avatar user-avatar-chat"><i class="ph-fill ph-user"></i></div>
-                 </div>
-
-                 <!-- AI Message (Typing/Streaming) -->
-                 <div class="chat-msg ai" style="margin-top:32px;">
-                   <div class="chat-avatar ai-avatar"><i class="ph-fill ph-robot"></i></div>
-                   <div class="chat-content">
-                     <div class="chat-bubble ai-bubble" style="opacity:0.8; padding-bottom:32px; background:linear-gradient(to bottom, var(--card-2) 60%, transparent)">
-                       Processing Q4 impact... The proposed move acts as a natural
-                       <span class="blinking-cursor"></span>
+                       <p>Hi — I'm your AI debt strategist. Once you add a debt or two, ask me anything: "What's my fastest path to debt-free?", "Should I pay extra on my highest APR?", or "What if I get a $5,000 raise?" I'll model it.</p>
                      </div>
                    </div>
                  </div>
@@ -2675,25 +2356,12 @@
                    <div class="badge" style="background:transparent; border:1px solid rgba(0,212,168,0.2); color:var(--accent); font-size:8px;">FEED</div>
                  </div>
                  <h2 style="font-size:20px; font-weight:700; margin-bottom:24px;">Recent Insights</h2>
-                 
-                 <div style="margin-bottom:24px;">
-                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                     <div style="font-size:8px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; font-weight:700;">MARKET SHIFT</div>
-                     <div style="font-size:9px; color:#ff4d6d; font-weight:700;">+0.25% LIBOR</div>
-                   </div>
-                   <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin-bottom:12px;">Interest rate movements detected in Eurozone markets.</p>
-                   <a role="button" tabindex="0" class="insight-link" id="link-recalculate" style="font-size:9px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none;">RECALCULATE</a>
-                 </div>
 
-                 <div class="divider" style="margin:20px 0; background:rgba(255,255,255,0.05);"></div>
-
-                 <div>
-                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                     <div style="font-size:8px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; font-weight:700;">OPPORTUNITY</div>
-                     <div style="font-size:9px; color:var(--accent); font-weight:700;">New Pool</div>
+                 <div id="advisor-insights-list">
+                   <div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                     <i class="ph ph-lightbulb" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                     Add debts and a few payments — fresh insights will surface here.
                    </div>
-                   <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin-bottom:12px;">Aggregated yield for Strategy B has increased to 4.8%.</p>
-                   <a role="button" tabindex="0" class="insight-link" id="link-view-breakdown" style="font-size:9px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none;">VIEW BREAKDOWN</a>
                  </div>
                </div>
 
@@ -2765,17 +2433,17 @@
                 </div>
                 <div style="text-align:right;">
                   <div style="font-size:10px; color:var(--text-3); margin-bottom:4px;">Monthly Take-Home</div>
-                  <div style="font-size:24px; font-weight:900; color:var(--accent);" id="paycheck-total">$6,200</div>
+                  <div style="font-size:24px; font-weight:900; color:var(--accent);" id="paycheck-total">$0</div>
                 </div>
               </div>
 
               <!-- Waterfall Bar -->
               <div style="margin-bottom:20px;">
-                <div style="display:flex; height:14px; border-radius:8px; overflow:hidden; gap:2px;" id="paycheck-bar">
-                  <div style="width:45%; background:#ff4d6d; border-radius:6px 0 0 6px; transition:width 0.6s ease;" id="bar-bills"></div>
-                  <div style="width:25%; background:#667eea; transition:width 0.6s ease;" id="bar-budget"></div>
-                  <div style="width:15%; background:#00d4a8; transition:width 0.6s ease;" id="bar-savings"></div>
-                  <div style="width:15%; background:#ffab40; border-radius:0 6px 6px 0; transition:width 0.6s ease;" id="bar-investing"></div>
+                <div style="display:flex; height:14px; border-radius:8px; overflow:hidden; gap:2px; background:var(--card-2);" id="paycheck-bar">
+                  <div style="width:0%; background:#ff4d6d; border-radius:6px 0 0 6px; transition:width 0.6s ease;" id="bar-bills"></div>
+                  <div style="width:0%; background:#667eea; transition:width 0.6s ease;" id="bar-budget"></div>
+                  <div style="width:0%; background:#00d4a8; transition:width 0.6s ease;" id="bar-savings"></div>
+                  <div style="width:0%; background:#ffab40; border-radius:0 6px 6px 0; transition:width 0.6s ease;" id="bar-investing"></div>
                 </div>
               </div>
 
@@ -2787,11 +2455,11 @@
                     <div style="width:10px; height:10px; border-radius:50%; background:#ff4d6d; flex-shrink:0;"></div>
                     <span style="font-size:11px; font-weight:700; color:#ff4d6d; text-transform:uppercase; letter-spacing:0.06em;">Bills & Essentials</span>
                   </div>
-                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="bills-amount">$2,790</div>
-                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="bills-pct">45% of income</div>
+                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="bills-amount">$0</div>
+                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="bills-pct">0% of income</div>
                   <div style="font-size:9px; color:var(--text-3); margin-bottom:6px;">Rent, utilities, insurance, debt minimums</div>
                   <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:4px;"><span style="color:var(--text-3);">Target</span><span style="color:#ff4d6d;">50%</span></div>
-                  <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:90%; background:#ff4d6d; border-radius:2px;"></div></div>
+                  <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:0%; background:#ff4d6d; border-radius:2px;"></div></div>
                 </div>
                 <!-- Budget -->
                 <div style="background:rgba(102,126,234,0.07); border:1px solid rgba(102,126,234,0.2); border-radius:12px; padding:16px;" id="bucket-budget">
@@ -2799,11 +2467,11 @@
                     <div style="width:10px; height:10px; border-radius:50%; background:#667eea; flex-shrink:0;"></div>
                     <span style="font-size:11px; font-weight:700; color:#667eea; text-transform:uppercase; letter-spacing:0.06em;">Budget & Lifestyle</span>
                   </div>
-                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="budget-amount">$1,550</div>
-                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="budget-pct">25% of income</div>
+                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="budget-amount">$0</div>
+                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="budget-pct">0% of income</div>
                   <div style="font-size:9px; color:var(--text-3); margin-bottom:6px;">Food, entertainment, subscriptions, shopping</div>
                   <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:4px;"><span style="color:var(--text-3);">Target</span><span style="color:#667eea;">30%</span></div>
-                  <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:83%; background:#667eea; border-radius:2px;"></div></div>
+                  <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:0%; background:#667eea; border-radius:2px;"></div></div>
                 </div>
                 <!-- Savings -->
                 <div style="background:rgba(0,212,168,0.07); border:1px solid rgba(0,212,168,0.2); border-radius:12px; padding:16px;" id="bucket-savings">
@@ -2811,11 +2479,11 @@
                     <div style="width:10px; height:10px; border-radius:50%; background:#00d4a8; flex-shrink:0;"></div>
                     <span style="font-size:11px; font-weight:700; color:#00d4a8; text-transform:uppercase; letter-spacing:0.06em;">Savings</span>
                   </div>
-                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="savings-amount">$930</div>
-                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="savings-pct">15% of income</div>
+                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="savings-amount">$0</div>
+                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="savings-pct">0% of income</div>
                   <div style="font-size:9px; color:var(--text-3); margin-bottom:6px;">Emergency fund, short-term goals, HYSA</div>
                   <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:4px;"><span style="color:var(--text-3);">Target</span><span style="color:#00d4a8;">10%</span></div>
-                  <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:100%; background:#00d4a8; border-radius:2px;"></div></div>
+                  <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:0%; background:#00d4a8; border-radius:2px;"></div></div>
                 </div>
                 <!-- Investing -->
                 <div style="background:rgba(255,171,64,0.07); border:1px solid rgba(255,171,64,0.2); border-radius:12px; padding:16px;" id="bucket-investing">
@@ -2823,8 +2491,8 @@
                     <div style="width:10px; height:10px; border-radius:50%; background:#ffab40; flex-shrink:0;"></div>
                     <span style="font-size:11px; font-weight:700; color:#ffab40; text-transform:uppercase; letter-spacing:0.06em;">Investing</span>
                   </div>
-                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="investing-amount">$930</div>
-                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="investing-pct">15% of income</div>
+                  <div style="font-size:24px; font-weight:900; color:var(--text); margin-bottom:4px;" id="investing-amount">$0</div>
+                  <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;" id="investing-pct">0% of income</div>
                   <div style="font-size:9px; color:var(--text-3); margin-bottom:6px;">401k, IRA, brokerage, index funds</div>
                   <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:4px;"><span style="color:var(--text-3);">Target</span><span style="color:#ffab40;">10%</span></div>
                   <div style="height:3px; background:var(--card-2); border-radius:2px;"><div style="height:3px; width:100%; background:#ffab40; border-radius:2px;"></div></div>
@@ -2855,16 +2523,16 @@
                 </div>
                 <div id="expense-tooltip" style="text-align:right; min-width:120px;">
                   <div style="font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em;">Total Spent</div>
-                  <div style="font-size:20px; font-weight:900; color:var(--text);">$4,820</div>
+                  <div style="font-size:20px; font-weight:900; color:var(--text);" id="expense-total-spent">$0</div>
                 </div>
               </div>
               <div style="display:grid; grid-template-columns:160px 1fr; gap:24px; align-items:center;">
                 <div style="position:relative; width:160px; height:160px;">
                   <canvas id="budgetDonut" width="160" height="160"></canvas>
                   <div class="donut-center" id="donut-center-info">
-                    <div style="font-size:11px; font-weight:800; color:var(--text);" id="donut-cat-name">Housing</div>
-                    <div style="font-size:18px; font-weight:900; color:var(--accent);" id="donut-cat-amt">$2,169</div>
-                    <div style="font-size:9px; color:var(--text-3);" id="donut-cat-pct">45%</div>
+                    <div style="font-size:11px; font-weight:800; color:var(--text);" id="donut-cat-name">—</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--accent);" id="donut-cat-amt">$0</div>
+                    <div style="font-size:9px; color:var(--text-3);" id="donut-cat-pct">0%</div>
                   </div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:10px;" id="expense-legend">
@@ -2880,62 +2548,9 @@
                 <div style="font-size:10px; color:var(--text-3);">Track your financial milestones</div>
               </div>
               <div style="display:flex; flex-direction:column; gap:14px;" id="savings-goals-list">
-                <!-- Emergency Fund -->
-                <div style="background:var(--card-2); border-radius:10px; padding:14px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <i class="ph-fill ph-shield-check" style="color:#00d4a8; font-size:16px;"></i>
-                      <span style="font-size:12px; font-weight:700;">Emergency Fund</span>
-                    </div>
-                    <div style="text-align:right;">
-                      <div style="font-size:11px; font-weight:800;">$8,400 <span style="color:var(--text-3); font-weight:400;">/ $18,600</span></div>
-                      <div style="font-size:9px; color:#00d4a8;">6 months living expenses</div>
-                    </div>
-                  </div>
-                  <div style="height:6px; background:var(--bg); border-radius:3px; margin-bottom:6px;">
-                    <div style="height:6px; width:45%; background:linear-gradient(90deg,#00d4a8,#00b894); border-radius:3px; transition:width 0.8s ease;"></div>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-3);">
-                    <span>45% funded</span><span>~11 months at current rate</span>
-                  </div>
-                </div>
-                <!-- Vacation Fund -->
-                <div style="background:var(--card-2); border-radius:10px; padding:14px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <i class="ph-fill ph-airplane" style="color:#667eea; font-size:16px;"></i>
-                      <span style="font-size:12px; font-weight:700;">Travel Fund</span>
-                    </div>
-                    <div style="text-align:right;">
-                      <div style="font-size:11px; font-weight:800;">$1,200 <span style="color:var(--text-3); font-weight:400;">/ $3,000</span></div>
-                      <div style="font-size:9px; color:#667eea;">Target: December 2026</div>
-                    </div>
-                  </div>
-                  <div style="height:6px; background:var(--bg); border-radius:3px; margin-bottom:6px;">
-                    <div style="height:6px; width:40%; background:linear-gradient(90deg,#667eea,#764ba2); border-radius:3px; transition:width 0.8s ease;"></div>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-3);">
-                    <span>40% funded</span><span>~8 months to goal</span>
-                  </div>
-                </div>
-                <!-- Investment Goal -->
-                <div style="background:var(--card-2); border-radius:10px; padding:14px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <i class="ph-fill ph-trend-up" style="color:#ffab40; font-size:16px;"></i>
-                      <span style="font-size:12px; font-weight:700;">Investment Portfolio</span>
-                    </div>
-                    <div style="text-align:right;">
-                      <div style="font-size:11px; font-weight:800;">$14,200 <span style="color:var(--text-3); font-weight:400;">/ $50,000</span></div>
-                      <div style="font-size:9px; color:#ffab40;">Target: Dec 2028</div>
-                    </div>
-                  </div>
-                  <div style="height:6px; background:var(--bg); border-radius:3px; margin-bottom:6px;">
-                    <div style="height:6px; width:28%; background:linear-gradient(90deg,#ffab40,#f9a825); border-radius:3px; transition:width 0.8s ease;"></div>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-3);">
-                    <span>28% funded</span><span>On track</span>
-                  </div>
+                <div style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                  <i class="ph ph-target" style="font-size:32px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                  No savings goals yet. Add your first goal — emergency fund, travel, investments — to start tracking.
                 </div>
               </div>
             </div>
@@ -2977,22 +2592,13 @@
                 </div>
                 <div>
                   <div style="font-size:14px; font-weight:800;">AI Budget Coach</div>
-                  <div style="font-size:10px; color:var(--text-3);">3 insights for this month</div>
+                  <div id="ai-budget-coach-count" style="font-size:10px; color:var(--text-3);">No insights yet</div>
                 </div>
               </div>
               <div style="display:flex; flex-direction:column; gap:12px;" id="ai-budget-coach-tips">
-                <!-- Populated by JS -->
-                <div style="display:flex; gap:10px; align-items:flex-start; padding:10px; background:rgba(255,77,109,0.06); border-radius:8px; border-left:3px solid #ff4d6d;">
-                  <i class="ph ph-warning" style="color:#ff4d6d; font-size:14px; flex-shrink:0; margin-top:1px;"></i>
-                  <p style="font-size:11px; color:var(--text-2); line-height:1.5;">You're 18 days in and <strong>74% through</strong> your Food budget. Reducing dining out by 2× this week keeps you on track.</p>
-                </div>
-                <div style="display:flex; gap:10px; align-items:flex-start; padding:10px; background:rgba(0,212,168,0.06); border-radius:8px; border-left:3px solid #00d4a8;">
-                  <i class="ph ph-trend-up" style="color:#00d4a8; font-size:14px; flex-shrink:0; margin-top:1px;"></i>
-                  <p style="font-size:11px; color:var(--text-2); line-height:1.5;">Adding <strong>$200 more to savings</strong> this month would hit your 3-month emergency buffer by September.</p>
-                </div>
-                <div style="display:flex; gap:10px; align-items:flex-start; padding:10px; background:rgba(255,171,64,0.06); border-radius:8px; border-left:3px solid #ffab40;">
-                  <i class="ph ph-lightbulb" style="color:#ffab40; font-size:14px; flex-shrink:0; margin-top:1px;"></i>
-                  <p style="font-size:11px; color:var(--text-2); line-height:1.5;">Your investing bucket is <strong>5% above target</strong> — great discipline. Consider opening a Roth IRA for the excess.</p>
+                <div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                  <i class="ph ph-brain" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                  Add income & expenses to receive personalized budget coaching.
                 </div>
               </div>
               <button class="btn btn-primary" id="btn-refresh-coach" style="width:100%; margin-top:16px; font-size:11px; padding:10px;">
@@ -3009,24 +2615,24 @@
                   <div class="card-label" style="color:var(--accent)">Savings Rate</div>
                   <i class="ph ph-trend-up" style="font-size:18px; color:var(--accent)"></i>
                 </div>
-                <div class="budget-stat-value">24.8%</div>
-                <div class="stat-pill up" style="margin-top:4px;"><i class="ph ph-arrow-up"></i> 3.2% from last month</div>
+                <div class="budget-stat-value" id="bdg-savings-rate">0%</div>
+                <div class="card-sub" id="bdg-savings-rate-sub">Add income & expenses to track.</div>
               </div>
               <div class="budget-stat-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <div class="card-label" style="color:var(--accent)">Debt-to-Income</div>
                   <i class="ph ph-bank" style="font-size:18px; color:var(--accent)"></i>
                 </div>
-                <div class="budget-stat-value">32.1%</div>
-                <div class="card-sub">Healthy range (below 35%)</div>
+                <div class="budget-stat-value" id="bdg-dti-ratio">0%</div>
+                <div class="card-sub" id="bdg-dti-sub">Add income & debts to calculate.</div>
               </div>
               <div class="budget-stat-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <div class="card-label" style="color:var(--accent)">Spending Velocity</div>
                   <i class="ph ph-pencil-simple" style="font-size:18px; color:var(--accent)"></i>
                 </div>
-                <div class="budget-stat-value">$142<span style="font-size:14px; font-weight:500">/day</span></div>
-                <div class="card-sub">On track for monthly goal</div>
+                <div class="budget-stat-value" id="bdg-spending-velocity">$0<span style="font-size:14px; font-weight:500">/day</span></div>
+                <div class="card-sub" id="bdg-spending-velocity-sub">Log transactions to see velocity.</div>
               </div>
             </div>
 
@@ -3045,78 +2651,15 @@
                   <div style="position:relative; width:180px; height:180px;">
                     <canvas id="budgetDonut" width="180" height="180"></canvas>
                     <div class="donut-center">
-                      <div class="donut-val" style="font-size:24px; font-weight:900;">$4,820</div>
+                      <div class="donut-val" id="bdg-donut-total" style="font-size:24px; font-weight:900;">$0</div>
                       <div class="card-sub" style="font-size:9px; margin-top:2px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Total Liquidity</div>
                     </div>
                   </div>
-                  
-                  <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#00d4a8; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Housing</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$2,169 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(45%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:45%; background:#00d4a8;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Fixed Liability</span>
-                        <span style="color:var(--text-3); display:flex; align-items:center; gap:3px;"><i class="ph ph-check-circle" style="color:#00d4a8;"></i> Optimal</span>
-                      </div>
-                    </div>
 
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#667eea; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Strategy Fund (Savings)</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$964 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(20%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:20%; background:#667eea;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Growth Asset</span>
-                        <span style="color:#00d4a8; display:flex; align-items:center; gap:3px;"><i class="ph ph-trend-up"></i> +2.4% Momentum</span>
-                      </div>
-                    </div>
-
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#ff4d6d; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Lifestyle & Food</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$578 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(12%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:12%; background:#ff4d6d;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Managed Variable</span>
-                        <span style="color:#00d4a8; display:flex; align-items:center; gap:3px;"><i class="ph ph-trend-down"></i> Efficiency +8%</span>
-                      </div>
-                    </div>
-
-                    <div class="allocation-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                          <div class="legend-dot" style="background:#ffab40; width:8px; height:8px;"></div>
-                          <span style="font-size:12px; font-weight:700;">Uncategorized / Debt Payoff</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:800;">$1,109 <span style="font-size:10px; color:var(--text-3); font-weight:500;">(23%)</span></div>
-                      </div>
-                      <div class="progress-bar" style="height:4px; background:var(--card-2);">
-                        <div class="progress-fill" style="width:23%; background:#ffab40;"></div>
-                      </div>
-                      <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px;">
-                        <span style="color:var(--text-3);">Status: Strategic Overflow</span>
-                        <span style="color:var(--warning); display:flex; align-items:center; gap:3px;"><i class="ph ph-info"></i> Higher Exit ROI available</span>
-                      </div>
+                  <div id="bdg-allocation-list" style="display:flex; flex-direction:column; gap:14px;">
+                    <div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
+                      <i class="ph ph-chart-pie-slice" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                      No expense categories yet. Add transactions or recurring payments to see your allocation breakdown.
                     </div>
                   </div>
                 </div>
@@ -3157,49 +2700,11 @@
                     <th>Amount</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr data-txn-index="0" style="cursor:pointer; transition:background 0.18s;" onmouseenter="this.style.background='rgba(0,212,168,0.06)'" onmouseleave="this.style.background=''" onclick="openTransactionDetail(0)">
-                    <td style="color:var(--text-3)">Oct 24, 2023</td>
-                    <td style="font-weight:600">Amazon Web Services</td>
-                    <td><div class="badge badge-primary">Business</div></td>
-                    <td><span style="font-size:10px; font-weight:700; color:var(--accent);">&#10003; Completed</span></td>
-                    <td style="font-weight:700; color:var(--danger)">-$420.00</td>
-                  </tr>
-                  <tr data-txn-index="2" style="cursor:pointer; transition:background 0.18s;" onmouseenter="this.style.background='rgba(0,212,168,0.06)'" onmouseleave="this.style.background=''" onclick="openTransactionDetail(2)">
-                    <td style="color:var(--text-3)">Oct 22, 2023</td>
-                    <td style="font-weight:600">Whole Foods Market</td>
-                    <td><div class="badge" style="background:rgba(255,77,109,0.15); color:#ff4d6d">Food</div></td>
-                    <td><span style="font-size:10px; font-weight:700; color:var(--accent);">&#10003; Completed</span></td>
-                    <td style="font-weight:700; color:var(--danger)">-$156.40</td>
-                  </tr>
-                  <tr data-txn-index="3" style="cursor:pointer; transition:background 0.18s;" onmouseenter="this.style.background='rgba(0,212,168,0.06)'" onmouseleave="this.style.background=''" onclick="openTransactionDetail(3)">
-                    <td style="color:var(--text-3)">Oct 20, 2023</td>
-                    <td style="font-weight:600">Tesla Supercharger</td>
-                    <td><div class="badge" style="background:rgba(102,126,234,0.15); color:#667eea;">Transport</div></td>
-                    <td><span style="font-size:10px; font-weight:700; color:var(--accent);">&#10003; Completed</span></td>
-                    <td style="font-weight:700; color:var(--danger)">-$32.00</td>
-                  </tr>
-                  <tr data-txn-index="5" style="cursor:pointer; transition:background 0.18s;" onmouseenter="this.style.background='rgba(0,212,168,0.06)'" onmouseleave="this.style.background=''" onclick="openTransactionDetail(5)">
-                    <td style="color:var(--text-3)">Oct 19, 2023</td>
-                    <td style="font-weight:600">Verizon Wireless</td>
-                    <td><div class="badge" style="background:rgba(255,171,64,0.15); color:var(--warning)">Utilities</div></td>
-                    <td><span style="font-size:10px; font-weight:700; color:var(--warning);">&#9679; Pending</span></td>
-                    <td style="font-weight:700; color:var(--danger)">-$112.99</td>
-                  </tr>
-                  <tr data-txn-index="4" style="cursor:pointer; transition:background 0.18s;" onmouseenter="this.style.background='rgba(0,212,168,0.06)'" onmouseleave="this.style.background=''" onclick="openTransactionDetail(4)">
-                    <td style="color:var(--text-3)">Oct 18, 2023</td>
-                    <td style="font-weight:600">Chase Sapphire Payment</td>
-                    <td><div class="badge" style="background:rgba(0,212,168,0.15); color:var(--accent)">Paydown</div></td>
-                    <td><span style="font-size:10px; font-weight:700; color:var(--accent);">&#10003; Completed</span></td>
-                    <td style="font-weight:700; color:var(--accent)">+$1,500.00</td>
-                  </tr>
-                  <tr data-txn-index="6" style="cursor:pointer; transition:background 0.18s;" onmouseenter="this.style.background='rgba(255,77,109,0.06)'" onmouseleave="this.style.background=''" onclick="openTransactionDetail(6)">
-                    <td style="color:var(--text-3)">Oct 14, 2023</td>
-                    <td style="font-weight:600">Sallie Mae Monthly</td>
-                    <td><div class="badge" style="background:rgba(255,77,109,0.15); color:#ff4d6d">Student Loan</div></td>
-                    <td><span style="font-size:10px; font-weight:700; color:var(--danger);">&#9888; Failed</span></td>
-                    <td style="font-weight:700; color:var(--danger)">-$450.00</td>
-                  </tr>
+                <tbody id="budget-txn-tbody">
+                  <tr><td colspan="5" style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px;">
+                    <i class="ph ph-receipt" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                    No transactions yet. Connect a bank or add one manually to get started.
+                  </td></tr>
                 </tbody>
               </table>
             </div>
@@ -3217,35 +2722,24 @@
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px;">
                 <div>
                   <p style="font-size:12px; color:var(--text-2); line-height:1.7;">
-                    Based on your spending patterns from the last 30 days, your cash flow efficiency has increased by <span style="color:var(--accent); font-weight:700; text-decoration:underline">8.4%</span>. Your current trajectory suggests you can reach your next debt milestone 12 days ahead of schedule by maintaining your current savings rate.
+                    Add your income, expenses, and a few transactions — your spending patterns and savings trajectory will be analyzed here.
                   </p>
                 </div>
                 <div>
                   <div class="ai-perf-grid" style="grid-template-columns:1fr 1fr; gap:12px;">
                     <div class="ai-perf-metric">
                       <div class="ai-perf-label">Expense Efficiency</div>
-                      <div class="ai-perf-val" style="color:#00d4a8">+1.1x Baseline</div>
+                      <div class="ai-perf-val" style="color:var(--text-3)">—</div>
                     </div>
                     <div class="ai-perf-metric">
                       <div class="ai-perf-label">Savings Target Alignment</div>
-                      <div class="ai-perf-val" style="color:#00d4a8">96% Accuracy</div>
+                      <div class="ai-perf-val" style="color:var(--text-3)">—</div>
                     </div>
                     <div class="ai-perf-metric">
                       <div class="ai-perf-label">Financial Wellness Tier</div>
-                      <div class="ai-perf-val" style="color:#667eea">Emerald Class</div>
+                      <div class="ai-perf-val" style="color:var(--text-3)">—</div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div class="card-sub" style="margin-top:12px; font-size:10px; color:var(--text-3); line-height:1.5; font-style:italic;">
-                "AI Recommendation: Reduce Food & Dining by 5% to accelerate debt payoff. This small adjustment would free up an additional $240/month for high-interest liabilities."
-              </div>
-
-              <div style="background:rgba(0,212,168,0.08); border:1px solid var(--border-accent); border-radius:var(--radius-sm); padding:12px 16px; margin-top:14px;">
-                <div class="badge badge-accent" style="font-size:8px; margin-bottom:6px;">Performance Achievement</div>
-                <div style="font-size:11px; color:var(--text-2); line-height:1.5;">
-                  Your savings rate is up 3.2% this month—great job! You've successfully lowered non-essential spending for 3 consecutive weeks.
                 </div>
               </div>
             </div>
@@ -4827,7 +4321,7 @@
 </div>
 
 
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30-fresh"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
