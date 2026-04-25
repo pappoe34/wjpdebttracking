@@ -5253,9 +5253,9 @@ function renderStrategyIndicators() {
         hybrid: {
             icon: 'ph-shuffle',
             color: '#ffab40',
-            why: 'Balances mathematical savings with psychological wins by weighting both APR and balance together. Targets accounts where the interest-to-balance ratio is highest — giving you efficiency and motivation.',
+            why: 'Attacks the biggest monthly interest dollars first — combines balance and APR into one number (balance × APR) and pays them off top-to-bottom in that order until you\'re debt-free. A $10K loan at 18% ($150/mo bleed) ranks ahead of a $500 card at 30% ($13/mo bleed) because it\'s costing you more every month.',
             benefit: 'Best for: A balanced approach when you want both speed and savings.',
-            sort: (a, b) => (b.apr / Math.max(1, b.balance)) - (a.apr / Math.max(1, a.balance))
+            sort: (a, b) => (b.balance * b.apr) - (a.balance * a.apr)
         },
         avalanche: {
             icon: 'ph-mountains',
@@ -5383,27 +5383,17 @@ window.addEventListener('resize', () => {
  *
  *  • Snowball   → smallest balance first. Quick psychological wins.
  *
- *  • Avalanche  → highest APR% first. MATHEMATICALLY OPTIMAL — produces the
- *                 lowest total interest paid, period. Every $1 paid against
- *                 a high-APR debt saves more in future interest than the same
- *                 dollar against a low-APR debt, regardless of balance. So a
- *                 $500 card at 30% ranks ahead of a $10K loan at 18% — the 30%
- *                 card's interest accrues per dollar at 67% faster.
- *                 Tie-breaker within same APR: bigger balance (more dollars
- *                 of bleed at that rate). This addresses Winston's "amount and
- *                 APR" instinct: APR drives the rank, balance breaks ties.
+ *  • Hybrid     → highest interest DOLLARS first (balance × APR). Combines
+ *                 amount and rate into a single "biggest monthly dollar bleed"
+ *                 metric. Top-to-bottom by that dollar drain until every debt
+ *                 is paid off. No bonuses, no extra weights — straight math.
+ *                 A $10K loan at 18% ($150/mo bleed) ranks ahead of a $500
+ *                 card at 30% ($13/mo bleed).
  *
- *  • Hybrid     → balance × APR (interest dollars) with quick-win bonus:
- *                   60% interest dollars (balance × APR — Winston's "amount AND APR")
- *                   30% small-balance bonus (quick wins)
- *                   10% payment efficiency (clears fast at min)
- *                 This is what "amount and APR" means as a single composite —
- *                 prioritizes biggest dollar-bleed debts. Sits between
- *                 Snowball and Avalanche but in some portfolios where small
- *                 debts coincidentally also have high APR, the math is close.
- *
- * EXPECTED OUTCOME: Avalanche total interest ≤ Hybrid ≤ Snowball total interest
- * (always, given any non-zero extra contribution). Avalanche is provably optimal.
+ *  • Avalanche  → highest APR% first. MATHEMATICALLY OPTIMAL for minimizing
+ *                 total interest paid. Every $1 paid against a high-APR debt
+ *                 saves more in future interest per dollar. Tie-breaker:
+ *                 bigger balance within same APR.
  *
  * Returns a NEW sorted array. Input is not mutated.
  */
@@ -5415,9 +5405,7 @@ function sortDebtsByStrategy(debts, strategy) {
         return list.sort((a, b) => (a.balance || 0) - (b.balance || 0));
     }
     if (strategy === 'avalanche') {
-        // PURE APR sort — mathematically optimal for minimizing total interest.
-        // Tie-breaker: bigger balance wins within same APR (bigger dollar bleed
-        // at the same rate is the higher-priority target).
+        // Pure APR sort. Tie-breaker: bigger balance.
         return list.sort((a, b) => {
             const aprDelta = (b.apr || 0) - (a.apr || 0);
             if (Math.abs(aprDelta) > 0.001) return aprDelta;
@@ -5425,26 +5413,15 @@ function sortDebtsByStrategy(debts, strategy) {
         });
     }
 
-    // Hybrid: interest-dollars-dominant blend with quick-win bonus.
-    const maxBleed = Math.max(0.01, ...list.map(d =>
-        (d.balance || 0) * (d.apr || 0)
-    ));
-    const minBal = Math.max(1, Math.min(...list.map(d => d.balance || Infinity)));
-
-    const score = (d) => {
-        const balance = Math.max(0, d.balance || 0);
-        const minPay = Math.max(0, d.minPayment || 0);
-        const apr = Math.max(0, d.apr || 0);
-
-        const bleedScore = (balance * apr) / maxBleed;
-        const balScore = minBal / Math.max(1, balance);
-        const annualMinAsPctOfBalance = balance > 0 ? Math.min(1, (minPay * 12) / balance) : 0;
-
-        return bleedScore * 0.60
-             + balScore * 0.30
-             + annualMinAsPctOfBalance * 0.10;
-    };
-    return list.sort((a, b) => score(b) - score(a));
+    // Hybrid: interest dollars only — balance × APR, descending.
+    // Tie-breaker: APR (per-dollar interest savings rate).
+    return list.sort((a, b) => {
+        const aBleed = (a.balance || 0) * (a.apr || 0);
+        const bBleed = (b.balance || 0) * (b.apr || 0);
+        const bleedDelta = bBleed - aBleed;
+        if (Math.abs(bleedDelta) > 0.01) return bleedDelta;
+        return (b.apr || 0) - (a.apr || 0);
+    });
 }
 
 /**
