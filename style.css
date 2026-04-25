@@ -5083,6 +5083,26 @@ body.dark .top-header{
     margin-top: 14px;
   }
 
+  /* Visual Interface card — stack on mobile (was side-by-side row) */
+  .visual-iface-card{
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 18px !important;
+    align-items: stretch !important;
+  }
+  .visual-iface-card #theme-picker{
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  .visual-iface-card .theme-option{
+    padding: 11px 14px !important;
+    gap: 12px !important;
+  }
+  .visual-iface-card #btn-settings-customizer{
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
   /* --- HEADER LAYOUT ON PHONE ---------------------------------
      Grid: 3 columns (menu | brand | icons), 2 rows (chrome | tabs).
      Clean hierarchy, brand centered, tabs as segmented control.
