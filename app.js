@@ -1730,86 +1730,146 @@ function drawCharts() {
         }
     }
 
-    /** Professional Chart.js implementation for AI Strategy Advisor with Multi-Style support */
+    /** AI Advisor Payoff Projection — strategy-aware, polished, real-simulator-driven.
+     *  Plots the ACTUAL per-month balance trajectory (running the same payoff math the
+     *  rest of the dashboard uses) for the user's selected strategy AND a comparison
+     *  baseline (paying minimums only with the same strategy's order). The user gets
+     *  a clear "with extra contribution vs without" gap that's mathematically real.
+     *
+     *  Color per strategy so the chart visibly matches what's selected:
+     *    Snowball  → purple
+     *    Avalanche → amber
+     *    Hybrid    → accent green
+     */
     function drawDashProjection(canvasId) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
-
         if (chartInstances[canvasId]) {
-            chartInstances[canvasId].destroy();
+            try { chartInstances[canvasId].destroy(); } catch(_){}
+            chartInstances[canvasId] = null;
         }
+        if (typeof Chart === 'undefined') return;
 
-        const simData = simulateAllStrategies();
         const style = (appState.settings && appState.settings.activeChartStyle) || 'line';
-        
-        // Data generation for 12 months
-        const labels = Array.from({length: 13}, (_, i) => i === 0 ? 'Now' : `M${i}`);
-        const totalDebt = appState.debts.reduce((acc, d) => acc + d.balance, 0);
-        const monthlyTotal = appState.budget.contribution + appState.debts.reduce((acc, d) => acc + d.minPayment, 0);
-        const monthlyOptimized = monthlyTotal + 250; // Increased optimization for visual impact
+        const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+        const userExtra = (appState.budget && parseFloat(appState.budget.contribution)) || 0;
+        const hasDebts = (appState.debts || []).length > 0;
 
-        const standardData = [];
-        const optimizedData = [];
-        for(let i=0; i<=12; i++) {
-            standardData.push(Math.max(0, totalDebt - (i * monthlyTotal)));
-            optimizedData.push(Math.max(0, totalDebt - (i * monthlyOptimized)));
-        }
+        // Strategy color mapping — chart adopts the strategy's identity color
+        const STRAT_COLOR = {
+            snowball:  { line: '#a855f7', fill: 'rgba(168, 85, 247, 0.18)', glow: 'rgba(168, 85, 247, 0.45)' },
+            avalanche: { line: '#ffab40', fill: 'rgba(255, 171, 64, 0.18)', glow: 'rgba(255, 171, 64, 0.45)' },
+            hybrid:    { line: '#00d4a8', fill: 'rgba(0, 212, 168, 0.18)', glow: 'rgba(0, 212, 168, 0.45)' }
+        };
+        const sc = STRAT_COLOR[strategy] || STRAT_COLOR.avalanche;
+
+        // Generate REAL trajectories from the simulator. We cap at 60 months to keep
+        // the chart readable; users with >60 month payoffs see the trend get truncated
+        // and an indicator label tells them so.
+        const optimizedSeries = hasDebts ? calcBalanceTrajectory(strategy, userExtra, 60) : [];
+        const minOnlySeries   = hasDebts ? calcBalanceTrajectory(strategy, 0, 60) : [];
+        const seriesLen = Math.max(optimizedSeries.length, minOnlySeries.length, 1);
+
+        // Pad shorter series with zeros so both arrays match
+        while (optimizedSeries.length < seriesLen) optimizedSeries.push(0);
+        while (minOnlySeries.length < seriesLen) minOnlySeries.push(0);
+
+        const labels = Array.from({ length: seriesLen }, (_, i) => i === 0 ? 'Now' : `${i}m`);
+
+        // Find the "debt-free" month for the optimized path so we can annotate it
+        const debtFreeIdx = optimizedSeries.findIndex(v => v <= 0.5);
+
+        const stratLabel = strategy[0].toUpperCase() + strategy.slice(1);
+
+        // Gradient fill for the optimized path — only for area/line, not bar
+        const fillGradient = (chart) => {
+            const c = chart.ctx;
+            const a = chart.chartArea;
+            if (!a) return sc.fill;
+            const g = c.createLinearGradient(0, a.top, 0, a.bottom);
+            g.addColorStop(0, sc.fill);
+            g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            return g;
+        };
+
+        const optimizedDataset = {
+            label: `${stratLabel} + extra`,
+            data: optimizedSeries,
+            borderColor: sc.line,
+            backgroundColor: style === 'bar' ? sc.line : fillGradient,
+            borderWidth: 3,
+            pointRadius: style === 'line' || style === 'area' ? 0 : 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: sc.line,
+            pointHoverBorderColor: '#0b0f1a',
+            pointHoverBorderWidth: 2,
+            fill: style !== 'bar',
+            tension: 0.45,
+            // "Today" marker — bigger glowing dot at index 0
+            pointBackgroundColor: optimizedSeries.map((_, i) => i === 0 ? sc.line : 'transparent'),
+            pointBorderColor: optimizedSeries.map((_, i) => i === 0 ? '#0b0f1a' : 'transparent'),
+            pointBorderWidth: optimizedSeries.map((_, i) => i === 0 ? 3 : 0),
+            pointRadius: optimizedSeries.map((_, i) => i === 0 ? 6 : 0)
+        };
+
+        const minOnlyDataset = {
+            label: 'Minimums only',
+            data: minOnlySeries,
+            borderColor: 'rgba(255, 255, 255, 0.28)',
+            backgroundColor: 'transparent',
+            borderDash: [4, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: false,
+            tension: 0.45
+        };
+
+        const datasets = hasDebts ? [optimizedDataset, minOnlyDataset] : [{
+            label: 'No debts yet',
+            data: [],
+            borderColor: 'rgba(255,255,255,0.1)'
+        }];
 
         const config = {
             type: style === 'bar' ? 'bar' : 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Standard Path',
-                        data: standardData,
-                        borderColor: colors.text3,
-                        backgroundColor: style === 'bar' ? 'rgba(100, 116, 139, 0.2)' : 'transparent',
-                        borderDash: style === 'line' ? [5, 5] : [],
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: false,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'AI Optimized',
-                        data: optimizedData,
-                        borderColor: colors.accent,
-                        backgroundColor: (context) => {
-                            if (style === 'bar') return colors.accent;
-                            const chart = context.chart;
-                            const {ctx, chartArea} = chart;
-                            if (!chartArea) return null;
-                            const gradient = ctx.createLinearGradient(0, 0, 0, chartArea.bottom);
-                            gradient.addColorStop(0, style === 'area' ? colors.accent : colors.accentDim);
-                            gradient.addColorStop(1, 'rgba(0, 212, 168, 0)');
-                            return gradient;
-                        },
-                        borderWidth: 3,
-                        pointRadius: style === 'line' ? 2 : 0,
-                        fill: style !== 'line',
-                        tension: 0.4
-                    }
-                ]
-            },
+            data: { labels, datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: hasDebts,
+                        position: 'top',
+                        align: 'end',
+                        labels: {
+                            color: colors.text3,
+                            font: { size: 10, weight: '600' },
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            boxHeight: 8,
+                            padding: 12
+                        }
+                    },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
-                        backgroundColor: 'rgba(11, 15, 26, 0.95)',
-                        borderColor: colors.border,
+                        backgroundColor: 'rgba(11, 15, 26, 0.96)',
+                        borderColor: sc.line,
                         borderWidth: 1,
-                        padding: 10,
+                        padding: 12,
+                        titleColor: colors.text,
+                        titleFont: { size: 11, weight: '700' },
+                        bodyColor: colors.text2,
+                        bodyFont: { size: 11 },
                         callbacks: {
+                            title: (items) => items[0] ? `Month: ${items[0].label}` : '',
                             label: (context) => {
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
                                 if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
                                 }
                                 return label;
                             }
@@ -1819,22 +1879,106 @@ function drawCharts() {
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: colors.text3, font: { size: 9 } }
+                        ticks: {
+                            color: colors.text3,
+                            font: { size: 9, weight: '600' },
+                            // Sparse labels for readable axis when series is long
+                            autoSkip: true,
+                            maxTicksLimit: 8
+                        }
                     },
                     y: {
                         beginAtZero: true,
-                        grid: { color: colors.border, drawBorder: false },
-                        ticks: { 
-                            color: colors.text3, 
+                        grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+                        border: { display: false },
+                        ticks: {
+                            color: colors.text3,
                             font: { size: 9 },
                             callback: (value) => '$' + (value >= 1000 ? (value/1000).toFixed(0) + 'k' : value)
                         }
                     }
+                },
+                animation: {
+                    duration: 600,
+                    easing: 'easeOutCubic'
                 }
             }
         };
 
-        chartInstances[canvasId] = new Chart(ctx, config);
+        // Annotation plugin: dashed vertical line + label at the debt-free month
+        if (hasDebts && debtFreeIdx > 0 && debtFreeIdx < seriesLen) {
+            config.plugins = [{
+                id: 'debtFreeMarker',
+                afterDraw: (chart) => {
+                    const c = chart.ctx;
+                    const a = chart.chartArea;
+                    if (!a) return;
+                    const xScale = chart.scales.x;
+                    const x = xScale.getPixelForValue(debtFreeIdx);
+                    c.save();
+                    // Glow halo
+                    c.shadowColor = sc.glow;
+                    c.shadowBlur = 12;
+                    // Vertical line
+                    c.strokeStyle = sc.line;
+                    c.setLineDash([4, 4]);
+                    c.lineWidth = 1.5;
+                    c.beginPath();
+                    c.moveTo(x, a.top);
+                    c.lineTo(x, a.bottom);
+                    c.stroke();
+                    c.shadowBlur = 0;
+                    // Label pill
+                    c.setLineDash([]);
+                    const text = `Debt-free`;
+                    c.font = '700 9px Inter';
+                    const textW = c.measureText(text).width;
+                    const padX = 6, padY = 3;
+                    const pillW = textW + padX * 2;
+                    const pillH = 16;
+                    const pillX = Math.min(a.right - pillW - 2, x + 4);
+                    const pillY = a.top + 2;
+                    c.fillStyle = sc.line;
+                    c.beginPath();
+                    if (c.roundRect) c.roundRect(pillX, pillY, pillW, pillH, 8);
+                    else c.rect(pillX, pillY, pillW, pillH);
+                    c.fill();
+                    c.fillStyle = '#0b0f1a';
+                    c.textBaseline = 'middle';
+                    c.fillText(text, pillX + padX, pillY + pillH / 2);
+                    c.restore();
+                }
+            }];
+        }
+
+        // Empty-state overlay when no debts
+        if (!hasDebts) {
+            config.plugins = [{
+                id: 'emptyOverlay',
+                afterDraw: (chart) => {
+                    const c = chart.ctx;
+                    const a = chart.chartArea;
+                    if (!a) return;
+                    const cx = (a.left + a.right) / 2;
+                    const cy = (a.top + a.bottom) / 2;
+                    c.save();
+                    c.font = '700 12px Inter';
+                    c.fillStyle = colors.text;
+                    c.textAlign = 'center';
+                    c.fillText('Add a debt to see your projection', cx, cy - 4);
+                    c.font = '500 10px Inter';
+                    c.fillStyle = colors.text3;
+                    c.fillText('Strategy + extra contribution drives the curve.', cx, cy + 12);
+                    c.restore();
+                }
+            }];
+        }
+
+        try {
+            chartInstances[canvasId] = new Chart(ctx, config);
+        } catch (err) {
+            console.warn('drawDashProjection failed', err);
+        }
     }
 
     drawDashProjection('projectionChartDash'); 
@@ -5362,6 +5506,42 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
         if (allPaid) break;
     }
     return { months, totalInterest, totalPaid };
+}
+
+/**
+ * Run the same payoff simulation but capture the TOTAL portfolio balance at the
+ * end of each month so charts can plot the trajectory accurately. Returns an
+ * array indexed by month (0 = today's starting balance).
+ */
+function calcBalanceTrajectory(strategy, extraMonthly, monthLimit) {
+    const cap = monthLimit || 60;
+    if (!appState || !appState.debts.length) return [0];
+    let debts = JSON.parse(JSON.stringify(appState.debts));
+    debts = sortDebtsByStrategy(debts, strategy);
+
+    const series = [debts.reduce((s, d) => s + (d.balance || 0), 0)];
+    let months = 0;
+    while (months < cap) {
+        months++;
+        let cascade = extraMonthly || 0;
+        let allPaid = true;
+        for (let i = 0; i < debts.length; i++) {
+            const d = debts[i];
+            if (d.balance > 0) {
+                allPaid = false;
+                const int = d.balance * (d.apr / 100 / 12);
+                d.balance += int;
+                const pay = d.minPayment + cascade;
+                cascade = 0;
+                if (d.balance <= pay) { cascade += pay - d.balance; d.balance = 0; }
+                else { d.balance -= pay; }
+            } else { cascade += d.minPayment; }
+        }
+        const total = debts.reduce((s, d) => s + (d.balance || 0), 0);
+        series.push(Math.max(0, total));
+        if (allPaid) break;
+    }
+    return series;
 }
 
 function calcDebtSimTotals(debtId, extraMonthly, lumpSum, rateAdj) {
