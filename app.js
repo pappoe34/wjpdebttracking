@@ -8628,6 +8628,101 @@ function initAdvisorPageLogic() {
         window.location.reload();
     };
 
+    // ── 11c. Wipe All Data ─────────────────────────────────────
+    // Clears every debt, transaction, recurring payment, and notification
+    // while keeping the user's account intact. Triple confirmation: must
+    // click button → confirmation modal → type WIPE.
+    document.getElementById('btn-settings-wipe-data')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:20px;';
+        modal.innerHTML = `<div style="background:var(--card);border:1px solid rgba(255,171,64,0.35);border-radius:16px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);font-family:inherit;">
+          <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,171,64,0.12);border:1px solid rgba(255,171,64,0.35);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+            <i class="ph-fill ph-broom" style="color:#ffab40;font-size:24px;"></i>
+          </div>
+          <div style="font-size:19px;font-weight:900;margin-bottom:8px;color:var(--text);">Wipe all your data?</div>
+          <div style="font-size:12px;color:var(--text-3);line-height:1.6;margin-bottom:18px;">
+            This will permanently delete every debt, transaction, recurring payment, and notification on your account.
+            <br><br>
+            <strong style="color:var(--text);">Your account stays.</strong> Your data does not. <strong style="color:#ffab40;">This cannot be undone.</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text-2);text-align:left;margin-bottom:8px;font-weight:600;">Type <span style="color:#ffab40;font-weight:800;">WIPE</span> to confirm:</div>
+          <input id="wjp-wipe-confirm" type="text" autocomplete="off"
+            style="width:100%;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:14px;outline:none;letter-spacing:0.1em;font-family:inherit;box-sizing:border-box;" />
+          <div id="wjp-wipe-error" style="font-size:11px;color:#ff4d6d;margin-bottom:12px;display:none;"></div>
+          <div style="display:flex;gap:12px;">
+            <button id="wjp-wipe-cancel" style="flex:1;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">CANCEL</button>
+            <button id="wjp-wipe-confirm-btn" disabled style="flex:1;padding:12px;background:#ffab40;border:none;border-radius:8px;color:#0b0f1a;font-size:11px;font-weight:800;cursor:not-allowed;opacity:0.45;font-family:inherit;">WIPE EVERYTHING</button>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+
+        const input   = modal.querySelector('#wjp-wipe-confirm');
+        const confirmBtn = modal.querySelector('#wjp-wipe-confirm-btn');
+        const cancel  = modal.querySelector('#wjp-wipe-cancel');
+        const errEl   = modal.querySelector('#wjp-wipe-error');
+
+        const refresh = () => {
+            const ok = input.value.trim().toUpperCase() === 'WIPE';
+            confirmBtn.disabled = !ok;
+            confirmBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
+            confirmBtn.style.opacity = ok ? '1' : '0.45';
+        };
+        input.addEventListener('input', refresh);
+        setTimeout(() => input.focus(), 40);
+        cancel.addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
+
+        confirmBtn.addEventListener('click', () => {
+            if (confirmBtn.disabled) return;
+            try {
+                // Reset all financial collections to their defaults — keep settings + prefs + auth
+                if (typeof appState !== 'undefined') {
+                    appState.debts = [];
+                    appState.transactions = [];
+                    appState.recurringPayments = [];
+                    appState.notifications = [];
+                    appState.creditScoreHistory = [];
+                    appState.processedTxIds = [];
+                    appState.lastRecurringSync = 0;
+                    if (appState.balances) {
+                        appState.balances.monthlyIncome = 0;
+                        appState.balances.availableCashflow = 0;
+                    }
+                    if (appState.budget) {
+                        appState.budget.contribution = 0;
+                        appState.budget.targetGoal = 0;
+                        appState.budget.savingsRatio = 0;
+                        if (appState.budget.expenses) {
+                            appState.budget.expenses.housing = 0;
+                            appState.budget.expenses.food = 0;
+                            appState.budget.expenses.transit = 0;
+                            appState.budget.expenses.disc = 0;
+                        }
+                    }
+                }
+                // Clear Plaid-sandbox-related local caches too
+                try { localStorage.removeItem('wjp_credit_inputs'); } catch(_){}
+                try { localStorage.removeItem('wjp_sim_state'); } catch(_){}
+                // Reset onboarding so the user can re-do the 60-second flow
+                try { localStorage.removeItem('wjp_onboarded'); } catch(_){}
+                try { saveState(); } catch(_){}
+                try { window.wjp && wjp.track && wjp.track('client_error', { where: 'data_wipe', msg: 'user_initiated' }); } catch(_){}
+
+                modal.remove();
+                if (typeof showToast === 'function') showToast('All data wiped — starting fresh');
+                // Force a hard refresh so every tab/widget rerenders cleanly
+                setTimeout(() => window.location.reload(), 600);
+            } catch (e) {
+                console.error('wipe failed', e);
+                if (errEl) {
+                    errEl.style.display = 'block';
+                    errEl.textContent = 'Wipe failed: ' + (e.message || 'unknown error');
+                }
+            }
+        });
+    });
+
     // ── 11b. Delete Account ───────────────────────────────────
     document.getElementById('btn-settings-delete-account')?.addEventListener('click', (e) => {
         e.preventDefault();

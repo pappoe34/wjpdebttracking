@@ -5300,6 +5300,83 @@ body.dark .top-header{
 }
 
 /* ============================================================
+   ACCOUNT ACTIONS sub-box (collapsible — Settings page)
+   Hosts Log out, Wipe data, and Delete account in one container.
+   ============================================================ */
+.account-actions #aa-toggle:hover{
+  background: rgba(255,77,109,0.04);
+}
+.account-actions .aa-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.account-actions .aa-row-text{
+  flex: 1;
+  min-width: 0;
+}
+.account-actions .aa-row-title{
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: -0.005em;
+}
+.account-actions .aa-row-desc{
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.account-actions .aa-btn{
+  flex-shrink: 0;
+  padding: 10px 16px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.account-actions .aa-btn-secondary{
+  background: rgba(255,77,109,0.08);
+  border: 1px solid rgba(255,77,109,0.32);
+  color: #ff4d6d;
+}
+.account-actions .aa-btn-secondary:hover{ background: rgba(255,77,109,0.14); }
+.account-actions .aa-btn-warn{
+  background: rgba(255,171,64,0.10);
+  border: 1px solid rgba(255,171,64,0.40);
+  color: #ffab40;
+}
+.account-actions .aa-btn-warn:hover{ background: rgba(255,171,64,0.18); }
+.account-actions .aa-btn-danger{
+  background: #ff4d6d;
+  border: 1px solid #ff4d6d;
+  color: #fff;
+}
+.account-actions .aa-btn-danger:hover{ background: #e83e5d; border-color: #e83e5d; }
+.account-actions .aa-divider{
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+@media (max-width: 560px) and (orientation: portrait){
+  .account-actions #aa-toggle{ padding: 16px 18px !important; }
+  .account-actions .aa-body{ padding: 14px 18px 18px !important; gap: 14px !important; }
+  .account-actions .aa-row{
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .account-actions .aa-btn{ width: 100% !important; justify-content: center !important; }
+}
+
+/* ============================================================
    DASHBOARD GREETING — "Welcome back, Winston." above the DFD hero
    ============================================================ */
 .dash-greeting{

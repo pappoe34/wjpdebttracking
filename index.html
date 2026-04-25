@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=63-stress">
+  <link rel="stylesheet" href="style.css?v=64-actions">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -3505,35 +3505,84 @@
               </div>
             </div>
 
-            <!-- Card 9: Session -->
-            <div class="card settings-journey-card" style="grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; gap:40px; padding:32px;">
-              <div style="flex:1;">
-                <div class="sjc-header" style="margin-bottom:16px;">
-                  <div class="sjc-icon-blob"><i class="ph-fill ph-power"></i></div>
-                  <div class="badge" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-3); font-size:8px;">SESSION</div>
+            <!-- Card 9 + 10 merged: Account Actions (collapsible) -->
+            <div class="card settings-journey-card account-actions" style="grid-column:1 / -1; padding:0; overflow:hidden; background:var(--bg); border:1px solid rgba(255,77,109,0.18);">
+              <!-- Click target: header row that toggles open -->
+              <button type="button" id="aa-toggle" aria-expanded="false" aria-controls="aa-body"
+                      style="width:100%; background:transparent; border:0; padding:20px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; font-family:inherit; text-align:left; color:var(--text);">
+                <div class="sjc-icon-blob" style="background:rgba(255,77,109,0.12); border-color:rgba(255,77,109,0.3); color:#ff4d6d;"><i class="ph-fill ph-warning-octagon"></i></div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:11px; font-weight:700; color:#ff4d6d; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px;">Account actions</div>
+                  <div style="font-size:14px; font-weight:800;">Log out, wipe data, or delete account</div>
+                  <div style="font-size:11px; color:var(--text-3); margin-top:3px;">Tap to expand — these actions are destructive.</div>
                 </div>
-                <h3 class="sjc-title" style="font-size:20px; margin-bottom:8px;">Log out</h3>
-                <p class="sjc-desc" style="max-width:360px; font-size:12px; color:var(--text-2); line-height:1.6;">Ends your session on this device. Your progress is saved automatically before you leave — pick up right where you left off next time you sign in.</p>
-              </div>
-              <div style="width:320px; display:flex; flex-direction:column; gap:10px;">
-                <button class="btn" id="btn-settings-logout" style="padding:14px; font-size:10px; font-weight:700; letter-spacing:0.05em; background:rgba(255,77,109,0.08); border:1px solid rgba(255,77,109,0.35); color:#ff4d6d; display:flex; justify-content:center; align-items:center; gap:8px; cursor:pointer;"><i class="ph ph-sign-out"></i> LOG OUT &amp; SAVE</button>
+                <i class="ph ph-caret-down aa-caret" style="color:var(--text-3); font-size:18px; transition:transform 0.25s;"></i>
+              </button>
+
+              <!-- Body: hidden by default, expanded on click -->
+              <div id="aa-body" class="aa-body" hidden style="border-top:1px solid var(--border); padding:18px 24px 22px; display:flex; flex-direction:column; gap:18px;">
+
+                <!-- Log out -->
+                <div class="aa-row">
+                  <div class="aa-row-text">
+                    <div class="aa-row-title">Log out</div>
+                    <div class="aa-row-desc">Ends your session on this device. Your progress is saved automatically.</div>
+                  </div>
+                  <button class="btn aa-btn aa-btn-secondary" id="btn-settings-logout">
+                    <i class="ph ph-sign-out"></i> Log out
+                  </button>
+                </div>
+
+                <div class="aa-divider"></div>
+
+                <!-- Wipe data (NEW — keeps account, clears all financial data) -->
+                <div class="aa-row">
+                  <div class="aa-row-text">
+                    <div class="aa-row-title">Wipe all my data</div>
+                    <div class="aa-row-desc">Clears every debt, transaction, recurring payment, and notification on this account. <strong style="color:#ffab40;">Account stays — data is gone.</strong> You'll start fresh on next sign-in.</div>
+                  </div>
+                  <button class="btn aa-btn aa-btn-warn" id="btn-settings-wipe-data">
+                    <i class="ph-fill ph-broom"></i> Wipe data
+                  </button>
+                </div>
+
+                <div class="aa-divider"></div>
+
+                <!-- Delete account (most destructive) -->
+                <div class="aa-row">
+                  <div class="aa-row-text">
+                    <div class="aa-row-title" style="color:#ff4d6d;">Delete my account</div>
+                    <div class="aa-row-desc">Permanently deletes your WJP account and all data. Asks you to type <strong style="color:#ff4d6d;">DELETE</strong> to confirm. <strong style="color:#ff4d6d;">Cannot be undone.</strong></div>
+                  </div>
+                  <button class="btn aa-btn aa-btn-danger" id="btn-settings-delete-account">
+                    <i class="ph-fill ph-trash"></i> Delete account
+                  </button>
+                </div>
+
               </div>
             </div>
 
-            <!-- Card 10: Danger Zone -->
-            <div class="card settings-journey-card" style="grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; gap:40px; padding:32px; background:var(--bg); border:1px solid rgba(255,77,109,0.25);">
-              <div style="flex:1;">
-                <div class="sjc-header" style="margin-bottom:16px;">
-                  <div class="sjc-icon-blob" style="background:rgba(255,77,109,0.12); border-color:rgba(255,77,109,0.3); color:#ff4d6d;"><i class="ph-fill ph-warning-octagon"></i></div>
-                  <div class="badge" style="background:transparent; border:1px solid rgba(255,77,109,0.35); color:#ff4d6d; font-size:8px;">DANGER ZONE</div>
-                </div>
-                <h3 class="sjc-title" style="font-size:20px; margin-bottom:8px;">Delete your account</h3>
-                <p class="sjc-desc" style="max-width:360px; font-size:12px; color:var(--text-2); line-height:1.6;">Permanently deletes your WJP account and wipes all local data on this device. You'll be asked to type <strong style="color:#ff4d6d;">DELETE</strong> to confirm. This cannot be undone.</p>
-              </div>
-              <div style="width:320px; display:flex; flex-direction:column; gap:10px;">
-                <button class="btn" id="btn-settings-delete-account" style="padding:14px; font-size:10px; font-weight:700; letter-spacing:0.05em; background:#ff4d6d; border:1px solid #ff4d6d; color:#fff; display:flex; justify-content:center; align-items:center; gap:8px; cursor:pointer;"><i class="ph-fill ph-trash"></i> DELETE MY ACCOUNT</button>
-              </div>
-            </div>
+            <script>
+            // Toggle the Account Actions sub-box on click
+            (function(){
+              var btn = document.getElementById('aa-toggle');
+              var body = document.getElementById('aa-body');
+              var caret = btn && btn.querySelector('.aa-caret');
+              if (!btn || !body) return;
+              btn.addEventListener('click', function(){
+                var isOpen = body.hasAttribute('hidden') ? false : true;
+                if (isOpen) {
+                  body.setAttribute('hidden', '');
+                  btn.setAttribute('aria-expanded', 'false');
+                  if (caret) caret.style.transform = 'rotate(0deg)';
+                } else {
+                  body.removeAttribute('hidden');
+                  btn.setAttribute('aria-expanded', 'true');
+                  if (caret) caret.style.transform = 'rotate(180deg)';
+                }
+              });
+            })();
+            </script>
           </div>
 
           <!-- Bottom Footer elements -->
@@ -4778,7 +4827,7 @@
 </div>
 
 
-  <script src="app.js?v=27"></script>
+  <script src="app.js?v=28"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
