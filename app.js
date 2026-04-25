@@ -2321,7 +2321,10 @@ function initModal() {
         if(updateCallback) updateCallback();
 
         if (mode === 'add-another') {
-            // KEEP MODAL OPEN — reset just this form, restore the button, show banner
+            // KEEP MODAL OPEN — reset this form, restore the button, scroll to top.
+            // Critical: scroll AFTER reset, focus with preventScroll so the browser
+            // doesn't auto-scroll the focused field back into view (which is what
+            // was leaving the modal halfway down with no top-of-form visible).
             flashSuccessBanner(successMsg || 'Saved. Keep adding more or click Done when finished.');
             setTimeout(() => {
                 form.reset();
@@ -2331,13 +2334,29 @@ function initModal() {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'none';
                 });
+                // Re-sync CC field visibility based on the just-reset type select
+                if (typeof syncDebtTypeFieldVisibility === 'function') syncDebtTypeFieldVisibility();
+                // Reset the CC savings-preview text so stale numbers from the last
+                // entry don't bleed into the next one
+                const sp = document.getElementById('debt-cc-savings-preview');
+                if (sp) sp.textContent = 'Fill in balance + APR + due day to see your projected savings.';
+
                 btn.innerHTML = originalText;
                 btn.style.backgroundColor = '';
                 btn.style.color = '';
                 btn.style.pointerEvents = '';
-                // Refocus first input for fast batch entry
+
+                // Snap modal scroll to the top BEFORE focusing the first field
+                resetModalScroll();
+                // Refocus first input — preventScroll keeps the modal at the top
                 const firstInput = form.querySelector('input:not([type=checkbox]), select');
-                if (firstInput) firstInput.focus();
+                if (firstInput) {
+                    try { firstInput.focus({ preventScroll: true }); }
+                    catch(_) { firstInput.focus(); }
+                }
+                // One more snap on the next paint in case any layout shift
+                // (banner appearing, sticky header settling) nudged scroll
+                requestAnimationFrame(resetModalScroll);
             }, 600);
             return;
         }
