@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=65-fresh">
+  <link rel="stylesheet" href="style.css?v=66-addmodal">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -3113,34 +3113,44 @@
         <div class="modal-close" id="modal-close"><i class="ph ph-x"></i></div>
       </div>
 
-      <!-- STEP 1: Picker (4 tiles) — Tier 1.2 -->
+      <!-- STEP 1: Picker — choose what to add -->
       <div id="entry-picker-step" style="display:block;">
-        <p style="font-size:12px; color:var(--text-3); margin:0 0 16px; line-height:1.5;">What would you like to add?</p>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <button type="button" class="entry-tile" data-route="credit-card" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
-            <div style="width:36px; height:36px; border-radius:10px; background:rgba(0,212,168,0.12); color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-credit-card" style="font-size:18px;"></i></div>
-            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Credit Card</div>
-            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Revolving balance with a credit limit.</div>
+        <p style="font-size:12px; color:var(--text-3); margin:0 0 16px; line-height:1.5;">What would you like to add? You can keep adding more after each save.</p>
+        <div class="entry-picker-grid" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+          <button type="button" class="entry-tile" data-route="credit-card" style="text-align:left; padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:32px; height:32px; border-radius:9px; background:rgba(0,212,168,0.12); color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="ph-fill ph-credit-card" style="font-size:16px;"></i></div>
+            <div style="font-size:12px; font-weight:800; margin-bottom:2px;">Credit Card</div>
+            <div style="font-size:10px; color:var(--text-3); line-height:1.4;">Revolving balance & limit.</div>
           </button>
-          <button type="button" class="entry-tile" data-route="loan" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
-            <div style="width:36px; height:36px; border-radius:10px; background:rgba(99,102,241,0.12); color:#818cf8; display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-bank" style="font-size:18px;"></i></div>
-            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Loan</div>
-            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Student, auto, mortgage, personal.</div>
+          <button type="button" class="entry-tile" data-route="loan" style="text-align:left; padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:32px; height:32px; border-radius:9px; background:rgba(99,102,241,0.12); color:#818cf8; display:flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="ph-fill ph-bank" style="font-size:16px;"></i></div>
+            <div style="font-size:12px; font-weight:800; margin-bottom:2px;">Loan</div>
+            <div style="font-size:10px; color:var(--text-3); line-height:1.4;">Student, auto, mortgage.</div>
           </button>
-          <button type="button" class="entry-tile" data-route="bank" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
-            <div style="width:36px; height:36px; border-radius:10px; background:rgba(245,158,11,0.12); color:#fbbf24; display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-buildings" style="font-size:18px;"></i></div>
-            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Bank Account</div>
-            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Checking or savings to link.</div>
+          <button type="button" class="entry-tile" data-route="transaction" style="text-align:left; padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:32px; height:32px; border-radius:9px; background:rgba(96,165,250,0.12); color:#60a5fa; display:flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="ph-fill ph-receipt" style="font-size:16px;"></i></div>
+            <div style="font-size:12px; font-weight:800; margin-bottom:2px;">Transaction</div>
+            <div style="font-size:10px; color:var(--text-3); line-height:1.4;">Payment or purchase.</div>
           </button>
-          <button type="button" class="entry-tile" data-route="transaction" style="text-align:left; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
-            <div style="width:36px; height:36px; border-radius:10px; background:rgba(96,165,250,0.12); color:#60a5fa; display:flex; align-items:center; justify-content:center; margin-bottom:10px;"><i class="ph-fill ph-receipt" style="font-size:18px;"></i></div>
-            <div style="font-size:13px; font-weight:800; margin-bottom:2px;">Transaction</div>
-            <div style="font-size:11px; color:var(--text-3); line-height:1.4;">Log a payment or purchase.</div>
+          <button type="button" class="entry-tile" data-route="income" style="text-align:left; padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:32px; height:32px; border-radius:9px; background:rgba(34,197,94,0.12); color:#22c55e; display:flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="ph-fill ph-trend-up" style="font-size:16px;"></i></div>
+            <div style="font-size:12px; font-weight:800; margin-bottom:2px;">Income</div>
+            <div style="font-size:10px; color:var(--text-3); line-height:1.4;">Paycheck, side hustle.</div>
+          </button>
+          <button type="button" class="entry-tile" data-route="recurring" style="text-align:left; padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:32px; height:32px; border-radius:9px; background:rgba(168,85,247,0.12); color:#a855f7; display:flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="ph-fill ph-arrows-clockwise" style="font-size:16px;"></i></div>
+            <div style="font-size:12px; font-weight:800; margin-bottom:2px;">Recurring</div>
+            <div style="font-size:10px; color:var(--text-3); line-height:1.4;">Subscription, bill, rent.</div>
+          </button>
+          <button type="button" class="entry-tile" data-route="bank" style="text-align:left; padding:14px; background:var(--card-2); border:1px solid var(--border); border-radius:12px; cursor:pointer; color:var(--text); font-family:inherit; transition:all .15s;">
+            <div style="width:32px; height:32px; border-radius:9px; background:rgba(245,158,11,0.12); color:#fbbf24; display:flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="ph-fill ph-buildings" style="font-size:16px;"></i></div>
+            <div style="font-size:12px; font-weight:800; margin-bottom:2px;">Link Bank</div>
+            <div style="font-size:10px; color:var(--text-3); line-height:1.4;">Auto-import via Plaid.</div>
           </button>
         </div>
         <div style="margin-top:14px; padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; display:flex; align-items:flex-start; gap:8px;">
           <i class="ph-fill ph-shield-check" style="color:var(--accent); font-size:14px; margin-top:1px;"></i>
-          <span style="font-size:10.5px; color:var(--text-3); line-height:1.5;">Your bank login is never shared with WJP. When real sync is enabled, our partner uses a read-only token you can revoke anytime.</span>
+          <span style="font-size:10.5px; color:var(--text-3); line-height:1.5;">Tip: any debt, transaction, or income can be flagged as recurring. WJP will auto-repeat it on the schedule you pick.</span>
         </div>
       </div>
 
@@ -3148,11 +3158,19 @@
       <div id="entry-form-step" style="display:none;">
         <button type="button" id="entry-back-to-picker" class="btn btn-ghost" style="padding:6px 10px; font-size:11px; margin-bottom:12px; display:inline-flex; align-items:center; gap:6px;"><i class="ph ph-arrow-left"></i> Back</button>
 
-        <div class="debts-subtabs modal-tabs" style="gap:12px; margin-bottom:24px;">
-          <div class="pill active modal-tab" data-tab="new-debt" style="font-size:11px; padding:6px 12px; cursor:pointer;">New Debt</div>
-          <div class="pill modal-tab" data-tab="new-expense" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Expense</div>
-          <div class="pill modal-tab" data-tab="new-transaction" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Transaction</div>
-          <div class="pill modal-tab" data-tab="new-asset" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">New Asset</div>
+        <!-- Inline success banner — appears after each save, replaced by next form open -->
+        <div id="entry-success-banner" style="display:none; margin-bottom:16px; padding:10px 14px; background:rgba(0,212,168,0.1); border:1px solid var(--border-accent); border-radius:8px; font-size:12px; color:var(--accent); display:none; align-items:center; gap:8px;">
+          <i class="ph ph-check-circle" style="font-size:16px;"></i>
+          <span id="entry-success-msg">Saved.</span>
+        </div>
+
+        <div class="debts-subtabs modal-tabs" style="gap:8px; margin-bottom:20px; flex-wrap:wrap;">
+          <div class="pill active modal-tab" data-tab="new-debt" style="font-size:11px; padding:6px 12px; cursor:pointer;">Debt</div>
+          <div class="pill modal-tab" data-tab="new-transaction" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">Transaction</div>
+          <div class="pill modal-tab" data-tab="new-income" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">Income</div>
+          <div class="pill modal-tab" data-tab="new-recurring" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">Recurring</div>
+          <div class="pill modal-tab" data-tab="new-expense" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">Expense</div>
+          <div class="pill modal-tab" data-tab="new-asset" style="font-size:11px; padding:6px 12px; opacity:0.5; cursor:pointer;">Asset</div>
         </div>
 
       <!-- DEBT FORM -->
@@ -3190,13 +3208,60 @@
             <input type="number" id="debt-min" placeholder="250" required min="0" step="any">
           </div>
         </div>
+
+        <!-- Credit-card / loan dates with info tooltip — visibility & explanation adapt to debt type -->
+        <div class="form-group" id="debt-cc-dates-group" style="display:none;">
+          <label style="display:flex; align-items:center; gap:6px;">
+            <span id="debt-cc-dates-label">Statement &amp; Due Dates</span>
+            <span class="info-pop" tabindex="0" role="button" aria-label="Why these dates matter" data-tip="cc-dates" style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:rgba(0,212,168,0.15); color:var(--accent); font-size:11px; cursor:help; border:1px solid var(--border-accent); user-select:none;">?</span>
+          </label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div id="debt-statement-wrap">
+              <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Statement closes (day)</label>
+              <input type="number" id="debt-statement-day" min="1" max="31" placeholder="3">
+            </div>
+            <div>
+              <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Payment due (day)</label>
+              <input type="number" id="debt-due-day" min="1" max="31" placeholder="28">
+            </div>
+          </div>
+          <div id="debt-cc-dates-tip" style="display:none; margin-top:10px; padding:12px 14px; background:rgba(0,212,168,0.06); border:1px solid var(--border-accent); border-radius:8px; font-size:11px; color:var(--text-2); line-height:1.6;">
+            <div style="font-weight:700; color:var(--accent); margin-bottom:6px;" id="debt-cc-tip-title">Why this saves you money</div>
+            <div id="debt-cc-tip-body"></div>
+            <div id="debt-cc-savings-preview" style="margin-top:8px; font-size:10.5px; color:var(--text-3);"></div>
+          </div>
+        </div>
+        <!-- Recurring toggle for debts: tracks the autopay schedule -->
+        <div class="form-group" style="margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
+            <input type="checkbox" id="debt-recurring" style="width:16px; height:16px; accent-color:var(--accent);">
+            <span>Set up auto-pay reminder for the minimum payment</span>
+          </label>
+          <div id="debt-recurring-detail" style="display:none; margin-top:10px; padding:12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div>
+                <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Frequency</label>
+                <select id="debt-recurring-freq" style="width:100%;">
+                  <option value="monthly">Monthly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Next due (day of month)</label>
+                <input type="number" id="debt-recurring-day" min="1" max="31" placeholder="15">
+              </div>
+            </div>
+          </div>
+        </div>
         <div style="margin-top:8px; padding:8px 10px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; display:flex; align-items:flex-start; gap:8px;">
           <i class="ph-fill ph-shield-check" style="color:var(--accent); font-size:13px; margin-top:1px;"></i>
           <span style="font-size:10px; color:var(--text-3); line-height:1.5;">Your bank login is never shared with WJP. Entries stored locally on this device.</span>
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Liability</button>
+        <div class="modal-actions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost modal-cancel">Done</button>
+          <button type="submit" class="btn btn-primary" data-mode="add-another">Save & Add Another</button>
+          <button type="submit" class="btn btn-primary" data-mode="save-close">Save & Close</button>
         </div>
       </form>
 
@@ -3215,9 +3280,10 @@
           <label>Monthly Amount ($)</label>
           <input type="number" id="expense-amount" placeholder="200" required min="1" step="any">
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Expense</button>
+        <div class="modal-actions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost modal-cancel">Done</button>
+          <button type="submit" class="btn btn-primary" data-mode="add-another">Save & Add Another</button>
+          <button type="submit" class="btn btn-primary" data-mode="save-close">Save & Close</button>
         </div>
       </form>
 
@@ -3253,9 +3319,133 @@
           <label>Method</label>
           <input type="text" id="txn-method" placeholder="e.g. Visa •••• 1234">
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add Transaction</button>
+        <!-- Recurring toggle -->
+        <div class="form-group" style="margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
+            <input type="checkbox" id="txn-recurring" style="width:16px; height:16px; accent-color:var(--accent);">
+            <span>This is a recurring payment</span>
+          </label>
+          <div id="txn-recurring-detail" style="display:none; margin-top:10px; padding:12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div>
+                <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Frequency</label>
+                <select id="txn-recurring-freq" style="width:100%;">
+                  <option value="monthly">Monthly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="annually">Annually</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Next charge date</label>
+                <input type="date" id="txn-recurring-next" style="width:100%;">
+              </div>
+            </div>
+            <div style="font-size:10px; color:var(--text-3); margin-top:8px; line-height:1.4;">We'll add it to your Recurring Payments list and remind you before each charge.</div>
+          </div>
+        </div>
+        <div class="modal-actions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost modal-cancel">Done</button>
+          <button type="submit" class="btn btn-primary" data-mode="add-another">Save & Add Another</button>
+          <button type="submit" class="btn btn-primary" data-mode="save-close">Save & Close</button>
+        </div>
+      </form>
+
+      <!-- INCOME FORM -->
+      <form id="new-income-form" class="modal-form" style="display:none;">
+        <div class="form-group">
+          <label>Source</label>
+          <input type="text" id="income-source" placeholder="e.g. Acme Corp paycheck, Etsy shop" required>
+        </div>
+        <div class="form-group">
+          <label>Amount ($)</label>
+          <input type="number" id="income-amount" step="0.01" placeholder="0.00" required min="0.01">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="income-type">
+            <option value="paycheck">Paycheck (W-2)</option>
+            <option value="freelance">Freelance / 1099</option>
+            <option value="business">Business income</option>
+            <option value="passive">Passive (rental, dividends)</option>
+            <option value="bonus">Bonus / one-time</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <!-- Recurring toggle -->
+        <div class="form-group" style="margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
+            <input type="checkbox" id="income-recurring" style="width:16px; height:16px; accent-color:var(--accent);" checked>
+            <span>This is recurring (paycheck / regular deposit)</span>
+          </label>
+          <div id="income-recurring-detail" style="display:block; margin-top:10px; padding:12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div>
+                <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Frequency</label>
+                <select id="income-recurring-freq" style="width:100%;">
+                  <option value="biweekly">Bi-weekly (every 2 weeks)</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="semimonthly">Semi-monthly (1st & 15th)</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="annually">Annually</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px; color:var(--text-3); margin-bottom:4px; display:block;">Next pay date</label>
+                <input type="date" id="income-recurring-next" style="width:100%;">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost modal-cancel">Done</button>
+          <button type="submit" class="btn btn-primary" data-mode="add-another">Save & Add Another</button>
+          <button type="submit" class="btn btn-primary" data-mode="save-close">Save & Close</button>
+        </div>
+      </form>
+
+      <!-- RECURRING-ONLY FORM (subscription / bill / rent without a specific debt or txn record) -->
+      <form id="new-recurring-form" class="modal-form" style="display:none;">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="rec-name" placeholder="e.g. Netflix, Rent, Spotify" required>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="rec-category">
+            <option value="subscription">Subscription / SaaS</option>
+            <option value="utility">Utility (electric, water, internet)</option>
+            <option value="rent">Rent / Mortgage</option>
+            <option value="insurance">Insurance</option>
+            <option value="debt">Debt minimum</option>
+            <option value="membership">Membership</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label>Amount ($)</label>
+            <input type="number" id="rec-amount" step="0.01" placeholder="0.00" required min="0.01">
+          </div>
+          <div class="form-group">
+            <label>Frequency</label>
+            <select id="rec-frequency">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Bi-weekly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annually">Annually</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Next charge date</label>
+          <input type="date" id="rec-next-date" required>
+        </div>
+        <div class="modal-actions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost modal-cancel">Done</button>
+          <button type="submit" class="btn btn-primary" data-mode="add-another">Save & Add Another</button>
+          <button type="submit" class="btn btn-primary" data-mode="save-close">Save & Close</button>
         </div>
       </form>
 
@@ -3282,9 +3472,10 @@
           <label>Ann. Growth Est (%)</label>
           <input type="number" id="asset-growth" placeholder="7" step="0.1">
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Asset</button>
+        <div class="modal-actions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost modal-cancel">Done</button>
+          <button type="submit" class="btn btn-primary" data-mode="add-another">Save & Add Another</button>
+          <button type="submit" class="btn btn-primary" data-mode="save-close">Save & Close</button>
         </div>
       </form>
       </div><!-- /entry-form-step -->
@@ -4321,7 +4512,7 @@
 </div>
 
 
-  <script src="app.js?v=30-fresh"></script>
+  <script src="app.js?v=31-addmodal"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

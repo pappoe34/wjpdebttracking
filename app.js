@@ -2224,6 +2224,8 @@ function initModal() {
         if (pickerStep) pickerStep.style.display = 'block';
         if (formStep) formStep.style.display = 'none';
         if (titleEl) titleEl.textContent = 'Add';
+        const banner = document.getElementById('entry-success-banner');
+        if (banner) banner.style.display = 'none';
     };
     const showFormStep = (tabName, title) => {
         if (pickerStep) pickerStep.style.display = 'none';
@@ -2250,25 +2252,70 @@ function initModal() {
         if (limitGroup) limitGroup.style.display = 'none';
     };
 
-    const handleSuccessState = (form, updateCallback) => {
-        const btn = form.querySelector('button[type="submit"]');
+    // Track which submit button was clicked so we know whether to keep the modal open
+    // ("Save & Add Another") or close it ("Save & Close"). Without this, the form's
+    // implicit submit can't tell us the user's intent.
+    let _lastSubmitMode = 'save-close';
+    document.addEventListener('click', (e) => {
+        const target = e.target && e.target.closest && e.target.closest('button[data-mode]');
+        if (target && target.type === 'submit') {
+            _lastSubmitMode = target.getAttribute('data-mode') || 'save-close';
+        }
+    }, true);
+
+    // Inline success banner — shown after a save when the user is staying in the modal
+    const flashSuccessBanner = (msg) => {
+        const banner = document.getElementById('entry-success-banner');
+        const msgEl = document.getElementById('entry-success-msg');
+        if (!banner || !msgEl) return;
+        msgEl.textContent = msg;
+        banner.style.display = 'flex';
+        // Auto-fade after 4 seconds so it doesn't pile up across multiple saves
+        clearTimeout(banner._t);
+        banner._t = setTimeout(() => { banner.style.display = 'none'; }, 4000);
+    };
+
+    const handleSuccessState = (form, updateCallback, successMsg) => {
+        const btn = form.querySelector(`button[type="submit"][data-mode="${_lastSubmitMode}"]`)
+                   || form.querySelector('button[type="submit"]');
         if(!btn) return;
         const originalText = btn.innerHTML;
-        
-        btn.innerHTML = '<i class="ph ph-check-circle" style="font-size:18px;"></i> Saved Successfully';
+        const mode = _lastSubmitMode;
+
+        btn.innerHTML = '<i class="ph ph-check-circle" style="font-size:16px;"></i> Saved';
         btn.style.backgroundColor = 'var(--accent)';
         btn.style.color = '#0b0f1a';
         btn.style.pointerEvents = 'none';
-        btn.style.transition = 'all 0.3s ease';
-        btn.style.transform = 'scale(1.02)';
-        
-        // Execute data updates immediately so the dashboard updates behind the blurred modal
+        btn.style.transition = 'all 0.25s ease';
+
+        // Execute data updates immediately so the dashboard updates behind the modal
         if(updateCallback) updateCallback();
 
-        // 2 Second Disappear Effect
+        if (mode === 'add-another') {
+            // KEEP MODAL OPEN — reset just this form, restore the button, show banner
+            flashSuccessBanner(successMsg || 'Saved. Keep adding more or click Done when finished.');
+            setTimeout(() => {
+                form.reset();
+                if (limitGroup) limitGroup.style.display = 'none';
+                // Re-hide any conditional recurring detail panels
+                ['debt-recurring-detail','txn-recurring-detail','income-recurring-detail'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                btn.innerHTML = originalText;
+                btn.style.backgroundColor = '';
+                btn.style.color = '';
+                btn.style.pointerEvents = '';
+                // Refocus first input for fast batch entry
+                const firstInput = form.querySelector('input:not([type=checkbox]), select');
+                if (firstInput) firstInput.focus();
+            }, 600);
+            return;
+        }
+
+        // mode === 'save-close' (default) — short success flash then close
         setTimeout(() => {
             closeModal();
-            // Restore button styling after modal animation finishes to prevent visual snap
             setTimeout(() => {
                 btn.innerHTML = originalText;
                 btn.style.backgroundColor = '';
@@ -2292,7 +2339,7 @@ function initModal() {
         if(e.target === modal) closeModal();
     });
 
-    // Picker tile routing (Tier 1.2)
+    // Picker tile routing — each tile lands the user on the right tab pre-configured
     document.querySelectorAll('.entry-tile').forEach(tile => {
         tile.addEventListener('click', () => {
             const route = tile.getAttribute('data-route');
@@ -2306,8 +2353,11 @@ function initModal() {
                 if (limitGroup) limitGroup.style.display = 'none';
             } else if (route === 'transaction') {
                 showFormStep('new-transaction', 'New Transaction');
+            } else if (route === 'income') {
+                showFormStep('new-income', 'Add Income');
+            } else if (route === 'recurring') {
+                showFormStep('new-recurring', 'Add Recurring Payment');
             } else if (route === 'bank') {
-                // Real Plaid Link flow. Falls back to legacy settings-drawer if Plaid isn't configured.
                 closeModal();
                 if (typeof openPlaidLink === 'function') {
                     openPlaidLink();
@@ -2319,15 +2369,143 @@ function initModal() {
             }
         });
     });
+
+    // Wire recurring-toggle checkboxes — show/hide the detail panel
+    [
+        ['debt-recurring', 'debt-recurring-detail'],
+        ['txn-recurring', 'txn-recurring-detail'],
+        ['income-recurring', 'income-recurring-detail']
+    ].forEach(([cbId, panelId]) => {
+        const cb = document.getElementById(cbId);
+        const panel = document.getElementById(panelId);
+        if (cb && panel) {
+            cb.addEventListener('change', () => {
+                panel.style.display = cb.checked ? 'block' : 'none';
+            });
+            // Sync initial state (Income box defaults to checked in the HTML)
+            panel.style.display = cb.checked ? 'block' : 'none';
+        }
+    });
     if (backToPicker) backToPicker.addEventListener('click', showPicker);
 
-    // Toggle Limit visibility when type changes
-    if (debtTypeSel && limitGroup) {
-        debtTypeSel.addEventListener('change', () => {
-            const t = (debtTypeSel.value || '').toLowerCase();
-            limitGroup.style.display = (t.includes('credit') || t.includes('card')) ? '' : 'none';
+    // Toggle credit-card limit + statement/due-date fields based on debt type.
+    // Credit cards see both Statement and Due day. Loans see Due day only (no statement
+    // concept on amortizing loans, but early-payment interest math still applies).
+    const ccDatesGroup = document.getElementById('debt-cc-dates-group');
+    const ccDatesLabel = document.getElementById('debt-cc-dates-label');
+    const ccStmtWrap   = document.getElementById('debt-statement-wrap');
+    const ccTipBody    = document.getElementById('debt-cc-tip-body');
+
+    const TIP_COPY = {
+        card: `Card issuers report your balance to credit bureaus on the <strong>statement closing day</strong>, not the due date. If you pay it down <strong>before</strong> the statement closes, the bureaus see a lower utilization — which can lift your credit score <strong>20-50 points</strong> and avoid days of extra interest.`,
+        loan: `Most loans accrue interest <strong>daily</strong>. Paying earlier in the cycle (or making an extra principal payment) means fewer days of interest piling up — over the life of the loan, even small early-pay habits can save thousands.`
+    };
+
+    const syncDebtTypeFieldVisibility = () => {
+        const t = (debtTypeSel?.value || '').toLowerCase();
+        const isCard = t.includes('credit') || t.includes('card');
+        const isLoan = !isCard; // anything that isn't a card is loan-style for our purposes
+
+        if (limitGroup) limitGroup.style.display = isCard ? '' : 'none';
+        if (ccDatesGroup) ccDatesGroup.style.display = ''; // always show — both card and loan benefit
+        if (ccDatesLabel) ccDatesLabel.textContent = isCard ? 'Statement & Due Dates' : 'Payment Due Date';
+        if (ccStmtWrap)   ccStmtWrap.style.display = isCard ? '' : 'none';
+        if (ccTipBody)    ccTipBody.innerHTML = isCard ? TIP_COPY.card : TIP_COPY.loan;
+        // If user changed type while tip was open, re-run the preview so numbers match
+        const tipBlock = document.getElementById('debt-cc-dates-tip');
+        if (tipBlock && tipBlock.style.display !== 'none') updateSavingsPreview();
+    };
+    if (debtTypeSel) {
+        debtTypeSel.addEventListener('change', syncDebtTypeFieldVisibility);
+        // Initial sync
+        setTimeout(syncDebtTypeFieldVisibility, 0);
+    }
+
+    // Tip popover — toggle the explanation block + run a live savings preview
+    const tipIcon = document.querySelector('.info-pop[data-tip="cc-dates"]');
+    const tipBlock = document.getElementById('debt-cc-dates-tip');
+    const savingsPreview = document.getElementById('debt-cc-savings-preview');
+    function updateSavingsPreview() {
+        if (!savingsPreview) return;
+        const t = (debtTypeSel?.value || '').toLowerCase();
+        const isCard = t.includes('credit') || t.includes('card');
+        const bal = parseFloat(document.getElementById('debt-balance')?.value) || 0;
+        const apr = parseFloat(document.getElementById('debt-apr')?.value) || 0;
+        const lim = parseFloat(document.getElementById('debt-limit')?.value) || 0;
+        const min = parseFloat(document.getElementById('debt-min')?.value) || 0;
+        const stmt = parseInt(document.getElementById('debt-statement-day')?.value, 10);
+        const due = parseInt(document.getElementById('debt-due-day')?.value, 10);
+        if (!bal || !apr) {
+            savingsPreview.textContent = 'Fill in balance + APR + due day to see your projected savings.';
+            return;
+        }
+        const dailyRate = apr / 100 / 365;
+        const lines = [];
+
+        if (isCard) {
+            const utilNow = lim > 0 ? Math.min(100, (bal / lim) * 100) : null;
+            const payoffToHitTarget = (lim > 0 && utilNow > 9) ? Math.max(0, bal - (lim * 0.09)) : 0;
+            const daysBetween = (stmt && due && due > stmt) ? (due - stmt) : 25;
+            const interestSavedYr = bal * dailyRate * daysBetween * 12;
+            if (lim > 0 && utilNow !== null) {
+                lines.push(`Reported utilization right now: ~<strong>${utilNow.toFixed(0)}%</strong>.`);
+                if (payoffToHitTarget > 0) {
+                    lines.push(`Paying <strong>$${payoffToHitTarget.toFixed(0)}</strong> before statement closes drops reported utilization under 10% — typically worth <strong>20-50 FICO points</strong>.`);
+                } else {
+                    lines.push(`Already under 10% utilization — that's the FICO sweet spot.`);
+                }
+            }
+            if (interestSavedYr > 0) {
+                lines.push(`Estimated interest saved over a year by paying before each statement: <strong>~$${interestSavedYr.toFixed(0)}</strong>.`);
+            }
+        } else {
+            // Loan math: paying X days early on every monthly cycle saves daysEarly × dailyInterest × 12
+            const daysEarly = 7; // assume paying ~1 week early
+            const annualSavings = bal * dailyRate * daysEarly * 12;
+            lines.push(`At ${apr.toFixed(2)}% APR, this loan accrues about <strong>$${(bal * dailyRate).toFixed(2)}/day</strong> in interest.`);
+            if (annualSavings > 0) {
+                lines.push(`Paying ~7 days before the due date each month would save you <strong>~$${annualSavings.toFixed(0)}/year</strong> in interest.`);
+            }
+            if (min > 0 && bal > 0) {
+                // Rough payoff months at minimum payment, with and without an extra $50/mo
+                const payoffMonths = (m) => {
+                    if (m <= 0 || m >= bal) return null;
+                    let b = bal, count = 0;
+                    while (b > 0 && count < 600) {
+                        const interest = b * (apr/100/12);
+                        const principal = m - interest;
+                        if (principal <= 0) return null;
+                        b -= principal;
+                        count++;
+                    }
+                    return count;
+                };
+                const baseMonths = payoffMonths(min);
+                const fasterMonths = payoffMonths(min + 50);
+                if (baseMonths && fasterMonths && baseMonths > fasterMonths) {
+                    lines.push(`Adding just <strong>$50/mo</strong> would shave <strong>${baseMonths - fasterMonths} months</strong> off the payoff timeline.`);
+                }
+            }
+        }
+        savingsPreview.innerHTML = lines.join(' ');
+    }
+    if (tipIcon && tipBlock) {
+        tipIcon.addEventListener('click', () => {
+            const open = tipBlock.style.display !== 'none';
+            tipBlock.style.display = open ? 'none' : 'block';
+            if (!open) updateSavingsPreview();
+        });
+        tipIcon.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tipIcon.click(); }
         });
     }
+    // Live-update savings preview as the user types
+    ['debt-balance','debt-apr','debt-limit','debt-min','debt-statement-day','debt-due-day','debt-type'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => {
+            if (tipBlock && tipBlock.style.display !== 'none') updateSavingsPreview();
+        });
+    });
 
     // Tab Switching Logic
     tabs.forEach(tab => {
@@ -2346,15 +2524,35 @@ function initModal() {
         });
     });
 
+    // Helper: append a recurring payment record + log activity. Used by every form
+    // whose "Recurring?" toggle is on, so the Recurring Payments tab gets populated
+    // consistently no matter where the entry was created.
+    const addRecurringRecord = (rec) => {
+        if (!appState.recurringPayments) appState.recurringPayments = [];
+        appState.recurringPayments.push({
+            id: 'r' + Date.now() + Math.floor(Math.random()*1000),
+            name: rec.name,
+            category: rec.category || 'subscription',
+            amount: Number(rec.amount) || 0,
+            frequency: rec.frequency || 'monthly',
+            nextDate: rec.nextDate || null,
+            linkedDebtId: rec.linkedDebtId || null,
+            linkedIncome: !!rec.linkedIncome,
+            createdAt: Date.now()
+        });
+    };
+
     // Form 1: Debt Submit
     const formDebt = document.getElementById('new-debt-form');
     if(formDebt) {
         formDebt.addEventListener('submit', (e) => {
             e.preventDefault();
-            
+
             handleSuccessState(formDebt, () => {
                 const typeVal = (document.getElementById('debt-type')?.value || 'loan').toLowerCase();
                 const limVal = parseFloat(document.getElementById('debt-limit')?.value);
+                const stmtDay = parseInt(document.getElementById('debt-statement-day')?.value, 10);
+                const dueDay = parseInt(document.getElementById('debt-due-day')?.value, 10);
                 const newDebt = {
                     id: 'd' + Date.now(),
                     name: document.getElementById('debt-name').value || 'Unknown Obligation',
@@ -2362,13 +2560,15 @@ function initModal() {
                     balance: parseFloat(document.getElementById('debt-balance').value) || 0,
                     apr: parseFloat(document.getElementById('debt-apr').value) || 0,
                     minPayment: parseFloat(document.getElementById('debt-min').value) || 0,
-                    dueDate: Math.floor(Math.random() * 28) + 1,
+                    // dueDate now prefers user-entered due day; falls back to a random day if blank
+                    dueDate: (!isNaN(dueDay) && dueDay >= 1 && dueDay <= 31) ? dueDay : Math.floor(Math.random() * 28) + 1,
+                    statementDay: (!isNaN(stmtDay) && stmtDay >= 1 && stmtDay <= 31) ? stmtDay : null,
+                    dueDay: (!isNaN(dueDay) && dueDay >= 1 && dueDay <= 31) ? dueDay : null,
                     limit: (!isNaN(limVal) && limVal > 0) ? limVal : 0,
                     lastUpdated: Date.now(),
                     attachments: []
                 };
                 appState.debts.push(newDebt);
-                // Also sync the limit into cs.cardLimits so Credit Profile util works
                 if (newDebt.limit > 0) {
                     try {
                         const cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
@@ -2377,8 +2577,26 @@ function initModal() {
                         localStorage.setItem('wjp_credit_inputs', JSON.stringify(cs));
                     } catch(_){}
                 }
+
+                // Recurring auto-pay reminder?
+                const recCB = document.getElementById('debt-recurring');
+                if (recCB && recCB.checked && newDebt.minPayment > 0) {
+                    const day = parseInt(document.getElementById('debt-recurring-day')?.value, 10);
+                    const today = new Date();
+                    const next = new Date(today.getFullYear(), today.getMonth(), Math.min(day || newDebt.dueDate || 15, 28));
+                    if (next < today) next.setMonth(next.getMonth() + 1);
+                    addRecurringRecord({
+                        name: `${newDebt.name} (min payment)`,
+                        category: 'debt',
+                        amount: newDebt.minPayment,
+                        frequency: document.getElementById('debt-recurring-freq')?.value || 'monthly',
+                        nextDate: next.toISOString().slice(0,10),
+                        linkedDebtId: newDebt.id
+                    });
+                }
+
                 saveState();
-                updateUI(); // Redraw Dashboard natively
+                updateUI();
                 if (typeof logActivity === 'function') {
                     logActivity({
                         title: 'Debt added',
@@ -2388,7 +2606,7 @@ function initModal() {
                         link: '#debts'
                     });
                 }
-            });
+            }, 'Debt saved. Add another or click Done when finished.');
         });
     }
 
@@ -2397,17 +2615,16 @@ function initModal() {
     if(formExpense) {
         formExpense.addEventListener('submit', (e) => {
             e.preventDefault();
-            
+
             handleSuccessState(formExpense, () => {
                 const cat = document.getElementById('expense-category').value;
                 const amt = parseFloat(document.getElementById('expense-amount').value);
-                
+
                 if (appState.budget.expenses[cat] !== undefined) {
                     appState.budget.expenses[cat] += amt;
                 }
                 saveState();
-                
-                // Sync budget sliders + cascade full UI update
+
                 const sliders = [
                     document.getElementById('slider-exp-housing'),
                     document.getElementById('slider-exp-food'),
@@ -2419,12 +2636,12 @@ function initModal() {
                 if (sliders[2]) sliders[2].value = appState.budget.expenses.transit;
                 if (sliders[3]) sliders[3].value = appState.budget.expenses.disc;
                 if (window.budgetUpdateCalculations) window.budgetUpdateCalculations();
-                updateUI(); // cascade to dashboard DTI, interest saved, freedom date
-            });
+                updateUI();
+            }, 'Expense saved. Add another or click Done when finished.');
         });
     }
 
-    // Form 3: Transaction Submit
+    // Form 3: Transaction Submit (with optional recurring schedule)
     const formTxn = document.getElementById('new-transaction-form');
     if(formTxn) {
         formTxn.addEventListener('submit', (e) => {
@@ -2432,17 +2649,17 @@ function initModal() {
             handleSuccessState(formTxn, () => {
                 const amt = parseFloat(document.getElementById('txn-amount').value);
                 const cat = document.getElementById('txn-category').value;
+                const merchant = document.getElementById('txn-merchant').value || 'Uncategorized';
                 const newTxn = {
                     id: 't' + Date.now(),
                     date: new Date().toISOString(),
-                    merchant: document.getElementById('txn-merchant').value || 'Uncategorized',
+                    merchant: merchant,
                     category: cat,
-                    amount: -Math.abs(amt), // assuming expenses for now
+                    amount: -Math.abs(amt),
                     method: document.getElementById('txn-method').value || 'Cash/Other',
                     status: 'completed'
                 };
-                
-                // If it's a debt payment, try to find and apply it to a debt
+
                 if (cat === 'Debt Payment' && appState.debts.length > 0) {
                     const debtId = document.getElementById('txn-debt-link')?.value;
                     const debt = debtId ? appState.debts.find(d => d.id === debtId) : appState.debts[0];
@@ -2453,13 +2670,119 @@ function initModal() {
                 }
 
                 appState.transactions.unshift(newTxn);
+
+                // Recurring transaction? Create the schedule.
+                const recCB = document.getElementById('txn-recurring');
+                if (recCB && recCB.checked) {
+                    addRecurringRecord({
+                        name: merchant,
+                        category: cat.toLowerCase().includes('housing') ? 'rent'
+                                : cat.toLowerCase().includes('debt') ? 'debt'
+                                : cat.toLowerCase().includes('utilit') ? 'utility'
+                                : 'subscription',
+                        amount: amt,
+                        frequency: document.getElementById('txn-recurring-freq')?.value || 'monthly',
+                        nextDate: document.getElementById('txn-recurring-next')?.value || null
+                    });
+                }
+
                 saveState();
                 updateUI();
-            });
+            }, 'Transaction saved. Add another or click Done when finished.');
         });
     }
 
-    // Form 4: Asset Submit
+    // Form 4: Income Submit
+    const formIncome = document.getElementById('new-income-form');
+    if(formIncome) {
+        formIncome.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleSuccessState(formIncome, () => {
+                const source = document.getElementById('income-source').value || 'Income';
+                const amt = parseFloat(document.getElementById('income-amount').value) || 0;
+                const type = document.getElementById('income-type')?.value || 'paycheck';
+                const recCB = document.getElementById('income-recurring');
+                const isRec = !!(recCB && recCB.checked);
+
+                // Log as a positive-amount transaction so the cash-flow charts pick it up
+                appState.transactions.unshift({
+                    id: 't' + Date.now(),
+                    date: new Date().toISOString(),
+                    merchant: source,
+                    category: 'Income',
+                    amount: Math.abs(amt),
+                    method: 'Direct Deposit',
+                    status: 'completed',
+                    incomeType: type
+                });
+
+                // If this is recurring, also bump the user's monthly income field
+                // so DTI / cash-flow projections immediately reflect the paycheck.
+                if (isRec) {
+                    const freq = document.getElementById('income-recurring-freq')?.value || 'monthly';
+                    let monthlyEquiv = amt;
+                    if (freq === 'biweekly') monthlyEquiv = amt * 26 / 12;
+                    else if (freq === 'weekly') monthlyEquiv = amt * 52 / 12;
+                    else if (freq === 'semimonthly') monthlyEquiv = amt * 2;
+                    else if (freq === 'annually') monthlyEquiv = amt / 12;
+
+                    if (!appState.budget) appState.budget = {};
+                    appState.budget.income = (Number(appState.budget.income) || 0) + monthlyEquiv;
+
+                    addRecurringRecord({
+                        name: source,
+                        category: 'income',
+                        amount: amt,
+                        frequency: freq,
+                        nextDate: document.getElementById('income-recurring-next')?.value || null,
+                        linkedIncome: true
+                    });
+                }
+
+                saveState();
+                updateUI();
+                if (typeof logActivity === 'function') {
+                    logActivity({
+                        title: 'Income added',
+                        text: `${source} — $${Number(amt).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${isRec ? ' (recurring)' : ''}`,
+                        type: 'income',
+                        priority: 'normal',
+                        link: '#budgets'
+                    });
+                }
+            }, 'Income saved. Add another or click Done when finished.');
+        });
+    }
+
+    // Form 5: Recurring-only (subscription / bill / rent without a one-time txn record)
+    const formRec = document.getElementById('new-recurring-form');
+    if(formRec) {
+        formRec.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleSuccessState(formRec, () => {
+                addRecurringRecord({
+                    name: document.getElementById('rec-name').value || 'Recurring Item',
+                    category: document.getElementById('rec-category')?.value || 'subscription',
+                    amount: parseFloat(document.getElementById('rec-amount').value) || 0,
+                    frequency: document.getElementById('rec-frequency')?.value || 'monthly',
+                    nextDate: document.getElementById('rec-next-date')?.value || null
+                });
+                saveState();
+                updateUI();
+                if (typeof logActivity === 'function') {
+                    logActivity({
+                        title: 'Recurring payment added',
+                        text: `${document.getElementById('rec-name').value} — $${(parseFloat(document.getElementById('rec-amount').value)||0).toFixed(2)} / ${document.getElementById('rec-frequency').value}`,
+                        type: 'recurring',
+                        priority: 'normal',
+                        link: '#debts'
+                    });
+                }
+            }, 'Recurring payment saved. Add another or click Done when finished.');
+        });
+    }
+
+    // Form 6: Asset Submit
     const formAsset = document.getElementById('new-asset-form');
     if(formAsset) {
         formAsset.addEventListener('submit', (e) => {
@@ -2472,11 +2795,10 @@ function initModal() {
                     type: document.getElementById('asset-type')?.value || 'Investment',
                     growth: parseFloat(document.getElementById('asset-growth')?.value) || 0
                 };
-                
+
                 if (!appState.assets) appState.assets = [];
                 appState.assets.push(newAsset);
-                
-                // Add a transaction for the asset creation if noted
+
                 appState.transactions.unshift({
                     id: 't' + Date.now(),
                     date: new Date().toISOString(),
@@ -2489,7 +2811,7 @@ function initModal() {
 
                 saveState();
                 updateUI();
-            });
+            }, 'Asset saved. Add another or click Done when finished.');
         });
     }
 }

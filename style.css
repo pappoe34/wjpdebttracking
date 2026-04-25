@@ -5804,3 +5804,47 @@ body.dark .top-header{
   .ob-cta{ flex-direction:column-reverse; }
   .ob-cta .btn{ width:100%; }
 }
+
+/* ============================================================
+   ADD MODAL UPGRADE — picker grid + multi-button actions
+   Picker has 6 tiles; modal-actions has Done + Add Another + Save & Close.
+   On narrow screens (≤560px) we collapse to 2 tiles per row and stack
+   the action buttons full-width so the right-most "Save & Close" never
+   gets cut off the side of the modal.
+   ============================================================ */
+.entry-tile:hover{
+  border-color: var(--border-accent);
+  background: rgba(0,212,168,0.04);
+  transform: translateY(-1px);
+}
+.entry-tile:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.info-pop:hover{
+  background: rgba(0,212,168,0.25) !important;
+}
+.info-pop:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+@media (max-width:560px){
+  .entry-picker-grid{
+    grid-template-columns: 1fr 1fr !important;
+  }
+  #entry-modal .modal-actions{
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+  }
+  #entry-modal .modal-actions .btn{
+    width: 100%;
+    justify-content: center;
+  }
+  .modal-tabs{
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .modal-tabs::-webkit-scrollbar{ display:none; }
+}
