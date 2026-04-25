@@ -2650,11 +2650,16 @@ function initModal() {
                 const limVal = parseFloat(document.getElementById('debt-limit')?.value);
                 const stmtDay = parseInt(document.getElementById('debt-statement-day')?.value, 10);
                 const dueDay = parseInt(document.getElementById('debt-due-day')?.value, 10);
+                const balVal = parseFloat(document.getElementById('debt-balance').value) || 0;
                 const newDebt = {
                     id: 'd' + Date.now(),
                     name: document.getElementById('debt-name').value || 'Unknown Obligation',
                     type: typeVal,
-                    balance: parseFloat(document.getElementById('debt-balance').value) || 0,
+                    balance: balVal,
+                    // Snapshot the starting balance so % paid math works as the user
+                    // logs payments. Without this, progress bars never grow.
+                    originalBalance: balVal,
+                    createdAt: Date.now(),
                     apr: parseFloat(document.getElementById('debt-apr').value) || 0,
                     minPayment: parseFloat(document.getElementById('debt-min').value) || 0,
                     // dueDate now prefers user-entered due day; falls back to a random day if blank
@@ -2913,6 +2918,113 @@ function initModal() {
     }
 }
 
+/* ---------- TOP-3 STRATEGY FOCUS BAR ----------
+   Renders the three debts the user should attack first based on selected strategy.
+   Wires the chip tabs so clicking re-orders the list AND updates appState.settings.strategy
+   so the rest of the dashboard (DFD hero, AI advisor, strategy indicators) reflects it. */
+function renderTop3Strategy() {
+    const wrap = document.getElementById('top3-strategy');
+    const grid = document.getElementById('top3-grid');
+    const labelEl = document.getElementById('top3-strategy-label');
+    const tabs = document.querySelectorAll('#top3-strategy-tabs .chip');
+    if (!wrap || !grid) return;
+
+    const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+    const niceLbl = strategy[0].toUpperCase() + strategy.slice(1);
+    if (labelEl) labelEl.textContent = niceLbl;
+    tabs.forEach(t => {
+        const is = t.getAttribute('data-strategy') === strategy;
+        t.classList.toggle('active', is);
+    });
+
+    if (!appState.debts || appState.debts.length === 0) {
+        grid.innerHTML = `
+          <div class="top3-empty">
+            <i class="ph ph-target" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+            Add debts to see your prioritized payoff plan.
+          </div>`;
+        return;
+    }
+
+    const sorted = sortDebtsByStrategy(appState.debts, strategy);
+    const top3 = sorted.slice(0, 3);
+    const fmt = n => '$' + Math.round(n || 0).toLocaleString();
+
+    // Per-strategy "why this one" copy so each card explains its priority
+    const reasonFor = (d, idx) => {
+        if (strategy === 'snowball') return `Smallest balance${idx === 0 ? ' — quickest win' : ''}`;
+        if (strategy === 'avalanche') return `Highest APR${idx === 0 ? ' — biggest interest drain' : ''}`;
+        return `Best balance/APR mix${idx === 0 ? ' — top priority' : ''}`;
+    };
+
+    // For each focus debt, calculate progress vs. its original balance.
+    // We track originalBalance on the debt record (set at creation) so
+    // "% paid" reflects real progress, not just current balance.
+    grid.innerHTML = top3.map((d, idx) => {
+        const orig = Math.max(d.originalBalance || d.balance || 0, d.balance || 0, 1);
+        const paid = Math.max(0, orig - (d.balance || 0));
+        const pct = Math.min(100, Math.round((paid / orig) * 100));
+        const ranks = ['1', '2', '3'];
+        const ringColor = idx === 0 ? 'var(--accent)' : idx === 1 ? '#a855f7' : '#60a5fa';
+        return `
+          <div class="top3-card" data-debt-id="${d.id}" style="--rank-color:${ringColor};">
+            <div class="top3-rank-badge">${ranks[idx]}</div>
+            <div class="top3-card-head">
+              <div class="top3-debt-name" title="${d.name}">${d.name || 'Unnamed debt'}</div>
+              <div class="top3-debt-apr">${(d.apr || 0).toFixed(2)}% APR</div>
+            </div>
+            <div class="top3-debt-reason">${reasonFor(d, idx)}</div>
+            <div class="top3-progress-stats">
+              <span class="top3-paid">${fmt(paid)} paid</span>
+              <span class="top3-pct">${pct}%</span>
+              <span class="top3-target">${fmt(d.balance || 0)} left</span>
+            </div>
+            <div class="top3-progress-track">
+              <div class="top3-progress-fill" style="width:${pct}%; background:${ringColor};"></div>
+            </div>
+          </div>
+        `;
+    }).join('');
+
+    // Wire chip tabs (rebind every render in case of DOM changes elsewhere)
+    tabs.forEach(t => {
+        t.onclick = () => {
+            const newStrat = t.getAttribute('data-strategy');
+            if (!newStrat) return;
+            appState.settings.strategy = newStrat;
+            saveState();
+            updateUI(); // cascades the strategy through DFD hero, AI advisor, etc.
+        };
+    });
+}
+
+/* ---------- DFD QUARTER MILESTONES ----------
+   Updates the encouragement copy based on % paid. Crossing 25/50/75/100
+   triggers a celebratory message that fades after a few seconds. */
+function updateDfdEncouragement(pct) {
+    const el = document.getElementById('dfd-encouragement');
+    if (!el) return;
+    if (!pct || pct <= 0) { el.style.display = 'none'; return; }
+    const lastShown = parseInt(el.getAttribute('data-last') || '0', 10);
+    let bucket = 0;
+    if (pct >= 100) bucket = 100;
+    else if (pct >= 75) bucket = 75;
+    else if (pct >= 50) bucket = 50;
+    else if (pct >= 25) bucket = 25;
+    if (bucket === 0 || bucket === lastShown) { return; }
+    const msgs = {
+        25: '🎯 Quarter of the way there. Real momentum building.',
+        50: '🔥 Halfway home. Every payment from here counts double.',
+        75: '⚡ Final quarter. The end is in sight.',
+        100: '🎉 Debt-free. You did it.'
+    };
+    el.textContent = msgs[bucket];
+    el.style.display = 'block';
+    el.setAttribute('data-last', String(bucket));
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
 /* ---------- UI RENDER ENGINE ---------- */
 function updateUI() {
     if (!appState) return;
@@ -2939,23 +3051,45 @@ function updateUI() {
     const freedomTarget = document.getElementById('freedom-target-amt');
 
     if (freedomFill && appState.budget) {
-        const targetGoal = appState.budget.targetGoal || totalDebt || 0;
-
-        const totalPaid = appState.transactions
-            .filter(t => t.category.toLowerCase().includes('debt') || t.category.toLowerCase().includes('paydown'))
+        // Real progress = (sum of original balances) - (sum of current balances)
+        // We backfill originalBalance to current balance the first time we see a
+        // debt without it, so % paid starts at 0 and only grows. Plus debt-payment
+        // transactions counted on top in case the user logged payments without
+        // updating the debt balance directly.
+        let originalSum = 0, currentSum = 0;
+        appState.debts.forEach(d => {
+            if (d.originalBalance == null || d.originalBalance < d.balance) {
+                d.originalBalance = d.balance;
+            }
+            originalSum += d.originalBalance || 0;
+            currentSum  += d.balance || 0;
+        });
+        const debtPaid = Math.max(0, originalSum - currentSum);
+        const txnPaid = (appState.transactions || [])
+            .filter(t => t.category && (
+                t.category.toLowerCase().includes('debt') ||
+                t.category.toLowerCase().includes('paydown')
+            ))
             .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const totalPaid = Math.max(debtPaid, txnPaid); // whichever is greater — avoids double-counting
+        const targetGoal = (appState.budget.targetGoal || originalSum || 0);
 
         const progressPct = targetGoal > 0 ? Math.min(100, Math.round((totalPaid / targetGoal) * 100)) : 0;
 
         freedomFill.style.width = `${progressPct}%`;
         if (freedomPaid) freedomPaid.textContent = `$${totalPaid.toLocaleString()} paid`;
         if (freedomTarget) freedomTarget.textContent = targetGoal > 0 ? `$${targetGoal.toLocaleString()} target` : 'No target yet';
-        // Strategy pill replaces old center badge
         if (freedomBadge) {
             const strat = appState.settings.strategy || 'avalanche';
             freedomBadge.textContent = strat.charAt(0).toUpperCase() + strat.slice(1) + ' strategy';
         }
+
+        // Trigger encouragement copy if a quarter milestone was crossed
+        try { updateDfdEncouragement(progressPct); } catch(_){}
     }
+
+    // Render the Top-3 Strategy Focus bar
+    try { renderTop3Strategy(); } catch(_){}
 
     // --- Dashboard greeting ("Welcome back, Winston") ---
     try { populateDashboardGreeting(); } catch(e) { console.warn('greeting fail', e); }
@@ -3196,10 +3330,7 @@ function updateUI() {
     // Find priority ID shared across components
     let priorityId = null;
     if(appState.debts.length > 0) {
-        let copy = [...appState.debts];
-        if(strategy === 'avalanche') copy.sort((a,b) => b.apr - a.apr);
-        if(strategy === 'snowball') copy.sort((a,b) => a.balance - b.balance);
-        if(strategy === 'hybrid') copy.sort((a,b) => (b.apr/Math.max(1,b.balance)) - (a.apr/Math.max(1,a.balance)));
+        let copy = sortDebtsByStrategy(appState.debts, strategy);
         priorityId = copy[0].id;
     }
 
@@ -4355,15 +4486,48 @@ window.addEventListener('resize', () => {
 });
 
 // Debt Engine Calculator
+/**
+ * sortDebtsByStrategy — single source of truth for strategy ordering.
+ *
+ *  • Snowball   → smallest balance first. Suboptimal mathematically but the
+ *                 fastest psychological wins keep people on track. (Dave Ramsey method.)
+ *  • Avalanche  → highest APR first. Mathematically optimal — minimum total
+ *                 interest paid, fastest math-only payoff.
+ *  • Hybrid     → blended score 70% APR weight + 30% small-balance weight.
+ *                 Captures most of avalanche's interest savings while still
+ *                 letting small debts get knocked out for momentum.
+ *
+ * The previous hybrid used `apr / balance` which exploded for tiny high-APR
+ * debts (e.g. a $50 store card at 27% would dominate over a $20K loan at 22%)
+ * and produced clearly wrong results. Returns a NEW sorted array — the input
+ * is not mutated.
+ */
+function sortDebtsByStrategy(debts, strategy) {
+    const list = [...debts];
+    if (!list.length) return list;
+    if (strategy === 'avalanche') {
+        return list.sort((a, b) => (b.apr || 0) - (a.apr || 0));
+    }
+    if (strategy === 'snowball') {
+        return list.sort((a, b) => (a.balance || 0) - (b.balance || 0));
+    }
+    // Hybrid: composite score — APR scaled vs portfolio max + small-balance bonus
+    const maxApr = Math.max(1, ...list.map(d => d.apr || 0));
+    const minBal = Math.max(1, Math.min(...list.map(d => d.balance || Infinity)));
+    const score = (d) => {
+        const aprScore = (d.apr || 0) / maxApr;            // 0..1, higher APR = higher
+        const balScore = minBal / Math.max(1, d.balance);  // 0..1, smallest balance = 1
+        return aprScore * 0.7 + balScore * 0.3;
+    };
+    return list.sort((a, b) => score(b) - score(a));
+}
+
 function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
     if (!appState || !appState.debts.length) return {};
-    
+
     let debts = JSON.parse(JSON.stringify(appState.debts));
     const strategy = strategyOverride || appState.settings.strategy || 'avalanche';
-    
-    if (strategy === 'avalanche') debts.sort((a,b) => b.apr - a.apr);
-    if (strategy === 'snowball') debts.sort((a,b) => a.balance - b.balance);
-    if (strategy === 'hybrid') debts.sort((a,b) => (b.apr/Math.max(1,b.balance)) - (a.apr/Math.max(1,a.balance)));
+    debts = sortDebtsByStrategy(debts, strategy);
     
     const extraContrib = extraOverride !== null ? extraOverride : (appState.budget.contribution || 0);
     const results = {};
@@ -4726,9 +4890,7 @@ window.markNotificationRead = function(id) {
 function getBalanceTimeline(strategy, extraMonthly, lumpSum, rateAdj) {
     if (!appState || !appState.debts.length) return [];
     let debts = JSON.parse(JSON.stringify(appState.debts));
-    if (strategy === 'avalanche') debts.sort((a,b) => b.apr - a.apr);
-    else if (strategy === 'snowball') debts.sort((a,b) => a.balance - b.balance);
-    else debts.sort((a,b) => (b.apr/Math.max(1,b.balance)) - (a.apr/Math.max(1,a.balance)));
+    debts = sortDebtsByStrategy(debts, strategy);
 
     // Apply rate adjustment
     debts.forEach(d => { d.apr = Math.max(0, d.apr + (rateAdj || 0)); });
@@ -4764,9 +4926,7 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
     // Returns {months, totalInterest, totalPaid}
     if (!appState || !appState.debts.length) return { months: 0, totalInterest: 0, totalPaid: 0 };
     let debts = JSON.parse(JSON.stringify(appState.debts));
-    if (strategy === 'avalanche') debts.sort((a,b) => b.apr - a.apr);
-    else if (strategy === 'snowball') debts.sort((a,b) => a.balance - b.balance);
-    else debts.sort((a,b) => (b.apr/Math.max(1,b.balance)) - (a.apr/Math.max(1,a.balance)));
+    debts = sortDebtsByStrategy(debts, strategy);
     debts.forEach(d => { d.apr = Math.max(0, d.apr + (rateAdj || 0)); });
     if (lumpSum > 0) debts[0].balance = Math.max(0, debts[0].balance - lumpSum);
 

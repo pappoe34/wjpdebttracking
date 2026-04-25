@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=68-stmtedu">
+  <link rel="stylesheet" href="style.css?v=69-wave1">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -843,10 +843,42 @@
               <span id="freedom-target-amt">—</span>
             </div>
 
+            <!-- Quarter milestones — visible on the progress bar at 25/50/75/100% -->
+            <div class="dfd-quarters" id="dfd-quarters" aria-hidden="true">
+              <span class="dfd-quarter" data-q="25"></span>
+              <span class="dfd-quarter" data-q="50"></span>
+              <span class="dfd-quarter" data-q="75"></span>
+            </div>
+            <div class="dfd-encouragement" id="dfd-encouragement" style="display:none;"></div>
+
             <!-- Hidden but kept for back-compat: other code reads val-total-debt.
                  Default is $0.00 (was $42,850.00 demo data) so a fresh user truly starts at zero. -->
             <div id="val-total-debt" style="display:none">$0.00</div>
             <div id="val-active-liabilities" style="display:none">0 Active Liabilities</div>
+          </div>
+
+          <!-- TOP-3 STRATEGY FOCUS BAR — three debts to attack first, ordered by selected strategy.
+               Snowball=smallest balances, Avalanche=highest APR, Hybrid=composite score.
+               Shown below the DFD hero so it's the user's second glance every visit. -->
+          <div class="top3-strategy reveal reveal-1" id="top3-strategy">
+            <div class="top3-header">
+              <div>
+                <div class="top3-eyebrow"><i class="ph-fill ph-target"></i> Focus this month · <span id="top3-strategy-label">Avalanche</span></div>
+                <h3 class="top3-title">Top 3 to attack</h3>
+              </div>
+              <div class="chip-group" id="top3-strategy-tabs" role="tablist" aria-label="Choose strategy">
+                <button type="button" class="chip" data-strategy="snowball" role="tab">Snowball</button>
+                <button type="button" class="chip" data-strategy="hybrid" role="tab">Hybrid</button>
+                <button type="button" class="chip active" data-strategy="avalanche" role="tab">Avalanche</button>
+              </div>
+            </div>
+            <div class="top3-grid" id="top3-grid">
+              <!-- Populated by renderTop3Strategy() — empty state shown when no debts -->
+              <div class="top3-empty">
+                <i class="ph ph-target" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+                Add debts to see your prioritized payoff plan.
+              </div>
+            </div>
           </div>
 
           <div class="dash-grid">
@@ -4573,7 +4605,7 @@
 </div>
 
 
-  <script src="app.js?v=35-hardreset"></script>
+  <script src="app.js?v=36-wave1"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

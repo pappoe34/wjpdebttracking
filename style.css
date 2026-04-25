@@ -5902,3 +5902,253 @@ body.dark .top-header{
   }
   .modal-tabs::-webkit-scrollbar{ display:none; }
 }
+
+/* ============================================================
+   DASHBOARD WAVE 1 — Top-3 Strategy bar + Golden DFD progress
+   ============================================================ */
+
+/* ── Golden flare progress bar inside the DFD hero ─────────── */
+.dfd-progress {
+  position: relative;
+  height: 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+}
+.dfd-progress .progress-fill {
+  position: relative;
+  height: 100%;
+  border-radius: 8px;
+  /* Layered golden gradient: deeper amber base, brass mid, lit highlight on top */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 50%),
+    linear-gradient(90deg, #b8860b 0%, #d4a017 25%, #f4c430 50%, #ffd75f 70%, #f4c430 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -1px 2px rgba(120,72,0,0.45),
+    0 0 18px rgba(244,196,48,0.55),
+    0 0 34px rgba(255,215,95,0.25);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+/* Animated shimmer flare sweeping across the gold */
+.dfd-progress .progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255,255,255,0) 35%,
+    rgba(255,255,255,0.55) 50%,
+    rgba(255,255,255,0) 65%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: dfdShimmer 3.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes dfdShimmer {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* ── Quarter milestone tick marks on the DFD bar ───────────── */
+.dfd-quarters {
+  position: relative;
+  height: 0;
+  margin-top: -10px;
+  pointer-events: none;
+}
+.dfd-quarters .dfd-quarter {
+  position: absolute;
+  top: -10px;
+  width: 2px;
+  height: 14px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 1px;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+}
+.dfd-quarters .dfd-quarter[data-q="25"] { left: 25%; }
+.dfd-quarters .dfd-quarter[data-q="50"] { left: 50%; }
+.dfd-quarters .dfd-quarter[data-q="75"] { left: 75%; }
+
+/* ── DFD encouragement banner (fades in on milestone) ──────── */
+.dfd-encouragement {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(244,196,48,0.12), rgba(244,196,48,0.04));
+  border: 1px solid rgba(244,196,48,0.35);
+  color: #f4c430;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  animation: dfdEncourageIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dfdEncourageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Top-3 Strategy Focus bar ──────────────────────────────── */
+.top3-strategy {
+  margin: 16px 0 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+}
+.top3-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.top3-eyebrow {
+  font-size: 9px;
+  color: var(--accent);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.top3-eyebrow span { text-transform: capitalize; }
+.top3-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.top3-strategy .chip-group {
+  display: inline-flex;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.top3-strategy .chip {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.top3-strategy .chip:hover { color: var(--text-2); }
+.top3-strategy .chip.active {
+  background: var(--accent);
+  color: #0b0f1a;
+}
+.top3-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.top3-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.top3-card {
+  position: relative;
+  padding: 14px 14px 12px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-left: 3px solid var(--rank-color, var(--accent));
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.top3-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+.top3-rank-badge {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--rank-color, var(--accent));
+  color: #0b0f1a;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.top3-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.top3-debt-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+.top3-debt-apr {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--rank-color, var(--accent));
+  white-space: nowrap;
+}
+.top3-debt-reason {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.top3-progress-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+.top3-progress-stats .top3-pct {
+  color: var(--rank-color, var(--accent));
+  font-weight: 800;
+}
+.top3-progress-track {
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.top3-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 8px currentColor;
+}
+
+@media (max-width: 720px) {
+  .top3-grid { grid-template-columns: 1fr; }
+  .top3-header { flex-direction: column; align-items: stretch; }
+  .top3-strategy .chip-group { width: fit-content; }
+}
