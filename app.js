@@ -3351,17 +3351,38 @@ function updateDfdEncouragement(pct) {
  * Each synthetic transaction is tagged with synthetic:true and parentRecurringId
  * so we never double-create or confuse it with a manually-logged transaction.
  */
+// Cache state hash so we skip the (expensive) materialize pass when nothing
+// relevant has changed. Reset by saveState/updates that mutate the inputs.
+let _lastMaterializeHash = null;
+
+function _computeMaterializeHash() {
+    const debts = (appState && appState.debts) || [];
+    const recs  = (appState && appState.recurringPayments) || [];
+    // Fast hash: count + concat of ids + amounts + dates. Doesn't need to be
+    // crypto-perfect, just unique for the dimensions that affect output.
+    const dKey = debts.map(d => `${d.id}|${d.minPayment}|${d.dueDay || d.dueDate}`).join(';');
+    const rKey = recs.map(r => `${r.id}|${r.amount}|${r.frequency}|${r.nextDate||''}|${r.linkedIncome?1:0}`).join(';');
+    return `${debts.length}::${recs.length}::${dKey}::${rKey}`;
+}
+
 function materializeRecurringTransactions() {
     if (!appState) return;
     if (!Array.isArray(appState.recurringPayments)) appState.recurringPayments = [];
     if (!Array.isArray(appState.transactions)) appState.transactions = [];
+
+    // Skip if the dimensions that affect synthetic-txn output haven't changed
+    // since last call. This is the single biggest win — most updateUI calls
+    // were re-doing the entire scan when only the strategy chip changed etc.
+    const hash = _computeMaterializeHash();
+    if (hash === _lastMaterializeHash) return;
+    _lastMaterializeHash = hash;
 
     const now = new Date();
     const horizonMonths = 6;
     let createdAny = false;
 
     // CLEANUP: drop synthetic transactions whose parent recurring/debt no longer
-    // exists, so deletions feed cleanly back into the count and chart.
+    // exists. Use Sets for O(1) parent lookups instead of repeated .find().
     const recIds = new Set(appState.recurringPayments.map(r => r && r.id).filter(Boolean));
     const debtIds = new Set((appState.debts || []).map(d => d && d.id).filter(Boolean));
     const before = appState.transactions.length;
@@ -3372,6 +3393,17 @@ function materializeRecurringTransactions() {
         return true;
     });
     if (appState.transactions.length !== before) createdAny = true;
+
+    // Pre-build a Set of existing synthetic-transaction keys so per-candidate
+    // dedupe is O(1) instead of O(N) via .some(). Was the slowest part of the
+    // pass when the user had many recurring payments.
+    const existingKeys = new Set();
+    appState.transactions.forEach(t => {
+        if (!t.synthetic) return;
+        const dateIso = (t.date || '').slice(0, 10);
+        if (t.parentRecurringId) existingKeys.add(`r:${t.parentRecurringId}:${dateIso}`);
+        if (t.parentDebtId)      existingKeys.add(`d:${t.parentDebtId}:${dateIso}`);
+    });
 
     appState.recurringPayments.forEach(rec => {
         if (!rec || !rec.amount) return;
@@ -3423,14 +3455,10 @@ function materializeRecurringTransactions() {
             .map(x => x.toISOString().slice(0,10))
             .filter(iso => { if (seenIso.has(iso)) return false; seenIso.add(iso); return true; });
 
-        // For each occurrence date, ensure a synthetic transaction exists
+        // For each occurrence date, ensure a synthetic transaction exists.
+        // Uses pre-built Set for O(1) dedupe rather than O(N) .some() walk.
         uniqueDates.forEach(iso => {
-            const exists = appState.transactions.some(t =>
-                t.synthetic === true &&
-                t.parentRecurringId === rec.id &&
-                t.date && t.date.slice(0, 10) === iso
-            );
-            if (exists) return;
+            if (existingKeys.has(`r:${rec.id}:${iso}`)) return;
 
             const dateObj = new Date(iso + 'T12:00:00');
             const cat = (rec.category || '').toLowerCase();
@@ -3454,6 +3482,7 @@ function materializeRecurringTransactions() {
                 synthetic: true,
                 parentRecurringId: rec.id
             });
+            existingKeys.add(`r:${rec.id}:${iso}`);
             createdAny = true;
         });
     });
@@ -3469,12 +3498,7 @@ function materializeRecurringTransactions() {
             const target = new Date(now.getFullYear(), now.getMonth() - m, Math.min(dueDay, 28), 12, 0, 0, 0);
             if (target < horizon || target > now) continue;
             const iso = target.toISOString().slice(0, 10);
-            const exists = appState.transactions.some(t =>
-                t.synthetic === true &&
-                t.parentDebtId === debt.id &&
-                t.date && t.date.slice(0, 10) === iso
-            );
-            if (exists) continue;
+            if (existingKeys.has(`d:${debt.id}:${iso}`)) continue;
             appState.transactions.push({
                 id: 'debt-' + debt.id + '-' + iso,
                 date: target.toISOString(),
@@ -3486,6 +3510,7 @@ function materializeRecurringTransactions() {
                 synthetic: true,
                 parentDebtId: debt.id
             });
+            existingKeys.add(`d:${debt.id}:${iso}`);
             createdAny = true;
         }
     });
@@ -3499,8 +3524,15 @@ function materializeRecurringTransactions() {
 function updateUI() {
     if (!appState) return;
 
+    // Reset simulator cache for this render — DFD hero, AI advisor progress
+    // strip, projection chart, and Top-3 bar all call calcSimTotals/Trajectory
+    // with the same params, so memoizing within a single render saves 4-6
+    // duplicate runs of the 600-month payoff loop.
+    _clearSimCache();
+
     // Synthesize transactions from recurring payments BEFORE we render so
     // the spending tracker, count, charts, and lists all reflect them.
+    // The hash check inside skips the work if recurring/debts didn't change.
     try { materializeRecurringTransactions(); } catch(e) { console.warn('materialize fail', e); }
 
     const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
@@ -5477,9 +5509,18 @@ function getBalanceTimeline(strategy, extraMonthly, lumpSum, rateAdj) {
     return timeline;
 }
 
+// Per-render-cycle cache for the heavy simulator calls. Cleared by updateUI()
+// at the start of each render so values stay fresh between user actions but
+// don't get re-computed when the AI Advisor + DFD hero + projection chart all
+// ask for the same simulation params during one render.
+let _simCache = new Map();
+function _clearSimCache() { _simCache = new Map(); }
+
 function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
-    // Returns {months, totalInterest, totalPaid}
     if (!appState || !appState.debts.length) return { months: 0, totalInterest: 0, totalPaid: 0 };
+    const key = `T:${strategy}:${extraMonthly}:${lumpSum}:${rateAdj || 0}`;
+    if (_simCache.has(key)) return _simCache.get(key);
+
     let debts = JSON.parse(JSON.stringify(appState.debts));
     debts = sortDebtsByStrategy(debts, strategy);
     debts.forEach(d => { d.apr = Math.max(0, d.apr + (rateAdj || 0)); });
@@ -5505,7 +5546,9 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
         }
         if (allPaid) break;
     }
-    return { months, totalInterest, totalPaid };
+    const out = { months, totalInterest, totalPaid };
+    _simCache.set(key, out);
+    return out;
 }
 
 /**
@@ -5516,6 +5559,10 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
 function calcBalanceTrajectory(strategy, extraMonthly, monthLimit) {
     const cap = monthLimit || 60;
     if (!appState || !appState.debts.length) return [0];
+
+    const key = `B:${strategy}:${extraMonthly}:${cap}`;
+    if (_simCache.has(key)) return _simCache.get(key);
+
     let debts = JSON.parse(JSON.stringify(appState.debts));
     debts = sortDebtsByStrategy(debts, strategy);
 
@@ -5541,6 +5588,7 @@ function calcBalanceTrajectory(strategy, extraMonthly, monthLimit) {
         series.push(Math.max(0, total));
         if (allPaid) break;
     }
+    _simCache.set(key, series);
     return series;
 }
 
