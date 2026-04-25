@@ -3643,16 +3643,13 @@ function updateUI() {
             try {
                 const stats = calcSimTotals(strategy, extraMonthly, 0, 0);
                 if (stats && stats.months > 0 && stats.months < 600) {
-                    // Stats.months is now fractional (e.g., 19.7 instead of 20),
-                    // so the date is day-precise. Convert via 30.44 days/mo.
                     const payoff = new Date();
-                    payoff.setDate(payoff.getDate() + Math.round(stats.months * 30.44));
-                    const dateStr = payoff.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    payoff.setMonth(payoff.getMonth() + stats.months);
+                    const dateStr = payoff.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
                     const fmtUsd = n => '$' + Math.round(n).toLocaleString();
-                    const intMonths = Math.round(stats.months);
-                    const yearsText = intMonths >= 12
-                        ? `${Math.floor(intMonths/12)} year${Math.floor(intMonths/12) === 1 ? '' : 's'}${intMonths % 12 ? `, ${intMonths % 12} month${intMonths % 12 === 1 ? '' : 's'}` : ''}`
-                        : `${intMonths} month${intMonths === 1 ? '' : 's'}`;
+                    const yearsText = stats.months >= 12
+                        ? `${Math.floor(stats.months/12)} year${Math.floor(stats.months/12) === 1 ? '' : 's'}${stats.months % 12 ? `, ${stats.months % 12} month${stats.months % 12 === 1 ? '' : 's'}` : ''}`
+                        : `${stats.months} month${stats.months === 1 ? '' : 's'}`;
 
                     // Pulse the date if it changed from what was last shown
                     const prev = dfdDate.getAttribute('data-prev');
@@ -5286,26 +5283,24 @@ function renderStrategyIndicators() {
         // Same strategy at 0 extra — for "saved" delta per debt
         const baselineResults = calculateDebtPayoff(s, 0);
 
-        // Aggregate totals — months can be fractional now (e.g., 19.4 vs 20.7)
-        // so date precision is visible across strategies.
+        // Aggregate totals — clean integer months (estimates, not decimals)
         let totalInterest = 0;
         let maxMonths = 0;
         Object.values(stratResults).forEach(r => {
             if (r) { totalInterest += r.totalInterest || 0; maxMonths = Math.max(maxMonths, r.months || 0); }
         });
 
-        // Day-precise debt-free date using fractional months × 30.44 days/mo
+        // Estimated debt-free date — month + year. Clean estimate, no day-level
+        // false precision. If two strategies converge to the same month, that's
+        // the math: the bottleneck debt is the same.
         const debtFreeDateObj = new Date();
         if (maxMonths > 0 && maxMonths < 600) {
-            debtFreeDateObj.setDate(debtFreeDateObj.getDate() + Math.round(maxMonths * 30.44));
+            debtFreeDateObj.setMonth(debtFreeDateObj.getMonth() + maxMonths);
         }
         const debtFreeStr = (maxMonths > 0 && maxMonths < 600)
-            ? debtFreeDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            ? debtFreeDateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
             : '—';
-        // Display months with 1 decimal so 19.4 vs 20.7 is visible
-        const monthsDisplay = (maxMonths > 0 && maxMonths < 600)
-            ? (maxMonths >= 100 ? Math.round(maxMonths) : maxMonths.toFixed(1))
-            : '—';
+        const monthsDisplay = (maxMonths > 0 && maxMonths < 600) ? maxMonths : '—';
 
         listEl.innerHTML += `
             <div style="padding:14px 16px; margin-bottom:8px; background:rgba(${s==='snowball'?'102,126,234':s==='hybrid'?'255,171,64':'0,212,168'},0.06); border:1px solid rgba(${s==='snowball'?'102,126,234':s==='hybrid'?'255,171,64':'0,212,168'},0.2); border-radius:10px;">
@@ -5556,12 +5551,8 @@ function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
 
             if (res.balance <= payment) {
                 cascade += (payment - res.balance);
-                // Fractional month: how much of THIS month was actually needed.
-                // Without this, all debts that clear in the same calendar month
-                // round to identical totals — hiding real strategy differences.
-                const fractionOfMonth = payment > 0 ? (res.balance / payment) : 1;
-                res.months = (totalMonths - 1) + fractionOfMonth;
                 res.balance = 0;
+                res.months = totalMonths;
             } else {
                 res.balance -= payment;
             }
@@ -6003,7 +5994,6 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
     if (lumpSum > 0) debts[0].balance = Math.max(0, debts[0].balance - lumpSum);
 
     let months = 0, totalInterest = 0, totalPaid = lumpSum;
-    let lastClearFraction = 1;
     while (months < 600) {
         months++;
         let cascade = extraMonthly;
@@ -6028,21 +6018,12 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
 
             const pay = d.minPayment + cascade;
             cascade = 0;
-            if (d.balance <= pay) {
-                totalPaid += d.balance;
-                cascade += pay - d.balance;
-                // Capture fraction of THIS month needed to clear — used as the
-                // partial-month component when this is the last clearing.
-                lastClearFraction = pay > 0 ? (d.balance / pay) : 1;
-                d.balance = 0;
-            }
+            if (d.balance <= pay) { totalPaid += d.balance; cascade += pay - d.balance; d.balance = 0; }
             else { d.balance -= pay; totalPaid += pay; }
         }
         if (allPaid) break;
     }
-    // Subtract unused portion of the last month so months can be e.g. 19.7
-    const fractionalMonths = months > 0 ? (months - 1 + lastClearFraction) : 0;
-    const out = { months: fractionalMonths, totalInterest, totalPaid };
+    const out = { months, totalInterest, totalPaid };
     _simCache.set(key, out);
     return out;
 }
