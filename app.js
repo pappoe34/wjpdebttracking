@@ -5260,9 +5260,9 @@ function renderStrategyIndicators() {
         avalanche: {
             icon: 'ph-mountains',
             color: '#00d4a8',
-            why: 'Attacks debts with the highest APR first, minimizing the total interest paid over your entire payoff timeline. Mathematically the most efficient method to eliminate debt cost.',
-            benefit: 'Best for: Saving the most money. Lowest total interest cost.',
-            sort: (a, b) => b.apr - a.apr
+            why: 'Attacks debts that bleed the most interest dollars per month — combining balance and APR to find your biggest dollar drain. A $10K loan at 18% beats a $500 card at 30% because it costs you more every month.',
+            benefit: 'Best for: Stopping the biggest monthly interest bleed first.',
+            sort: (a, b) => (b.balance * b.apr) - (a.balance * a.apr)
         }
     };
     
@@ -5380,18 +5380,16 @@ window.addEventListener('resize', () => {
  *  • Snowball   → smallest balance first. Suboptimal mathematically but the
  *                 fastest psychological wins keep people on track. (Dave Ramsey method.)
  *
- *  • Avalanche  → highest APR first. Mathematically optimal: every $1 paid
- *                 against the highest-APR debt yields the most future interest
- *                 saved per dollar, regardless of balance size. This is the
- *                 universally accepted definition — keeping it pure.
+ *  • Avalanche  → highest interest DOLLARS first (balance × APR). Attacks the
+ *                 biggest monthly bleed regardless of whether it's a small
+ *                 high-APR card or a large medium-APR loan. A $10K loan at 18%
+ *                 ($150/mo bleed) ranks ahead of a $500 card at 30% ($13/mo
+ *                 bleed). Tie-breaker: APR%.
  *
- *  • Hybrid     → APR-dominated blend with a quick-win bonus:
- *                   65% APR              (per-dollar interest savings — primary)
- *                   25% small-balance    (quick-win bonus)
- *                   10% payment efficiency (rewards debts that clear fast at min)
- *                 Sits between Snowball and Avalanche on total interest paid —
- *                 an Avalanche-leaning blend that gives small balances a nudge
- *                 for psychological momentum.
+ *  • Hybrid     → 60% interest dollars + 30% small-balance bonus + 10% pay
+ *                 efficiency. Avalanche-leaning but rewards small debts that
+ *                 can be knocked out for momentum. Sits between Snowball and
+ *                 Avalanche on total interest paid — true "best of both worlds".
  *
  * Returns a NEW sorted array. Input is not mutated.
  */
@@ -5403,23 +5401,25 @@ function sortDebtsByStrategy(debts, strategy) {
         return list.sort((a, b) => (a.balance || 0) - (b.balance || 0));
     }
     if (strategy === 'avalanche') {
-        // Pure APR sort. Tie-breaker: interest dollars (higher = higher priority)
+        // Sort by INTEREST DOLLARS descending (balance × APR). Bigger monthly
+        // bleed → higher priority. Tie-breaker: APR% (per-dollar savings rate).
         return list.sort((a, b) => {
-            const aprDelta = (b.apr || 0) - (a.apr || 0);
-            if (Math.abs(aprDelta) > 0.001) return aprDelta;
-            const aBleed = (a.balance || 0) * (a.apr || 0) / 100 / 12;
-            const bBleed = (b.balance || 0) * (b.apr || 0) / 100 / 12;
-            return bBleed - aBleed;
+            const aBleed = (a.balance || 0) * (a.apr || 0); // proportional to monthly $ interest
+            const bBleed = (b.balance || 0) * (b.apr || 0);
+            const bleedDelta = bBleed - aBleed;
+            if (Math.abs(bleedDelta) > 0.01) return bleedDelta;
+            return (b.apr || 0) - (a.apr || 0);
         });
     }
 
-    // Hybrid: APR-dominated blend with quick-win bonus.
-    // Earlier 4-factor with 30% "bleed" weight was double-counting APR
-    // (bleed = APR × balance), which gave big-balance medium-APR debts too much
-    // priority and made Hybrid total interest worse than Snowball. Reverting to
-    // a 3-factor formula where APR dominates so Hybrid behaves like Avalanche
-    // with a small-debt momentum bonus — the textbook "best of both worlds".
-    const maxApr = Math.max(1, ...list.map(d => d.apr || 0));
+    // Hybrid: bleed-dominated blend with quick-win bonus.
+    // 60% interest dollars (matches the new Avalanche logic) + 30% small balance
+    // + 10% payment efficiency. This sits between Snowball and Avalanche on
+    // total interest because it leans toward the bleed-first strategy but gives
+    // small debts a boost.
+    const maxBleed = Math.max(0.01, ...list.map(d =>
+        (d.balance || 0) * (d.apr || 0)
+    ));
     const minBal = Math.max(1, Math.min(...list.map(d => d.balance || Infinity)));
 
     const score = (d) => {
@@ -5427,16 +5427,16 @@ function sortDebtsByStrategy(debts, strategy) {
         const minPay = Math.max(0, d.minPayment || 0);
         const apr = Math.max(0, d.apr || 0);
 
-        // 1. APR weight (65%): per-dollar interest-savings rate. Dominant.
-        const aprScore = apr / maxApr;
-        // 2. Small-balance bonus (25%): rewards quick wins
+        // 1. Interest-dollars weight (60%): the monthly bleed. Same metric
+        //    Avalanche uses, so Hybrid leans Avalanche-ward.
+        const bleedScore = (balance * apr) / maxBleed;
+        // 2. Small-balance bonus (30%): rewards quick wins
         const balScore = minBal / Math.max(1, balance);
-        // 3. Payment efficiency (10%): debts where min × 12 covers a lot of balance
-        //    clear faster on their own — a small extra nudge to prioritize them
+        // 3. Payment efficiency (10%): rewards debts that clear fast at minimums
         const annualMinAsPctOfBalance = balance > 0 ? Math.min(1, (minPay * 12) / balance) : 0;
 
-        return aprScore * 0.65
-             + balScore * 0.25
+        return bleedScore * 0.60
+             + balScore * 0.30
              + annualMinAsPctOfBalance * 0.10;
     };
     return list.sort((a, b) => score(b) - score(a));
