@@ -8673,48 +8673,101 @@ function initAdvisorPageLogic() {
         cancel.addEventListener('click', () => modal.remove());
         modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
 
-        confirmBtn.addEventListener('click', () => {
+        confirmBtn.addEventListener('click', async () => {
             if (confirmBtn.disabled) return;
+            confirmBtn.textContent = 'WIPING…';
+            confirmBtn.disabled = true;
             try {
-                // Reset all financial collections to their defaults — keep settings + prefs + auth
-                if (typeof appState !== 'undefined') {
-                    appState.debts = [];
-                    appState.transactions = [];
-                    appState.recurringPayments = [];
-                    appState.notifications = [];
-                    appState.creditScoreHistory = [];
-                    appState.processedTxIds = [];
-                    appState.lastRecurringSync = 0;
-                    if (appState.balances) {
-                        appState.balances.monthlyIncome = 0;
-                        appState.balances.availableCashflow = 0;
-                    }
-                    if (appState.budget) {
-                        appState.budget.contribution = 0;
-                        appState.budget.targetGoal = 0;
-                        appState.budget.savingsRatio = 0;
-                        if (appState.budget.expenses) {
-                            appState.budget.expenses.housing = 0;
-                            appState.budget.expenses.food = 0;
-                            appState.budget.expenses.transit = 0;
-                            appState.budget.expenses.disc = 0;
+                // (1) Try to unlink any Plaid items on the server so bank syncs stop.
+                //     Best-effort — if the network call fails we still wipe locally.
+                try {
+                    const idToken = (typeof getIdToken === 'function') ? await getIdToken() : null;
+                    if (idToken && typeof appState !== 'undefined' && Array.isArray(appState.debts)) {
+                        const itemIds = [...new Set(
+                            appState.debts.map(d => d.itemId).filter(Boolean)
+                        )];
+                        for (const itemId of itemIds) {
+                            try {
+                                await fetch('/.netlify/functions/unlink-item', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+                                    body: JSON.stringify({ itemId })
+                                });
+                            } catch (_) {}
                         }
                     }
-                }
-                // Clear Plaid-sandbox-related local caches too
-                try { localStorage.removeItem('wjp_credit_inputs'); } catch(_){}
-                try { localStorage.removeItem('wjp_sim_state'); } catch(_){}
-                // Reset onboarding so the user can re-do the 60-second flow
-                try { localStorage.removeItem('wjp_onboarded'); } catch(_){}
-                try { saveState(); } catch(_){}
+                } catch (_) {}
+
+                // (2) Comprehensive localStorage wipe — every wjp_* key plus the
+                //     budget-theme key. Auth tokens (gotrue.user, Firebase IndexedDB)
+                //     are intentionally left alone so the user stays signed in.
+                try {
+                    const PRESERVE = new Set([
+                        'gotrue.user',
+                        // Personalization: last_email/last_name kept so signin still
+                        // greets the user by name. Wiping these would feel like a
+                        // sign-out from the user's perspective.
+                        'wjp_last_email',
+                        'wjp_last_name'
+                    ]);
+                    const toRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (!k) continue;
+                        if (PRESERVE.has(k)) continue;
+                        // Wipe anything wjp_* and the legacy budget-theme key.
+                        if (k.startsWith('wjp_') || k === 'budget-theme' || k === 'wjp_budget_state') {
+                            toRemove.push(k);
+                        }
+                    }
+                    toRemove.forEach(k => localStorage.removeItem(k));
+
+                    // sessionStorage too — first-run flags, dismissed prompts, etc.
+                    sessionStorage.clear();
+                } catch (_) {}
+
+                // (3) Reset the in-memory appState back to defaults so any code
+                //     running between now and the reload sees a clean slate.
+                try {
+                    if (typeof appState !== 'undefined' && appState) {
+                        appState.debts = [];
+                        appState.transactions = [];
+                        appState.recurringPayments = [];
+                        appState.notifications = [];
+                        appState.creditScoreHistory = [];
+                        appState.processedTxIds = [];
+                        appState.lastRecurringSync = 0;
+                        if (appState.balances) {
+                            appState.balances.monthlyIncome = 0;
+                            appState.balances.availableCashflow = 0;
+                        }
+                        if (appState.budget) {
+                            appState.budget.contribution = 0;
+                            appState.budget.targetGoal = 0;
+                            appState.budget.savingsRatio = 0;
+                            if (appState.budget.expenses) {
+                                appState.budget.expenses.housing = 0;
+                                appState.budget.expenses.food = 0;
+                                appState.budget.expenses.transit = 0;
+                                appState.budget.expenses.disc = 0;
+                            }
+                        }
+                    }
+                } catch (_) {}
+
                 try { window.wjp && wjp.track && wjp.track('client_error', { where: 'data_wipe', msg: 'user_initiated' }); } catch(_){}
 
                 modal.remove();
                 if (typeof showToast === 'function') showToast('All data wiped — starting fresh');
-                // Force a hard refresh so every tab/widget rerenders cleanly
-                setTimeout(() => window.location.reload(), 600);
+                // Hard refresh — bypasses any in-memory caches and forces a clean re-render.
+                setTimeout(() => {
+                    try { window.location.replace(window.location.pathname); }
+                    catch(_) { window.location.reload(); }
+                }, 600);
             } catch (e) {
                 console.error('wipe failed', e);
+                confirmBtn.textContent = 'WIPE EVERYTHING';
+                confirmBtn.disabled = false;
                 if (errEl) {
                     errEl.style.display = 'block';
                     errEl.textContent = 'Wipe failed: ' + (e.message || 'unknown error');
