@@ -6158,7 +6158,7 @@ body.dark .top-header{
    ============================================================ */
 .spending-summary {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1.3fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   padding: 12px 14px;
   margin: 10px 0 14px;
@@ -6189,8 +6189,12 @@ body.dark .top-header{
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.spending-summary-stat:nth-child(1) .spending-summary-val { color: var(--accent); }
-.spending-summary-stat:nth-child(3) .spending-summary-val { color: #a855f7; }
+/* Color-code each stat so the user can scan: spent (red) · income (green) ·
+   net (dynamic, set in JS) · transactions (purple). */
+.spending-summary-stat[data-stat="spent"] .spending-summary-val   { color: #ff4d6d; }
+.spending-summary-stat[data-stat="income"] .spending-summary-val  { color: #22c55e; }
+.spending-summary-stat[data-stat="count"] .spending-summary-val   { color: #a855f7; }
+/* Net color is set inline by updateSpendingSummary based on sign */
 .spending-summary-sub {
   font-size: 10px;
   color: var(--text-3);
@@ -6231,14 +6235,8 @@ body.dark .top-header{
 
 @media (max-width: 720px) {
   .spending-summary {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  .spending-summary-stat {
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
+    grid-template-columns: 1fr 1fr;  /* 2x2 grid on phones */
+    gap: 10px;
   }
   .spending-summary-val {
     font-size: 16px;

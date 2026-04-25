@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=71-creditai">
+  <link rel="stylesheet" href="style.css?v=72-cashflow">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -949,24 +949,30 @@
                   <div class="icon-btn" id="btn-spending-settings" style="width:28px;height:28px;"><i class="ph ph-gear"></i></div>
                 </div>
 
-                <!-- Summary stats — total spent in window, # transactions counted, top category.
-                     Updated by updateSpendingSummary() on every chart redraw so the headline
-                     numbers always match the chart bars. -->
+                <!-- Summary stats — full cash-flow picture: spending + income + net.
+                     Updated by updateSpendingSummary() on every chart redraw so the
+                     numbers always match the bars. Sets up for bank-sync where every
+                     transaction (in/out) flows through the same data path. -->
                 <div class="spending-summary" id="spending-summary">
-                  <div class="spending-summary-stat">
-                    <span class="spending-summary-label">Total Spent</span>
+                  <div class="spending-summary-stat" data-stat="spent">
+                    <span class="spending-summary-label">Spent</span>
                     <span class="spending-summary-val" id="spend-sum-total">$0</span>
                     <span class="spending-summary-sub" id="spend-sum-window">monthly</span>
                   </div>
-                  <div class="spending-summary-stat">
+                  <div class="spending-summary-stat" data-stat="income">
+                    <span class="spending-summary-label">Income</span>
+                    <span class="spending-summary-val" id="spend-sum-income">$0</span>
+                    <span class="spending-summary-sub" id="spend-sum-income-sub">no inflows yet</span>
+                  </div>
+                  <div class="spending-summary-stat" data-stat="net">
+                    <span class="spending-summary-label">Net</span>
+                    <span class="spending-summary-val" id="spend-sum-net">$0</span>
+                    <span class="spending-summary-sub" id="spend-sum-net-sub">break-even</span>
+                  </div>
+                  <div class="spending-summary-stat" data-stat="count">
                     <span class="spending-summary-label">Transactions</span>
                     <span class="spending-summary-val" id="spend-sum-count">0</span>
-                    <span class="spending-summary-sub">in this window</span>
-                  </div>
-                  <div class="spending-summary-stat">
-                    <span class="spending-summary-label">Top Category</span>
-                    <span class="spending-summary-val" id="spend-sum-topcat">—</span>
-                    <span class="spending-summary-sub" id="spend-sum-topcat-pct">—</span>
+                    <span class="spending-summary-sub" id="spend-sum-topcat">No spending yet</span>
                   </div>
                 </div>
 
@@ -4644,7 +4650,7 @@
 </div>
 
 
-  <script src="app.js?v=39-creditai"></script>
+  <script src="app.js?v=40-cashflow"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

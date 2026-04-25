@@ -1353,20 +1353,24 @@ function drawCharts() {
 
     // Execution
     /**
-     * getSpendingData — single source for the spending tracker chart.
-     * Returns labels, data, total spent across the window, transaction count,
-     * and category breakdown. Both pie/doughnut and bar/line use the SAME
-     * window for a given timeframe — previously they diverged (pie showed
-     * "last 30 days" for weekly while bar showed "last 4 weeks").
+     * getSpendingData — single source for the dashboard's cash-flow tracker.
+     *
+     * Returns BOTH spending (outflows, t.amount < 0) AND income (inflows, t.amount > 0)
+     * binned across the same time window so the chart can show both as datasets.
+     * The bar chart will render side-by-side red/green bars per period; the line
+     * chart shows two lines; the doughnut still slices spending categories only
+     * (income would dominate as a single huge slice and obscure the breakdown).
+     *
+     * This sets up bank-sync: every Plaid-imported transaction will flow through
+     * here regardless of sign, so the tracker shows the complete picture.
      */
     const getSpendingData = (timeframe, type) => {
         const now = new Date();
-        const data = [];
         const labels = [];
+        const data = [];        // outflows per bin (positive numbers, sign stripped)
+        const incomeData = [];  // inflows per bin
         const allTxns = appState.transactions || [];
 
-        // Compute the absolute start of the time window first, so every
-        // chart type and the summary stats agree on what "in window" means.
         let windowStart, windowEnd = new Date(now);
         windowEnd.setHours(23, 59, 59, 999);
 
@@ -1376,84 +1380,81 @@ function drawCharts() {
             windowStart = new Date(now); windowStart.setDate(windowStart.getDate() - 27); windowStart.setHours(0,0,0,0);
         } else if (timeframe === 'yearly') {
             windowStart = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1, 0, 0, 0, 0);
-        } else { // monthly (default)
+        } else {
             windowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0, 0);
         }
 
-        // ALL spending transactions in the window — negative amounts only.
-        // Income (positive) is intentionally excluded from a "spending" chart.
-        const inWindow = allTxns.filter(t => {
+        // Pre-bucket all in-window transactions by sign — used by both
+        // time-series and pie modes.
+        const inWindowAll = allTxns.filter(t => {
             const td = new Date(t.date);
-            return td >= windowStart && td <= windowEnd && t.amount < 0;
+            return td >= windowStart && td <= windowEnd;
         });
-        const totalSpent = inWindow.reduce((s, t) => s + Math.abs(t.amount), 0);
-        const txnCount = inWindow.length;
+        const inWindowSpending = inWindowAll.filter(t => t.amount < 0);
+        const inWindowIncome   = inWindowAll.filter(t => t.amount > 0);
 
-        // Category breakdown is always available regardless of chart type so
-        // the summary stats can show "biggest category".
+        const totalSpent  = inWindowSpending.reduce((s, t) => s + Math.abs(t.amount), 0);
+        const totalIncome = inWindowIncome.reduce((s, t) => s + t.amount, 0);
+        const netCashFlow = totalIncome - totalSpent;
+        const txnCount    = inWindowAll.length; // ALL transactions in window, signed both ways
+
+        // Category breakdown — spending only. Used for the doughnut + the
+        // "Top category" summary stat. Income is too lumpy and would just show
+        // "Income" as the dominant slice for most users.
         const categories = {};
-        inWindow.forEach(t => {
+        inWindowSpending.forEach(t => {
             const cat = t.category || 'Other';
             categories[cat] = (categories[cat] || 0) + Math.abs(t.amount);
         });
 
         if (type === 'pie' || type === 'doughnut') {
-            // Sort categories largest-first so the first slice is the dominant one
             const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]);
             entries.forEach(([cat, val]) => { labels.push(cat); data.push(val); });
-            return { labels, data, totalSpent, txnCount, categories };
+            return { labels, data, incomeData: [], totalSpent, totalIncome, netCashFlow, txnCount, categories };
         }
 
-        // Time-series chart (bar / line) — bin the in-window spending
+        // Helper: sum txns in a [start, end] window, optionally filtered by sign
+        const sumIn = (start, end, list) => list
+            .filter(t => { const td = new Date(t.date); return td >= start && td <= end; })
+            .reduce((s, t) => s + Math.abs(t.amount), 0);
+
         if (timeframe === 'daily') {
-            // Rolling last 7 days
             for (let i = 6; i >= 0; i--) {
                 const d = new Date(now); d.setDate(d.getDate() - i);
                 labels.push(d.toLocaleDateString('default', { weekday: 'short' }));
                 const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
                 const dayEnd   = new Date(d); dayEnd.setHours(23,59,59,999);
-                const sum = inWindow
-                    .filter(t => { const td = new Date(t.date); return td >= dayStart && td <= dayEnd; })
-                    .reduce((s, t) => s + Math.abs(t.amount), 0);
-                data.push(sum);
+                data.push(sumIn(dayStart, dayEnd, inWindowSpending));
+                incomeData.push(sumIn(dayStart, dayEnd, inWindowIncome));
             }
         } else if (timeframe === 'weekly') {
-            // 4 rolling 7-day blocks ending today (no calendar-week edge effects)
             for (let i = 3; i >= 0; i--) {
                 const blockEnd = new Date(now); blockEnd.setDate(blockEnd.getDate() - (i * 7)); blockEnd.setHours(23,59,59,999);
                 const blockStart = new Date(blockEnd); blockStart.setDate(blockStart.getDate() - 6); blockStart.setHours(0,0,0,0);
                 labels.push(i === 0 ? 'This wk' : `${i}w ago`);
-                const sum = inWindow
-                    .filter(t => { const td = new Date(t.date); return td >= blockStart && td <= blockEnd; })
-                    .reduce((s, t) => s + Math.abs(t.amount), 0);
-                data.push(sum);
+                data.push(sumIn(blockStart, blockEnd, inWindowSpending));
+                incomeData.push(sumIn(blockStart, blockEnd, inWindowIncome));
             }
         } else if (timeframe === 'yearly') {
-            // Last 12 months (rolling)
             for (let i = 11; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 labels.push(d.toLocaleDateString('default', { month: 'short' }));
                 const start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
                 const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23,59,59,999);
-                const sum = inWindow
-                    .filter(t => { const td = new Date(t.date); return td >= start && td <= end; })
-                    .reduce((s, t) => s + Math.abs(t.amount), 0);
-                data.push(sum);
+                data.push(sumIn(start, end, inWindowSpending));
+                incomeData.push(sumIn(start, end, inWindowIncome));
             }
         } else {
-            // Monthly: last 6 calendar months
             for (let i = 5; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 labels.push(d.toLocaleDateString('default', { month: 'short' }));
                 const start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
                 const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23,59,59,999);
-                const sum = inWindow
-                    .filter(t => { const td = new Date(t.date); return td >= start && td <= end; })
-                    .reduce((s, t) => s + Math.abs(t.amount), 0);
-                data.push(sum);
+                data.push(sumIn(start, end, inWindowSpending));
+                incomeData.push(sumIn(start, end, inWindowIncome));
             }
         }
-        return { labels, data, totalSpent, txnCount, categories };
+        return { labels, data, incomeData, totalSpent, totalIncome, netCashFlow, txnCount, categories };
     };
 
     /**
@@ -1472,33 +1473,55 @@ function drawCharts() {
     ];
 
     /**
-     * Sync the headline summary stats above the chart with the current window.
-     * Called by drawSpendingChart so the numbers always match what's plotted.
+     * Sync the four headline summary stats with the current window:
+     * Spent · Income · Net · Transactions (with top-category sub-line).
+     * The Net stat color-codes green (positive cash flow) or red (over-spending).
      */
-    function updateSpendingSummary(totalSpent, txnCount, categories, tf) {
-        const elTotal = document.getElementById('spend-sum-total');
-        const elCount = document.getElementById('spend-sum-count');
-        const elTopCat = document.getElementById('spend-sum-topcat');
-        const elTopPct = document.getElementById('spend-sum-topcat-pct');
-        const elWindow = document.getElementById('spend-sum-window');
-        const fmtUsd = n => '$' + Math.round(n).toLocaleString();
+    function updateSpendingSummary(totalSpent, totalIncome, netCashFlow, txnCount, categories, tf) {
+        const elTotal     = document.getElementById('spend-sum-total');
+        const elIncome    = document.getElementById('spend-sum-income');
+        const elIncomeSub = document.getElementById('spend-sum-income-sub');
+        const elNet       = document.getElementById('spend-sum-net');
+        const elNetSub    = document.getElementById('spend-sum-net-sub');
+        const elCount     = document.getElementById('spend-sum-count');
+        const elTopCat    = document.getElementById('spend-sum-topcat');
+        const elWindow    = document.getElementById('spend-sum-window');
+        const fmtUsd      = n => '$' + Math.round(n || 0).toLocaleString();
 
-        if (elTotal) elTotal.textContent = fmtUsd(totalSpent || 0);
+        if (elTotal) elTotal.textContent = fmtUsd(totalSpent);
+
+        if (elIncome) elIncome.textContent = fmtUsd(totalIncome);
+        if (elIncomeSub) {
+            elIncomeSub.textContent = (totalIncome || 0) > 0 ? 'in this window' : 'no inflows yet';
+        }
+
+        if (elNet) {
+            const net = netCashFlow || 0;
+            const sign = net > 0 ? '+' : net < 0 ? '−' : '';
+            elNet.textContent = `${sign}${fmtUsd(Math.abs(net))}`;
+            // Color-code: green = saving, red = over-spending
+            elNet.style.color = net > 0 ? '#22c55e' : net < 0 ? '#ff4d6d' : 'var(--text-3)';
+        }
+        if (elNetSub) {
+            const net = netCashFlow || 0;
+            elNetSub.textContent = net > 0 ? 'cash-positive'
+                                 : net < 0 ? 'over-spending'
+                                 : 'break-even';
+        }
+
         if (elCount) elCount.textContent = (txnCount || 0).toLocaleString();
         if (elWindow) {
             const labels = { daily: 'last 7 days', weekly: 'last 28 days', monthly: 'last 6 months', yearly: 'last 12 months' };
             elWindow.textContent = labels[tf] || 'this window';
         }
-        if (elTopCat && elTopPct) {
+        if (elTopCat) {
             const entries = Object.entries(categories || {}).sort((a, b) => b[1] - a[1]);
             if (!entries.length || !totalSpent) {
-                elTopCat.textContent = '—';
-                elTopPct.textContent = 'No spending yet';
+                elTopCat.textContent = 'No spending yet';
             } else {
                 const [cat, amt] = entries[0];
                 const pct = totalSpent > 0 ? Math.round((amt / totalSpent) * 100) : 0;
-                elTopCat.textContent = cat;
-                elTopPct.textContent = `${pct}% · ${fmtUsd(amt)}`;
+                elTopCat.textContent = `Top: ${cat} ${pct}%`;
             }
         }
     }
@@ -1520,22 +1543,25 @@ function drawCharts() {
         const tf = (appState.settings && appState.settings.spendingTimeFrame) || 'monthly';
         const type = (appState.settings && appState.settings.spendingChartType) || 'bar';
         const result = getSpendingData(tf, type);
-        const { labels, data, totalSpent, txnCount, categories } = result;
-        const hasData = (totalSpent || 0) > 0;
+        const { labels, data, incomeData, totalSpent, totalIncome, netCashFlow, txnCount, categories } = result;
+        const hasData = (totalSpent || 0) > 0 || (totalIncome || 0) > 0;
 
-        // Sync the summary row (Total Spent · # Transactions · Top Category)
-        try { updateSpendingSummary(totalSpent, txnCount, categories, tf); } catch(_){}
+        // Sync the summary row (Total Spent · Income · Net · # Txns · Top Category)
+        try { updateSpendingSummary(totalSpent, totalIncome, netCashFlow, txnCount, categories, tf); } catch(_){}
 
-        // Build palette sized to whichever array is longer so segments always
-        // have a color even if data is sparse. Falls back to the accent green.
         const slots = Math.max(labels.length, data.length, 1);
         const palette = Array.from({ length: slots }, (_, i) => SPENDING_PALETTE[i % SPENDING_PALETTE.length]);
+        const incomeColor = '#22c55e'; // emerald — distinct from the spending palette
 
-        // Build the dataset cleanly per type — no leftover properties from a
-        // prior chart type that confused the renderer.
-        let dataset;
-        if (type === 'pie' || type === 'doughnut') {
-            dataset = {
+        // Build datasets per type. For bar/line we render TWO datasets: a
+        // spending series (palette colors) AND an income series (solid green)
+        // so the user sees both flows side-by-side. Doughnut shows spending
+        // categories only (income would dominate as a single huge slice).
+        const chartType = (type === 'pie' || type === 'doughnut') ? 'doughnut' : type;
+        const datasets = [];
+
+        if (chartType === 'doughnut') {
+            datasets.push({
                 label: 'Spending',
                 data: data,
                 backgroundColor: palette,
@@ -1543,49 +1569,77 @@ function drawCharts() {
                 borderWidth: 2,
                 hoverOffset: 10,
                 cutout: '70%'
-            };
+            });
         } else if (type === 'line') {
-            dataset = {
+            datasets.push({
                 label: 'Spending',
                 data: data,
-                backgroundColor: 'rgba(0, 212, 168, 0.15)',
-                borderColor: SPENDING_PALETTE[0],
+                backgroundColor: 'rgba(255, 77, 109, 0.12)',
+                borderColor: '#ff4d6d',
                 borderWidth: 3,
                 tension: 0.35,
                 fill: true,
                 pointRadius: 4,
-                pointBackgroundColor: palette,
+                pointBackgroundColor: '#ff4d6d',
                 pointBorderColor: '#0b0f1a',
                 pointBorderWidth: 2
-            };
+            });
+            if (incomeData && incomeData.some(v => v > 0)) {
+                datasets.push({
+                    label: 'Income',
+                    data: incomeData,
+                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                    borderColor: incomeColor,
+                    borderWidth: 3,
+                    tension: 0.35,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: incomeColor,
+                    pointBorderColor: '#0b0f1a',
+                    pointBorderWidth: 2
+                });
+            }
         } else {
-            // bar
-            dataset = {
+            // Bar — grouped (side-by-side) spending + income per period
+            datasets.push({
                 label: 'Spending',
                 data: data,
                 backgroundColor: palette,
                 borderColor: palette,
                 borderWidth: 1,
                 borderRadius: 4
-            };
+            });
+            if (incomeData && incomeData.some(v => v > 0)) {
+                datasets.push({
+                    label: 'Income',
+                    data: incomeData,
+                    backgroundColor: incomeColor,
+                    borderColor: incomeColor,
+                    borderWidth: 1,
+                    borderRadius: 4
+                });
+            }
         }
 
-        const chartType = (type === 'pie' || type === 'doughnut') ? 'doughnut' : type;
         const config = {
             type: chartType,
-            data: { labels: labels, datasets: [dataset] },
+            data: { labels: labels, datasets: datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: chartType === 'doughnut' && hasData,
-                        position: 'right',
+                        // Doughnut shows category legend; bar/line show Spending vs Income legend
+                        display: hasData && (chartType === 'doughnut' || datasets.length > 1),
+                        position: chartType === 'doughnut' ? 'right' : 'top',
+                        align: chartType === 'doughnut' ? 'center' : 'end',
                         labels: {
                             color: colors.text3,
                             font: { size: 10, weight: '500' },
                             usePointStyle: true,
-                            padding: 12
+                            padding: chartType === 'doughnut' ? 12 : 16,
+                            boxWidth: 8,
+                            boxHeight: 8
                         }
                     },
                     tooltip: {
@@ -1597,8 +1651,12 @@ function drawCharts() {
                             label: (ctx2) => {
                                 const val = ctx2.parsed.y != null ? ctx2.parsed.y : ctx2.parsed;
                                 const safeVal = (typeof val === 'number') ? val : 0;
+                                const dsLabel = ctx2.dataset && ctx2.dataset.label || '';
+                                if (dsLabel === 'Income') {
+                                    return ` Income: $${safeVal.toLocaleString()}`;
+                                }
                                 const pct = totalSpent > 0 ? ((safeVal / totalSpent) * 100).toFixed(1) : 0;
-                                return ` Spent: $${safeVal.toLocaleString()} (${pct}%)`;
+                                return ` Spent: $${safeVal.toLocaleString()}${pct ? ` (${pct}%)` : ''}`;
                             }
                         }
                     }
@@ -1656,10 +1714,10 @@ function drawCharts() {
                     ctx2.font = '700 13px Inter';
                     ctx2.fillStyle = colors.text;
                     ctx2.textAlign = 'center';
-                    ctx2.fillText('No spending yet', cx, cy - 6);
+                    ctx2.fillText('No transactions yet', cx, cy - 6);
                     ctx2.font = '500 10px Inter';
                     ctx2.fillStyle = colors.text3;
-                    ctx2.fillText('Add transactions to see your trend.', cx, cy + 10);
+                    ctx2.fillText('Add income & expenses to see your cash flow.', cx, cy + 10);
                     ctx2.restore();
                 }
             }
