@@ -4106,55 +4106,72 @@ function updateUI() {
         });
     }
 
-    if(window.drawCharts) drawCharts();
-    // --- Dashboard Bottom Stats Dynamic Update ---
-    const elInt = document.getElementById('val-interest-saved');
-    const elDTI = document.getElementById('val-dti-ratio');
-    const elFreedom = document.getElementById('val-freedom-date');
+    try { if(window.drawCharts) drawCharts(); } catch(e) { console.warn('drawCharts', e); }
 
-    if (elInt || elDTI || elFreedom) {
-        // We use the existing simulateAllStrategies() to get the best outcomes
-        const sim = trySimulate();
-        if (sim) {
-            const strategy = appState.settings.strategy || 'avalanche';
-            const current = sim.simulations[strategy];
-            
-            // 1. Interest Saved: Compare Snowball (Naive) vs the Optimal strategy
-            const naiveInt = sim.simulations['snowball'].interest;
-            const bestInt = sim.simulations[sim.best].interest;
-            const savings = Math.max(0, naiveInt - bestInt);
-            // If no savings found yet, default to a realistic placeholder based on balance
-            const displaySavings = savings > 10 ? fmt(savings) : fmt(totalDebt * 0.04); 
-            if (elInt) elInt.innerHTML = `${displaySavings} <span class="stat-pill up">+12%</span>`;
-            
-            // 2. DTI: Total Min Monthly Debt Payments / Gross Monthly Income
-            const income = appState.balances.monthlyIncome || 8500;
-            const totalMin = appState.debts.reduce((sum, d) => sum + d.minPayment, 0);
-            const dtiVal = ((totalMin / income) * 100).toFixed(1);
-            if (elDTI) elDTI.innerHTML = `${dtiVal}% <span class="stat-pill" style="background:var(--card-2); color:var(--text-3);">-2.1%</span>`;
+    // --- Dashboard Bottom Stats (Interest Saved · DTI · Freedom Date) ---
+    // Wrapped in try/catch so a sim error doesn't take down the rest of updateUI.
+    try {
+        const elInt = document.getElementById('val-interest-saved');
+        const elDTI = document.getElementById('val-dti-ratio');
+        const elFreedom = document.getElementById('val-freedom-date');
 
-            // 3. Freedom Date: Estimated completion date based on current strategy
-            const freedomDate = new Date();
-            freedomDate.setMonth(freedomDate.getMonth() + current.months);
-            const mStr = freedomDate.toLocaleString('default', { month: 'short' });
-            const yStr = freedomDate.getFullYear();
-            if (elFreedom) elFreedom.textContent = `${mStr} ${yStr}`;
+        if (elInt || elDTI || elFreedom) {
+            const hasDebts = (appState.debts || []).length > 0;
+            if (!hasDebts) {
+                // Empty state — show neutral defaults so cards aren't blank
+                if (elInt) elInt.textContent = '$0';
+                if (elDTI) elDTI.textContent = '0%';
+                if (elFreedom) elFreedom.textContent = '—';
+            } else {
+                const sim = (typeof simulateAllStrategies === 'function') ? simulateAllStrategies() : null;
+                if (sim && sim.simulations) {
+                    const strategy = appState.settings.strategy || 'avalanche';
+                    const current = sim.simulations[strategy] || sim.simulations[sim.best] || sim.simulations.avalanche;
+
+                    // 1. Interest Saved — Snowball baseline vs best path
+                    const naiveInt = (sim.simulations.snowball && sim.simulations.snowball.interest) || 0;
+                    const bestInt = (sim.simulations[sim.best] && sim.simulations[sim.best].interest) || 0;
+                    const savings = Math.max(0, naiveInt - bestInt);
+                    const displaySavings = savings > 10 ? fmt(savings) : fmt(totalDebt * 0.04);
+                    if (elInt) elInt.innerHTML = `${displaySavings} <span class="stat-pill up">+12%</span>`;
+
+                    // 2. DTI
+                    const income = (appState.balances && appState.balances.monthlyIncome) || 0;
+                    const totalMin = appState.debts.reduce((sum, d) => sum + (d.minPayment || 0), 0);
+                    if (income > 0 && totalMin > 0) {
+                        const dtiVal = ((totalMin / income) * 100).toFixed(1);
+                        if (elDTI) elDTI.innerHTML = `${dtiVal}% <span class="stat-pill" style="background:var(--card-2); color:var(--text-3);">${parseFloat(dtiVal) < 36 ? 'safe' : 'high'}</span>`;
+                    } else if (elDTI) {
+                        elDTI.innerHTML = totalMin > 0 ? '— <span class="stat-pill" style="background:var(--card-2);color:var(--text-3);">add income</span>' : '0%';
+                    }
+
+                    // 3. Freedom Date
+                    if (current && current.months > 0 && current.months < 600) {
+                        const freedomDate = new Date();
+                        freedomDate.setMonth(freedomDate.getMonth() + current.months);
+                        const mStr = freedomDate.toLocaleString('default', { month: 'short' });
+                        const yStr = freedomDate.getFullYear();
+                        if (elFreedom) elFreedom.textContent = `${mStr} ${yStr}`;
+                    } else if (elFreedom) {
+                        elFreedom.textContent = '—';
+                    }
+                }
+            }
         }
-    }
+    } catch(e) { console.warn('bottom stats render failed', e); }
 
-    if (window.renderStrategyIndicators) renderStrategyIndicators(); // also calls syncStrategyCards()
-    else if (typeof syncStrategyCards === 'function') syncStrategyCards(); // fallback sync
-    if (typeof renderPerDebtAttachments === 'function') renderPerDebtAttachments();
-    if (typeof reorderPinnedCards === 'function') reorderPinnedCards();
-    if (typeof applyHouseholdModeLabel === 'function') applyHouseholdModeLabel();
-    if (typeof applyGoalsReordering === 'function') applyGoalsReordering();
-    renderTransactions();
-    if (typeof renderResilienceTab === 'function') renderResilienceTab();
-    renderUpcomingList();
-    updateCreditProfile();
-    updateResilienceCard();
-    updateDebtsHeader();
-    updateAnalysisTab();
+    try { if (typeof renderStrategyIndicators === 'function') renderStrategyIndicators(); } catch(e) { console.warn('strategy indicators', e); }
+    try { if (typeof renderPerDebtAttachments === 'function') renderPerDebtAttachments(); } catch(e) { console.warn('attachments', e); }
+    try { if (typeof reorderPinnedCards === 'function') reorderPinnedCards(); } catch(e) { console.warn('pinned reorder', e); }
+    try { if (typeof applyHouseholdModeLabel === 'function') applyHouseholdModeLabel(); } catch(_){}
+    try { if (typeof applyGoalsReordering === 'function') applyGoalsReordering(); } catch(_){}
+    try { renderTransactions(); } catch(e) { console.warn('transactions render', e); }
+    try { if (typeof renderResilienceTab === 'function') renderResilienceTab(); } catch(_){}
+    try { renderUpcomingList(); } catch(e) { console.warn('upcoming list', e); }
+    try { updateCreditProfile(); } catch(e) { console.warn('credit profile', e); }
+    try { updateResilienceCard(); } catch(e) { console.warn('resilience card', e); }
+    try { updateDebtsHeader(); } catch(_){}
+    try { updateAnalysisTab(); } catch(_){}
     // Re-render simulations if visible
     const simPanel = document.querySelector('[data-subtab="simulations"].active');
     if (simPanel && typeof renderSimulationsTab === 'function') renderSimulationsTab();
@@ -4899,6 +4916,21 @@ function initDashCustomize() {
     const resetBtn = document.getElementById('dash-customize-reset');
     if (!btn) return;
 
+    // One-time migration — if a previous dev iteration saved cardOrder in the
+    // wrong shape (or made cards unexpectedly hidden), wipe it. Keyed by a
+    // version flag so we only do this once per device.
+    try {
+        if (appState && appState.prefs) {
+            const FLAG = 'cardLayoutMigrationV2';
+            if (!appState.prefs[FLAG]) {
+                appState.prefs.cardOrder = {};
+                appState.prefs.cardHidden = {};
+                appState.prefs[FLAG] = true;
+                saveState();
+            }
+        }
+    } catch(_){}
+
     const setMode = (on) => {
         document.body.classList.toggle('dash-customizing', !!on);
         btn.classList.toggle('active', !!on);
@@ -5077,31 +5109,41 @@ function persistDashboardLayout() {
 
 /** Apply the saved card order + hidden state to the DOM. */
 function applyDashboardLayout() {
-    const prefs = (appState.prefs) || {};
-    const order = prefs.cardOrder || {};
-    const hidden = prefs.cardHidden || {};
+    if (!appState) return;
+    try {
+        const prefs = (appState.prefs) || {};
+        const order = prefs.cardOrder || {};
+        const hidden = prefs.cardHidden || {};
 
-    // Hide / show
-    document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
-        const cid = card.getAttribute('data-card-id');
-        if (hidden[cid]) card.style.display = 'none';
-        else card.style.display = '';
-    });
+        // Defensive shape check — earlier dev iterations may have saved cardOrder
+        // as an array. If it's not a plain object, scrap it.
+        if (typeof order !== 'object' || Array.isArray(order)) {
+            appState.prefs.cardOrder = {};
+            return;
+        }
 
-    // Reorder per parent: walk each saved parent → cardId list, move matching
-    // cards in DOM order. Cards not in the saved list keep their natural place
-    // after the saved ones.
-    Object.keys(order).forEach(parentKey => {
-        // Resolve parent — try id selector first, then class
-        let parent = document.getElementById(parentKey);
-        if (!parent) parent = document.querySelector('.' + parentKey);
-        if (!parent) return;
-        const idList = order[parentKey] || [];
-        idList.forEach(cid => {
-            const card = parent.querySelector(`.reorderable[data-card-id="${cid}"]`);
-            if (card) parent.appendChild(card); // appendChild moves it to end → maintaining list order
+        // Hide / show
+        document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
+            const cid = card.getAttribute('data-card-id');
+            if (hidden && hidden[cid]) card.style.display = 'none';
+            else card.style.display = '';
         });
-    });
+
+        // Reorder per parent: only rearrange cards that are CURRENTLY children of
+        // the named parent. Skip silently if anything looks off.
+        Object.keys(order).forEach(parentKey => {
+            let parent = document.getElementById(parentKey);
+            if (!parent) parent = document.querySelector('.' + parentKey);
+            if (!parent) return;
+            const idList = Array.isArray(order[parentKey]) ? order[parentKey] : [];
+            idList.forEach(cid => {
+                const card = parent.querySelector(`:scope > .reorderable[data-card-id="${cid}"]`);
+                if (card) parent.appendChild(card);
+            });
+        });
+    } catch (err) {
+        console.warn('applyDashboardLayout failed', err);
+    }
 }
 
 window.applyDashboardLayout = applyDashboardLayout;
