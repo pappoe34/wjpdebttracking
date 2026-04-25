@@ -1503,65 +1503,83 @@ function drawCharts() {
         }
     }
 
-    /** Unified Spending Chart Drawer */
+    /** Unified Spending Chart Drawer
+     *  Builds a fresh dataset config per chart type so we never feed line-only or
+     *  bar-only properties to the wrong type. When there's no spending data we
+     *  show a centered "No spending yet" overlay rather than an empty axis. */
     function drawSpendingChart(canvasId) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
 
         if (chartInstances[canvasId]) {
-            chartInstances[canvasId].destroy();
+            try { chartInstances[canvasId].destroy(); } catch(_){}
+            chartInstances[canvasId] = null;
         }
+        if (typeof Chart === 'undefined') return; // chart.js not loaded yet
 
         const tf = (appState.settings && appState.settings.spendingTimeFrame) || 'monthly';
         const type = (appState.settings && appState.settings.spendingChartType) || 'bar';
         const result = getSpendingData(tf, type);
         const { labels, data, totalSpent, txnCount, categories } = result;
+        const hasData = (totalSpent || 0) > 0;
 
-        // Update the summary stats row (Total Spent · Transactions counted · Top Category)
-        // Doing this here so every redraw of the chart syncs the headline numbers.
+        // Sync the summary row (Total Spent · # Transactions · Top Category)
         try { updateSpendingSummary(totalSpent, txnCount, categories, tf); } catch(_){}
 
-        // Color each bar/segment with the rotating palette so user sees
-        // visual differentiation. Line chart gets a single color (the trend
-        // line) but with point markers in the palette so each month/week
-        // is still distinct on hover.
-        const palette = labels.map((_, i) => SPENDING_PALETTE[i % SPENDING_PALETTE.length]);
-        const lineGradientColor = SPENDING_PALETTE[0];
+        // Build palette sized to whichever array is longer so segments always
+        // have a color even if data is sparse. Falls back to the accent green.
+        const slots = Math.max(labels.length, data.length, 1);
+        const palette = Array.from({ length: slots }, (_, i) => SPENDING_PALETTE[i % SPENDING_PALETTE.length]);
 
+        // Build the dataset cleanly per type — no leftover properties from a
+        // prior chart type that confused the renderer.
+        let dataset;
+        if (type === 'pie' || type === 'doughnut') {
+            dataset = {
+                label: 'Spending',
+                data: data,
+                backgroundColor: palette,
+                borderColor: colors.card2,
+                borderWidth: 2,
+                hoverOffset: 10,
+                cutout: '70%'
+            };
+        } else if (type === 'line') {
+            dataset = {
+                label: 'Spending',
+                data: data,
+                backgroundColor: 'rgba(0, 212, 168, 0.15)',
+                borderColor: SPENDING_PALETTE[0],
+                borderWidth: 3,
+                tension: 0.35,
+                fill: true,
+                pointRadius: 4,
+                pointBackgroundColor: palette,
+                pointBorderColor: '#0b0f1a',
+                pointBorderWidth: 2
+            };
+        } else {
+            // bar
+            dataset = {
+                label: 'Spending',
+                data: data,
+                backgroundColor: palette,
+                borderColor: palette,
+                borderWidth: 1,
+                borderRadius: 4
+            };
+        }
+
+        const chartType = (type === 'pie' || type === 'doughnut') ? 'doughnut' : type;
         const config = {
-            type: type === 'pie' ? 'doughnut' : type,
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Spending',
-                    data: data,
-                    backgroundColor: type === 'pie' ? palette
-                        : type === 'line' ? 'transparent'
-                        : palette,
-                    borderColor: type === 'pie' ? colors.card2
-                        : type === 'line' ? lineGradientColor
-                        : palette,
-                    borderWidth: type === 'pie' ? 2 : (type === 'line' ? 3 : 1),
-                    tension: 0.35,
-                    fill: type === 'line' ? {
-                        target: 'origin',
-                        above: 'rgba(0, 212, 168, 0.15)'
-                    } : false,
-                    pointRadius: type === 'line' ? 4 : 0,
-                    pointBackgroundColor: type === 'line' ? palette : undefined,
-                    pointBorderColor: type === 'line' ? '#0b0f1a' : undefined,
-                    pointBorderWidth: type === 'line' ? 2 : 0,
-                    hoverOffset: type === 'pie' ? 10 : 0,
-                    cutout: type === 'pie' ? '70%' : '0%',
-                    borderRadius: type === 'bar' ? 4 : 0
-                }]
-            },
+            type: chartType,
+            data: { labels: labels, datasets: [dataset] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { 
-                        display: type === 'pie',
+                    legend: {
+                        display: chartType === 'doughnut' && hasData,
                         position: 'right',
                         labels: {
                             color: colors.text3,
@@ -1576,27 +1594,27 @@ function drawCharts() {
                         borderWidth: 1,
                         padding: 12,
                         callbacks: {
-                            label: (context) => {
-                                const val = context.parsed.y || context.parsed || 0;
-                                const pct = totalSpent > 0 ? ((val / totalSpent) * 100).toFixed(1) : 0;
-                                return ` Spent: $${val.toLocaleString()} (${pct}%)`;
+                            label: (ctx2) => {
+                                const val = ctx2.parsed.y != null ? ctx2.parsed.y : ctx2.parsed;
+                                const safeVal = (typeof val === 'number') ? val : 0;
+                                const pct = totalSpent > 0 ? ((safeVal / totalSpent) * 100).toFixed(1) : 0;
+                                return ` Spent: $${safeVal.toLocaleString()} (${pct}%)`;
                             }
                         }
                     }
                 },
-                scales: type === 'pie' ? {
-                    x: { display: false },
-                    y: { display: false }
-                } : {
+                scales: chartType === 'doughnut' ? {} : {
                     x: {
                         grid: { display: false },
                         ticks: { color: colors.text3, font: { size: 9 } }
                     },
                     y: {
                         beginAtZero: true,
+                        // Keep an axis range visible even when there's no data
+                        suggestedMax: hasData ? undefined : 100,
                         grid: { color: colors.border, drawBorder: false },
-                        ticks: { 
-                            color: colors.text3, 
+                        ticks: {
+                            color: colors.text3,
                             font: { size: 9 },
                             callback: (value) => '$' + value
                         }
@@ -1605,26 +1623,53 @@ function drawCharts() {
             }
         };
 
-        // Add a plugin to draw text in the center of the doughnut
-        if (type === 'pie') {
-            config.plugins = [{
-                id: 'centerText',
-                afterDraw: (chart) => {
-                    const { ctx, chartArea: { left, top, right, bottom } } = chart;
-                    ctx.save();
-                    ctx.font = '700 12px Inter';
-                    ctx.fillStyle = colors.text3;
-                    ctx.textAlign = 'center';
-                    ctx.fillText('TOTAL', (left + right) / 2, (top + bottom) / 2 - 8);
-                    ctx.font = '700 16px Inter';
-                    ctx.fillStyle = colors.text;
-                    ctx.fillText(`$${Math.round(totalSpent).toLocaleString()}`, (left + right) / 2, (top + bottom) / 2 + 10);
-                    ctx.restore();
+        // Doughnut center text — TOTAL + amount. Empty-state version for both
+        // doughnut and bar/line is drawn by the same plugin so the user never
+        // sees a fully blank canvas.
+        config.plugins = [{
+            id: 'spendingChartHelpers',
+            afterDraw: (chart) => {
+                const ctx2 = chart.ctx;
+                const area = chart.chartArea;
+                if (!area) return;
+                const cx = (area.left + area.right) / 2;
+                const cy = (area.top + area.bottom) / 2;
+                if (chartType === 'doughnut') {
+                    ctx2.save();
+                    ctx2.font = '700 12px Inter';
+                    ctx2.fillStyle = colors.text3;
+                    ctx2.textAlign = 'center';
+                    if (hasData) {
+                        ctx2.fillText('TOTAL', cx, cy - 8);
+                        ctx2.font = '700 16px Inter';
+                        ctx2.fillStyle = colors.text;
+                        ctx2.fillText(`$${Math.round(totalSpent).toLocaleString()}`, cx, cy + 10);
+                    } else {
+                        ctx2.font = '700 11px Inter';
+                        ctx2.fillStyle = colors.text3;
+                        ctx2.fillText('No spending yet', cx, cy);
+                    }
+                    ctx2.restore();
+                } else if (!hasData) {
+                    // Bar/line empty-state overlay
+                    ctx2.save();
+                    ctx2.font = '700 13px Inter';
+                    ctx2.fillStyle = colors.text;
+                    ctx2.textAlign = 'center';
+                    ctx2.fillText('No spending yet', cx, cy - 6);
+                    ctx2.font = '500 10px Inter';
+                    ctx2.fillStyle = colors.text3;
+                    ctx2.fillText('Add transactions to see your trend.', cx, cy + 10);
+                    ctx2.restore();
                 }
-            }];
-        }
+            }
+        }];
 
-        chartInstances[canvasId] = new Chart(ctx, config);
+        try {
+            chartInstances[canvasId] = new Chart(ctx, config);
+        } catch (err) {
+            console.warn('drawSpendingChart failed', err);
+        }
     }
 
     /** Professional Chart.js implementation for AI Strategy Advisor with Multi-Style support */
