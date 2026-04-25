@@ -4210,41 +4210,56 @@ function renderNotifications() {
     `).join('');
 }
 
-// Global scope access for inline HTML onclick handlers
+// Global scope access for inline HTML onclick handlers.
+// Marks a notification read, closes the panel, and navigates to the relevant
+// tab based on either the notification's explicit `link` property or
+// content-keyword fallback.
 window.markNotificationRead = function(id) {
     if (!appState || !appState.notifications) return;
     const notif = appState.notifications.find(n => n.id === id);
     if (notif && !notif.read) {
         notif.read = true;
-        saveState();
-        renderNotifications();
+        try { saveState(); } catch(_){}
+        try { renderNotifications(); } catch(_){}
     }
-    
-    // Always navigate based on content or explicit link property
-    if (notif) {
+
+    if (!notif) return;
+
+    // Close the panel immediately so nav feels instant.
+    try {
         const panel = document.getElementById('notification-panel');
         if (panel) panel.classList.remove('active');
-        
-        if (typeof window.navTo === 'function') {
-            if (notif.link) {
-                 window.navTo(notif.link);
-                 return;
-            }
-            
-            // Dynamic Keyword Routing Fallback
-            const txt = (notif.title + " " + notif.text).toLowerCase();
-            if (notif.type === 'ai' || txt.includes('strategy') || txt.includes('advisor')) {
-                window.navTo('advisor');
-            } else if (txt.includes('budget') || txt.includes('expense')) {
-                window.navTo('budgets');
-            } else if (txt.includes('payment') || txt.includes('due') || txt.includes('debt')) {
-                window.navTo('debts');
-            } else if (txt.includes('security') || txt.includes('insight') || txt.includes('data')) {
-                window.navTo('settings');
-            } else {
-                window.navTo('activity'); // Default fallback
-            }
-        }
+    } catch(_){}
+
+    // Pick a destination — explicit link wins, then keyword routing.
+    const route = (page) => {
+        try {
+            if (typeof navTo === 'function') return navTo(page);
+            if (typeof window.navTo === 'function') return window.navTo(page);
+            if (typeof navigateSPA === 'function') return navigateSPA(page);
+        } catch(e){ console.warn('notification nav failed', e); }
+    };
+
+    if (notif.link) { route(notif.link); return; }
+
+    // Keyword routing — broader coverage so taps don't fall through.
+    const txt = ((notif.title || '') + ' ' + (notif.text || '')).toLowerCase();
+
+    if (notif.type === 'ai' || /\b(strategy|advisor|recommend|optim(ize|ise|izer)|insight|coach)\b/.test(txt)) {
+        route('advisor');
+    } else if (/\b(payment|due|overdue|debt|loan|credit\s*card|mortgage|paydown)\b/.test(txt)) {
+        route('debts');
+    } else if (/\b(budget|expense|spend(ing)?|cash\s*flow|allocation)\b/.test(txt)) {
+        route('budgets');
+    } else if (/\b(calendar|schedule|recurring|bill|subscription)\b/.test(txt)) {
+        route('recurring');
+    } else if (/\b(security|password|2fa|authentication|account|profile|settings|preferences)\b/.test(txt)) {
+        route('settings');
+    } else if (/\b(milestone|level|streak|achieve|graduat|congrat)\b/.test(txt)) {
+        route('dashboard');
+    } else {
+        // Default: full activity log
+        route('activity');
     }
 };
 

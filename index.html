@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=59-hello">
+  <link rel="stylesheet" href="style.css?v=60-audit2">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -214,22 +214,6 @@
 </head>
 <body class="light">
 
-<!-- Portrait-phone banner: suggest landscape + allow full panning -->
-<div id="rotate-prompt" role="status" aria-live="polite">
-  <div class="rotate-card">
-    <div class="rotate-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="7" width="18" height="10" rx="2"/>
-        <circle cx="18" cy="12" r="0.8" fill="currentColor"/>
-      </svg>
-    </div>
-    <div>
-      <h2>Rotate to landscape for the best view</h2>
-      <p>Or pan in any direction to explore the page.</p>
-    </div>
-  </div>
-  <button type="button" id="rotate-dismiss" class="rotate-btn" aria-label="Dismiss banner">Got it</button>
-</div>
 
 <!-- ============================================================
      FIRST-RUN ONBOARDING — "Put a date on debt-free" in ~60s
@@ -3326,10 +3310,24 @@
         <!-- PAGE: SETTINGS -->
         <div class="page" id="page-settings">
           <div style="margin-bottom:32px;" class="reveal">
-            <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.05em; margin-bottom:8px;">Welcome back, Marcus</div>
-            <h1 style="font-size:32px; font-weight:900; margin-bottom:12px;">Guided Settings Journey</h1>
-            <p style="font-size:12px; color:var(--text-3); max-width:600px; line-height:1.6;">Let's refine your experience. Select a category below to tailor your financial management console to your specific needs.</p>
+            <div id="settings-eyebrow" style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.05em; margin-bottom:8px;">Settings</div>
+            <h1 style="font-size:32px; font-weight:900; margin-bottom:12px;">Settings</h1>
+            <p style="font-size:12px; color:var(--text-3); max-width:600px; line-height:1.6;">Tailor your account, security, AI preferences, and how WJP communicates with you.</p>
           </div>
+          <script>
+          // Personalize the eyebrow if we know the user's name (set at signin time).
+          (function(){
+            try {
+              var name = localStorage.getItem('wjp_last_name');
+              var el = document.getElementById('settings-eyebrow');
+              if (el && name) {
+                var safe = (name + '').replace(/[^\w\s\-']/g,'');
+                safe = safe.charAt(0).toUpperCase() + safe.slice(1);
+                el.textContent = 'Welcome back, ' + safe;
+              }
+            } catch(_){}
+          })();
+          </script>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:900px; margin-bottom:40px;" class="reveal reveal-1 settings-journey-grid">
             <!-- Card 1: Your Identity -->
@@ -4780,7 +4778,7 @@
 </div>
 
 
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=27"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
@@ -4811,23 +4809,6 @@
   })();
   </script>
 
-  <!-- Rotate-for-best-view dismiss handler -->
-  <script>
-  (function(){
-    try {
-      if (sessionStorage.getItem('wjp_rotate_dismissed') === '1') {
-        document.body.classList.add('rotate-dismissed');
-      }
-    } catch(e){}
-    var dismiss = document.getElementById('rotate-dismiss');
-    if (dismiss) {
-      dismiss.addEventListener('click', function(){
-        document.body.classList.add('rotate-dismissed');
-        try { sessionStorage.setItem('wjp_rotate_dismissed','1'); } catch(e){}
-      });
-    }
-  })();
-  </script>
 </body>
 </html>
 
