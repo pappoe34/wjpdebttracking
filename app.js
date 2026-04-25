@@ -5266,26 +5266,34 @@ function renderStrategyIndicators() {
         }
     };
     
-    // Baselines (0 extra contribution) to calculate interest saved
-    const baselineResults = calculateDebtPayoff('avalanche', 0);
-
+    // Baselines (0 extra) to calculate interest saved per debt under THIS strategy
+    // — comparing apples to apples (same strategy, just no extra payment).
     const strats = ['snowball', 'hybrid', 'avalanche'];
     strats.forEach(s => {
         const listEl = document.getElementById(`${s}-list`);
         const meta = stratMeta[s];
         listEl.innerHTML = '';
-        
-        // --- Inject explanation header ---
+
+        // Run the simulator for this strategy (uses effective extra contribution)
         const stratResults = calculateDebtPayoff(s);
-        
-        // Calculate totals for prediction
+        // Same strategy at 0 extra — for "saved" delta per debt
+        const baselineResults = calculateDebtPayoff(s, 0);
+
+        // Aggregate totals
         let totalInterest = 0;
         let maxMonths = 0;
         Object.values(stratResults).forEach(r => {
             if (r) { totalInterest += r.totalInterest || 0; maxMonths = Math.max(maxMonths, r.months || 0); }
         });
-        const debtFreeYear = new Date().getFullYear() + Math.ceil(maxMonths / 12);
-        
+
+        // Show full month + year, not just year — without this, e.g. 36 months
+        // and 41 months both rounded up to "year+4" looking identical
+        const debtFreeDateObj = new Date();
+        debtFreeDateObj.setMonth(debtFreeDateObj.getMonth() + maxMonths);
+        const debtFreeStr = (maxMonths > 0 && maxMonths < 600)
+            ? debtFreeDateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+            : '—';
+
         listEl.innerHTML += `
             <div style="padding:14px 16px; margin-bottom:8px; background:rgba(${s==='snowball'?'102,126,234':s==='hybrid'?'255,171,64':'0,212,168'},0.06); border:1px solid rgba(${s==='snowball'?'102,126,234':s==='hybrid'?'255,171,64':'0,212,168'},0.2); border-radius:10px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -5301,18 +5309,22 @@ function renderStrategyIndicators() {
                     </div>
                     <div style="background:var(--card);border-radius:6px;padding:8px;text-align:center;">
                         <div style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Months</div>
-                        <div style="font-size:13px;font-weight:800;color:var(--text);">${maxMonths}</div>
+                        <div style="font-size:13px;font-weight:800;color:var(--text);">${maxMonths || '—'}</div>
                     </div>
                     <div style="background:var(--card);border-radius:6px;padding:8px;text-align:center;">
                         <div style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Debt-Free</div>
-                        <div style="font-size:13px;font-weight:800;color:${meta.color};">${debtFreeYear}</div>
+                        <div style="font-size:13px;font-weight:800;color:${meta.color};">${debtFreeStr}</div>
                     </div>
                 </div>
             </div>
             <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin:8px 0 6px;padding-left:4px;">Priority Order</div>
         `;
-        
-        let debts = [...appState.debts].sort(meta.sort);
+
+        // Use the SHARED sortDebtsByStrategy helper so priority order on this card
+        // matches the order the simulator actually used. Previously each card used
+        // a stratMeta.sort which had the OLD broken hybrid math, so the displayed
+        // priority order didn't line up with the totals shown above.
+        const debts = sortDebtsByStrategy(appState.debts, s);
         debts.slice(0, 5).forEach((debt, idx) => {
             const res = stratResults[debt.id];
             const base = baselineResults[debt.id];
@@ -5460,10 +5472,6 @@ function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
     const strategy = strategyOverride || appState.settings.strategy || 'avalanche';
     debts = sortDebtsByStrategy(debts, strategy);
 
-    // Use the same effective-extra logic as calcSimTotals so simulateAllStrategies
-    // (which calls this) produces meaningfully different numbers across strategies.
-    // Previously this defaulted to budget.contribution || 0 — when users hadn't set
-    // a manual contribution, extra was $0 and all 3 strategies converged.
     let extraContrib;
     if (extraOverride !== null) {
         extraContrib = extraOverride;
@@ -5489,48 +5497,56 @@ function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
     let totalMonths = 0;
     let allPaid = false;
 
-    while (!allPaid && totalMonths < 600) { // 50 year timeout
+    while (!allPaid && totalMonths < 600) {
         totalMonths++;
+
+        // STEP 1 — Sum ALL freed minimums from paid-off debts plus the user's
+        // extra contribution. This pool flows entirely to the highest-priority
+        // active debt. (Previously the cascade only flowed forward in iteration
+        // order — paid-off debts AFTER the priority debt had their freed min
+        // wasted, which made Avalanche under-perform vs textbook results.)
         let cascade = extraContrib;
+        debts.forEach(d => {
+            const r = results[d.id];
+            if (r.balance <= 0) cascade += r.min;
+        });
+
+        // STEP 2 — Walk active debts in strategy priority order. First active
+        // debt gets min + cascade. Overflow rolls to the next active debt.
         allPaid = true;
-
         for (let i = 0; i < debts.length; i++) {
-            let d = debts[i];
-            let res = results[d.id];
+            const d = debts[i];
+            const res = results[d.id];
+            if (res.balance <= 0) continue;
+            allPaid = false;
 
-            if (res.balance > 0) {
-                allPaid = false;
+            // Credit-card grace period — if this card has a statement day and
+            // total available payment would clear the balance this month, the
+            // user is paying in full → no interest.
+            const dtype = (res.type || '').toString().toLowerCase();
+            const isCard = dtype.includes('credit') || dtype.includes('card');
+            const totalAvailToPay = res.min + cascade;
+            const wouldPayInFull = isCard && res.statementDay && totalAvailToPay >= res.balance;
+            let interest = 0;
+            if (!wouldPayInFull) {
+                interest = res.balance * (res.apr / 100 / 12);
+                res.balance += interest;
+                res.totalInterest += interest;
+            }
 
-                // Same credit-card grace-period logic as calcSimTotals so DFD hero,
-                // simulateAllStrategies, calcSimTotals, and calcBalanceTrajectory all
-                // produce the same numbers for the same inputs.
-                const dtype = (res.type || '').toString().toLowerCase();
-                const isCard = dtype.includes('credit') || dtype.includes('card');
-                const totalAvailToPay = res.min + cascade;
-                const wouldPayInFull = isCard && res.statementDay && totalAvailToPay >= res.balance;
-                let interest = 0;
-                if (!wouldPayInFull) {
-                    interest = res.balance * (res.apr / 100 / 12);
-                    res.balance += interest;
-                    res.totalInterest += interest;
-                }
+            const payment = res.min + cascade;
+            cascade = 0;
 
-                let payment = res.min + cascade;
-                cascade = 0;
-
-                if (res.balance <= payment) {
-                    cascade += (payment - res.balance);
-                    res.balance = 0;
-                    res.months = totalMonths;
-                } else {
-                    res.balance -= payment;
-                }
+            if (res.balance <= payment) {
+                cascade += (payment - res.balance);
+                res.balance = 0;
+                res.months = totalMonths;
             } else {
-                cascade += res.min; 
+                res.balance -= payment;
             }
         }
     }
-    
+
     for(let k in results) {
         if (results[k].months === 0 && results[k].balance > 0) results[k].months = 600;
     }
@@ -5968,37 +5984,31 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
     let months = 0, totalInterest = 0, totalPaid = lumpSum;
     while (months < 600) {
         months++;
+        // Pre-sum ALL freed minimums from paid-off debts → all flows to priority
         let cascade = extraMonthly;
+        debts.forEach(d => { if (d.balance <= 0) cascade += d.minPayment; });
+
         let allPaid = true;
         for (let i = 0; i < debts.length; i++) {
             const d = debts[i];
-            if (d.balance > 0) {
-                allPaid = false;
+            if (d.balance <= 0) continue;
+            allPaid = false;
 
-                // Type-aware interest accrual:
-                //   • Credit cards with statementDay + due day set: assume the user
-                //     pays statement balance by due date → grace period applies →
-                //     interest = $0 if minPayment alone would cover the full balance
-                //     (the realistic "I pay off the card every month" scenario).
-                //     If they're carrying a balance bigger than minPayment, normal
-                //     monthly interest accrues.
-                //   • All other debts: standard monthly compounding (APR/12).
-                const dtype = (d.type || '').toString().toLowerCase();
-                const isCard = dtype.includes('credit') || dtype.includes('card');
-                const totalAvailToPay = d.minPayment + cascade;
-                const wouldPayInFull = isCard && d.statementDay && totalAvailToPay >= d.balance;
-                let int = 0;
-                if (!wouldPayInFull) {
-                    int = d.balance * (d.apr / 100 / 12);
-                    d.balance += int;
-                    totalInterest += int;
-                }
+            const dtype = (d.type || '').toString().toLowerCase();
+            const isCard = dtype.includes('credit') || dtype.includes('card');
+            const totalAvailToPay = d.minPayment + cascade;
+            const wouldPayInFull = isCard && d.statementDay && totalAvailToPay >= d.balance;
+            let int = 0;
+            if (!wouldPayInFull) {
+                int = d.balance * (d.apr / 100 / 12);
+                d.balance += int;
+                totalInterest += int;
+            }
 
-                const pay = d.minPayment + cascade;
-                cascade = 0;
-                if (d.balance <= pay) { totalPaid += d.balance; cascade += pay - d.balance; d.balance = 0; }
-                else { d.balance -= pay; totalPaid += pay; }
-            } else { cascade += d.minPayment; }
+            const pay = d.minPayment + cascade;
+            cascade = 0;
+            if (d.balance <= pay) { totalPaid += d.balance; cascade += pay - d.balance; d.balance = 0; }
+            else { d.balance -= pay; totalPaid += pay; }
         }
         if (allPaid) break;
     }
@@ -6026,26 +6036,28 @@ function calcBalanceTrajectory(strategy, extraMonthly, monthLimit) {
     let months = 0;
     while (months < cap) {
         months++;
+        // Pre-sum freed minimums from paid-off debts → all flows to priority
         let cascade = extraMonthly || 0;
+        debts.forEach(d => { if (d.balance <= 0) cascade += d.minPayment; });
+
         let allPaid = true;
         for (let i = 0; i < debts.length; i++) {
             const d = debts[i];
-            if (d.balance > 0) {
-                allPaid = false;
-                // Same statement-grace logic as calcSimTotals so the chart matches
-                const dtype = (d.type || '').toString().toLowerCase();
-                const isCard = dtype.includes('credit') || dtype.includes('card');
-                const totalAvailToPay = d.minPayment + cascade;
-                const wouldPayInFull = isCard && d.statementDay && totalAvailToPay >= d.balance;
-                if (!wouldPayInFull) {
-                    const int = d.balance * (d.apr / 100 / 12);
-                    d.balance += int;
-                }
-                const pay = d.minPayment + cascade;
-                cascade = 0;
-                if (d.balance <= pay) { cascade += pay - d.balance; d.balance = 0; }
-                else { d.balance -= pay; }
-            } else { cascade += d.minPayment; }
+            if (d.balance <= 0) continue;
+            allPaid = false;
+
+            const dtype = (d.type || '').toString().toLowerCase();
+            const isCard = dtype.includes('credit') || dtype.includes('card');
+            const totalAvailToPay = d.minPayment + cascade;
+            const wouldPayInFull = isCard && d.statementDay && totalAvailToPay >= d.balance;
+            if (!wouldPayInFull) {
+                const int = d.balance * (d.apr / 100 / 12);
+                d.balance += int;
+            }
+            const pay = d.minPayment + cascade;
+            cascade = 0;
+            if (d.balance <= pay) { cascade += pay - d.balance; d.balance = 0; }
+            else { d.balance -= pay; }
         }
         const total = debts.reduce((s, d) => s + (d.balance || 0), 0);
         series.push(Math.max(0, total));
