@@ -1352,103 +1352,156 @@ function drawCharts() {
     const getPct = (val) => (val / totalExp) * 100;
 
     // Execution
+    /**
+     * getSpendingData — single source for the spending tracker chart.
+     * Returns labels, data, total spent across the window, transaction count,
+     * and category breakdown. Both pie/doughnut and bar/line use the SAME
+     * window for a given timeframe — previously they diverged (pie showed
+     * "last 30 days" for weekly while bar showed "last 4 weeks").
+     */
     const getSpendingData = (timeframe, type) => {
         const now = new Date();
         const data = [];
         const labels = [];
-        
-        if (type === 'pie' || type === 'doughnut') {
-            const categories = {};
-            let start, end;
-            
-            if (timeframe === 'daily') {
-                start = new Date(now);
-                start.setDate(start.getDate() - 7);
-            } else if (timeframe === 'weekly') {
-                start = new Date(now);
-                start.setDate(start.getDate() - 30);
-            } else {
-                start = new Date(now);
-                start.setMonth(start.getMonth() - 6);
-            }
-            start.setHours(0,0,0,0);
-            end = new Date(now);
-            end.setHours(23,59,59,999);
+        const allTxns = appState.transactions || [];
 
-            appState.transactions
-                .filter(t => {
-                    const td = new Date(t.date);
-                    return td >= start && td <= end && t.amount < 0;
-                })
-                .forEach(t => {
-                    categories[t.category] = (categories[t.category] || 0) + Math.abs(t.amount);
-                });
-            
-            for (const [cat, val] of Object.entries(categories)) {
-                labels.push(cat);
-                data.push(val);
-            }
-            return { labels, data };
-        }
+        // Compute the absolute start of the time window first, so every
+        // chart type and the summary stats agree on what "in window" means.
+        let windowStart, windowEnd = new Date(now);
+        windowEnd.setHours(23, 59, 59, 999);
 
         if (timeframe === 'daily') {
-            // Last 7 days
+            windowStart = new Date(now); windowStart.setDate(windowStart.getDate() - 6); windowStart.setHours(0,0,0,0);
+        } else if (timeframe === 'weekly') {
+            windowStart = new Date(now); windowStart.setDate(windowStart.getDate() - 27); windowStart.setHours(0,0,0,0);
+        } else if (timeframe === 'yearly') {
+            windowStart = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1, 0, 0, 0, 0);
+        } else { // monthly (default)
+            windowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0, 0);
+        }
+
+        // ALL spending transactions in the window — negative amounts only.
+        // Income (positive) is intentionally excluded from a "spending" chart.
+        const inWindow = allTxns.filter(t => {
+            const td = new Date(t.date);
+            return td >= windowStart && td <= windowEnd && t.amount < 0;
+        });
+        const totalSpent = inWindow.reduce((s, t) => s + Math.abs(t.amount), 0);
+        const txnCount = inWindow.length;
+
+        // Category breakdown is always available regardless of chart type so
+        // the summary stats can show "biggest category".
+        const categories = {};
+        inWindow.forEach(t => {
+            const cat = t.category || 'Other';
+            categories[cat] = (categories[cat] || 0) + Math.abs(t.amount);
+        });
+
+        if (type === 'pie' || type === 'doughnut') {
+            // Sort categories largest-first so the first slice is the dominant one
+            const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+            entries.forEach(([cat, val]) => { labels.push(cat); data.push(val); });
+            return { labels, data, totalSpent, txnCount, categories };
+        }
+
+        // Time-series chart (bar / line) — bin the in-window spending
+        if (timeframe === 'daily') {
+            // Rolling last 7 days
             for (let i = 6; i >= 0; i--) {
-                const d = new Date(now);
-                d.setDate(d.getDate() - i);
+                const d = new Date(now); d.setDate(d.getDate() - i);
                 labels.push(d.toLocaleDateString('default', { weekday: 'short' }));
-                
-                const dayStart = new Date(d.setHours(0,0,0,0));
-                const dayEnd = new Date(d.setHours(23,59,59,999));
-                
-                const total = appState.transactions
-                    .filter(t => {
-                        const td = new Date(t.date);
-                        return td >= dayStart && td <= dayEnd && t.amount < 0;
-                    })
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-                data.push(total);
+                const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+                const dayEnd   = new Date(d); dayEnd.setHours(23,59,59,999);
+                const sum = inWindow
+                    .filter(t => { const td = new Date(t.date); return td >= dayStart && td <= dayEnd; })
+                    .reduce((s, t) => s + Math.abs(t.amount), 0);
+                data.push(sum);
             }
         } else if (timeframe === 'weekly') {
-            // Last 4 weeks
+            // 4 rolling 7-day blocks ending today (no calendar-week edge effects)
             for (let i = 3; i >= 0; i--) {
-                const start = new Date(now);
-                start.setDate(start.getDate() - (i * 7 + (now.getDay() || 7))); 
-                start.setHours(0,0,0,0);
-                
-                const end = new Date(start);
-                end.setDate(end.getDate() + 6);
-                end.setHours(23,59,59,999);
-                
-                labels.push(`Wk ${4-i}`);
-                const total = appState.transactions
-                    .filter(t => {
-                        const td = new Date(t.date);
-                        return td >= start && td <= end && t.amount < 0;
-                    })
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-                data.push(total);
+                const blockEnd = new Date(now); blockEnd.setDate(blockEnd.getDate() - (i * 7)); blockEnd.setHours(23,59,59,999);
+                const blockStart = new Date(blockEnd); blockStart.setDate(blockStart.getDate() - 6); blockStart.setHours(0,0,0,0);
+                labels.push(i === 0 ? 'This wk' : `${i}w ago`);
+                const sum = inWindow
+                    .filter(t => { const td = new Date(t.date); return td >= blockStart && td <= blockEnd; })
+                    .reduce((s, t) => s + Math.abs(t.amount), 0);
+                data.push(sum);
+            }
+        } else if (timeframe === 'yearly') {
+            // Last 12 months (rolling)
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                labels.push(d.toLocaleDateString('default', { month: 'short' }));
+                const start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
+                const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23,59,59,999);
+                const sum = inWindow
+                    .filter(t => { const td = new Date(t.date); return td >= start && td <= end; })
+                    .reduce((s, t) => s + Math.abs(t.amount), 0);
+                data.push(sum);
             }
         } else {
-            // Monthly - Last 6 months
+            // Monthly: last 6 calendar months
             for (let i = 5; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 labels.push(d.toLocaleDateString('default', { month: 'short' }));
-                
-                const start = new Date(d.getFullYear(), d.getMonth(), 1);
-                const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-                
-                const total = appState.transactions
-                    .filter(t => {
-                        const td = new Date(t.date);
-                        return td >= start && td <= end && t.amount < 0;
-                    })
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-                data.push(total);
+                const start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
+                const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23,59,59,999);
+                const sum = inWindow
+                    .filter(t => { const td = new Date(t.date); return td >= start && td <= end; })
+                    .reduce((s, t) => s + Math.abs(t.amount), 0);
+                data.push(sum);
             }
         }
-        return { labels, data };
+        return { labels, data, totalSpent, txnCount, categories };
     };
+
+    /**
+     * 8-color palette used to color each bar/line/pie slice differently.
+     * Good contrast on dark background, no neighbouring colors that blur together.
+     */
+    const SPENDING_PALETTE = [
+        '#00d4a8', // accent green
+        '#667eea', // periwinkle
+        '#ff4d6d', // coral red
+        '#ffab40', // amber
+        '#a855f7', // purple
+        '#22c55e', // grass
+        '#f59e0b', // honey
+        '#60a5fa'  // sky blue
+    ];
+
+    /**
+     * Sync the headline summary stats above the chart with the current window.
+     * Called by drawSpendingChart so the numbers always match what's plotted.
+     */
+    function updateSpendingSummary(totalSpent, txnCount, categories, tf) {
+        const elTotal = document.getElementById('spend-sum-total');
+        const elCount = document.getElementById('spend-sum-count');
+        const elTopCat = document.getElementById('spend-sum-topcat');
+        const elTopPct = document.getElementById('spend-sum-topcat-pct');
+        const elWindow = document.getElementById('spend-sum-window');
+        const fmtUsd = n => '$' + Math.round(n).toLocaleString();
+
+        if (elTotal) elTotal.textContent = fmtUsd(totalSpent || 0);
+        if (elCount) elCount.textContent = (txnCount || 0).toLocaleString();
+        if (elWindow) {
+            const labels = { daily: 'last 7 days', weekly: 'last 28 days', monthly: 'last 6 months', yearly: 'last 12 months' };
+            elWindow.textContent = labels[tf] || 'this window';
+        }
+        if (elTopCat && elTopPct) {
+            const entries = Object.entries(categories || {}).sort((a, b) => b[1] - a[1]);
+            if (!entries.length || !totalSpent) {
+                elTopCat.textContent = '—';
+                elTopPct.textContent = 'No spending yet';
+            } else {
+                const [cat, amt] = entries[0];
+                const pct = totalSpent > 0 ? Math.round((amt / totalSpent) * 100) : 0;
+                elTopCat.textContent = cat;
+                elTopPct.textContent = `${pct}% · ${fmtUsd(amt)}`;
+            }
+        }
+    }
 
     /** Unified Spending Chart Drawer */
     function drawSpendingChart(canvasId) {
@@ -1461,9 +1514,19 @@ function drawCharts() {
 
         const tf = (appState.settings && appState.settings.spendingTimeFrame) || 'monthly';
         const type = (appState.settings && appState.settings.spendingChartType) || 'bar';
-        const { labels, data } = getSpendingData(tf, type);
+        const result = getSpendingData(tf, type);
+        const { labels, data, totalSpent, txnCount, categories } = result;
 
-        const totalSpent = data.reduce((a, b) => a + b, 0);
+        // Update the summary stats row (Total Spent · Transactions counted · Top Category)
+        // Doing this here so every redraw of the chart syncs the headline numbers.
+        try { updateSpendingSummary(totalSpent, txnCount, categories, tf); } catch(_){}
+
+        // Color each bar/segment with the rotating palette so user sees
+        // visual differentiation. Line chart gets a single color (the trend
+        // line) but with point markers in the palette so each month/week
+        // is still distinct on hover.
+        const palette = labels.map((_, i) => SPENDING_PALETTE[i % SPENDING_PALETTE.length]);
+        const lineGradientColor = SPENDING_PALETTE[0];
 
         const config = {
             type: type === 'pie' ? 'doughnut' : type,
@@ -1472,19 +1535,25 @@ function drawCharts() {
                 datasets: [{
                     label: 'Spending',
                     data: data,
-                    backgroundColor: type === 'pie' ? 
-                        ['#00d4a8', '#667eea', '#ff4d6d', '#ffab40', '#9c27b0', '#cddc39', '#2196f3', '#009688'] : 
-                        (type === 'line' ? 'transparent' : colors.accent),
-                    borderColor: type === 'pie' ? colors.card2 : colors.accent,
-                    borderWidth: type === 'pie' ? 2 : (type === 'line' ? 3 : 2),
-                    tension: 0.4,
+                    backgroundColor: type === 'pie' ? palette
+                        : type === 'line' ? 'transparent'
+                        : palette,
+                    borderColor: type === 'pie' ? colors.card2
+                        : type === 'line' ? lineGradientColor
+                        : palette,
+                    borderWidth: type === 'pie' ? 2 : (type === 'line' ? 3 : 1),
+                    tension: 0.35,
                     fill: type === 'line' ? {
                         target: 'origin',
-                        above: colors.accentDim
+                        above: 'rgba(0, 212, 168, 0.15)'
                     } : false,
-                    pointRadius: type === 'line' ? 3 : 0,
+                    pointRadius: type === 'line' ? 4 : 0,
+                    pointBackgroundColor: type === 'line' ? palette : undefined,
+                    pointBorderColor: type === 'line' ? '#0b0f1a' : undefined,
+                    pointBorderWidth: type === 'line' ? 2 : 0,
                     hoverOffset: type === 'pie' ? 10 : 0,
-                    cutout: type === 'pie' ? '70%' : '0%'
+                    cutout: type === 'pie' ? '70%' : '0%',
+                    borderRadius: type === 'bar' ? 4 : 0
                 }]
             },
             options: {
@@ -4601,23 +4670,35 @@ function renderTransactions() {
         return { bg: 'var(--card-2)', clr: 'var(--text-3)' };
     };
 
-    // 1. Dashboard Spending List
+    // 1. Dashboard Spending List — top 5 most-recent transactions.
+    // The chart above this list aggregates ALL transactions in the selected
+    // time window; this list is just the "what hit my account most recently"
+    // glance. Empty state explains the chart still represents everything.
     const dashList = document.getElementById('dash-spending-transactions');
     if (dashList) {
-        dashList.innerHTML = '';
-        appState.transactions.slice(0, 3).forEach(t => {
-            const colors = getColors(t.category);
-            dashList.innerHTML += `
-                <div class="transaction-item" style="animation: fadeIn 0.3s ease;">
-                    <div class="txn-icon" style="background:${colors.bg}; color:${colors.clr}"><i class="${getIcon(t.category)}"></i></div>
-                    <div>
-                        <div class="txn-name">${t.merchant}</div>
-                        <div class="txn-cat">${t.category}</div>
+        const txns = (appState.transactions || []).slice(0, 5);
+        if (!txns.length) {
+            dashList.innerHTML = `
+                <div class="transaction-empty" style="text-align:center; padding:20px 12px; color:var(--text-3); font-size:11px;">
+                    <i class="ph ph-receipt" style="font-size:20px; opacity:0.4; display:block; margin-bottom:6px;"></i>
+                    No transactions yet
+                </div>`;
+        } else {
+            dashList.innerHTML = '';
+            txns.forEach(t => {
+                const colors = getColors(t.category);
+                dashList.innerHTML += `
+                    <div class="transaction-item" style="animation: fadeIn 0.3s ease;">
+                        <div class="txn-icon" style="background:${colors.bg}; color:${colors.clr}"><i class="${getIcon(t.category)}"></i></div>
+                        <div>
+                            <div class="txn-name">${t.merchant || '(unnamed)'}</div>
+                            <div class="txn-cat">${t.category || 'Uncategorized'}</div>
+                        </div>
+                        <div class="txn-amount ${t.amount < 0 ? 'neg' : ''}">${fmt(t.amount)}</div>
                     </div>
-                    <div class="txn-amount ${t.amount < 0 ? 'neg' : ''}">${fmt(t.amount)}</div>
-                </div>
-            `;
-        });
+                `;
+            });
+        }
     }
 
     // 2. Strategy Overview List
@@ -9883,12 +9964,25 @@ function initDashboardInteractivity() {
             const btnNew = document.getElementById('btn-new-entry');
             if (btnNew) {
                 btnNew.click();
-                // Specifically activate the transaction tab in the modal
                 setTimeout(() => {
                     const txnTab = document.querySelector('.modal-tab[data-tab="transaction"]');
                     if (txnTab) txnTab.click();
                 }, 50);
             }
+        };
+    }
+
+    // "View all" link in the spending tracker → jumps to Strategy/Debts → Transactions subtab
+    const spendViewAll = document.getElementById('spend-view-all');
+    if (spendViewAll) {
+        spendViewAll.onclick = (e) => {
+            e.preventDefault();
+            if (typeof navTo === 'function') navTo('debts');
+            // Click the Transactions subtab so we land directly on the full list
+            setTimeout(() => {
+                const subTabs = document.querySelectorAll('.debts-subtabs .subtab');
+                if (subTabs.length >= 2) subTabs[1].click();
+            }, 80);
         };
     }
 

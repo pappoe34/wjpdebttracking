@@ -6152,3 +6152,95 @@ body.dark .top-header{
   .top3-header { flex-direction: column; align-items: stretch; }
   .top3-strategy .chip-group { width: fit-content; }
 }
+
+/* ============================================================
+   SPENDING TRACKER — summary stats + multi-color polish
+   ============================================================ */
+.spending-summary {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.3fr;
+  gap: 10px;
+  padding: 12px 14px;
+  margin: 10px 0 14px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.spending-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.spending-summary-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.spending-summary-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.spending-summary-stat:nth-child(1) .spending-summary-val { color: var(--accent); }
+.spending-summary-stat:nth-child(3) .spending-summary-val { color: #a855f7; }
+.spending-summary-sub {
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spending-recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.spending-viewall {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.spending-viewall:hover { opacity: 0.8; }
+.spending-viewall:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Time-filter row — make Year fit nicely as a 4th option */
+#dash-spending-card .time-filter {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .spending-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .spending-summary-stat {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .spending-summary-val {
+    font-size: 16px;
+  }
+}

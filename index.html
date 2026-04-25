@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=69-wave1">
+  <link rel="stylesheet" href="style.css?v=70-spend">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -936,6 +936,7 @@
                     <div class="time-btn" data-time="daily">Daily</div>
                     <div class="time-btn" data-time="weekly">Weekly</div>
                     <div class="time-btn active" data-time="monthly">Monthly</div>
+                    <div class="time-btn" data-time="yearly">Year</div>
                   </div>
                   <div class="chart-style-switcher" id="spending-chart-switcher" style="margin-left:auto;">
                     <button class="style-btn active" data-style="bar" aria-label="Bar chart" title="Bar Chart"><i class="ph ph-chart-bar"></i></button>
@@ -948,14 +949,37 @@
                   <div class="icon-btn" id="btn-spending-settings" style="width:28px;height:28px;"><i class="ph ph-gear"></i></div>
                 </div>
 
+                <!-- Summary stats — total spent in window, # transactions counted, top category.
+                     Updated by updateSpendingSummary() on every chart redraw so the headline
+                     numbers always match the chart bars. -->
+                <div class="spending-summary" id="spending-summary">
+                  <div class="spending-summary-stat">
+                    <span class="spending-summary-label">Total Spent</span>
+                    <span class="spending-summary-val" id="spend-sum-total">$0</span>
+                    <span class="spending-summary-sub" id="spend-sum-window">monthly</span>
+                  </div>
+                  <div class="spending-summary-stat">
+                    <span class="spending-summary-label">Transactions</span>
+                    <span class="spending-summary-val" id="spend-sum-count">0</span>
+                    <span class="spending-summary-sub">in this window</span>
+                  </div>
+                  <div class="spending-summary-stat">
+                    <span class="spending-summary-label">Top Category</span>
+                    <span class="spending-summary-val" id="spend-sum-topcat">—</span>
+                    <span class="spending-summary-sub" id="spend-sum-topcat-pct">—</span>
+                  </div>
+                </div>
+
                 <div class="spending-row">
-                  <div class="chart-wrap" style="height:140px; background:var(--card-2); border-radius:12px; padding:12px;">
+                  <div class="chart-wrap" style="height:160px; background:var(--card-2); border-radius:12px; padding:12px;">
                     <canvas id="spendingBarChart"></canvas>
                   </div>
                   <div>
-                    <div class="card-label" style="font-size:10px;">Recent Transactions</div>
+                    <div class="spending-recent-header">
+                      <span class="card-label" style="font-size:10px;">Recent Transactions</span>
+                      <a role="button" tabindex="0" class="spending-viewall" id="spend-view-all">View all <i class="ph ph-arrow-right"></i></a>
+                    </div>
                     <div class="transaction-list" id="dash-spending-transactions">
-                      <!-- Empty by default; renderDashSpendingTransactions() populates from appState.transactions. -->
                       <div class="transaction-empty" style="text-align:center; padding:20px 12px; color:var(--text-3); font-size:11px;">
                         <i class="ph ph-receipt" style="font-size:20px; opacity:0.4; display:block; margin-bottom:6px;"></i>
                         No transactions yet
@@ -4605,7 +4629,7 @@
 </div>
 
 
-  <script src="app.js?v=36-wave1"></script>
+  <script src="app.js?v=37-spend"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
