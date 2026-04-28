@@ -5052,10 +5052,13 @@ async function extractPdfText(dataUrl) {
     return fullText;
 }
 
-/** Pattern-match a statement's text for key fields. Returns null where not found. */
+/** Pattern-match a statement's text for every field that affects payoff strategy.
+ *  Returns null where not found. The strategy simulator uses APR + balance +
+ *  min payment + statement day + due day to project payoff dates accurately,
+ *  so we extract all of them. Plus extras (cash-advance APR, promo expiry,
+ *  penalty APR, payment received) that feed insight rules. */
 function parseStatementText(text) {
     if (!text) return {};
-    // Money: $ optional, supports commas + decimal
     const $ = '\\$?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\\.[0-9]{2})?)';
     const tryMatch = (re) => {
         const m = text.match(re);
@@ -5068,40 +5071,98 @@ function parseStatementText(text) {
     };
 
     return {
-        // Statement balance / new balance
+        // === BALANCE / PAYMENT ===
         statementBalance: tryMatch(new RegExp(`(?:new\\s+balance|statement\\s+balance|balance\\s+as\\s+of)[^$0-9]*${$}`, 'i')),
-        // Minimum payment due
-        minPayment: tryMatch(new RegExp(`(?:minimum\\s+payment(?:\\s+due)?|min\\.?\\s+payment)[^$0-9]*${$}`, 'i')),
-        // Payment due date
+        previousBalance: tryMatch(new RegExp(`(?:previous\\s+balance|prior\\s+balance)[^$0-9]*${$}`, 'i')),
+        minPayment: tryMatch(new RegExp(`(?:minimum\\s+payment(?:\\s+due)?|min\\.?\\s+payment|amount\\s+due)[^$0-9]*${$}`, 'i')),
+        paymentReceived: tryMatch(new RegExp(`(?:payments?\\s+received|payments?\\s+credits?|total\\s+payments)[^$0-9]*${$}`, 'i')),
+
+        // === DATES ===
+        // Payment due date — the deadline to avoid late fees
         dueDate: tryDate(/(?:payment\s+due\s+date|due\s+date)[^A-Z0-9]*([A-Za-z]+\s+\d{1,2},?\s*\d{2,4}|\d{1,2}\/\d{1,2}\/\d{2,4})/i),
-        // APR (purchase APR)
-        apr: tryMatch(/(?:annual\s+percentage\s+rate|apr|purchase\s+apr)[^0-9]*?([0-9]{1,2}(?:\.[0-9]{1,3})?)\s*%/i),
-        // Interest charged this cycle
-        interestCharged: tryMatch(new RegExp(`(?:interest\\s+charged|finance\\s+charge)[^$0-9]*${$}`, 'i')),
-        // Late fee
+        // Statement closing date — critical for credit card utilization timing
+        statementDate: tryDate(/(?:statement\s+(?:closing\s+)?date|closing\s+date|cycle\s+ends?|statement\s+period\s+ending)[^A-Z0-9]*([A-Za-z]+\s+\d{1,2},?\s*\d{2,4}|\d{1,2}\/\d{1,2}\/\d{2,4})/i),
+        // Promotional period expiry (e.g., "0% APR ends Jul 1, 2026")
+        promoExpires: tryDate(/(?:promotional?\s+(?:rate|apr)\s+(?:end|expire)s?(?:\s+on)?|introductory\s+(?:rate|apr)\s+(?:end|expire)s?(?:\s+on)?)[^A-Z0-9]*([A-Za-z]+\s+\d{1,2},?\s*\d{2,4}|\d{1,2}\/\d{1,2}\/\d{2,4})/i),
+
+        // === INTEREST RATES ===
+        // Purchase APR (the main APR users care about)
+        apr: tryMatch(/(?:purchase\s+apr|annual\s+percentage\s+rate|apr\s+for\s+purchases)[^0-9]*?([0-9]{1,2}(?:\.[0-9]{1,3})?)\s*%/i)
+           || tryMatch(/\bapr\b[^0-9]*?([0-9]{1,2}(?:\.[0-9]{1,3})?)\s*%/i),
+        // Cash advance APR — typically much higher
+        cashAdvanceApr: tryMatch(/cash\s+advance(?:\s+apr|\s+rate)?[^0-9]*?([0-9]{1,2}(?:\.[0-9]{1,3})?)\s*%/i),
+        // Penalty APR — kicks in after late payment
+        penaltyApr: tryMatch(/penalty\s+(?:apr|rate)[^0-9]*?([0-9]{1,2}(?:\.[0-9]{1,3})?)\s*%/i),
+        // Daily periodic rate (some statements use this instead of APR)
+        dailyRate: tryMatch(/daily\s+periodic\s+rate[^0-9]*?([0-9]+(?:\.[0-9]+)?)\s*%/i),
+
+        // === FEES & INTEREST ===
+        interestCharged: tryMatch(new RegExp(`(?:interest\\s+charged|finance\\s+charge|interest\\s+this\\s+period)[^$0-9]*${$}`, 'i')),
         lateFee: tryMatch(new RegExp(`(?:late\\s+(?:fee|payment\\s+fee))[^$0-9]*${$}`, 'i')),
-        // Credit limit
-        creditLimit: tryMatch(new RegExp(`(?:credit\\s+limit|credit\\s+line)[^$0-9]*${$}`, 'i')),
-        // Available credit
-        availableCredit: tryMatch(new RegExp(`(?:available\\s+credit)[^$0-9]*${$}`, 'i'))
+        annualFee: tryMatch(new RegExp(`(?:annual\\s+(?:fee|membership\\s+fee))[^$0-9]*${$}`, 'i')),
+        ytdInterest: tryMatch(new RegExp(`(?:year[\\-\\s]?to[\\-\\s]?date\\s+interest|interest\\s+ytd|ytd\\s+interest|total\\s+interest\\s+(?:paid|charged)\\s+this\\s+year)[^$0-9]*${$}`, 'i')),
+
+        // === CREDIT LINE ===
+        creditLimit: tryMatch(new RegExp(`(?:credit\\s+limit|credit\\s+line|total\\s+credit\\s+(?:line|limit))[^$0-9]*${$}`, 'i')),
+        availableCredit: tryMatch(new RegExp(`(?:available\\s+credit)[^$0-9]*${$}`, 'i')),
+        cashAdvanceLimit: tryMatch(new RegExp(`(?:cash\\s+advance\\s+(?:limit|line))[^$0-9]*${$}`, 'i'))
     };
 }
 
-/** Generate human-readable insights from extracted statement fields. */
+/** Convert a date string to a day-of-month (1-31) — used for statementDay/dueDay
+ *  fields on the debt record so the simulator can apply timing logic. */
+function extractDayOfMonth(dateStr) {
+    if (!dateStr) return null;
+    // "Apr 28, 2026" or "04/28/2026" or "4/28/26"
+    const monthDayYear = dateStr.match(/[A-Za-z]+\s+(\d{1,2})/);
+    if (monthDayYear) return parseInt(monthDayYear[1], 10);
+    const slash = dateStr.match(/^(\d{1,2})\/(\d{1,2})/);
+    if (slash) return parseInt(slash[2], 10); // M/D format
+    return null;
+}
+
+/** Generate human-readable insights from extracted statement fields.
+ *  Order matters — most urgent / actionable items appear first. */
 function buildStatementInsights(parsed, debt) {
     const lines = [];
     const fmt = n => n != null ? '$' + Math.round(n).toLocaleString() : '';
 
+    // === RATE INSIGHTS ===
     if (parsed.apr != null && debt && parsed.apr !== debt.apr) {
         const diff = parsed.apr - (debt.apr || 0);
         if (Math.abs(diff) >= 0.5) {
             lines.push({
                 tone: diff > 0 ? 'warn' : 'good',
                 icon: diff > 0 ? 'ph-arrow-up' : 'ph-arrow-down',
-                text: `APR ${diff > 0 ? 'increased' : 'decreased'} from ${(debt.apr || 0).toFixed(2)}% to ${parsed.apr.toFixed(2)}% — ${diff > 0 ? 'consider rate-shopping or transferring this balance' : 'good news, your rate dropped'}.`
+                text: `Purchase APR ${diff > 0 ? 'increased' : 'decreased'} from ${(debt.apr || 0).toFixed(2)}% to ${parsed.apr.toFixed(2)}% — ${diff > 0 ? 'consider a balance transfer or rate-shop now' : 'good news, your rate dropped'}.`
             });
         }
     }
+    if (parsed.cashAdvanceApr != null && parsed.apr != null && parsed.cashAdvanceApr - parsed.apr >= 5) {
+        lines.push({
+            tone: 'warn',
+            icon: 'ph-currency-circle-dollar',
+            text: `Cash advance APR is <strong>${parsed.cashAdvanceApr.toFixed(2)}%</strong> — ${(parsed.cashAdvanceApr - parsed.apr).toFixed(1)}pts higher than purchases (${parsed.apr.toFixed(2)}%). Avoid using this card for ATM withdrawals.`
+        });
+    }
+    if (parsed.penaltyApr != null && parsed.penaltyApr > 25) {
+        lines.push({
+            tone: 'warn',
+            icon: 'ph-exclamation-mark',
+            text: `Penalty APR of <strong>${parsed.penaltyApr.toFixed(2)}%</strong> kicks in if you miss a payment. Set up autopay for at least the minimum to never trigger this.`
+        });
+    }
+
+    // === PROMOTIONAL PERIOD ===
+    if (parsed.promoExpires) {
+        lines.push({
+            tone: 'warn',
+            icon: 'ph-clock-countdown',
+            text: `Promotional/intro APR ends <strong>${parsed.promoExpires}</strong>. Pay this balance off before then or the regular APR will hit the remainder.`
+        });
+    }
+
+    // === FEES ===
     if (parsed.lateFee && parsed.lateFee > 0) {
         lines.push({
             tone: 'warn',
@@ -5109,20 +5170,32 @@ function buildStatementInsights(parsed, debt) {
             text: `${fmt(parsed.lateFee)} late fee detected — set up autopay for the minimum to eliminate these.`
         });
     }
-    if (parsed.interestCharged && parsed.interestCharged > 0) {
+    if (parsed.annualFee && parsed.annualFee > 0) {
         lines.push({
             tone: 'info',
-            icon: 'ph-coin',
-            text: `${fmt(parsed.interestCharged)} in interest charged this period. Paying off the statement balance in full would have saved this.`
+            icon: 'ph-credit-card',
+            text: `${fmt(parsed.annualFee)} annual fee charged. If you're not getting that much in benefits, consider downgrading to a no-annual-fee card.`
         });
     }
+
+    // === DATES (statement-day timing) ===
+    if (parsed.statementDate) {
+        lines.push({
+            tone: 'info',
+            icon: 'ph-calendar-check',
+            text: `Statement closed <strong>${parsed.statementDate}</strong>. Your reported balance to credit bureaus is what was owed on this date — pay down BEFORE next statement closes to lower utilization.`
+        });
+    }
+
+    // === UTILIZATION ===
     if (parsed.creditLimit && parsed.statementBalance) {
         const util = (parsed.statementBalance / parsed.creditLimit) * 100;
         if (util >= 30) {
+            const targetPayoff = parsed.statementBalance - parsed.creditLimit * 0.09;
             lines.push({
                 tone: 'warn',
                 icon: 'ph-gauge',
-                text: `Reported utilization is ${util.toFixed(0)}% (${fmt(parsed.statementBalance)} / ${fmt(parsed.creditLimit)}). Above 30% hurts your FICO score — pay down before the next statement closes.`
+                text: `Reported utilization is ${util.toFixed(0)}% (${fmt(parsed.statementBalance)} / ${fmt(parsed.creditLimit)}). Pay down ${fmt(targetPayoff)} before the next statement to drop under 10% — typically worth 20-50 FICO points.`
             });
         } else if (util < 10) {
             lines.push({
@@ -5132,18 +5205,46 @@ function buildStatementInsights(parsed, debt) {
             });
         }
     }
-    if (parsed.statementBalance && debt && Math.abs(parsed.statementBalance - debt.balance) > debt.balance * 0.05) {
+
+    // === INTEREST CHARGED ===
+    if (parsed.interestCharged && parsed.interestCharged > 0) {
+        lines.push({
+            tone: 'info',
+            icon: 'ph-coin',
+            text: `${fmt(parsed.interestCharged)} in interest charged this period. Paying off the statement balance by the due date keeps your grace period and stops this entirely.`
+        });
+    }
+    if (parsed.ytdInterest && parsed.ytdInterest > 0) {
+        lines.push({
+            tone: 'info',
+            icon: 'ph-chart-line-up',
+            text: `${fmt(parsed.ytdInterest)} paid in interest YTD on this account alone. That's the cost of carrying this balance instead of paying it off.`
+        });
+    }
+
+    // === BALANCE DRIFT (saved vs statement) ===
+    if (parsed.statementBalance && debt && Math.abs(parsed.statementBalance - debt.balance) > Math.max(50, debt.balance * 0.05)) {
         lines.push({
             tone: 'info',
             icon: 'ph-pencil-simple',
             text: `Statement balance (${fmt(parsed.statementBalance)}) differs from your saved balance (${fmt(debt.balance)}). Apply the changes below to keep your projection accurate.`
         });
     }
+
+    // === PAYMENT CONFIRMATION ===
+    if (parsed.paymentReceived && parsed.paymentReceived > 0) {
+        lines.push({
+            tone: 'good',
+            icon: 'ph-check',
+            text: `Payment of ${fmt(parsed.paymentReceived)} received last cycle. Keep that consistency going.`
+        });
+    }
+
     if (lines.length === 0) {
         lines.push({
             tone: 'info',
             icon: 'ph-info',
-            text: `Statement looks clean — no unusual fees or rate changes detected.`
+            text: `Statement looks clean — no unusual fees, rate changes, or warnings detected.`
         });
     }
     return lines;
@@ -5247,17 +5348,35 @@ function renderAttachmentAnalysis(debtId, attachmentIdx) {
                         <label class="att-field"><span>Minimum Payment</span>
                             <input type="number" step="0.01" data-field="minPayment" value="${fields.minPayment != null ? fields.minPayment.toFixed(2) : ''}" placeholder="—">
                         </label>
-                        <label class="att-field"><span>APR (%)</span>
+                        <label class="att-field"><span>Purchase APR (%)</span>
                             <input type="number" step="0.01" data-field="apr" value="${fields.apr != null ? fields.apr.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Cash Advance APR (%)</span>
+                            <input type="number" step="0.01" data-field="cashAdvanceApr" value="${fields.cashAdvanceApr != null ? fields.cashAdvanceApr.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Penalty APR (%)</span>
+                            <input type="number" step="0.01" data-field="penaltyApr" value="${fields.penaltyApr != null ? fields.penaltyApr.toFixed(2) : ''}" placeholder="—">
                         </label>
                         <label class="att-field"><span>Credit Limit</span>
                             <input type="number" step="0.01" data-field="creditLimit" value="${fields.creditLimit != null ? fields.creditLimit.toFixed(2) : ''}" placeholder="—">
                         </label>
-                        <label class="att-field"><span>Due Date</span>
+                        <label class="att-field"><span>Statement Date</span>
+                            <input type="text" data-field="statementDate" value="${fields.statementDate || ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Payment Due Date</span>
                             <input type="text" data-field="dueDate" value="${fields.dueDate || ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Promo APR Ends</span>
+                            <input type="text" data-field="promoExpires" value="${fields.promoExpires || ''}" placeholder="—">
                         </label>
                         <label class="att-field"><span>Interest Charged</span>
                             <input type="number" step="0.01" data-field="interestCharged" value="${fields.interestCharged != null ? fields.interestCharged.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>YTD Interest</span>
+                            <input type="number" step="0.01" data-field="ytdInterest" value="${fields.ytdInterest != null ? fields.ytdInterest.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Late Fee This Period</span>
+                            <input type="number" step="0.01" data-field="lateFee" value="${fields.lateFee != null ? fields.lateFee.toFixed(2) : ''}" placeholder="—">
                         </label>
                     </div>
                     <div class="att-analysis-actions">
@@ -5285,7 +5404,11 @@ function renderAttachmentAnalysis(debtId, attachmentIdx) {
     };
 }
 
-/** Apply edited statement values to the underlying debt record. */
+/** Apply edited statement values to the underlying debt record.
+ *  Updates not just balance/APR/min but ALSO the timing fields the simulator
+ *  uses (statementDay / dueDay), so the strategy projections actually reflect
+ *  what the statement says. Plus stores the supplementary rates (cash-advance,
+ *  penalty, promo expiry) on the debt so insights persist. */
 function applyStatementToDebt(debtId, attachmentIdx, panel) {
     const debt = appState.debts.find(d => d.id === debtId);
     if (!debt || !panel) return;
@@ -5295,11 +5418,14 @@ function applyStatementToDebt(debtId, attachmentIdx, panel) {
         const f = el.getAttribute('data-field');
         const v = el.value.trim();
         if (!v) return;
-        if (f === 'dueDate') updates.dueDate = v;
+        // Date-string fields stay as strings; everything else parsed as number
+        if (f === 'dueDate' || f === 'statementDate' || f === 'promoExpires') updates[f] = v;
         else updates[f] = parseFloat(v);
     });
 
     let applied = 0;
+
+    // Core fields the simulator uses
     if (updates.statementBalance != null && !isNaN(updates.statementBalance)) {
         debt.balance = updates.statementBalance;
         applied++;
@@ -5322,6 +5448,49 @@ function applyStatementToDebt(debtId, attachmentIdx, panel) {
         } catch(_){}
         applied++;
     }
+
+    // Date fields → extract day-of-month for the simulator's grace-period logic
+    if (updates.statementDate) {
+        const day = extractDayOfMonth(updates.statementDate);
+        if (day) {
+            debt.statementDay = day;
+            applied++;
+        }
+    }
+    if (updates.dueDate) {
+        const day = extractDayOfMonth(updates.dueDate);
+        if (day) {
+            debt.dueDay = day;
+            debt.dueDate = day;
+            applied++;
+        }
+    }
+
+    // Supplementary rate / fee data — stored on the debt for insight reuse
+    if (updates.cashAdvanceApr != null && !isNaN(updates.cashAdvanceApr)) {
+        debt.cashAdvanceApr = updates.cashAdvanceApr;
+        applied++;
+    }
+    if (updates.penaltyApr != null && !isNaN(updates.penaltyApr)) {
+        debt.penaltyApr = updates.penaltyApr;
+        applied++;
+    }
+    if (updates.promoExpires) {
+        debt.promoExpires = updates.promoExpires;
+        applied++;
+    }
+    if (updates.interestCharged != null && !isNaN(updates.interestCharged)) {
+        if (!Array.isArray(debt.interestHistory)) debt.interestHistory = [];
+        debt.interestHistory.push({ ts: Date.now(), amount: updates.interestCharged });
+        // Keep last 24 entries to prevent unbounded growth
+        if (debt.interestHistory.length > 24) debt.interestHistory.shift();
+        applied++;
+    }
+    if (updates.ytdInterest != null && !isNaN(updates.ytdInterest)) {
+        debt.ytdInterest = updates.ytdInterest;
+        applied++;
+    }
+
     debt.lastUpdated = Date.now();
     saveState();
     updateUI();
@@ -5361,14 +5530,27 @@ function scanStatementToPrefillForm(fieldMap, btnEl) {
             });
             const text = await extractPdfText(dataUrl);
             const parsed = parseStatementText(text);
-            // Apply parsed values to form inputs per fieldMap
+            // Apply parsed values to form inputs per fieldMap.
+            // Some fields need transformation: dates → day-of-month for
+            // statement-day / due-day inputs.
             let prefilled = 0;
             Object.keys(fieldMap).forEach(fieldKey => {
                 const el = document.getElementById(fieldMap[fieldKey]);
                 if (!el) return;
                 const v = parsed[fieldKey];
                 if (v == null || v === '') return;
-                el.value = (typeof v === 'number') ? v.toFixed(2) : v;
+                let outVal;
+                if (fieldKey === 'statementDate' || fieldKey === 'dueDate') {
+                    // Date strings → extract day-of-month integer for day-of-month inputs
+                    const day = extractDayOfMonth(v);
+                    if (day == null) return;
+                    outVal = String(day);
+                } else if (typeof v === 'number') {
+                    outVal = v.toFixed(2);
+                } else {
+                    outVal = v;
+                }
+                el.value = outVal;
                 prefilled++;
             });
             if (btnEl) {
@@ -5402,12 +5584,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const debtScanBtn = document.getElementById('debt-scan-btn');
         if (debtScanBtn) {
             debtScanBtn.addEventListener('click', () => {
+                // Map every statement field that the Add Debt form has an input for.
+                // Date fields auto-convert to day-of-month for the day inputs.
                 scanStatementToPrefillForm({
                     statementBalance: 'debt-balance',
                     minPayment: 'debt-min',
                     apr: 'debt-apr',
                     creditLimit: 'debt-limit',
-                    dueDate: 'debt-due-day' // text — user may need to edit format
+                    dueDate: 'debt-due-day',
+                    statementDate: 'debt-statement-day'
                 }, debtScanBtn);
             });
         }
