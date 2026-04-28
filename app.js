@@ -15269,7 +15269,10 @@ function initAllButtonHandlers() {
                     <td><span style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:${statusDot};">
                         <span style="width:6px;height:6px;border-radius:50%;background:${statusDot};flex-shrink:0;display:inline-block;"></span>${statusLabel}
                     </span></td>
-                    <td style="text-align:center;">
+                    <td style="text-align:center;white-space:nowrap;">
+                        <button class="btn-txn-edit" data-txn-id="${t.id}" style="background:rgba(0,212,168,0.10);border:1px solid rgba(0,212,168,0.25);cursor:pointer;color:var(--accent);font-size:13px;padding:5px 8px;border-radius:6px;opacity:0.85;margin-right:4px;transition:all 0.15s;" title="${t.synthetic ? 'Edit source schedule' : 'Edit this transaction'}">
+                            <i class="ph ph-pencil-simple"></i>
+                        </button>
                         <button class="btn-txn-del" data-txn-id="${t.id}" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.25);cursor:pointer;color:#ff4d6d;font-size:13px;padding:5px 8px;border-radius:6px;opacity:0.85;transition:all 0.15s;" title="${t.synthetic ? 'Delete recurring entry (removes all instances)' : 'Delete this transaction'}">
                             <i class="ph ph-trash"></i>
                         </button>
@@ -15300,11 +15303,22 @@ function initAllButtonHandlers() {
             row.addEventListener('mouseleave', () => { if (del) del.style.opacity = '0.85'; });
             // Click row → open detail panel
             row.addEventListener('click', (e) => {
-                if (e.target.closest('.btn-txn-del')) return;
+                if (e.target.closest('.btn-txn-del') || e.target.closest('.btn-txn-edit')) return;
                 const id = row.dataset.txnId;
                 const txn = appState.transactions.find(t => t.id === id);
                 if (txn) txnShowDetail(txn);
             });
+            // Edit button — opens edit modal (or routes synthetic to schedule)
+            const edit = row.querySelector('.btn-txn-edit');
+            if (edit) {
+                edit.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = edit.dataset.txnId;
+                    const txn = appState.transactions.find(t => t.id === id);
+                    if (!txn) return;
+                    txnOpenEditModal(txn);
+                });
+            }
             // Delete button — handle synthetic vs manual differently
             if (del) {
                 del.addEventListener('click', (e) => {
@@ -15317,6 +15331,109 @@ function initAllButtonHandlers() {
             }
         });
     }
+
+    /** Edit modal for transactions. Opens an editable form pre-filled with the
+     *  current values. For synthetic txns (auto-generated from a recurring or
+     *  debt schedule), redirect the user to edit the underlying schedule —
+     *  editing a single instance would just be overwritten on the next
+     *  materialize pass and create confusing data. */
+    function txnOpenEditModal(txn) {
+        if (!txn) return;
+        if (txn.synthetic) {
+            // Steer them to the schedule instead
+            if (txn.parentRecurringId) {
+                const rec = (appState.recurringPayments || []).find(r => r.id === txn.parentRecurringId);
+                if (rec && typeof window.recOpenEditModal === 'function') {
+                    showToast(`This is auto-generated. Opening the recurring schedule instead.`);
+                    window.recOpenEditModal(rec);
+                    return;
+                }
+            }
+            showToast("This is auto-generated and can't be edited directly. Edit its source schedule.");
+            return;
+        }
+
+        let modal = document.getElementById('txn-edit-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'txn-edit-modal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px;';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        }
+        const dateVal = (() => {
+            try { return new Date(txn.date).toISOString().slice(0,10); } catch(_) { return ''; }
+        })();
+        modal.innerHTML = `
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h3 style="font-size:16px;font-weight:900;margin:0;">Edit transaction</h3>
+              <button id="txn-edit-close" type="button" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:18px;"><i class="ph ph-x"></i></button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Merchant / Description</label>
+                <input id="txn-edit-merchant" type="text" value="${(txn.merchant||'').replace(/"/g,'&quot;')}" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+              <div style="display:flex;gap:10px;">
+                <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Amount ($) <span style="color:var(--text-3);font-size:9px;normal:none;text-transform:none;">— negative = paid, positive = received</span></label>
+                  <input id="txn-edit-amount" type="number" step="0.01" value="${txn.amount}" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Date</label>
+                  <input id="txn-edit-date" type="date" value="${dateVal}" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+              </div>
+              <div style="display:flex;gap:10px;">
+                <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Category</label>
+                  <input id="txn-edit-category" type="text" value="${(txn.category||'').replace(/"/g,'&quot;')}" placeholder="e.g. Groceries, Income, Debt Payment" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Method</label>
+                  <input id="txn-edit-method" type="text" value="${(txn.method||'').replace(/"/g,'&quot;')}" placeholder="e.g. Plaid, Manual, ACH" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+              </div>
+              <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Status</label>
+                <select id="txn-edit-status" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                  <option value="completed"${(txn.status||'completed')==='completed'?' selected':''}>Completed</option>
+                  <option value="pending"${txn.status==='pending'?' selected':''}>Pending</option>
+                  <option value="failed"${txn.status==='failed'?' selected':''}>Failed</option>
+                </select></div>
+              <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Notes</label>
+                <textarea id="txn-edit-notes" rows="2" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);resize:vertical;">${(txn.notes||'').replace(/</g,'&lt;')}</textarea></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;">
+              <button id="txn-edit-delete" class="btn" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.30);color:#ff4d6d;"><i class="ph ph-trash"></i> Delete</button>
+              <div style="display:flex;gap:10px;">
+                <button id="txn-edit-cancel" class="btn btn-ghost">Cancel</button>
+                <button id="txn-edit-save" class="btn btn-primary"><i class="ph ph-check"></i> Save</button>
+              </div>
+            </div>
+          </div>`;
+        modal.querySelector('#txn-edit-close').onclick = () => modal.remove();
+        modal.querySelector('#txn-edit-cancel').onclick = () => modal.remove();
+        modal.querySelector('#txn-edit-save').onclick = () => {
+            const target = (appState.transactions || []).find(x => x.id === txn.id);
+            if (!target) { modal.remove(); return; }
+            target.merchant = modal.querySelector('#txn-edit-merchant').value.trim() || target.merchant;
+            target.amount = parseFloat(modal.querySelector('#txn-edit-amount').value) || 0;
+            const newDate = modal.querySelector('#txn-edit-date').value;
+            if (newDate) target.date = new Date(newDate + 'T12:00:00').toISOString();
+            target.category = modal.querySelector('#txn-edit-category').value.trim() || target.category;
+            target.method = modal.querySelector('#txn-edit-method').value.trim() || target.method;
+            target.status = modal.querySelector('#txn-edit-status').value;
+            target.notes = modal.querySelector('#txn-edit-notes').value.trim();
+            saveState();
+            modal.remove();
+            try { renderTransactions(); } catch(_){}
+            try { txnRenderAll && txnRenderAll(); } catch(_){}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            showToast(`"${target.merchant}" updated.`);
+        };
+        modal.querySelector('#txn-edit-delete').onclick = () => {
+            if (!confirm(`Delete this transaction? "${txn.merchant}"`)) return;
+            appState.transactions = (appState.transactions || []).filter(x => x.id !== txn.id);
+            saveState();
+            modal.remove();
+            try { renderTransactions(); } catch(_){}
+            try { txnRenderAll && txnRenderAll(); } catch(_){}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            showToast('Transaction deleted.');
+        };
+    }
+    window.txnOpenEditModal = txnOpenEditModal;
 
     /** Confirmation flow for deleting a transaction.
      *  - Synthetic (auto-generated from recurring/debt): offer to delete the
@@ -15440,10 +15557,22 @@ function initAllButtonHandlers() {
             </div>
             <div style="margin-top:16px; display:flex; gap:8px;">
                 <button onclick="document.getElementById('txn-detail-panel').style.right='-420px'; document.getElementById('txn-detail-backdrop').style.display='none';" class="btn btn-ghost" style="flex:1; font-size:11px;">Close</button>
+                <button id="txn-detail-edit-btn" data-txn-id="${t.id}" class="btn" style="flex:1;font-size:11px;background:rgba(0,212,168,0.15);color:var(--accent);border:1px solid rgba(0,212,168,0.3);">
+                    <i class="ph ph-pencil-simple"></i> Edit
+                </button>
                 <button onclick="if(confirm('Delete this transaction?')){appState.transactions=appState.transactions.filter(x=>x.id!=='${t.id}');saveState();renderTransactions();txnRenderAll && txnRenderAll();document.getElementById('txn-detail-panel').style.right='-420px';document.getElementById('txn-detail-backdrop').style.display='none';showToast('Deleted.');}" class="btn" style="flex:1;font-size:11px;background:rgba(255,77,109,0.15);color:var(--danger);border:1px solid rgba(255,77,109,0.3);">
                     <i class="ph ph-trash"></i> Delete
                 </button>
             </div>`;
+        // Wire Edit button
+        const editBtn = document.getElementById('txn-detail-edit-btn');
+        if (editBtn) {
+            editBtn.onclick = () => {
+                if (panel) panel.style.right = '-420px';
+                if (backdrop) backdrop.style.display = 'none';
+                txnOpenEditModal(t);
+            };
+        }
         panel.style.right = '0px';
         if (backdrop) { backdrop.style.display = 'block'; }
     }
