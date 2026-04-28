@@ -5338,16 +5338,22 @@ function renderStrategyIndicators() {
             const base = baselineResults[debt.id];
             const saved = (base && res) ? Math.max(0, base.totalInterest - res.totalInterest) : 0;
             const months = res ? res.months : 0;
-            // Monthly interest bleed — shows WHY each debt is ranked. Crucial for
-            // Avalanche where the user needs to see that within the same APR tier,
-            // bigger balance = bigger $$$ bleed = higher priority.
-            const monthlyBleed = (debt.balance || 0) * (debt.apr || 0) / 100 / 12;
+
+            // Projected interest cost over 5 years at minimum payment alone —
+            // shows the REAL long-term cost of leaving this debt untouched.
+            // A small 30% card surfaces as a money pit despite low monthly bleed
+            // because it compounds for years; this is what justifies Avalanche's
+            // pure-APR sort visually.
+            const proj = projectedInterestAtMin(debt, 60);
+            const projectedLabel = proj.neverClears
+                ? `<strong style="color:var(--danger);">Min won't clear it</strong>`
+                : `${fmt(Math.round(proj.interest))} projected interest`;
 
             listEl.innerHTML += `
                 <div class="strat-item" onclick="handleStratItemClick('${s}')" style="cursor:pointer; animation: slideInLeft ${0.2 + idx * 0.1}s ease forwards;">
                     <div class="strat-item-main">
                         <div class="strat-item-name">${debt.name}</div>
-                        <div class="strat-item-amt">${fmt(debt.balance)} • ${debt.apr}% • ${fmt(Math.round(monthlyBleed))}/mo bleed</div>
+                        <div class="strat-item-amt">${fmt(debt.balance)} • ${debt.apr}% • ${projectedLabel}</div>
                     </div>
                     <div class="strat-item-stats">
                         <div class="strat-item-months">${months} Mo.</div>
@@ -5374,6 +5380,44 @@ window.addEventListener('resize', () => {
         if(window.budgetUpdateCalculations) window.budgetUpdateCalculations();
     }, 200);
 });
+
+/**
+ * projectedInterestAtMin — how much interest this debt accrues if it sits
+ * untouched at minimum payment for up to N months.
+ *
+ * Runs a tiny per-debt simulation: monthly compounding at APR/12, paying only
+ * the minimum each month. Total interest accumulated is what would be paid in
+ * a "do nothing extra" scenario. Used to show users the REAL cost of leaving
+ * a debt unattacked — makes Avalanche's pure-APR sort more intuitive because
+ * a small high-APR card surfaces as a long-term money pit, not just $13/mo.
+ *
+ * Returns { interest, months, neverClears }.
+ *   neverClears = true if minPayment doesn't even cover monthly interest
+ *                 (debt grows forever at minimums alone — score = "danger").
+ */
+function projectedInterestAtMin(debt, capMonths) {
+    const cap = capMonths || 60;
+    let bal = parseFloat(debt.balance) || 0;
+    let totalInterest = 0;
+    const monthlyRate = (parseFloat(debt.apr) || 0) / 100 / 12;
+    const min = parseFloat(debt.minPayment) || 0;
+    if (bal <= 0 || min <= 0) return { interest: 0, months: 0, neverClears: false };
+
+    for (let m = 0; m < cap; m++) {
+        const interest = bal * monthlyRate;
+        if (min <= interest) {
+            // Min payment doesn't even cover interest — debt would grow without
+            // bound. Project the year-1 interest as a representative number and
+            // flag the danger.
+            return { interest: totalInterest + interest * 12, months: cap, neverClears: true };
+        }
+        totalInterest += interest;
+        bal += interest;
+        bal -= min;
+        if (bal <= 0) return { interest: totalInterest, months: m + 1, neverClears: false };
+    }
+    return { interest: totalInterest, months: cap, neverClears: bal > 0 };
+}
 
 // Debt Engine Calculator
 /**
