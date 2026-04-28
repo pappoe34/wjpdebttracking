@@ -6999,26 +6999,12 @@ function renderTransactions() {
         });
     }
 
-    // 3. Full Transactions Table
-    const fullTable = document.getElementById('full-transactions-table');
-    if (fullTable) {
-        const tbody = fullTable.querySelector('tbody');
-        if (tbody) {
-            tbody.innerHTML = '';
-            appState.transactions.forEach(t => {
-                const colors = getColors(t.category);
-                tbody.innerHTML += `
-                    <tr style="animation: fadeIn 0.3s ease;">
-                        <td class="txn-date">${formatDate(t.date)}</td>
-                        <td style="font-weight:600">${t.merchant}</td>
-                        <td><div class="badge" style="background:${colors.bg}; color:${colors.clr}; font-size:9px;">${t.category}</div></td>
-                        <td style="font-weight:700; color:${t.amount < 0 ? 'var(--danger)' : 'var(--accent)'}">${fmt(t.amount)}</td>
-                        <td class="txn-method">${t.method || 'N/A'}</td>
-                        <td><span class="status-indicator completed"><span class="status-dot active"></span> ${t.status || 'Completed'}</span></td>
-                    </tr>
-                `;
-            });
-        }
+    // 3. Full Transactions Table is now owned by txnRenderTable() in the
+    // dedicated Transactions tab engine — it handles filtering, pagination,
+    // sort, edit, delete, and synthetic-vs-manual distinction. Calling it
+    // here keeps everything in sync without us re-rendering the wrong shape.
+    if (typeof window.txnRenderAll === 'function') {
+        try { window.txnRenderAll(); } catch(_){}
     }
 }
 
@@ -13247,8 +13233,10 @@ function initBudgetControlPage() {
         });
     }
 
-    // Wire transaction click handlers (deferred until rows exist)
-    setTimeout(initTransactionClickHandlers, 300);
+    // Legacy: initTransactionClickHandlers used a static txnDetails demo array.
+    // The real handlers are wired by txnRenderTable() per row. Don't run the
+    // legacy init — it would overwrite click behaviour with the demo panel.
+    // setTimeout(initTransactionClickHandlers, 300);
 
     // Inject "Edit Allocation" button and hidden Save button into paycheck section
     const paycheckTotal = document.getElementById('paycheck-total');
