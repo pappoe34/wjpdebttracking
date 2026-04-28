@@ -1381,6 +1381,12 @@ function drawCharts() {
             windowStart = new Date(now); windowStart.setDate(windowStart.getDate() - 27); windowStart.setHours(0,0,0,0);
         } else if (timeframe === 'yearly') {
             windowStart = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1, 0, 0, 0, 0);
+        } else if (timeframe === 'allyears') {
+            // Span every year that has at least one transaction. Falls back to
+            // current year if there's no history yet.
+            const allYears = (allTxns || []).map(t => new Date(t.date).getFullYear()).filter(y => !isNaN(y));
+            const minYear = allYears.length ? Math.min(...allYears) : now.getFullYear();
+            windowStart = new Date(minYear, 0, 1, 0, 0, 0, 0);
         } else {
             windowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0, 0);
         }
@@ -1442,6 +1448,17 @@ function drawCharts() {
                 labels.push(d.toLocaleDateString('default', { month: 'short' }));
                 const start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
                 const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23,59,59,999);
+                data.push(sumIn(start, end, inWindowSpending));
+                incomeData.push(sumIn(start, end, inWindowIncome));
+            }
+        } else if (timeframe === 'allyears') {
+            // One bar per calendar year, oldest → newest
+            const startYear = windowStart.getFullYear();
+            const endYear = now.getFullYear();
+            for (let y = startYear; y <= endYear; y++) {
+                labels.push(String(y));
+                const start = new Date(y, 0, 1, 0, 0, 0, 0);
+                const end   = new Date(y, 11, 31, 23, 59, 59, 999);
                 data.push(sumIn(start, end, inWindowSpending));
                 incomeData.push(sumIn(start, end, inWindowIncome));
             }
@@ -1512,7 +1529,7 @@ function drawCharts() {
 
         if (elCount) elCount.textContent = (txnCount || 0).toLocaleString();
         if (elWindow) {
-            const labels = { daily: 'last 7 days', weekly: 'last 28 days', monthly: 'last 6 months', yearly: 'last 12 months' };
+            const labels = { daily: 'last 7 days', weekly: 'last 28 days', monthly: 'last 6 months', yearly: 'last 12 months', allyears: 'all years' };
             elWindow.textContent = labels[tf] || 'this window';
         }
         if (elTopCat) {
@@ -3577,16 +3594,26 @@ function materializeRecurringTransactions() {
         const horizon = new Date(now); horizon.setMonth(horizon.getMonth() - horizonMonths);
         const futureCap = new Date(now); futureCap.setHours(23,59,59,999);
 
+        // If the anchor is in the future (e.g. user entered "Next Due: May 1"
+        // and today is April 27), walk it backwards by stepDays until it's a
+        // past or present date. Otherwise the loops below would never execute
+        // and we'd materialize ZERO transactions for that recurring entry —
+        // which is exactly why weekly income looked missing on the dashboard.
+        let walkAnchor = new Date(anchor);
+        while (walkAnchor > futureCap) {
+            walkAnchor = new Date(walkAnchor); walkAnchor.setDate(walkAnchor.getDate() - stepDays);
+        }
+
         // Build set of occurrence dates between [horizon, today]
         const dates = [];
         // Walk backwards from anchor
-        let d = new Date(anchor);
+        let d = new Date(walkAnchor);
         while (d >= horizon && d <= futureCap) {
             dates.push(new Date(d));
             d = new Date(d); d.setDate(d.getDate() - stepDays);
         }
-        // Walk forwards from anchor
-        d = new Date(anchor); d.setDate(d.getDate() + stepDays);
+        // Walk forwards from anchor (only matters when anchor is mid-window)
+        d = new Date(walkAnchor); d.setDate(d.getDate() + stepDays);
         while (d <= futureCap) {
             dates.push(new Date(d));
             d = new Date(d); d.setDate(d.getDate() + stepDays);
