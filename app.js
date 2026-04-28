@@ -3972,6 +3972,14 @@ function updateUI() {
     // Generate due-date notifications for any debt due in the next 5 days.
     try { syncPaymentDueNotifications(); } catch(_){}
 
+    // Refresh every Budget Control surface so they reflect the current data
+    // (real spending categories, transactions, AI insights). No-op if the
+    // user isn't currently on the Budgets page.
+    try { if (typeof renderBudgetStatsRow === 'function') renderBudgetStatsRow(); } catch(_){}
+    try { if (typeof renderExpenseLegend === 'function') renderExpenseLegend(); } catch(_){}
+    try { if (typeof renderDetailedTransactionsBudget === 'function') renderDetailedTransactionsBudget(); } catch(_){}
+    try { if (typeof renderAIBudgetInsights === 'function') renderAIBudgetInsights(); } catch(_){}
+
     // Enforce AI Intelligence toggles. proactive=false hides the AI advisor
     // dashboard card; otherwise it stays visible. Other toggles drive
     // smaller, scoped behaviors checked at their feature points.
@@ -14610,6 +14618,33 @@ function renderExpenseLegend() {
     });
     const total = realTotal;
 
+    // Pre-set donut center to the top category (largest spend)
+    if (categories.length > 0) {
+        const topCat = categories[0];
+        const topPct = total > 0 ? Math.round((topCat.amt / total) * 100) : 0;
+        const dn = document.getElementById('donut-cat-name'); if (dn) dn.textContent = topCat.name;
+        const da = document.getElementById('donut-cat-amt');  if (da) da.textContent = '$' + topCat.amt.toLocaleString();
+        const dp = document.getElementById('donut-cat-pct');  if (dp) dp.textContent = topPct + '%';
+    }
+
+    // Render the donut canvas with real data
+    const donutCanvas = document.getElementById('budgetDonut');
+    if (donutCanvas && typeof Chart !== 'undefined') {
+        if (window._bdgDonut) try { window._bdgDonut.destroy(); } catch(_){}
+        window._bdgDonut = new Chart(donutCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: categories.map(c => c.name),
+                datasets: [{
+                    data: categories.map(c => c.amt),
+                    backgroundColor: categories.map(c => c.color),
+                    borderWidth: 0, cutout: '70%'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: $${Math.round(c.parsed).toLocaleString()}` } } } }
+        });
+    }
+
     legendEl.innerHTML = categories.map((c, i) => {
         const pct = total > 0 ? Math.round((c.amt / total) * 100) : 0;
         const over = c.amt > c.budget;
@@ -15698,19 +15733,36 @@ function renderBudgetPredictionInsight() {
     const totalOver = pred.actual.reduce((s, a, i) => s + Math.max(0, a - pred.optimal[i]), 0);
     const savingsPotential = totalOver;
 
+    // Use real Emergency Fund goal target (or 6× income default) for the
+    // months-sooner math instead of the magic /930 divisor.
+    const goals = appState.savingsGoals || [];
+    const efGoal = goals.find(g => g && g.name && /emergency/i.test(g.name));
+    const efTarget = efGoal ? (efGoal.target || 0) : Math.max(income * 6, 1000);
+    const efCurrent = efGoal ? (efGoal.current || 0) : 0;
+    const remaining = Math.max(0, efTarget - efCurrent);
+    const currentSavings = (appState.budget && appState.budget.allocation && appState.budget.allocation.savings) || 0;
+    const monthsAtCurrent = currentSavings > 0 ? Math.ceil(remaining / currentSavings) : null;
+    const monthsAtBoost   = (currentSavings + savingsPotential) > 0 ? Math.ceil(remaining / (currentSavings + savingsPotential)) : null;
+    const monthsSooner = (monthsAtCurrent && monthsAtBoost) ? Math.max(0, monthsAtCurrent - monthsAtBoost) : 0;
+
+    let insightText;
+    if (income <= 0) {
+        insightText = `Add your income and a few transactions and the AI will project where you're over- or under-allocating versus an optimal budget.`;
+    } else if (overCategories.length > 0 && savingsPotential > 0) {
+        const efPart = efGoal && monthsSooner > 0
+            ? `Redirecting <strong>$${savingsPotential.toLocaleString()}/mo</strong> to your Emergency Fund (target $${efTarget.toLocaleString()}) would hit it <strong>${monthsSooner} month${monthsSooner===1?'':'s'} sooner</strong>.`
+            : `Redirecting <strong>$${savingsPotential.toLocaleString()}/mo</strong> from those categories toward debt or savings would meaningfully change your trajectory.`;
+        insightText = `You're over your AI-optimal targets in <strong>${overCategories.join(', ')}</strong>. ${efPart}`;
+    } else {
+        insightText = `Your allocations are within AI-optimal ranges. ${income > 0 ? `Bumping Investing by $${Math.round(income * 0.02).toLocaleString()}/mo would still meaningfully accelerate compounding.` : ''}`;
+    }
+
     insightEl.innerHTML = `
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
             <i class="ph-fill ph-brain" style="color:var(--accent); font-size:14px;"></i>
             <span style="font-size:10px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:0.07em;">AI Budget Analysis</span>
         </div>
-        <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin:0;">
-            ${overCategories.length > 0
-                ? `You're overspending in <strong>${overCategories.join(', ')}</strong> versus your AI-optimal targets. Redirecting 
-                   <strong>$${savingsPotential.toLocaleString()}/mo</strong> to savings would hit your Emergency Fund goal 
-                   <strong>${Math.ceil(savingsPotential / 930)} months sooner</strong>.`
-                : `Your current allocations are within AI-optimal ranges. Consider increasing your Investing bucket by $${Math.round(income * 0.02).toLocaleString()}/mo to accelerate wealth growth.`
-            }
-        </p>
+        <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin:0;">${insightText}</p>
     `;
 }
 
