@@ -1558,6 +1558,12 @@ function drawCharts() {
         }
         if (typeof Chart === 'undefined') return; // chart.js not loaded yet
 
+        // Make sure synthetic recurring/debt transactions exist for the
+        // current window before we read appState.transactions. This keeps the
+        // dashboard chart in lockstep with the Transactions tab — both pull
+        // from the same materialized set.
+        try { if (typeof materializeRecurringTransactions === 'function') materializeRecurringTransactions(); } catch(_){}
+
         const tf = (appState.settings && appState.settings.spendingTimeFrame) || 'monthly';
         const type = (appState.settings && appState.settings.spendingChartType) || 'bar';
         const result = getSpendingData(tf, type);
@@ -3555,9 +3561,12 @@ function materializeRecurringTransactions() {
     // One-time per-page-load: bust the cache so the cleanup pass runs at least
     // once. Catches stale-sign synthetic txns from before the income flag was
     // normalized (e.g. data center entries originally created as outflows).
-    if (!window._matMigratedV2) {
+    // V3 also re-runs to extend the horizon from 6 → 24 months so the Yearly
+    // and All Years views in the spending tracker reflect every recurring
+    // occurrence, not just the last 6 months.
+    if (!window._matMigratedV3) {
         _lastMaterializeHash = null;
-        window._matMigratedV2 = true;
+        window._matMigratedV3 = true;
     }
 
     // Skip if the dimensions that affect synthetic-txn output haven't changed
@@ -3568,7 +3577,10 @@ function materializeRecurringTransactions() {
     _lastMaterializeHash = hash;
 
     const now = new Date();
-    const horizonMonths = 6;
+    // 24 months gives the dashboard's All Years tab real history to chart from
+    // (was 6 — left the yearly + all-years views with stale gaps because
+    // synthetic recurring occurrences only existed for the last half-year).
+    const horizonMonths = 24;
     let createdAny = false;
 
     // CLEANUP: drop synthetic transactions whose parent recurring/debt no longer
