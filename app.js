@@ -15369,9 +15369,17 @@ function initAllButtonHandlers() {
               </div>
               <div style="display:flex;gap:10px;">
                 <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Category</label>
-                  <input id="txn-edit-category" type="text" value="${(txn.category||'').replace(/"/g,'&quot;')}" placeholder="e.g. Groceries, Income, Debt Payment" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                  <select id="txn-edit-category" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                    ${(() => {
+                      const cats = ['Income','Debt Payment','Housing','Rent','Utilities','Groceries','Food & Dining','Transportation','Auto','Insurance','Healthcare','Entertainment','Subscriptions','Membership','Shopping','Personal Care','Education','Travel','Gifts','Charity','Fees','Other'];
+                      const cur = (txn.category || 'Other');
+                      const exists = cats.some(c => c.toLowerCase() === cur.toLowerCase());
+                      const opts = cats.map(c => `<option value="${c}"${c.toLowerCase()===cur.toLowerCase()?' selected':''}>${c}</option>`).join('');
+                      return opts + (exists ? '' : `<option value="${cur}" selected>${cur}</option>`);
+                    })()}
+                  </select></div>
                 <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Method</label>
-                  <input id="txn-edit-method" type="text" value="${(txn.method||'').replace(/"/g,'&quot;')}" placeholder="e.g. Plaid, Manual, ACH" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                  <input id="txn-edit-method" type="text" value="${(txn.method||'').replace(/"/g,'&quot;')}" placeholder="e.g. Direct Deposit, ACH, Visa" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
               </div>
               <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Status</label>
                 <select id="txn-edit-status" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
@@ -15381,6 +15389,31 @@ function initAllButtonHandlers() {
                 </select></div>
               <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Notes</label>
                 <textarea id="txn-edit-notes" rows="2" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);resize:vertical;">${(txn.notes||'').replace(/</g,'&lt;')}</textarea></div>
+
+              <!-- Promote-to-recurring section -->
+              <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input id="txn-edit-makerec" type="checkbox" style="width:16px;height:16px;accent-color:var(--accent);">
+                  <span style="font-size:12px;font-weight:700;color:var(--text);">Make this a recurring transaction</span>
+                </label>
+                <div style="font-size:10px;color:var(--text-3);margin:4px 0 0 24px;">Auto-creates future occurrences on the chosen schedule (income or outflow).</div>
+                <div id="txn-edit-rec-fields" style="display:none;margin-top:12px;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;">
+                  <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Frequency</label>
+                      <select id="txn-edit-rec-freq" style="width:100%;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Bi-weekly (every 2 weeks)</option>
+                        <option value="semimonthly">Semi-monthly (twice a month)</option>
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="annually">Annually</option>
+                      </select></div>
+                    <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Anchor (next occurrence)</label>
+                      <input id="txn-edit-rec-anchor" type="date" value="${dateVal}" style="width:100%;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-3);">Weekly schedules will repeat on the same weekday as the anchor. Monthly schedules use the anchor's day-of-month.</div>
+                </div>
+              </div>
             </div>
             <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;">
               <button id="txn-edit-delete" class="btn" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.30);color:#ff4d6d;"><i class="ph ph-trash"></i> Delete</button>
@@ -15392,6 +15425,14 @@ function initAllButtonHandlers() {
           </div>`;
         modal.querySelector('#txn-edit-close').onclick = () => modal.remove();
         modal.querySelector('#txn-edit-cancel').onclick = () => modal.remove();
+        // Toggle the recurring sub-fields when the checkbox flips
+        const makeRecChk = modal.querySelector('#txn-edit-makerec');
+        const recFields = modal.querySelector('#txn-edit-rec-fields');
+        if (makeRecChk && recFields) {
+            makeRecChk.addEventListener('change', () => {
+                recFields.style.display = makeRecChk.checked ? 'block' : 'none';
+            });
+        }
         modal.querySelector('#txn-edit-save').onclick = () => {
             const target = (appState.transactions || []).find(x => x.id === txn.id);
             if (!target) { modal.remove(); return; }
@@ -15403,12 +15444,45 @@ function initAllButtonHandlers() {
             target.method = modal.querySelector('#txn-edit-method').value.trim() || target.method;
             target.status = modal.querySelector('#txn-edit-status').value;
             target.notes = modal.querySelector('#txn-edit-notes').value.trim();
+
+            // Promote to recurring if the user checked the box
+            const makeRecurring = makeRecChk && makeRecChk.checked;
+            let createdRec = null;
+            if (makeRecurring) {
+                const freq = modal.querySelector('#txn-edit-rec-freq').value || 'monthly';
+                const anchorDate = modal.querySelector('#txn-edit-rec-anchor').value || newDate;
+                const isIncome = target.amount > 0 || target.category.toLowerCase() === 'income';
+                const catMap = { 'income':'income','debt payment':'debt','housing':'rent','rent':'rent','utilities':'utility','insurance':'insurance','subscriptions':'subscription','membership':'membership' };
+                const recCat = catMap[target.category.toLowerCase()] || (isIncome ? 'income' : 'other');
+                if (!appState.recurringPayments) appState.recurringPayments = [];
+                createdRec = {
+                    id: 'r' + Date.now() + Math.floor(Math.random()*1000),
+                    name: target.merchant,
+                    category: recCat,
+                    cat: recCat,
+                    amount: Math.abs(target.amount),
+                    frequency: freq,
+                    nextDate: anchorDate || null,
+                    linkedDebtId: null,
+                    linkedIncome: isIncome,
+                    notes: target.notes || '',
+                    createdAt: Date.now()
+                };
+                appState.recurringPayments.push(createdRec);
+                // Bust the materialize cache so future occurrences regenerate
+                try { _lastMaterializeHash = null; } catch(_){}
+            }
+
             saveState();
             modal.remove();
             try { renderTransactions(); } catch(_){}
             try { txnRenderAll && txnRenderAll(); } catch(_){}
             try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
-            showToast(`"${target.merchant}" updated.`);
+            if (createdRec) {
+                showToast(`"${target.merchant}" updated and added as a ${createdRec.frequency} recurring entry.`);
+            } else {
+                showToast(`"${target.merchant}" updated.`);
+            }
         };
         modal.querySelector('#txn-edit-delete').onclick = () => {
             if (!confirm(`Delete this transaction? "${txn.merchant}"`)) return;
