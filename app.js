@@ -3955,15 +3955,25 @@ function updateUI() {
             originalSum += d.originalBalance || 0;
             currentSum  += d.balance || 0;
         });
+        // Real progress = how much the balances have actually dropped from
+        // their original amounts. Manual debt-payment transactions (where
+        // the user logs a payment without updating the balance directly)
+        // are added on top — but we deliberately EXCLUDE synthetic txns
+        // because those are auto-generated future-or-historical occurrences
+        // representing EXPECTED minimums, not actual money that left an
+        // account. Including them inflated 'paid' to fill the bar 100%
+        // even on fresh accounts.
         const debtPaid = Math.max(0, originalSum - currentSum);
-        const txnPaid = (appState.transactions || [])
-            .filter(t => t.category && (
+        const realTxnPaid = (appState.transactions || [])
+            .filter(t => !t.synthetic && t.category && (
                 t.category.toLowerCase().includes('debt') ||
                 t.category.toLowerCase().includes('paydown')
             ))
             .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        const totalPaid = Math.max(debtPaid, txnPaid); // whichever is greater — avoids double-counting
+        // Use the larger of the two but cap by targetGoal so we never
+        // overshoot — debt balances can't go negative.
         const targetGoal = (appState.budget.targetGoal || originalSum || 0);
+        const totalPaid = Math.min(targetGoal, Math.max(debtPaid, realTxnPaid));
 
         const progressPct = targetGoal > 0 ? Math.min(100, Math.round((totalPaid / targetGoal) * 100)) : 0;
 
