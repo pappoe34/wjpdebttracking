@@ -131,8 +131,21 @@ const defaultState = {
 let appState = null;
 let chartInstances = {}; // To manage Chart.js instances across re-renders
 
+/** Per-user storage key. The signed-in Firebase user's uid (if any) is
+ *  appended so each account on this device gets its own isolated profile +
+ *  data. Anonymous / pre-auth users get the legacy 'wjp_budget_state' key.
+ *  When a user signs in, _migrateAnonStateToUser() copies anonymous state to
+ *  their key once, keeping data continuity without exposing it across users. */
+function getStateKey() {
+    try {
+        const u = (window.firebase && firebase.auth) ? firebase.auth().currentUser : null;
+        if (u && u.uid) return `wjp_budget_state_u_${u.uid}`;
+    } catch(_){}
+    return 'wjp_budget_state';
+}
+
 function loadState() {
-    const saved = localStorage.getItem('wjp_budget_state');
+    const saved = localStorage.getItem(getStateKey());
     if (saved) {
         try { 
             let parsed = JSON.parse(saved);
@@ -194,8 +207,25 @@ function loadState() {
 }
 
 function saveState() {
-    localStorage.setItem('wjp_budget_state', JSON.stringify(appState));
+    localStorage.setItem(getStateKey(), JSON.stringify(appState));
 }
+
+/** Called once after a user signs in: if they don't yet have a per-user state
+ *  blob but the legacy 'wjp_budget_state' anonymous blob exists, migrate it
+ *  to their user-keyed slot. After migration the anonymous blob is left
+ *  untouched (other anonymous sessions on this device shouldn't lose their
+ *  data). Subsequent saves go straight to the user-keyed slot. */
+function migrateAnonStateToUser() {
+    try {
+        const u = (window.firebase && firebase.auth) ? firebase.auth().currentUser : null;
+        if (!u || !u.uid) return;
+        const userKey = `wjp_budget_state_u_${u.uid}`;
+        if (localStorage.getItem(userKey)) return; // already has data
+        const anon = localStorage.getItem('wjp_budget_state');
+        if (anon) localStorage.setItem(userKey, anon);
+    } catch(_){}
+}
+window.migrateAnonStateToUser = migrateAnonStateToUser;
 
 /* ---------- NOTIFICATION PREFERENCES ---------- */
 // Map internal notification type -> prefs.notifications.types key
@@ -478,6 +508,18 @@ function navigateSPA(target) {
     }
 }
 
+// When the Firebase auth gate finishes, the app dispatches 'wjp-auth-ready'.
+// At that point we know which user is signed in, so migrate any anonymous
+// state into their user-keyed slot (one-time) and re-load from the right
+// key. Re-renders the UI with the fresh state.
+window.addEventListener('wjp-auth-ready', () => {
+    try {
+        if (typeof migrateAnonStateToUser === 'function') migrateAnonStateToUser();
+        loadState();
+        try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+    } catch(_){}
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
@@ -486,6 +528,12 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch((err) => console.log('Service worker not registered', err));
     }
 
+    // If auth already resolved by the time this fires, re-run the migration
+    // path here too — covers fast-path where wjp-auth-ready dispatched before
+    // this handler attached.
+    try {
+        if (typeof migrateAnonStateToUser === 'function') migrateAnonStateToUser();
+    } catch(_){}
     loadState();
 
     // Restore saved user identity into sidebar
@@ -11161,42 +11209,86 @@ function initAdvisorPageLogic() {
     });
 
     // ── 1. Configure Profile ──────────────────────────────────
+    // Profile is stored per-device in appState.profile. The signed-in account
+    // (Firebase auth) keeps profiles separate per user — this UI never writes
+    // shared/public data, and admin pages only see legally-basic fields.
     document.getElementById('btn-settings-profile')?.addEventListener('click', () => {
+        if (!appState.profile) appState.profile = {};
+        const p = appState.profile;
+        const esc = s => String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        const tz = p.timezone || 'Eastern Time (UTC-5)';
+        const tzOptions = ['Eastern Time (UTC-5)','Central Time (UTC-6)','Mountain Time (UTC-7)','Pacific Time (UTC-8)','Alaska Time (UTC-9)','Hawaii Time (UTC-10)']
+            .map(t => `<option${t===tz?' selected':''}>${t}</option>`).join('');
+        const initials = (p.fullName || '?').split(/\s+/).map(s => s[0]).filter(Boolean).slice(0,2).join('').toUpperCase() || '?';
         openSettingsDrawer({
             icon: 'ph-user',
             badge: 'STEP 01',
             title: 'Your Identity',
-            subtitle: 'Keep your profile accurate for personalized reports and communications.',
+            subtitle: 'Keep your profile accurate for personalized reports and communications. Stays on your device — we never share it.',
             body: `
               <div style="display:flex;flex-direction:column;gap:16px;">
                 <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
-                  <img src="https://i.pravatar.cc/150?u=marcuswarren" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">
+                  <div id="profile-avatar" style="width:56px;height:56px;border-radius:50%;background:rgba(0,212,168,0.15);color:var(--accent);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;">${initials}</div>
                   <div>
-                    <div style="font-size:13px;font-weight:800;">Marcus Warren</div>
-                    <div style="font-size:10px;color:var(--accent);">Premium Member</div>
-                    <button style="background:none;border:none;color:var(--text-3);font-size:10px;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px;">Change photo</button>
+                    <div style="font-size:13px;font-weight:800;" id="profile-name-display">${esc(p.fullName) || 'Add your name'}</div>
+                    <div style="font-size:10px;color:var(--accent);">${esc(p.tier || 'Premium')} Member</div>
                   </div>
                 </div>
-                ${[
-                  {label:'Full Name',val:'Marcus Warren',type:'text'},
-                  {label:'Email Address',val:'marcus@wjpfinance.com',type:'email'},
-                  {label:'Phone Number',val:'+1 (555) 012-3456',type:'tel'},
-                  {label:'Zip / Postal Code',val:'10001',type:'text'},
-                ].map(f=>`<div>
-                  <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">${f.label}</div>
-                  <input type="${f.type}" value="${f.val}" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-                </div>`).join('')}
+                <div>
+                  <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">Full Name</div>
+                  <input id="profile-fullname" type="text" value="${esc(p.fullName)}" placeholder="Jane Doe" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">Preferred Display Name</div>
+                  <input id="profile-displayname" type="text" value="${esc(p.displayName)}" placeholder="What we call you in the app" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">Email Address</div>
+                  <input id="profile-email" type="email" value="${esc(p.email)}" placeholder="you@example.com" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">Phone Number</div>
+                  <input id="profile-phone" type="tel" value="${esc(p.phone)}" placeholder="+1 (555) 555-5555" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">Zip / Postal Code</div>
+                  <input id="profile-zip" type="text" value="${esc(p.zip)}" placeholder="10001" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
                 <div>
                   <div style="font-size:9px;text-transform:uppercase;font-weight:700;color:var(--text-3);letter-spacing:0.07em;margin-bottom:5px;">Time Zone</div>
-                  <select style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
-                    <option>Eastern Time (UTC-5)</option><option>Central Time (UTC-6)</option><option>Mountain Time (UTC-7)</option><option>Pacific Time (UTC-8)</option>
+                  <select id="profile-timezone" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                    ${tzOptions}
                   </select>
                 </div>
+                <div style="font-size:10px;color:var(--text-3);background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;line-height:1.5;">
+                  <i class="ph-fill ph-shield-check" style="color:var(--accent);"></i> <strong>Privacy:</strong> This profile is stored only on this device, scoped to your signed-in account. Each user's info is private — admins only see basic legally-required fields (email, account creation date), never your financial data.
+                </div>
                 <div style="margin-top:8px;">
-                  <button class="btn btn-primary settings-drawer-save" data-toast="Profile updated successfully." style="width:100%;padding:12px;">SAVE CHANGES</button>
+                  <button id="profile-save-btn" class="btn btn-primary" style="width:100%;padding:12px;">SAVE CHANGES</button>
                 </div>
               </div>`
         });
+        // Wire the actual save — write every field back to appState.profile
+        const saveBtn = document.getElementById('profile-save-btn');
+        if (saveBtn) {
+            saveBtn.onclick = () => {
+                if (!appState.profile) appState.profile = {};
+                appState.profile.fullName    = document.getElementById('profile-fullname').value.trim();
+                appState.profile.displayName = document.getElementById('profile-displayname').value.trim();
+                appState.profile.email       = document.getElementById('profile-email').value.trim();
+                appState.profile.phone       = document.getElementById('profile-phone').value.trim();
+                appState.profile.zip         = document.getElementById('profile-zip').value.trim();
+                appState.profile.timezone    = document.getElementById('profile-timezone').value;
+                appState.profile.updatedAt   = new Date().toISOString();
+                saveState();
+                showToast('Profile saved.');
+                // Close drawer
+                const drawer = document.getElementById('settings-drawer-overlay');
+                if (drawer) drawer.remove();
+                // Re-render anywhere that shows the user name
+                try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            };
+        }
     });
 
     // ── 2. Review Security ────────────────────────────────────
