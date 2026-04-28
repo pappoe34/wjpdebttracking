@@ -7565,3 +7565,46 @@ body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size="full"] {
 @media (max-width: 720px) {
   .spending-chart-wrap { min-height: 220px; }
 }
+
+/* === v=83-fluentdrag: in customize mode, flatten the dashboard so cards
+   can be dragged anywhere — no column trap. The column structure still
+   holds in normal viewing mode, but the moment the user toggles Customize
+   layout the grid collapses to a single flex-wrap row and dash-left/right
+   become invisible (display:contents) — every card becomes a flex sibling. */
+body.dash-customizing #page-dashboard .dash-grid {
+  display: flex !important;
+  flex-wrap: wrap;
+  grid-template-columns: none !important;
+  gap: 16px;
+  align-items: flex-start;
+}
+body.dash-customizing #page-dashboard .dash-left,
+body.dash-customizing #page-dashboard .dash-right {
+  display: contents !important;
+}
+body.dash-customizing #page-dashboard .dash-grid .reorderable {
+  flex: 1 1 calc(50% - 16px);
+  min-width: 320px;
+  max-width: 100%;
+  width: auto;
+  margin-top: 0 !important;
+}
+body.dash-customizing #page-dashboard .dash-grid .reorderable[data-size="small"]  { flex: 1 1 calc(33.333% - 16px); min-width: calc(33.333% - 16px); }
+body.dash-customizing #page-dashboard .dash-grid .reorderable[data-size="medium"] { flex: 1 1 calc(50% - 16px);     min-width: calc(50% - 16px); }
+body.dash-customizing #page-dashboard .dash-grid .reorderable[data-size="large"]  { flex: 1 1 calc(66.666% - 16px); min-width: calc(66.666% - 16px); }
+body.dash-customizing #page-dashboard .dash-grid .reorderable[data-size="full"]   { flex: 1 1 100%; min-width: 100%; }
+
+/* Make the drop indicator more visible during drag */
+#card-drop-indicator {
+  background: var(--accent, #00d4a8) !important;
+  box-shadow: 0 0 16px rgba(0, 212, 168, 0.85), 0 0 4px rgba(0, 212, 168, 1) !important;
+  border-radius: 3px;
+}
+
+/* Brighter dragging state so the user clearly sees what they're moving */
+body.dash-customizing .reorderable.dragging {
+  opacity: 0.55 !important;
+  transform: scale(0.97);
+  outline: 2px dashed var(--accent, #00d4a8);
+  outline-offset: 4px;
+}

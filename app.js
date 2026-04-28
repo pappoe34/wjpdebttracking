@@ -6326,11 +6326,17 @@ function injectCardControls() {
         wrap.className = 'card-reorder-controls';
         wrap.innerHTML = `
             <div class="card-rc-group">
+                <button type="button" class="card-rc-btn" data-action="left" aria-label="Move left" title="Move left">
+                    <i class="ph ph-arrow-left"></i>
+                </button>
                 <button type="button" class="card-rc-btn" data-action="up" aria-label="Move up" title="Move up">
                     <i class="ph ph-arrow-up"></i>
                 </button>
                 <button type="button" class="card-rc-btn" data-action="down" aria-label="Move down" title="Move down">
                     <i class="ph ph-arrow-down"></i>
+                </button>
+                <button type="button" class="card-rc-btn" data-action="right" aria-label="Move right" title="Move right">
+                    <i class="ph ph-arrow-right"></i>
                 </button>
             </div>
             <div class="card-rc-group card-rc-size-group">
@@ -6348,13 +6354,14 @@ function injectCardControls() {
                 e.preventDefault();
                 e.stopPropagation();
                 const action = b.getAttribute('data-action');
-                if (action === 'up') moveCardWithinParent(card, -1);
-                else if (action === 'down') moveCardWithinParent(card, 1);
+                if (action === 'up') moveCardInFlow(card, -1);
+                else if (action === 'down') moveCardInFlow(card, 1);
+                else if (action === 'left') moveCardInFlow(card, -1);
+                else if (action === 'right') moveCardInFlow(card, 1);
                 else if (action === 'hide') hideCard(cardId);
                 else if (action === 'size') {
                     const size = b.getAttribute('data-size');
                     setCardSize(cardId, size);
-                    // Update active class within this group
                     wrap.querySelectorAll('.card-rc-size').forEach(s => s.classList.remove('active'));
                     b.classList.add('active');
                 }
@@ -6481,6 +6488,30 @@ function removeCardControls() {
     document.querySelectorAll('.card-reorder-controls').forEach(el => el.remove());
     const tray = document.getElementById('hidden-cards-tray');
     if (tray) tray.remove();
+}
+
+/** Move a card across the flat dashboard flow — walks across .dash-left,
+ *  .dash-right, and the page-dashboard's direct children so the card can
+ *  travel anywhere on the dashboard without being trapped in its column.
+ *  delta = -1 = previous slot, +1 = next slot. Persists the order. */
+function moveCardInFlow(card, delta) {
+    const root = document.getElementById('page-dashboard');
+    if (!root) return;
+    // Build the flat list of all reorderable cards in DOM order
+    const flat = Array.from(root.querySelectorAll('.reorderable'));
+    const idx = flat.indexOf(card);
+    if (idx < 0) return;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= flat.length) return;
+    const target = flat[newIdx];
+    if (delta < 0) {
+        target.parentNode.insertBefore(card, target);
+    } else {
+        target.parentNode.insertBefore(card, target.nextSibling);
+    }
+    if (typeof persistDashboardLayout === 'function') persistDashboardLayout();
+    // Re-apply card sizes (data-size attrs) since we moved DOM nodes
+    if (typeof applyCardSizes === 'function') applyCardSizes();
 }
 
 /** Move a card up or down within its parent container by 1 slot.
