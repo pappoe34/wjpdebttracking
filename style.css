@@ -7386,3 +7386,49 @@ body.dash-customizing #page-dashboard .reorderable::before {
     border-radius: 0;
   }
 }
+
+/* ============================================================
+   CARD SIZE PRESETS — applied via [data-size] in customize mode
+   ============================================================ */
+#page-dashboard .reorderable[data-size="small"]  { flex: 0 0 calc(33.333% - 14px); width: calc(33.333% - 14px); }
+#page-dashboard .reorderable[data-size="medium"] { flex: 0 0 calc(50% - 14px);     width: calc(50% - 14px); }
+#page-dashboard .reorderable[data-size="large"]  { flex: 0 0 calc(66.666% - 14px); width: calc(66.666% - 14px); }
+#page-dashboard .reorderable[data-size="full"]   { flex: 0 0 100%;                 width: 100%; }
+
+/* When a parent has cards with explicit sizes, switch to flex wrap so they sit side-by-side */
+#page-dashboard .dash-grid:has(.reorderable[data-size]),
+#page-dashboard .dash-left:has(.reorderable[data-size]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+}
+@media (max-width: 880px) {
+  /* On smaller screens, anything below "full" collapses to half width;
+     small stays small but can wrap. */
+  #page-dashboard .reorderable[data-size="large"],
+  #page-dashboard .reorderable[data-size="medium"] { flex: 0 0 100%; width: 100%; }
+}
+@media (max-width: 560px) {
+  #page-dashboard .reorderable[data-size] { flex: 0 0 100%; width: 100%; }
+}
+
+/* Resize button group inside the customize controls */
+.card-rc-group {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--card-2);
+  border-radius: 4px;
+  padding: 1px;
+}
+.card-rc-size-group .card-rc-btn {
+  width: 22px;
+  height: 22px;
+  font-size: 9px;
+  font-weight: 800;
+  background: transparent;
+}
+.card-rc-size.active {
+  background: var(--accent) !important;
+  color: #0b0f1a !important;
+}

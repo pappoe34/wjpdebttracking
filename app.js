@@ -6019,30 +6019,39 @@ function initDashCustomize() {
         };
     }
 
-    // Apply saved order on initial page load
+    // Apply saved order + sizes on initial page load
     applyDashboardLayout();
+    applyCardSizes();
 }
 
-/** Inject ↑/↓/Hide controls onto every reorderable card. Idempotent — safe
- *  to call multiple times. Removed by removeCardControls. */
+/** Inject ↑/↓/Hide controls + S/M/L/Full size buttons onto every reorderable
+ *  card. Idempotent — safe to call multiple times. Removed by removeCardControls. */
 function injectCardControls() {
     document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
         if (card.querySelector(':scope > .card-reorder-controls')) return;
         const cardId = card.getAttribute('data-card-id');
+        const currentSize = (appState.prefs && appState.prefs.cardSize && appState.prefs.cardSize[cardId]) || 'auto';
         const wrap = document.createElement('div');
         wrap.className = 'card-reorder-controls';
         wrap.innerHTML = `
-            <button type="button" class="card-rc-btn" data-action="up" aria-label="Move up" title="Move up">
-                <i class="ph ph-arrow-up"></i>
-            </button>
-            <button type="button" class="card-rc-btn" data-action="down" aria-label="Move down" title="Move down">
-                <i class="ph ph-arrow-down"></i>
-            </button>
+            <div class="card-rc-group">
+                <button type="button" class="card-rc-btn" data-action="up" aria-label="Move up" title="Move up">
+                    <i class="ph ph-arrow-up"></i>
+                </button>
+                <button type="button" class="card-rc-btn" data-action="down" aria-label="Move down" title="Move down">
+                    <i class="ph ph-arrow-down"></i>
+                </button>
+            </div>
+            <div class="card-rc-group card-rc-size-group">
+                <button type="button" class="card-rc-btn card-rc-size ${currentSize==='small'?'active':''}" data-action="size" data-size="small" title="Small (1/3 width)">S</button>
+                <button type="button" class="card-rc-btn card-rc-size ${currentSize==='medium'?'active':''}" data-action="size" data-size="medium" title="Medium (1/2 width)">M</button>
+                <button type="button" class="card-rc-btn card-rc-size ${currentSize==='large'?'active':''}" data-action="size" data-size="large" title="Large (2/3 width)">L</button>
+                <button type="button" class="card-rc-btn card-rc-size ${currentSize==='full'?'active':''}" data-action="size" data-size="full" title="Full width">F</button>
+            </div>
             <button type="button" class="card-rc-btn card-rc-hide" data-action="hide" aria-label="Hide card" title="Hide card">
                 <i class="ph ph-eye-slash"></i>
             </button>
         `;
-        // Wire click handlers
         wrap.querySelectorAll('.card-rc-btn').forEach(b => {
             b.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -6051,14 +6060,42 @@ function injectCardControls() {
                 if (action === 'up') moveCardWithinParent(card, -1);
                 else if (action === 'down') moveCardWithinParent(card, 1);
                 else if (action === 'hide') hideCard(cardId);
+                else if (action === 'size') {
+                    const size = b.getAttribute('data-size');
+                    setCardSize(cardId, size);
+                    // Update active class within this group
+                    wrap.querySelectorAll('.card-rc-size').forEach(s => s.classList.remove('active'));
+                    b.classList.add('active');
+                }
             });
         });
         card.appendChild(wrap);
     });
 
-    // Also surface hidden cards in customize mode so user can un-hide them.
     showHiddenCardChips();
 }
+
+/** Apply a size preset to a card and persist the choice. */
+function setCardSize(cardId, size) {
+    if (!appState.prefs) appState.prefs = {};
+    if (!appState.prefs.cardSize) appState.prefs.cardSize = {};
+    if (size === 'auto') delete appState.prefs.cardSize[cardId];
+    else appState.prefs.cardSize[cardId] = size;
+    saveState();
+    applyCardSizes();
+}
+
+/** Apply all saved card sizes to the DOM via data attribute (CSS targets it). */
+function applyCardSizes() {
+    const sizes = (appState.prefs && appState.prefs.cardSize) || {};
+    document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
+        const id = card.getAttribute('data-card-id');
+        const size = sizes[id];
+        if (size) card.setAttribute('data-size', size);
+        else card.removeAttribute('data-size');
+    });
+}
+window.applyCardSizes = applyCardSizes;
 
 function removeCardControls() {
     document.querySelectorAll('.card-reorder-controls').forEach(el => el.remove());
@@ -15413,10 +15450,28 @@ function initAllButtonHandlers() {
         const bar = document.getElementById('rec-stats-bar');
         if (!bar) return;
         const all = appState.recurringPayments || [];
-        const totalMo = all.reduce((s,r) => s + r.amount, 0);
-        const debtMo  = all.filter(r=>r.cat==='debt').reduce((s,r)=>s+r.amount,0);
-        const subMo   = all.filter(r=>r.cat==='subscription').reduce((s,r)=>s+r.amount,0);
-        const active  = all.filter(r=>r.status==='active').length;
+
+        // Frequency-normalize each record to a monthly figure so weekly/bi-weekly
+        // entries don't underweight the totals.
+        const monthlyOf = (r) => {
+            const f = (r.frequency || 'monthly').toLowerCase();
+            const a = parseFloat(r.amount) || 0;
+            if (f === 'weekly') return a * 52 / 12;
+            if (f === 'biweekly') return a * 26 / 12;
+            if (f === 'semimonthly') return a * 2;
+            if (f === 'quarterly') return a / 3;
+            if (f === 'annually') return a / 12;
+            return a;
+        };
+        // Read from `category` (current schema) with fallback to legacy `cat`
+        const catOf = (r) => (r.category || r.cat || '').toString().toLowerCase();
+
+        const totalMo = all.reduce((s, r) => s + monthlyOf(r), 0);
+        const debtMo  = all.filter(r => catOf(r) === 'debt' || r.linkedDebtId).reduce((s, r) => s + monthlyOf(r), 0);
+        const subMo   = all.filter(r => catOf(r) === 'subscription' || catOf(r) === 'membership').reduce((s, r) => s + monthlyOf(r), 0);
+        // "Active" = anything not explicitly cancelled. If status is unset, count it
+        // (better than showing 0 active when the user clearly has 25 entries).
+        const active  = all.filter(r => !r.status || (r.status !== 'cancelled' && r.status !== 'paused')).length;
         const cards = [
             { label:'Total Monthly', val: recFmtS(totalMo), icon:'ph-money', color:'var(--accent)' },
             { label:'Debt Payments', val: recFmtS(debtMo),  icon:'ph-credit-card', color:'#ff4d6d' },
@@ -15441,7 +15496,16 @@ function initAllButtonHandlers() {
         const label = document.getElementById('rec-page-label');
         if (!tbody) return;
         const all = appState.recurringPayments || [];
-        const filtered = recState.cat === 'all' ? all : all.filter(r=>r.cat===recState.cat);
+        // Read category with fallback to legacy field
+        const catOf = (r) => (r.category || r.cat || '').toString().toLowerCase();
+        const filtered = recState.cat === 'all'
+            ? all
+            : all.filter(r => {
+                const c = catOf(r);
+                if (recState.cat === 'debt') return c === 'debt' || r.linkedDebtId;
+                if (recState.cat === 'subscription') return c === 'subscription' || c === 'membership';
+                return c === recState.cat;
+              });
         const total = filtered.length;
         const start = recState.page * recState.pageSize;
         const end   = Math.min(start + recState.pageSize, total);
@@ -15473,7 +15537,7 @@ function initAllButtonHandlers() {
                       </div>
                     </div>
                   </td>
-                  <td><span class="badge" style="background:rgba(0,0,0,0.3);color:var(--text-2);font-size:8px;">${rp.type}</span></td>
+                  <td><span class="badge" style="background:rgba(0,0,0,0.3);color:var(--text-2);font-size:8px;">${(rp.type || rp.category || rp.cat || (rp.linkedDebtId ? 'Debt' : 'Subscription')).toString().toUpperCase()}</span></td>
                   <td style="font-weight:800;color:var(--accent);">${recFmt(rp.amount)}</td>
                   <td><div class="badge badge-ghost" style="font-size:8px;">${freqLabel}</div></td>
                   <td class="txn-date">${nextDueStr}</td>
