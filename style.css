@@ -7540,3 +7540,28 @@ body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size="full"] {
     min-width: 100% !important;
   }
 }
+
+/* === v=82-spendchart: chart fills the spending-row height ===
+   Previously the chart was hard-pinned at 160px which left a yawning gap
+   beside the (taller) Recent Transactions list. Now the row stretches to
+   the taller column and the chart canvas fills the space.
+*/
+#dash-spending-card .spending-row {
+  align-items: stretch;
+}
+.spending-chart-wrap {
+  position: relative;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+.spending-chart-wrap canvas {
+  flex: 1 1 auto;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: block;
+}
+@media (max-width: 720px) {
+  .spending-chart-wrap { min-height: 220px; }
+}
