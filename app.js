@@ -2964,15 +2964,20 @@ function initModal() {
     // consistently no matter where the entry was created.
     const addRecurringRecord = (rec) => {
         if (!appState.recurringPayments) appState.recurringPayments = [];
+        // Normalize: if category=income, linkedIncome MUST be true (and vice
+        // versa). Keeps materializer + every renderer in lockstep regardless of
+        // which flag the form happened to set.
+        const cat = (rec.category || 'subscription').toLowerCase();
+        const isIncome = cat === 'income' || !!rec.linkedIncome;
         appState.recurringPayments.push({
             id: 'r' + Date.now() + Math.floor(Math.random()*1000),
             name: rec.name,
-            category: rec.category || 'subscription',
-            amount: Number(rec.amount) || 0,
+            category: isIncome ? 'income' : cat,
+            amount: Math.abs(Number(rec.amount) || 0),
             frequency: rec.frequency || 'monthly',
             nextDate: rec.nextDate || null,
             linkedDebtId: rec.linkedDebtId || null,
-            linkedIncome: !!rec.linkedIncome,
+            linkedIncome: isIncome,
             createdAt: Date.now()
         });
     };
@@ -3529,6 +3534,32 @@ function materializeRecurringTransactions() {
     if (!Array.isArray(appState.recurringPayments)) appState.recurringPayments = [];
     if (!Array.isArray(appState.transactions)) appState.transactions = [];
 
+    // Normalize each recurring entry so income flags + amounts stay consistent.
+    // Specifically: if category='income' OR linkedIncome=true, BOTH must be set;
+    // amounts are stored as positive magnitudes (the materializer applies sign
+    // based on income flag). This keeps the spending tracker, dashboard, and
+    // calendar from disagreeing about what's an inflow.
+    appState.recurringPayments.forEach(r => {
+        if (!r) return;
+        const cat = (r.category || r.cat || '').toLowerCase();
+        const flagged = !!r.linkedIncome || cat === 'income';
+        if (flagged) {
+            r.category = 'income';
+            r.cat = 'income';
+            r.linkedIncome = true;
+        }
+        if (typeof r.amount === 'number') r.amount = Math.abs(r.amount);
+        else if (typeof r.amount === 'string') r.amount = Math.abs(parseFloat(r.amount) || 0);
+    });
+
+    // One-time per-page-load: bust the cache so the cleanup pass runs at least
+    // once. Catches stale-sign synthetic txns from before the income flag was
+    // normalized (e.g. data center entries originally created as outflows).
+    if (!window._matMigratedV2) {
+        _lastMaterializeHash = null;
+        window._matMigratedV2 = true;
+    }
+
     // Skip if the dimensions that affect synthetic-txn output haven't changed
     // since last call. This is the single biggest win — most updateUI calls
     // were re-doing the entire scan when only the strategy chip changed etc.
@@ -3542,13 +3573,29 @@ function materializeRecurringTransactions() {
 
     // CLEANUP: drop synthetic transactions whose parent recurring/debt no longer
     // exists. Use Sets for O(1) parent lookups instead of repeated .find().
+    // Also drop synthetic transactions whose sign disagrees with the parent's
+    // current income flag — happens when a user edits an entry to be income
+    // after its synthetic outflows were already created (stale sign).
     const recIds = new Set(appState.recurringPayments.map(r => r && r.id).filter(Boolean));
     const debtIds = new Set((appState.debts || []).map(d => d && d.id).filter(Boolean));
+    // Map parent rec id -> isIncome flag for quick lookup
+    const recIsIncomeMap = new Map();
+    appState.recurringPayments.forEach(r => {
+        if (!r || !r.id) return;
+        const flagged = !!r.linkedIncome || (r.category || '').toLowerCase() === 'income';
+        recIsIncomeMap.set(r.id, flagged);
+    });
     const before = appState.transactions.length;
     appState.transactions = appState.transactions.filter(t => {
         if (!t.synthetic) return true;
         if (t.parentRecurringId && !recIds.has(t.parentRecurringId)) return false;
         if (t.parentDebtId && !debtIds.has(t.parentDebtId)) return false;
+        // Drop if sign doesn't match current isIncome state of the parent
+        if (t.parentRecurringId && recIsIncomeMap.has(t.parentRecurringId)) {
+            const shouldBeIncome = recIsIncomeMap.get(t.parentRecurringId);
+            const actuallyIncome = (t.amount || 0) > 0;
+            if (shouldBeIncome !== actuallyIncome) return false;
+        }
         return true;
     });
     if (appState.transactions.length !== before) createdAny = true;
@@ -15905,8 +15952,14 @@ function initAllButtonHandlers() {
                 const freqRaw = (rp.frequency || 'monthly').toString();
                 const freqLabel = freqRaw.charAt(0).toUpperCase()+freqRaw.slice(1);
                 const isDup = dupIds.has(rp.id);
+                const isIncome = (rp.category || rp.cat || '').toLowerCase() === 'income' || !!rp.linkedIncome;
                 const dupBadge = isDup ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:8px;margin-left:6px;">⚠ DUPLICATE</span>` : '';
-                const rowStyle = isDup ? 'cursor:pointer;background:rgba(251,191,36,0.04);box-shadow:inset 3px 0 0 #fbbf24;' : 'cursor:pointer;';
+                const incomeBadge = isIncome ? `<span class="badge" style="background:rgba(34,197,94,0.15);color:#22c55e;font-size:8px;margin-left:6px;">↓ RECEIVED</span>` : '';
+                let rowStyle = 'cursor:pointer;';
+                if (isDup) rowStyle += 'background:rgba(251,191,36,0.04);box-shadow:inset 3px 0 0 #fbbf24;';
+                else if (isIncome) rowStyle += 'box-shadow:inset 3px 0 0 #22c55e;';
+                const amtColor = isIncome ? '#22c55e' : '#ff4d6d';
+                const amtSign = isIncome ? '+' : '−';
                 return `<tr class="rec-row" data-rec-id="${rp.id}" style="${rowStyle}" title="${isDup ? 'Possible duplicate — click to edit or delete' : 'Click to edit'}">
                   <td style="padding-left:16px;">
                     <div style="display:flex;align-items:center;gap:10px;">
@@ -15914,13 +15967,13 @@ function initAllButtonHandlers() {
                         <i class="ph ${rp.icon||'ph-receipt'}" style="color:${rp.color||'var(--accent)'};font-size:14px;"></i>
                       </div>
                       <div>
-                        <div style="font-weight:700;font-size:12px;">${rp.name}${dupBadge}</div>
+                        <div style="font-weight:700;font-size:12px;">${rp.name}${dupBadge}${incomeBadge}</div>
                         <div style="font-size:9px;color:var(--text-3);">${rp.method || rp.notes || rp.subcategory || ((rp.category || rp.cat || '').replace(/^\w/, c => c.toUpperCase())) || '—'}</div>
                       </div>
                     </div>
                   </td>
-                  <td><span class="badge" style="background:rgba(0,0,0,0.3);color:var(--text-2);font-size:8px;">${(rp.type || rp.category || rp.cat || (rp.linkedDebtId ? 'Debt' : 'Subscription')).toString().toUpperCase()}</span></td>
-                  <td style="font-weight:800;color:var(--accent);">${recFmt(rp.amount)}</td>
+                  <td><span class="badge" style="background:${isIncome?'rgba(34,197,94,0.15)':'rgba(0,0,0,0.3)'};color:${isIncome?'#22c55e':'var(--text-2)'};font-size:8px;">${(rp.type || rp.category || rp.cat || (rp.linkedDebtId ? 'Debt' : 'Subscription')).toString().toUpperCase()}</span></td>
+                  <td style="font-weight:800;color:${amtColor};white-space:nowrap;">${amtSign}${recFmt(rp.amount).replace('-','')}</td>
                   <td><div class="badge badge-ghost" style="font-size:8px;">${freqLabel}</div></td>
                   <td class="txn-date">${nextDueStr}</td>
                   <td style="font-size:11px;font-weight:700;">${paymentsLeft}</td>
