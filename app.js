@@ -15661,6 +15661,92 @@ function initAllButtonHandlers() {
         return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
     }
 
+    /** Compute the next due Date for a recurring entry.
+     *  Priority order:
+     *    1. rp.nextDate (the user-input or scan-extracted anchor) — advance by
+     *       frequency cadence until it's in the future.
+     *    2. rp.dayOfMonth — for monthly entries, snap to that day this month or
+     *       next.
+     *    3. Today as a last resort.
+     *  This is the SINGLE source of truth — calendar, dashboard, and table all
+     *  use it so dates stay consistent across the site. */
+    function recNextDue(rp) {
+        if (!rp) return null;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const freq = (rp.frequency || 'monthly').toLowerCase();
+        const stepDays =
+            freq === 'weekly'      ? 7  :
+            freq === 'biweekly'    ? 14 :
+            freq === 'semimonthly' ? 15 :
+            freq === 'quarterly'   ? 90 :
+            freq === 'annually'    ? 365 :
+            null; // monthly handled separately
+
+        // Anchor from nextDate
+        if (rp.nextDate) {
+            let d = new Date(String(rp.nextDate).slice(0,10) + 'T12:00:00');
+            if (isNaN(d.getTime())) d = null;
+            if (d) {
+                if (freq === 'monthly') {
+                    while (d < today) { d.setMonth(d.getMonth() + 1); }
+                } else if (freq === 'annually') {
+                    while (d < today) { d.setFullYear(d.getFullYear() + 1); }
+                } else if (stepDays) {
+                    while (d < today) { d.setDate(d.getDate() + stepDays); }
+                }
+                return d;
+            }
+        }
+        // Fallback: dayOfMonth for monthly-ish entries
+        if (rp.dayOfMonth) {
+            const dom = parseInt(rp.dayOfMonth, 10) || 1;
+            let d = new Date(today.getFullYear(), today.getMonth(), dom);
+            if (d < today) d.setMonth(d.getMonth() + 1);
+            return d;
+        }
+        return today;
+    }
+    // Expose so the dashboard renderer + calendar can use the same source
+    window.recNextDue = recNextDue;
+
+    /** Does a recurring entry occur on a given calendar date?
+     *  Walks the schedule from its anchor by frequency steps. Used by the
+     *  calendar so weekly/biweekly entries land on the right cells (the old
+     *  code only matched dayOfMonth, which silently dropped weekly entries). */
+    function recOccursOn(rp, date) {
+        if (!rp || !date) return false;
+        const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        const freq = (rp.frequency || 'monthly').toLowerCase();
+        // Anchor — same priority as recNextDue
+        let anchor;
+        if (rp.nextDate) {
+            anchor = new Date(String(rp.nextDate).slice(0,10) + 'T12:00:00');
+            if (isNaN(anchor)) anchor = null;
+        }
+        if (!anchor && rp.dayOfMonth) {
+            const today = new Date();
+            anchor = new Date(today.getFullYear(), today.getMonth(), parseInt(rp.dayOfMonth,10) || 1);
+        }
+        if (!anchor) return false;
+        const anchorDay = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate()).getTime();
+
+        if (freq === 'monthly') {
+            return date.getDate() === anchor.getDate();
+        }
+        if (freq === 'annually') {
+            return date.getDate() === anchor.getDate() && date.getMonth() === anchor.getMonth();
+        }
+        const stepDays =
+            freq === 'weekly'      ? 7  :
+            freq === 'biweekly'    ? 14 :
+            freq === 'semimonthly' ? 15 :
+            freq === 'quarterly'   ? 90 :
+            7;
+        const diffDays = Math.round((target - anchorDay) / 86400000);
+        return diffDays % stepDays === 0;
+    }
+    window.recOccursOn = recOccursOn;
+
     // ── Payments Left for a recurring entry ──
     function recPaymentsLeft(rp) {
         if (rp.cat !== 'debt' || !rp.debtId) return '∞ Ongoing';
@@ -15753,15 +15839,12 @@ function initAllButtonHandlers() {
                 const statusBadge = rp.status === 'warning'
                     ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:8px;">⚠ Retry</span>`
                     : `<span class="badge badge-primary" style="font-size:8px;">Active</span>`;
-                const today = new Date();
-                const dom = rp.dayOfMonth || 1;
-                let nextDue = new Date(today.getFullYear(), today.getMonth(), dom);
-                if (nextDue <= today) nextDue.setMonth(nextDue.getMonth()+1);
-                const nextDueStr = nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+                const nextDue = recNextDue(rp);
+                const nextDueStr = nextDue ? nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
                 const paymentsLeft = recPaymentsLeft(rp);
                 const freqRaw = (rp.frequency || 'monthly').toString();
                 const freqLabel = freqRaw.charAt(0).toUpperCase()+freqRaw.slice(1);
-                return `<tr style="cursor:default;" title="${rp.notes||''}">
+                return `<tr class="rec-row" data-rec-id="${rp.id}" style="cursor:pointer;" title="Click to edit">
                   <td style="padding-left:16px;">
                     <div style="display:flex;align-items:center;gap:10px;">
                       <div style="width:28px;height:28px;border-radius:7px;background:rgba(0,0,0,0.35);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -15778,9 +15861,42 @@ function initAllButtonHandlers() {
                   <td><div class="badge badge-ghost" style="font-size:8px;">${freqLabel}</div></td>
                   <td class="txn-date">${nextDueStr}</td>
                   <td style="font-size:11px;font-weight:700;">${paymentsLeft}</td>
-                  <td>${statusBadge}</td>
+                  <td style="display:flex;align-items:center;gap:6px;">
+                    ${statusBadge}
+                    <button class="btn-rec-edit" data-rec-id="${rp.id}" title="Edit" style="background:rgba(0,212,168,0.10);border:1px solid rgba(0,212,168,0.30);color:var(--accent);cursor:pointer;padding:3px 7px;border-radius:5px;font-size:11px;"><i class="ph ph-pencil-simple"></i></button>
+                    <button class="btn-rec-del" data-rec-id="${rp.id}" title="Delete" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.30);color:#ff4d6d;cursor:pointer;padding:3px 7px;border-radius:5px;font-size:11px;"><i class="ph ph-trash"></i></button>
+                  </td>
                 </tr>`;
             }).join('');
+
+            // Wire row clicks → edit modal; explicit edit/delete buttons too.
+            tbody.querySelectorAll('.rec-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-rec-del')) return;
+                    const id = row.dataset.recId;
+                    const rp = (appState.recurringPayments || []).find(r => r.id === id);
+                    if (rp) recOpenEditModal(rp);
+                });
+            });
+            tbody.querySelectorAll('.btn-rec-del').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = btn.dataset.recId;
+                    const rp = (appState.recurringPayments || []).find(r => r.id === id);
+                    if (!rp) return;
+                    if (!confirm(`Delete recurring entry "${rp.name}"?\n\nThis removes all auto-generated transactions for it. Cannot be undone.`)) return;
+                    appState.recurringPayments = (appState.recurringPayments || []).filter(r => r.id !== id);
+                    appState.transactions = (appState.transactions || []).filter(t => !(t.synthetic && t.parentRecurringId === id));
+                    try { _lastMaterializeHash = null; } catch(_){}
+                    saveState();
+                    try { recRenderAll && recRenderAll(); } catch(_){}
+                    try { recRenderTable(); } catch(_){}
+                    try { recRenderStats(); } catch(_){}
+                    try { recRenderCalendar && recRenderCalendar(); } catch(_){}
+                    try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+                    showToast(`"${rp.name}" deleted.`);
+                });
+            });
         }
 
         if (label) label.textContent = `${start+1}–${Math.min(end,total)} of ${total} payments`;
@@ -15789,6 +15905,153 @@ function initAllButtonHandlers() {
         if (prevBtn) prevBtn.disabled = recState.page === 0;
         if (nextBtn) nextBtn.disabled = end >= total;
     }
+
+    // ── Edit modal ──
+    /** Build + open an edit modal for a recurring payment row.
+     *  Lazy-creates the DOM so it doesn't ship in initial HTML.
+     *  On save, busts the materialize hash so synthetic txns regenerate
+     *  with the new amount/frequency/anchor — keeping calendar, dashboard,
+     *  and transactions in sync. */
+    function recOpenEditModal(rp) {
+        let modal = document.getElementById('rec-edit-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'rec-edit-modal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;padding:20px;';
+            modal.innerHTML = `
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                  <h3 style="font-size:16px;font-weight:900;margin:0;">Edit recurring payment</h3>
+                  <button id="rec-edit-close" type="button" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:18px;"><i class="ph ph-x"></i></button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                  <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Name</label>
+                    <input id="rec-edit-name" type="text" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                  <div style="display:flex;gap:10px;">
+                    <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Amount ($)</label>
+                      <input id="rec-edit-amount" type="number" step="0.01" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                    <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Frequency</label>
+                      <select id="rec-edit-frequency" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Bi-weekly</option>
+                        <option value="semimonthly">Semi-monthly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="annually">Annually</option>
+                      </select></div>
+                  </div>
+                  <div style="display:flex;gap:10px;">
+                    <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Next due date</label>
+                      <input id="rec-edit-nextdate" type="date" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                    <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Category</label>
+                      <select id="rec-edit-category" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                        <option value="income">Income</option>
+                        <option value="debt">Debt</option>
+                        <option value="subscription">Subscription</option>
+                        <option value="membership">Membership</option>
+                        <option value="utility">Utility</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="rent">Rent / Housing</option>
+                        <option value="other">Other</option>
+                      </select></div>
+                  </div>
+                  <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Notes</label>
+                    <textarea id="rec-edit-notes" rows="2" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);resize:vertical;"></textarea></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;">
+                  <button id="rec-edit-delete" class="btn" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.30);color:#ff4d6d;"><i class="ph ph-trash"></i> Delete</button>
+                  <div style="display:flex;gap:10px;">
+                    <button id="rec-edit-cancel" class="btn btn-ghost">Cancel</button>
+                    <button id="rec-edit-save" class="btn btn-primary"><i class="ph ph-check"></i> Save</button>
+                  </div>
+                </div>
+              </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+            modal.querySelector('#rec-edit-close').onclick = () => modal.style.display = 'none';
+            modal.querySelector('#rec-edit-cancel').onclick = () => modal.style.display = 'none';
+        }
+
+        // Pre-fill fields with this recurring entry's current values
+        const editing = rp.id;
+        modal.dataset.editingId = editing;
+        modal.querySelector('#rec-edit-name').value = rp.name || '';
+        modal.querySelector('#rec-edit-amount').value = rp.amount || '';
+        modal.querySelector('#rec-edit-frequency').value = (rp.frequency || 'monthly').toLowerCase();
+        // For the date input, normalize whatever shape nextDate was stored in
+        let dateValue = '';
+        if (rp.nextDate) {
+            const d = new Date(String(rp.nextDate).slice(0,10) + 'T12:00:00');
+            if (!isNaN(d)) dateValue = d.toISOString().slice(0,10);
+        } else if (rp.dayOfMonth) {
+            const today = new Date();
+            const d = new Date(today.getFullYear(), today.getMonth(), parseInt(rp.dayOfMonth,10) || 1);
+            if (d < today) d.setMonth(d.getMonth() + 1);
+            dateValue = d.toISOString().slice(0,10);
+        }
+        modal.querySelector('#rec-edit-nextdate').value = dateValue;
+        modal.querySelector('#rec-edit-category').value = (rp.category || rp.cat || 'other').toLowerCase();
+        modal.querySelector('#rec-edit-notes').value = rp.notes || '';
+
+        // Wire save (overwrites previous handler since arrow-fn)
+        modal.querySelector('#rec-edit-save').onclick = () => {
+            const id = modal.dataset.editingId;
+            const target = (appState.recurringPayments || []).find(r => r.id === id);
+            if (!target) { modal.style.display = 'none'; return; }
+            const newName = modal.querySelector('#rec-edit-name').value.trim();
+            const newAmt  = parseFloat(modal.querySelector('#rec-edit-amount').value) || 0;
+            const newFreq = modal.querySelector('#rec-edit-frequency').value;
+            const newDate = modal.querySelector('#rec-edit-nextdate').value;
+            const newCat  = modal.querySelector('#rec-edit-category').value;
+            const newNotes = modal.querySelector('#rec-edit-notes').value.trim();
+            if (!newName || newAmt <= 0) { showToast('Name and a positive amount are required.'); return; }
+            target.name = newName;
+            target.amount = newAmt;
+            target.frequency = newFreq;
+            target.nextDate = newDate || null;
+            // Sync dayOfMonth too so legacy renderers stay accurate
+            if (newDate) {
+                const dParsed = new Date(newDate + 'T12:00:00');
+                target.dayOfMonth = dParsed.getDate();
+            }
+            target.category = newCat;
+            target.cat = newCat; // legacy field — keep in sync
+            target.notes = newNotes;
+            target.linkedIncome = newCat === 'income';
+            // Drop existing synthetic txns for this entry so they re-materialize
+            // with the corrected schedule. Calendar/dashboard/transactions all
+            // pull from transactions[] so this gets them in lockstep.
+            appState.transactions = (appState.transactions || []).filter(t => !(t.synthetic && t.parentRecurringId === id));
+            try { _lastMaterializeHash = null; } catch(_){}
+            saveState();
+            modal.style.display = 'none';
+            try { recRenderTable(); } catch(_){}
+            try { recRenderStats(); } catch(_){}
+            try { recRenderCalendar && recRenderCalendar(); } catch(_){}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            showToast(`"${target.name}" updated.`);
+        };
+        modal.querySelector('#rec-edit-delete').onclick = () => {
+            const id = modal.dataset.editingId;
+            const target = (appState.recurringPayments || []).find(r => r.id === id);
+            if (!target) { modal.style.display = 'none'; return; }
+            if (!confirm(`Delete "${target.name}"? This removes all auto-generated transactions for it.`)) return;
+            appState.recurringPayments = (appState.recurringPayments || []).filter(r => r.id !== id);
+            appState.transactions = (appState.transactions || []).filter(t => !(t.synthetic && t.parentRecurringId === id));
+            try { _lastMaterializeHash = null; } catch(_){}
+            saveState();
+            modal.style.display = 'none';
+            try { recRenderTable(); } catch(_){}
+            try { recRenderStats(); } catch(_){}
+            try { recRenderCalendar && recRenderCalendar(); } catch(_){}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            showToast(`"${target.name}" deleted.`);
+        };
+
+        modal.style.display = 'flex';
+    }
+    // Expose for outside callers (e.g. dashboard upcoming card click)
+    window.recOpenEditModal = recOpenEditModal;
 
     // ── Category filter pills ──
     function recBindCatPills() {
@@ -15866,7 +16129,7 @@ function initAllButtonHandlers() {
             for (let i = 0; i < 7; i++) {
                 const day = new Date(d); day.setDate(d.getDate() + i);
                 const dom = day.getDate();
-                const due = payments.filter(p => p.dayOfMonth === dom);
+                const due = payments.filter(p => recOccursOn(p, day));
                 const isToday = day.toDateString() === today.toDateString();
                 lines.push(`<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">
                   <div style="width:38px;text-align:center;flex-shrink:0;">
@@ -15893,7 +16156,7 @@ function initAllButtonHandlers() {
             for (let i=0;i<7;i++) {
                 const day = new Date(weekStart); day.setDate(weekStart.getDate()+i);
                 const dom = day.getDate();
-                const due = payments.filter(p=>p.dayOfMonth===dom);
+                const due = payments.filter(p => recOccursOn(p, day));
                 const isToday = day.toDateString()===today.toDateString();
                 html += `<div style="background:${isToday?'rgba(0,212,168,0.07)':'var(--card-2)'};border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-radius:8px;padding:8px;min-height:90px;">
                   <div style="font-size:8px;color:${isToday?'var(--accent)':'var(--text-3)'};font-weight:700;text-transform:uppercase;">${days[i]}</div>
@@ -15917,7 +16180,8 @@ function initAllButtonHandlers() {
                 html += `<div class="cal-cell empty">${daysInPrev - firstDay + i + 1}</div>`;
             }
             for (let day=1; day<=daysInMonth; day++) {
-                const due = payments.filter(p=>p.dayOfMonth===day);
+                const cellDate = new Date(yr, mo, day);
+                const due = payments.filter(p => recOccursOn(p, cellDate));
                 const isToday = today.getDate()===day && today.getMonth()===mo && today.getFullYear()===yr;
                 const hasEvent = due.length > 0;
                 html += `<div class="cal-cell${hasEvent?' has-event':''}${isToday?' cal-today':''}">
