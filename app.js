@@ -12281,7 +12281,7 @@ function initAdvisorPageLogic() {
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Sidebar</div>
                   <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
                     <div><div style="font-size:11px;font-weight:600;">Collapse sidebar by default</div><div style="font-size:9px;color:var(--text-3);">Maximizes content area on load</div></div>
-                    <div class="toggle-switch cust-toggle" data-key="sidebarCollapsed" ${appState.prefs && appState.prefs.sidebarCollapsed ? 'class="toggle-switch on"' : ''}><div class="thumb"></div></div>
+                    <div class="toggle-switch cust-toggle ${appState.prefs && appState.prefs.sidebarCollapsed ? 'on' : ''}" data-key="sidebarCollapsed"><div class="thumb"></div></div>
                   </div>
                   <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);">
                     <div><div style="font-size:11px;font-weight:600;">Show keyboard shortcuts</div><div style="font-size:9px;color:var(--text-3);">Display shortcut hints on hover</div></div>
@@ -12291,59 +12291,64 @@ function initAdvisorPageLogic() {
                 <button id="cust-save-btn" class="btn btn-primary" style="width:100%;padding:12px;margin-top:6px;">Save customizations</button>
               </div>`
         });
-        // Wire customizer theme picker, accent, density, toggles, save
-        setTimeout(() => {
-            document.querySelectorAll('.cust-theme-opt').forEach(opt => {
-                opt.addEventListener('click', () => {
-                    applyTheme(opt.dataset.theme);
-                    showToast(`${opt.dataset.theme === 'dark' ? 'Midnight Heritage' : 'Verdant'} theme applied.`);
-                });
-            });
-            // Accent — apply live + persist on save
-            document.querySelectorAll('.cust-accent-opt').forEach(opt => {
-                opt.addEventListener('click', () => {
-                    const c = opt.dataset.color;
+        // Use event delegation on the drawer overlay so wiring works regardless
+        // of when the inner DOM finishes mounting. setTimeout-based wire-up
+        // had a race where clicks landed before listeners attached.
+        const drawerOverlay = document.getElementById('settings-drawer-overlay');
+        if (drawerOverlay) {
+            drawerOverlay.addEventListener('click', (e) => {
+                if (!appState.prefs) appState.prefs = {};
+                // Theme option
+                const themeOpt = e.target.closest('.cust-theme-opt');
+                if (themeOpt) {
+                    applyTheme(themeOpt.dataset.theme);
+                    showToast(`${themeOpt.dataset.theme === 'dark' ? 'Midnight Heritage' : 'Verdant'} theme applied.`);
+                    return;
+                }
+                // Accent option
+                const acc = e.target.closest('.cust-accent-opt');
+                if (acc) {
+                    const c = acc.dataset.color;
                     document.documentElement.style.setProperty('--accent', c);
-                    document.querySelectorAll('.cust-accent-opt').forEach(o => o.style.border = '3px solid transparent');
-                    opt.style.border = '3px solid #fff';
-                    if (!appState.prefs) appState.prefs = {};
+                    drawerOverlay.querySelectorAll('.cust-accent-opt').forEach(o => o.style.border = '3px solid transparent');
+                    acc.style.border = '3px solid #fff';
                     appState.prefs.accentColor = c;
-                });
-            });
-            // Density
-            document.querySelectorAll('.cust-density-opt').forEach(opt => {
-                opt.addEventListener('click', () => {
-                    const d = opt.dataset.density;
+                    return;
+                }
+                // Density option
+                const dens = e.target.closest('.cust-density-opt');
+                if (dens) {
+                    const d = dens.dataset.density;
                     document.body.setAttribute('data-density', d);
-                    if (!appState.prefs) appState.prefs = {};
                     appState.prefs.density = d;
-                    document.querySelectorAll('.cust-density-opt').forEach(o => {
+                    drawerOverlay.querySelectorAll('.cust-density-opt').forEach(o => {
                         const active = o.dataset.density === d;
                         o.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
                         o.style.background  = active ? 'rgba(0,212,168,0.06)' : 'transparent';
                     });
-                });
-            });
-            // Toggles
-            document.querySelectorAll('.cust-toggle').forEach(t => {
-                t.addEventListener('click', () => {
+                    return;
+                }
+                // Toggle (sidebar / shortcuts)
+                const t = e.target.closest('.cust-toggle');
+                if (t) {
                     t.classList.toggle('on');
-                    if (!appState.prefs) appState.prefs = {};
                     appState.prefs[t.dataset.key] = t.classList.contains('on');
                     if (t.dataset.key === 'sidebarCollapsed') {
                         document.body.classList.toggle('sidebar-collapsed', t.classList.contains('on'));
                     }
-                });
+                    return;
+                }
+                // Save
+                if (e.target.closest('#cust-save-btn')) {
+                    try { saveState(); } catch(_){}
+                    try { localStorage.setItem('budget-accent', appState.prefs.accentColor || ''); } catch(_){}
+                    try { localStorage.setItem('budget-density', appState.prefs.density || ''); } catch(_){}
+                    showToast('Customizations saved.');
+                    drawerOverlay.remove();
+                    return;
+                }
             });
-            // Save
-            document.getElementById('cust-save-btn')?.addEventListener('click', () => {
-                try { saveState(); } catch(_){}
-                try { localStorage.setItem('budget-accent', appState.prefs.accentColor || ''); } catch(_){}
-                try { localStorage.setItem('budget-density', appState.prefs.density || ''); } catch(_){}
-                showToast('Customizations saved.');
-                document.getElementById('settings-drawer-overlay')?.remove();
-            });
-        }, 50);
+        }
     });
 
     // ── 7. Help Center ────────────────────────────────────────
