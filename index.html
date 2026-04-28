@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=75-mathbreak">
+  <link rel="stylesheet" href="style.css?v=76-aiscan">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -3402,6 +3402,10 @@
 
       <!-- DEBT FORM -->
       <form id="new-debt-form" class="modal-form active-form">
+        <!-- Scan-to-prefill: user attaches a statement, AI extracts fields, form populates -->
+        <button type="button" id="debt-scan-btn" class="form-scan-btn">
+          <i class="ph-fill ph-sparkle"></i> Scan statement to auto-fill
+        </button>
         <div class="form-group">
           <label>Account Name / Creditor</label>
           <input type="text" id="debt-name" placeholder="e.g. Navient Student Loan" required>
@@ -3637,6 +3641,9 @@
 
       <!-- RECURRING-ONLY FORM (subscription / bill / rent without a specific debt or txn record) -->
       <form id="new-recurring-form" class="modal-form" style="display:none;">
+        <button type="button" id="rec-scan-btn" class="form-scan-btn">
+          <i class="ph-fill ph-sparkle"></i> Scan bill/statement to auto-fill
+        </button>
         <div class="form-group">
           <label>Name</label>
           <input type="text" id="rec-name" placeholder="e.g. Netflix, Rent, Spotify" required>
@@ -4743,7 +4750,7 @@
 </div>
 
 
-  <script src="app.js?v=57-mathbreak"></script>
+  <script src="app.js?v=58-aiscan"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

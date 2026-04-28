@@ -6970,3 +6970,208 @@ body.dash-customizing #page-dashboard .reorderable::before {
   .math-row-sub { padding-left: 8px; font-size: 11px; }
   .math-row { font-size: 11.5px; }
 }
+
+/* ============================================================
+   AI STATEMENT ANALYSIS — attachment row + expandable panel
+   ============================================================ */
+.att-row-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.att-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.att-row-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.att-row-date {
+  font-size: 9px;
+  color: var(--text-3);
+}
+.att-row-open {
+  font-size: 10px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.att-analyze-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 10px;
+  background: rgba(0, 212, 168, 0.1);
+  border: 1px solid var(--border-accent);
+  color: var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.att-analyze-btn:hover {
+  background: var(--accent);
+  color: #0b0f1a;
+}
+.attach-remove-btn {
+  background: transparent;
+  border: none;
+  color: #ff4d6d;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.att-analysis-panel {
+  margin: 6px 0 0 28px;
+  background: var(--card);
+  border: 1px solid var(--border-accent);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: aiRevSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.att-analysis-inner {
+  padding: 14px 16px;
+}
+.att-analysis-section + .att-analysis-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.att-analysis-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.att-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--card-2);
+  border-left: 2px solid var(--accent);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.att-insight i { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+.att-insight:last-child { margin-bottom: 0; }
+
+.att-analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+.att-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.att-field input {
+  padding: 7px 9px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.att-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.att-analysis-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.att-apply-btn,
+.att-rescan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.att-apply-btn {
+  background: var(--accent);
+  color: #0b0f1a;
+}
+.att-apply-btn:hover { opacity: 0.9; }
+.att-rescan-btn {
+  background: var(--card-2);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+
+/* Form scan button — Add Debt / Add Recurring */
+.form-scan-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(0,212,168,0.12), rgba(168,85,247,0.08));
+  border: 1px dashed var(--border-accent);
+  color: var(--accent);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.form-scan-btn:hover {
+  background: linear-gradient(135deg, rgba(0,212,168,0.2), rgba(168,85,247,0.14));
+  border-style: solid;
+}
+.form-scan-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .att-row { flex-wrap: wrap; row-gap: 6px; }
+  .att-analysis-panel { margin-left: 0; }
+  .att-analysis-grid { grid-template-columns: 1fr 1fr; }
+  .att-analysis-actions { flex-direction: column; }
+  .att-apply-btn, .att-rescan-btn { width: 100%; justify-content: center; }
+}

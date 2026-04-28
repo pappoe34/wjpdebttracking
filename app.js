@@ -4973,6 +4973,456 @@ function openReviewImportModal(importedIds) {
 }
 window.openReviewImportModal = openReviewImportModal;
 
+/* ---------- AI STATEMENT ANALYSIS ----------
+ * Extracts key fields from an attached PDF statement using PDF.js + regex.
+ * No external AI API — pure browser-side text extraction with pattern matching
+ * tuned to common credit-card and loan statement formats. After extraction,
+ * the user gets editable fields they can review and apply to update the debt.
+ */
+let _pdfjsLoading = null;
+function ensurePdfJsLoaded() {
+    if (typeof pdfjsLib !== 'undefined') return Promise.resolve();
+    if (_pdfjsLoading) return _pdfjsLoading;
+    _pdfjsLoading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
+        s.type = 'module';
+        s.onload = () => {
+            // Configure worker
+            try {
+                if (window.pdfjsLib) {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                        'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+                }
+            } catch(_){}
+            // The module load may not expose pdfjsLib globally. Fall back to alt CDN.
+            if (typeof window.pdfjsLib === 'undefined') {
+                const s2 = document.createElement('script');
+                s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                s2.onload = () => {
+                    if (window['pdfjs-dist/build/pdf']) window.pdfjsLib = window['pdfjs-dist/build/pdf'];
+                    if (window.pdfjsLib) {
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        resolve();
+                    } else reject(new Error('PDF.js failed to load'));
+                };
+                s2.onerror = () => reject(new Error('PDF.js CDN failed'));
+                document.head.appendChild(s2);
+                return;
+            }
+            resolve();
+        };
+        s.onerror = () => {
+            // Try alt CDN with non-module syntax
+            const s2 = document.createElement('script');
+            s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            s2.onload = () => {
+                if (window['pdfjs-dist/build/pdf']) window.pdfjsLib = window['pdfjs-dist/build/pdf'];
+                if (window.pdfjsLib) {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    resolve();
+                } else reject(new Error('PDF.js failed to load'));
+            };
+            s2.onerror = () => reject(new Error('PDF.js CDN failed'));
+            document.head.appendChild(s2);
+        };
+        document.head.appendChild(s);
+    });
+    return _pdfjsLoading;
+}
+
+/** Extract plain text from a PDF data URL using PDF.js. */
+async function extractPdfText(dataUrl) {
+    await ensurePdfJsLoaded();
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js unavailable');
+    // Convert data URL → Uint8Array
+    const base64 = dataUrl.split(',')[1] || '';
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    let fullText = '';
+    const maxPages = Math.min(pdf.numPages, 10); // statements rarely > 10 pages
+    for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    return fullText;
+}
+
+/** Pattern-match a statement's text for key fields. Returns null where not found. */
+function parseStatementText(text) {
+    if (!text) return {};
+    // Money: $ optional, supports commas + decimal
+    const $ = '\\$?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\\.[0-9]{2})?)';
+    const tryMatch = (re) => {
+        const m = text.match(re);
+        if (!m) return null;
+        return parseFloat(m[1].replace(/,/g, ''));
+    };
+    const tryDate = (re) => {
+        const m = text.match(re);
+        return m ? m[1].trim() : null;
+    };
+
+    return {
+        // Statement balance / new balance
+        statementBalance: tryMatch(new RegExp(`(?:new\\s+balance|statement\\s+balance|balance\\s+as\\s+of)[^$0-9]*${$}`, 'i')),
+        // Minimum payment due
+        minPayment: tryMatch(new RegExp(`(?:minimum\\s+payment(?:\\s+due)?|min\\.?\\s+payment)[^$0-9]*${$}`, 'i')),
+        // Payment due date
+        dueDate: tryDate(/(?:payment\s+due\s+date|due\s+date)[^A-Z0-9]*([A-Za-z]+\s+\d{1,2},?\s*\d{2,4}|\d{1,2}\/\d{1,2}\/\d{2,4})/i),
+        // APR (purchase APR)
+        apr: tryMatch(/(?:annual\s+percentage\s+rate|apr|purchase\s+apr)[^0-9]*?([0-9]{1,2}(?:\.[0-9]{1,3})?)\s*%/i),
+        // Interest charged this cycle
+        interestCharged: tryMatch(new RegExp(`(?:interest\\s+charged|finance\\s+charge)[^$0-9]*${$}`, 'i')),
+        // Late fee
+        lateFee: tryMatch(new RegExp(`(?:late\\s+(?:fee|payment\\s+fee))[^$0-9]*${$}`, 'i')),
+        // Credit limit
+        creditLimit: tryMatch(new RegExp(`(?:credit\\s+limit|credit\\s+line)[^$0-9]*${$}`, 'i')),
+        // Available credit
+        availableCredit: tryMatch(new RegExp(`(?:available\\s+credit)[^$0-9]*${$}`, 'i'))
+    };
+}
+
+/** Generate human-readable insights from extracted statement fields. */
+function buildStatementInsights(parsed, debt) {
+    const lines = [];
+    const fmt = n => n != null ? '$' + Math.round(n).toLocaleString() : '';
+
+    if (parsed.apr != null && debt && parsed.apr !== debt.apr) {
+        const diff = parsed.apr - (debt.apr || 0);
+        if (Math.abs(diff) >= 0.5) {
+            lines.push({
+                tone: diff > 0 ? 'warn' : 'good',
+                icon: diff > 0 ? 'ph-arrow-up' : 'ph-arrow-down',
+                text: `APR ${diff > 0 ? 'increased' : 'decreased'} from ${(debt.apr || 0).toFixed(2)}% to ${parsed.apr.toFixed(2)}% — ${diff > 0 ? 'consider rate-shopping or transferring this balance' : 'good news, your rate dropped'}.`
+            });
+        }
+    }
+    if (parsed.lateFee && parsed.lateFee > 0) {
+        lines.push({
+            tone: 'warn',
+            icon: 'ph-warning',
+            text: `${fmt(parsed.lateFee)} late fee detected — set up autopay for the minimum to eliminate these.`
+        });
+    }
+    if (parsed.interestCharged && parsed.interestCharged > 0) {
+        lines.push({
+            tone: 'info',
+            icon: 'ph-coin',
+            text: `${fmt(parsed.interestCharged)} in interest charged this period. Paying off the statement balance in full would have saved this.`
+        });
+    }
+    if (parsed.creditLimit && parsed.statementBalance) {
+        const util = (parsed.statementBalance / parsed.creditLimit) * 100;
+        if (util >= 30) {
+            lines.push({
+                tone: 'warn',
+                icon: 'ph-gauge',
+                text: `Reported utilization is ${util.toFixed(0)}% (${fmt(parsed.statementBalance)} / ${fmt(parsed.creditLimit)}). Above 30% hurts your FICO score — pay down before the next statement closes.`
+            });
+        } else if (util < 10) {
+            lines.push({
+                tone: 'good',
+                icon: 'ph-check-circle',
+                text: `Utilization is ${util.toFixed(0)}% — under the 10% FICO sweet spot.`
+            });
+        }
+    }
+    if (parsed.statementBalance && debt && Math.abs(parsed.statementBalance - debt.balance) > debt.balance * 0.05) {
+        lines.push({
+            tone: 'info',
+            icon: 'ph-pencil-simple',
+            text: `Statement balance (${fmt(parsed.statementBalance)}) differs from your saved balance (${fmt(debt.balance)}). Apply the changes below to keep your projection accurate.`
+        });
+    }
+    if (lines.length === 0) {
+        lines.push({
+            tone: 'info',
+            icon: 'ph-info',
+            text: `Statement looks clean — no unusual fees or rate changes detected.`
+        });
+    }
+    return lines;
+}
+
+/** Run full analysis: extract → parse → cache on attachment → render. */
+async function analyzeAttachment(debtId, attachmentIdx) {
+    const debt = appState.debts.find(d => d.id === debtId);
+    if (!debt || !Array.isArray(debt.attachments)) return;
+    const att = debt.attachments[attachmentIdx];
+    if (!att) return;
+
+    // Use cached analysis if present and fresh
+    if (att.analysis && att.analysis.parsedAt) {
+        renderAttachmentAnalysis(debtId, attachmentIdx);
+        return;
+    }
+
+    const panel = document.getElementById(`att-analysis-${debtId}-${attachmentIdx}`);
+    if (panel) {
+        panel.innerHTML = `<div style="padding:14px; text-align:center; color:var(--text-3); font-size:11px;">
+            <i class="ph ph-spinner-gap" style="font-size:18px; animation: creditSpin 0.8s linear infinite; display:inline-block;"></i>
+            <div style="margin-top:6px;">Reading statement...</div>
+        </div>`;
+        panel.style.display = 'block';
+    }
+
+    try {
+        const isPdf = (att.name || '').toLowerCase().endsWith('.pdf') ||
+                      (att.dataUrl || '').startsWith('data:application/pdf');
+        if (!isPdf) {
+            // Image / CSV — no text extraction. Show a message.
+            att.analysis = {
+                parsedAt: Date.now(),
+                supported: false,
+                parsed: {},
+                insights: [{
+                    tone: 'info', icon: 'ph-info',
+                    text: 'AI scan currently supports PDF statements. For images and other formats, enter values manually below.'
+                }]
+            };
+        } else {
+            const text = await extractPdfText(att.dataUrl);
+            const parsed = parseStatementText(text);
+            const insights = buildStatementInsights(parsed, debt);
+            att.analysis = {
+                parsedAt: Date.now(),
+                supported: true,
+                parsed: parsed,
+                insights: insights
+            };
+        }
+        saveState();
+        renderAttachmentAnalysis(debtId, attachmentIdx);
+    } catch (err) {
+        console.warn('Statement analysis failed', err);
+        if (panel) {
+            panel.innerHTML = `<div style="padding:14px; text-align:center; color:var(--danger); font-size:11px;">
+                Couldn't read this statement: ${err.message || 'Unknown error'}.<br>
+                <span style="color:var(--text-3); font-size:10px;">You can still edit values manually below.</span>
+            </div>`;
+        }
+    }
+}
+
+/** Render the analysis panel for a specific attachment. */
+function renderAttachmentAnalysis(debtId, attachmentIdx) {
+    const debt = appState.debts.find(d => d.id === debtId);
+    if (!debt) return;
+    const att = (debt.attachments || [])[attachmentIdx];
+    const panel = document.getElementById(`att-analysis-${debtId}-${attachmentIdx}`);
+    if (!panel) return;
+    if (!att || !att.analysis) {
+        panel.style.display = 'none';
+        return;
+    }
+    const a = att.analysis;
+    const fmtUsd = n => n != null ? '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+
+    const insightToneColor = (t) => t === 'good' ? '#22c55e' : t === 'warn' ? '#ffab40' : 'var(--accent)';
+
+    const fields = a.parsed || {};
+    panel.innerHTML = `
+        <div class="att-analysis-inner">
+            <div class="att-analysis-section">
+                <div class="att-analysis-eyebrow"><i class="ph-fill ph-sparkle"></i> AI Insights</div>
+                ${a.insights.map(ins => `
+                    <div class="att-insight" style="border-left-color:${insightToneColor(ins.tone)};">
+                        <i class="ph-fill ${ins.icon}" style="color:${insightToneColor(ins.tone)};"></i>
+                        <span>${ins.text}</span>
+                    </div>
+                `).join('')}
+            </div>
+            ${a.supported ? `
+                <div class="att-analysis-section">
+                    <div class="att-analysis-eyebrow"><i class="ph-fill ph-pencil-simple"></i> Detected fields — review &amp; apply</div>
+                    <div class="att-analysis-grid">
+                        <label class="att-field"><span>Statement Balance</span>
+                            <input type="number" step="0.01" data-field="statementBalance" value="${fields.statementBalance != null ? fields.statementBalance.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Minimum Payment</span>
+                            <input type="number" step="0.01" data-field="minPayment" value="${fields.minPayment != null ? fields.minPayment.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>APR (%)</span>
+                            <input type="number" step="0.01" data-field="apr" value="${fields.apr != null ? fields.apr.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Credit Limit</span>
+                            <input type="number" step="0.01" data-field="creditLimit" value="${fields.creditLimit != null ? fields.creditLimit.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Due Date</span>
+                            <input type="text" data-field="dueDate" value="${fields.dueDate || ''}" placeholder="—">
+                        </label>
+                        <label class="att-field"><span>Interest Charged</span>
+                            <input type="number" step="0.01" data-field="interestCharged" value="${fields.interestCharged != null ? fields.interestCharged.toFixed(2) : ''}" placeholder="—">
+                        </label>
+                    </div>
+                    <div class="att-analysis-actions">
+                        <button class="att-apply-btn" data-debt-id="${debtId}" data-att-idx="${attachmentIdx}">
+                            <i class="ph ph-check-circle"></i> Apply Changes to Debt
+                        </button>
+                        <button class="att-rescan-btn" data-debt-id="${debtId}" data-att-idx="${attachmentIdx}">
+                            <i class="ph ph-arrows-clockwise"></i> Re-scan
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    panel.style.display = 'block';
+
+    // Wire actions
+    const applyBtn = panel.querySelector('.att-apply-btn');
+    if (applyBtn) applyBtn.onclick = () => applyStatementToDebt(debtId, attachmentIdx, panel);
+    const rescanBtn = panel.querySelector('.att-rescan-btn');
+    if (rescanBtn) rescanBtn.onclick = () => {
+        delete att.analysis;
+        saveState();
+        analyzeAttachment(debtId, attachmentIdx);
+    };
+}
+
+/** Apply edited statement values to the underlying debt record. */
+function applyStatementToDebt(debtId, attachmentIdx, panel) {
+    const debt = appState.debts.find(d => d.id === debtId);
+    if (!debt || !panel) return;
+    const inputs = panel.querySelectorAll('[data-field]');
+    const updates = {};
+    inputs.forEach(el => {
+        const f = el.getAttribute('data-field');
+        const v = el.value.trim();
+        if (!v) return;
+        if (f === 'dueDate') updates.dueDate = v;
+        else updates[f] = parseFloat(v);
+    });
+
+    let applied = 0;
+    if (updates.statementBalance != null && !isNaN(updates.statementBalance)) {
+        debt.balance = updates.statementBalance;
+        applied++;
+    }
+    if (updates.minPayment != null && !isNaN(updates.minPayment)) {
+        debt.minPayment = updates.minPayment;
+        applied++;
+    }
+    if (updates.apr != null && !isNaN(updates.apr)) {
+        debt.apr = updates.apr;
+        applied++;
+    }
+    if (updates.creditLimit != null && !isNaN(updates.creditLimit) && updates.creditLimit > 0) {
+        debt.limit = updates.creditLimit;
+        try {
+            const cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
+            cs.cardLimits = cs.cardLimits || {};
+            cs.cardLimits[debt.id] = updates.creditLimit;
+            localStorage.setItem('wjp_credit_inputs', JSON.stringify(cs));
+        } catch(_){}
+        applied++;
+    }
+    debt.lastUpdated = Date.now();
+    saveState();
+    updateUI();
+    if (typeof showToast === 'function') {
+        showToast(applied > 0 ? `Updated ${applied} field${applied===1?'':'s'} on ${debt.name}` : 'No changes to apply.');
+    }
+}
+
+window.analyzeAttachment = analyzeAttachment;
+window.applyStatementToDebt = applyStatementToDebt;
+
+/* Scan-to-prefill — used by Add Debt / Add Recurring forms.
+ * Opens file picker → reads PDF → extracts fields → populates the form's
+ * inputs based on a fieldMap. User can still edit before saving. */
+function scanStatementToPrefillForm(fieldMap, btnEl) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            if (typeof showToast === 'function') showToast('PDF only — image scan coming soon.');
+            return;
+        }
+        const originalLabel = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="ph ph-spinner-gap" style="animation: creditSpin 0.8s linear infinite; display:inline-block;"></i> Reading...';
+        }
+        try {
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(file);
+            });
+            const text = await extractPdfText(dataUrl);
+            const parsed = parseStatementText(text);
+            // Apply parsed values to form inputs per fieldMap
+            let prefilled = 0;
+            Object.keys(fieldMap).forEach(fieldKey => {
+                const el = document.getElementById(fieldMap[fieldKey]);
+                if (!el) return;
+                const v = parsed[fieldKey];
+                if (v == null || v === '') return;
+                el.value = (typeof v === 'number') ? v.toFixed(2) : v;
+                prefilled++;
+            });
+            if (btnEl) {
+                btnEl.innerHTML = `<i class="ph ph-check"></i> Prefilled ${prefilled} field${prefilled === 1 ? '' : 's'}`;
+                setTimeout(() => {
+                    btnEl.disabled = false;
+                    btnEl.innerHTML = originalLabel;
+                }, 2000);
+            }
+            if (typeof showToast === 'function') {
+                showToast(prefilled > 0
+                    ? `Auto-filled ${prefilled} field${prefilled === 1 ? '' : 's'} from your statement. Review &amp; edit before saving.`
+                    : 'Could not extract fields from this statement. Enter manually.');
+            }
+        } catch (err) {
+            console.warn('Scan to prefill failed', err);
+            if (typeof showToast === 'function') showToast('Scan failed: ' + (err.message || 'unknown error'));
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = originalLabel;
+            }
+        }
+    };
+    input.click();
+}
+window.scanStatementToPrefillForm = scanStatementToPrefillForm;
+
+// Wire the scan buttons in the Add Debt + Add Recurring forms
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const debtScanBtn = document.getElementById('debt-scan-btn');
+        if (debtScanBtn) {
+            debtScanBtn.addEventListener('click', () => {
+                scanStatementToPrefillForm({
+                    statementBalance: 'debt-balance',
+                    minPayment: 'debt-min',
+                    apr: 'debt-apr',
+                    creditLimit: 'debt-limit',
+                    dueDate: 'debt-due-day' // text — user may need to edit format
+                }, debtScanBtn);
+            });
+        }
+        const recScanBtn = document.getElementById('rec-scan-btn');
+        if (recScanBtn) {
+            recScanBtn.addEventListener('click', () => {
+                scanStatementToPrefillForm({
+                    statementBalance: 'rec-amount', // for bills, statement bal ≈ amount due
+                    minPayment: 'rec-amount'
+                }, recScanBtn);
+            });
+        }
+    }, 200);
+});
+
 // Render the per-debt attachments list in the Documents tab (Tier 1.6)
 function renderPerDebtAttachments() {
     const list = document.getElementById('per-debt-attachments-list');
@@ -4991,19 +5441,42 @@ function renderPerDebtAttachments() {
     list.innerHTML = debts.filter(d => Array.isArray(d.attachments) && d.attachments.length > 0).map(d => `
         <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
             <div style="font-size:12px; font-weight:800; margin-bottom:8px;">${d.name}</div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
                 ${d.attachments.map((a, i) => `
-                    <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; background:var(--card); border:1px solid var(--border); border-radius:6px;">
-                        <i class="ph-fill ph-file" style="color:var(--accent); font-size:14px;"></i>
-                        <div style="flex:1; font-size:11px; font-weight:600; overflow:hidden; text-overflow:ellipsis;">${a.name}</div>
-                        <span style="font-size:9px; color:var(--text-3);">${new Date(a.ts).toLocaleDateString()}</span>
-                        <a href="${a.dataUrl}" download="${a.name}" style="font-size:10px; color:var(--accent); text-decoration:none; font-weight:700;">OPEN</a>
-                        <button data-debt-id="${d.id}" data-idx="${i}" class="attach-remove-btn" style="background:transparent; border:none; color:#ff4d6d; cursor:pointer; font-size:12px;"><i class="ph ph-x"></i></button>
+                    <div class="att-row-wrap">
+                        <div class="att-row">
+                            <i class="ph-fill ph-file" style="color:var(--accent); font-size:14px;"></i>
+                            <div class="att-row-name">${a.name}</div>
+                            <span class="att-row-date">${new Date(a.ts).toLocaleDateString()}</span>
+                            <button class="att-analyze-btn" data-debt-id="${d.id}" data-idx="${i}" title="Run AI analysis on this statement">
+                                <i class="ph ph-sparkle"></i> ${a.analysis ? 'View Insights' : 'Analyze'}
+                            </button>
+                            <a href="${a.dataUrl}" download="${a.name}" class="att-row-open">OPEN</a>
+                            <button data-debt-id="${d.id}" data-idx="${i}" class="attach-remove-btn"><i class="ph ph-x"></i></button>
+                        </div>
+                        <div class="att-analysis-panel" id="att-analysis-${d.id}-${i}" style="display:none;"></div>
                     </div>
                 `).join('')}
             </div>
         </div>
     `).join('');
+
+    // Wire analyze buttons (per attachment)
+    list.querySelectorAll('.att-analyze-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            const id = b.getAttribute('data-debt-id');
+            const idx = parseInt(b.getAttribute('data-idx'), 10);
+            const panel = document.getElementById(`att-analysis-${id}-${idx}`);
+            // Toggle if already open
+            if (panel && panel.style.display !== 'none' && panel.dataset.open === '1') {
+                panel.style.display = 'none';
+                panel.dataset.open = '0';
+                return;
+            }
+            if (panel) panel.dataset.open = '1';
+            analyzeAttachment(id, idx);
+        });
+    });
 
     // Wire remove buttons
     list.querySelectorAll('.attach-remove-btn').forEach(b => {
