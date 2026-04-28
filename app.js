@@ -11251,35 +11251,49 @@ function initAdvisorPageLogic() {
                     <span style="font-size:10px;color:var(--text-3);">/mo</span>
                   </div>
                 </div>
-                <!-- AI Behaviour toggles -->
+                <!-- AI Behaviour toggles — read/write appState.prefs.aiBehavior -->
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">AI Behaviour</div>
-                  ${[
-                    {label:'Proactive Insights',     desc:'AI surfaces recommendations without prompting',on:true},
-                    {label:'Savings Opportunities',  desc:'Alerts for rate changes or refinancing chances',on:true},
-                    {label:'Spending Pattern Analysis',desc:'Cross-reference transactions to flag anomalies',on:false},
-                    {label:'Personalised Language',  desc:'Adjust tone based on your financial progress',on:true},
-                  ].map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-                    <div>
-                      <div style="font-size:11px;font-weight:600;">${t.label}</div>
-                      <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
-                    </div>
-                    <div class="toggle-switch ${t.on?'on':''}" style="flex-shrink:0;" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
-                  </div>`).join('')}
+                  ${(() => {
+                    const ab = (appState.prefs && appState.prefs.aiBehavior) || {};
+                    const rows = [
+                      {key:'proactive',     label:'Proactive Insights',     desc:'AI surfaces recommendations without prompting', def:true},
+                      {key:'savings',       label:'Savings Opportunities',  desc:'Alerts for rate changes or refinancing chances', def:true},
+                      {key:'spendingAnomaly',label:'Spending Pattern Analysis',desc:'Cross-reference transactions to flag anomalies', def:false},
+                      {key:'personalLang',  label:'Personalised Language',  desc:'Adjust tone based on your financial progress', def:true},
+                    ];
+                    return rows.map(t=>{
+                      const isOn = ab[t.key] === undefined ? t.def : !!ab[t.key];
+                      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <div>
+                          <div style="font-size:11px;font-weight:600;">${t.label}</div>
+                          <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
+                        </div>
+                        <div class="toggle-switch ai-behavior-toggle ${isOn?'on':''}" data-key="${t.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
+                      </div>`;
+                    }).join('');
+                  })()}
                 </div>
-                <!-- Data Privacy -->
+                <!-- Data Privacy — read/write appState.prefs.privacy -->
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Data & Privacy</div>
-                  ${[
-                    {label:'Improve AI with anonymised data',desc:'Help train better recommendations (no PII shared)',on:false},
-                    {label:'Share crash reports',desc:'Send error logs to improve stability',on:true},
-                  ].map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-                    <div>
-                      <div style="font-size:11px;font-weight:600;">${t.label}</div>
-                      <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
-                    </div>
-                    <div class="toggle-switch ${t.on?'on':''}" style="flex-shrink:0;" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
-                  </div>`).join('')}
+                  ${(() => {
+                    const pv = (appState.prefs && appState.prefs.privacy) || {};
+                    const rows = [
+                      {key:'improveAI',   label:'Improve AI with anonymised data', desc:'Help train better recommendations (no PII shared)', def:false},
+                      {key:'crashReports',label:'Share crash reports',             desc:'Send error logs to improve stability',              def:true},
+                    ];
+                    return rows.map(t=>{
+                      const isOn = pv[t.key] === undefined ? t.def : !!pv[t.key];
+                      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <div>
+                          <div style="font-size:11px;font-weight:600;">${t.label}</div>
+                          <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
+                        </div>
+                        <div class="toggle-switch privacy-toggle ${isOn?'on':''}" data-key="${t.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
+                      </div>`;
+                    }).join('');
+                  })()}
                 </div>
                 <button id="ai-settings-save-btn" class="btn btn-primary" style="width:100%;padding:12px;">SAVE AI SETTINGS</button>
               </div>`
@@ -11304,9 +11318,24 @@ function initAdvisorPageLogic() {
                     });
                 };
             });
+            // Toggle clicks just flip the .on class — values are read on save
+            document.querySelectorAll('.ai-behavior-toggle, .privacy-toggle').forEach(t => {
+                t.addEventListener('click', () => t.classList.toggle('on'));
+            });
             document.getElementById('ai-settings-save-btn')?.addEventListener('click', () => {
                 const extra = parseFloat(document.getElementById('ai-extra-input')?.value) || 0;
                 appState.budget.contribution = extra;
+                if (!appState.prefs) appState.prefs = {};
+                // Persist AI Behaviour toggles
+                appState.prefs.aiBehavior = appState.prefs.aiBehavior || {};
+                document.querySelectorAll('.ai-behavior-toggle').forEach(t => {
+                    appState.prefs.aiBehavior[t.dataset.key] = t.classList.contains('on');
+                });
+                // Persist Data & Privacy toggles
+                appState.prefs.privacy = appState.prefs.privacy || {};
+                document.querySelectorAll('.privacy-toggle').forEach(t => {
+                    appState.prefs.privacy[t.dataset.key] = t.classList.contains('on');
+                });
                 saveState();
                 updateUI();
                 showToast('AI settings saved.');
@@ -11401,50 +11430,163 @@ function initAdvisorPageLogic() {
     });
 
     // ── 2. Review Security ────────────────────────────────────
+    // Real, working surface. Reads + writes Firebase Auth where possible,
+    // appState.prefs.security otherwise. No fake data.
     document.getElementById('btn-settings-security')?.addEventListener('click', () => {
+        const fb = window.__wjpUser || (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
+        const providers = (fb && fb.providerData || []).map(p => p.providerId);
+        const isPasswordAccount = providers.includes('password');
+        const isGoogleAccount = providers.includes('google.com');
+        const accountEmail = (fb && fb.email) || '—';
+        const accountCreated = (fb && fb.metadata && fb.metadata.creationTime) ? new Date(fb.metadata.creationTime).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+        const lastSignIn = (fb && fb.metadata && fb.metadata.lastSignInTime) ? new Date(fb.metadata.lastSignInTime).toLocaleString('en-US') : '—';
+        const ua = (navigator.userAgent || '').toString();
+        const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+        const os = /Windows/.test(ua) ? 'Windows' : /Macintosh|Mac OS/.test(ua) ? 'macOS' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : 'Computer';
+        if (!appState.prefs) appState.prefs = {};
+        if (!appState.prefs.security) appState.prefs.security = { autoLockMin: 15, biometric: false };
+        const sec = appState.prefs.security;
+
         openSettingsDrawer({
             icon: 'ph-lock-key',
             badge: 'STEP 02',
             title: 'Security & Access',
-            subtitle: 'Protect your account with 2FA, password rotation, and session monitoring.',
+            subtitle: 'Real account info + working password change. Anything you change here actually persists.',
             body: `
               <div style="display:flex;flex-direction:column;gap:20px;">
-                <!-- 2FA -->
+                <!-- Account snapshot — pulled live from Firebase -->
                 <div style="background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.2);border-radius:10px;padding:16px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <div style="display:flex;align-items:center;gap:8px;"><i class="ph-fill ph-shield-check" style="color:var(--accent);font-size:16px;"></i><span style="font-size:12px;font-weight:700;">Two-Factor Authentication</span></div>
-                    <div class="badge badge-primary" style="font-size:8px;">ENABLED</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><i class="ph-fill ph-shield-check" style="color:var(--accent);font-size:16px;"></i><span style="font-size:12px;font-weight:700;">Account</span></div>
+                  <div style="font-size:11px;color:var(--text-2);line-height:1.7;">
+                    <div><strong>Email:</strong> ${accountEmail}</div>
+                    <div><strong>Sign-in method:</strong> ${isGoogleAccount ? 'Google' : isPasswordAccount ? 'Email + Password' : (providers.join(', ') || 'Unknown')}</div>
+                    <div><strong>Account created:</strong> ${accountCreated}</div>
+                    <div><strong>Last sign-in:</strong> ${lastSignIn}</div>
                   </div>
-                  <div style="font-size:10px;color:var(--text-3);">Authenticator app · Last verified 2h ago</div>
-                  <button style="margin-top:10px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-2);font-size:10px;padding:6px 12px;cursor:pointer;">Manage 2FA</button>
                 </div>
-                <!-- Password -->
+
+                <!-- Change password (only for password-based accounts) -->
+                ${isPasswordAccount ? `
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Change Password</div>
-                  ${['Current Password','New Password','Confirm Password'].map(l=>`<div style="margin-bottom:10px;">
-                    <div style="font-size:9px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">${l}</div>
-                    <input type="password" placeholder="••••••••" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-                  </div>`).join('')}
+                  <div style="margin-bottom:10px;">
+                    <div style="font-size:9px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Current Password</div>
+                    <input id="sec-pw-current" type="password" placeholder="••••••••" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                  </div>
+                  <div style="margin-bottom:10px;">
+                    <div style="font-size:9px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">New Password (min 6 chars)</div>
+                    <input id="sec-pw-new" type="password" placeholder="••••••••" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <div style="font-size:9px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Confirm New Password</div>
+                    <input id="sec-pw-confirm" type="password" placeholder="••••••••" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                  </div>
+                  <button id="sec-pw-update" class="btn btn-primary" style="width:100%;padding:10px;font-size:12px;">UPDATE PASSWORD</button>
                 </div>
-                <!-- Active Sessions -->
+                ` : `
+                <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:11px;color:var(--text-3);">
+                  <i class="ph ph-info" style="color:var(--accent);"></i> You signed in with ${isGoogleAccount ? 'Google' : 'a third-party provider'}. Manage your password through that provider.
+                </div>
+                `}
+
+                <!-- Auto-lock -->
                 <div>
-                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Active Sessions</div>
-                  ${[
-                    {dev:'MacBook Pro 16"',loc:'New York, NY',time:'Now — this session',current:true},
-                    {dev:'iPhone 15 Pro',loc:'New York, NY',time:'3 hours ago',current:false},
-                    {dev:'Chrome / Windows',loc:'Miami, FL',time:'2 days ago',current:false},
-                  ].map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card-2);border:1px solid ${s.current?'var(--accent)':'var(--border)'};border-radius:8px;margin-bottom:6px;">
-                    <i class="ph ph-${s.dev.includes('iPhone')?'device-mobile':s.dev.includes('Chrome')?'desktop':'laptop'}" style="font-size:18px;color:var(--text-3);"></i>
-                    <div style="flex:1;">
-                      <div style="font-size:11px;font-weight:700;">${s.dev}</div>
-                      <div style="font-size:9px;color:var(--text-3);">${s.loc} · ${s.time}</div>
-                    </div>
-                    ${s.current?`<span style="font-size:8px;color:var(--accent);font-weight:700;">CURRENT</span>`:`<button style="background:none;border:none;color:#ff4d6d;font-size:10px;cursor:pointer;">Revoke</button>`}
-                  </div>`).join('')}
+                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Auto-lock idle session</div>
+                  <select id="sec-autolock" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;">
+                    <option value="0"${sec.autoLockMin===0?' selected':''}>Never</option>
+                    <option value="5"${sec.autoLockMin===5?' selected':''}>5 minutes</option>
+                    <option value="15"${sec.autoLockMin===15?' selected':''}>15 minutes</option>
+                    <option value="30"${sec.autoLockMin===30?' selected':''}>30 minutes</option>
+                    <option value="60"${sec.autoLockMin===60?' selected':''}>1 hour</option>
+                  </select>
+                  <div style="font-size:9px;color:var(--text-3);margin-top:6px;">After this much inactivity, you'll need to sign in again.</div>
                 </div>
-                <button class="btn btn-primary settings-drawer-save" data-toast="Security settings updated." style="width:100%;padding:12px;">SAVE SECURITY SETTINGS</button>
+
+                <!-- Session controls -->
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Current Device</div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card-2);border:1px solid var(--accent);border-radius:8px;margin-bottom:10px;">
+                    <i class="ph ph-${os==='iOS'||os==='Android'?'device-mobile':'desktop'}" style="font-size:18px;color:var(--text-3);"></i>
+                    <div style="flex:1;">
+                      <div style="font-size:11px;font-weight:700;">${browser} on ${os}</div>
+                      <div style="font-size:9px;color:var(--text-3);">This session · last active now</div>
+                    </div>
+                    <span style="font-size:8px;color:var(--accent);font-weight:700;">CURRENT</span>
+                  </div>
+                  <button id="sec-signout-all" class="btn btn-ghost" style="width:100%;padding:10px;font-size:12px;color:#ff4d6d;border:1px solid rgba(255,77,109,0.3);"><i class="ph ph-sign-out"></i> Sign out everywhere</button>
+                </div>
+
+                <button id="sec-save" class="btn btn-primary" style="width:100%;padding:12px;">SAVE SECURITY SETTINGS</button>
               </div>`
         });
+
+        setTimeout(() => {
+            // Save autolock
+            const saveBtn = document.getElementById('sec-save');
+            if (saveBtn) saveBtn.onclick = () => {
+                if (!appState.prefs) appState.prefs = {};
+                if (!appState.prefs.security) appState.prefs.security = {};
+                appState.prefs.security.autoLockMin = parseInt(document.getElementById('sec-autolock').value, 10) || 0;
+                saveState();
+                showToast('Security settings saved.');
+                document.getElementById('settings-drawer-overlay')?.remove();
+            };
+
+            // Sign out everywhere
+            const signOutBtn = document.getElementById('sec-signout-all');
+            if (signOutBtn) signOutBtn.onclick = async () => {
+                if (!confirm('Sign out of every device using this account?')) return;
+                try {
+                    if (window.__wjpAuth) await window.__wjpAuth.signOut();
+                    else if (window.firebase && firebase.auth) await firebase.auth().signOut();
+                    showToast('Signed out everywhere.');
+                    setTimeout(() => window.location.replace('./intro.html'), 600);
+                } catch(e) { showToast('Sign-out failed: ' + (e.message || e)); }
+            };
+
+            // Update password (only present for email accounts)
+            const pwBtn = document.getElementById('sec-pw-update');
+            if (pwBtn) pwBtn.onclick = async () => {
+                const cur = document.getElementById('sec-pw-current').value;
+                const nu  = document.getElementById('sec-pw-new').value;
+                const cf  = document.getElementById('sec-pw-confirm').value;
+                if (!cur || !nu || !cf) { showToast('Fill all three password fields.'); return; }
+                if (nu !== cf) { showToast("New passwords don't match."); return; }
+                if (nu.length < 6) { showToast('Password must be at least 6 characters.'); return; }
+                try {
+                    pwBtn.disabled = true;
+                    pwBtn.textContent = 'UPDATING...';
+                    const auth = window.__wjpAuth || (window.firebase && firebase.auth && firebase.auth());
+                    const u = auth && auth.currentUser;
+                    if (!u) throw new Error('No signed-in user.');
+                    // Re-authenticate, then update — Firebase requires recent auth.
+                    if (window.firebase && firebase.auth && firebase.auth.EmailAuthProvider) {
+                        const cred = firebase.auth.EmailAuthProvider.credential(u.email, cur);
+                        await u.reauthenticateWithCredential(cred);
+                        await u.updatePassword(nu);
+                        showToast('Password updated successfully.');
+                        document.getElementById('settings-drawer-overlay')?.remove();
+                    } else {
+                        // Modular API path
+                        const { reauthenticateWithCredential, EmailAuthProvider, updatePassword } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js');
+                        const cred = EmailAuthProvider.credential(u.email, cur);
+                        await reauthenticateWithCredential(u, cred);
+                        await updatePassword(u, nu);
+                        showToast('Password updated successfully.');
+                        document.getElementById('settings-drawer-overlay')?.remove();
+                    }
+                } catch (err) {
+                    pwBtn.disabled = false;
+                    pwBtn.textContent = 'UPDATE PASSWORD';
+                    const code = (err && err.code) || '';
+                    const msg = code === 'auth/wrong-password' ? 'Current password is incorrect.'
+                              : code === 'auth/weak-password' ? 'New password is too weak.'
+                              : code === 'auth/requires-recent-login' ? 'Sign in again, then retry.'
+                              : ('Update failed: ' + (err.message || err));
+                    showToast(msg);
+                }
+            };
+        }, 60);
     });
 
     // ── 3. Notification Preferences ──────────────────────────
