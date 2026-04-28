@@ -3908,6 +3908,59 @@ function materializeRecurringTransactions() {
 }
 
 /* ---------- UI RENDER ENGINE ---------- */
+/** Generate notifications for debts due in the next N days. Idempotent —
+ *  uses a per-day key so re-running the same day doesn't duplicate.
+ *  Respects appState.prefs.notifications.types.paymentDue toggle. */
+function syncPaymentDueNotifications() {
+    if (!appState || !Array.isArray(appState.debts)) return;
+    const types = (appState.prefs && appState.prefs.notifications && appState.prefs.notifications.types) || {};
+    if (types.paymentDue === false) return;
+    if (!Array.isArray(appState.notifications)) appState.notifications = [];
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayKey = today.toISOString().slice(0,10);
+    const windowDays = 5;
+    let added = false;
+    appState.debts.forEach(d => {
+        const dueDay = parseInt(d.dueDate || d.dueDay, 10);
+        if (!dueDay) return;
+        let due = new Date(today.getFullYear(), today.getMonth(), dueDay);
+        if (due < today) due.setMonth(due.getMonth() + 1);
+        const days = Math.round((due - today) / 86400000);
+        if (days < 0 || days > windowDays) return;
+        const key = `due-${d.id}-${todayKey}-${days}`;
+        if (appState.notifications.some(n => n.key === key)) return;
+        const fmtUsd = n => '$' + Math.round(n || 0).toLocaleString();
+        const urgent = days <= 1;
+        appState.notifications.unshift({
+            id: Date.now() + Math.floor(Math.random()*1000),
+            key,
+            type: urgent ? 'alert' : 'ai',
+            title: `${d.name} payment due ${days===0?'today':days===1?'tomorrow':`in ${days} days`}`,
+            text: `Minimum payment ${fmtUsd(d.minPayment || 0)} on ${due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}.`,
+            time: 'just now',
+            read: false,
+            cleared: false,
+            link: 'debts'
+        });
+        added = true;
+        // Fire real browser push if user granted permission
+        try {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(`WJP — ${d.name} due ${days===0?'today':days===1?'tomorrow':`in ${days} days`}`, {
+                    body: `Min payment ${fmtUsd(d.minPayment || 0)}.`,
+                    icon: '/icon-192.png',
+                    tag: key
+                });
+            }
+        } catch(_){}
+    });
+    if (added) {
+        try { saveState(); } catch(_){}
+        try { renderNotifications(); } catch(_){}
+    }
+}
+window.syncPaymentDueNotifications = syncPaymentDueNotifications;
+
 function updateUI() {
     if (!appState) return;
 
@@ -3915,6 +3968,9 @@ function updateUI() {
     // running it on every render guarantees no other writer can leave a stale
     // 'User / ?' behind even if it overwrites the sidebar later in this pass.
     try { if (typeof renderUserIdentity === 'function') renderUserIdentity(); } catch(_){}
+
+    // Generate due-date notifications for any debt due in the next 5 days.
+    try { syncPaymentDueNotifications(); } catch(_){}
 
     // Reset simulator cache for this render — DFD hero, AI advisor progress
     // strip, projection chart, and Top-3 bar all call calcSimTotals/Trajectory
@@ -11651,6 +11707,19 @@ function initAdvisorPageLogic() {
                     </div>
                   </div>
                 </div>
+                <!-- Browser push permission status + actionable button -->
+                <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <div style="font-size:11px;font-weight:700;">Browser Push Permission</div>
+                    <div id="notif-perm-badge" class="badge" style="font-size:8px;background:rgba(255,255,255,0.06);color:var(--text-3);">CHECKING…</div>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-3);line-height:1.5;margin-bottom:10px;">Required to receive push notifications on this device when the app is closed.</div>
+                  <button id="notif-perm-btn" class="btn btn-ghost" style="width:100%;font-size:11px;padding:8px;border:1px solid var(--border);">Enable browser push</button>
+                </div>
+                <!-- Test notification button — shows you exactly what an alert looks like -->
+                <button id="notif-test-btn" class="btn btn-ghost" style="width:100%;padding:10px;font-size:11px;border:1px dashed var(--border);">
+                  <i class="ph ph-paper-plane-right"></i> Send test notification
+                </button>
                 <button id="save-notif-prefs" class="btn btn-primary" style="width:100%;padding:12px;">SAVE PREFERENCES</button>
               </div>`
         });
@@ -11660,6 +11729,58 @@ function initAdvisorPageLogic() {
             document.querySelectorAll('.notif-channel, .notif-type, .notif-qh-enabled').forEach(t => {
                 t.addEventListener('click', () => t.classList.toggle('on'));
             });
+            // Browser push permission
+            const permBadge = document.getElementById('notif-perm-badge');
+            const permBtn = document.getElementById('notif-perm-btn');
+            const updatePermBadge = () => {
+                if (!('Notification' in window)) {
+                    if (permBadge) { permBadge.textContent = 'NOT SUPPORTED'; permBadge.style.color = 'var(--text-3)'; }
+                    if (permBtn) permBtn.disabled = true;
+                    return;
+                }
+                const p = Notification.permission;
+                if (permBadge) {
+                    permBadge.textContent = p.toUpperCase();
+                    permBadge.style.color = p === 'granted' ? 'var(--accent)' : p === 'denied' ? '#ff4d6d' : '#fbbf24';
+                }
+                if (permBtn) {
+                    permBtn.textContent = p === 'granted' ? '✓ Push enabled on this device' : p === 'denied' ? 'Blocked — change in browser settings' : 'Enable browser push';
+                    permBtn.disabled = p === 'granted' || p === 'denied';
+                }
+            };
+            updatePermBadge();
+            if (permBtn) permBtn.onclick = async () => {
+                if (!('Notification' in window)) return;
+                try {
+                    const result = await Notification.requestPermission();
+                    updatePermBadge();
+                    if (result === 'granted') {
+                        new Notification('WJP push notifications enabled', { body: "You'll get alerts for payment dues and milestones.", icon: '/icon-192.png' });
+                    }
+                } catch(_){}
+            };
+            // Test notification — fires real browser push if granted, else falls
+            // back to in-app toast + adds to the notification panel.
+            const testBtn = document.getElementById('notif-test-btn');
+            if (testBtn) testBtn.onclick = () => {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('WJP test alert', { body: "Your push notifications are working. You'll see real alerts when payments are due.", icon: '/icon-192.png' });
+                }
+                // Always add to in-app panel so the user sees it there too
+                if (!appState.notifications) appState.notifications = [];
+                appState.notifications.unshift({
+                    id: Date.now(),
+                    type: 'ai',
+                    title: 'Test alert',
+                    text: 'This is what real alerts will look like inside the app.',
+                    time: 'just now',
+                    read: false,
+                    cleared: false
+                });
+                saveState();
+                renderNotifications();
+                showToast('Test notification sent.');
+            };
             const saveBtn = document.getElementById('save-notif-prefs');
             if (saveBtn) saveBtn.addEventListener('click', () => {
                 const newCh = {};
@@ -11694,52 +11815,64 @@ function initAdvisorPageLogic() {
 
     // ── 4. Manage Subscription ───────────────────────────────
     document.getElementById('btn-settings-subscription')?.addEventListener('click', () => {
-        const ACTIVE_PLAN = 'enterprise';
+        // Real WJP plan structure: 3-month free trial, then Pro monthly or annual.
+        // Plan + trial state read from appState.subscription with sensible defaults.
+        if (!appState.subscription) {
+            // Default: every signed-in user starts in the 3-month free trial.
+            const start = (appState.profile && appState.profile.createdAt) || Date.now();
+            const trialEnd = start + (90 * 24 * 60 * 60 * 1000);
+            appState.subscription = { plan: 'trial', trialStart: start, trialEnd, invoices: [] };
+            saveState();
+        }
+        const sub = appState.subscription;
+        const now = Date.now();
+        const trialDaysLeft = Math.max(0, Math.ceil((sub.trialEnd - now) / (1000*60*60*24)));
+        const ACTIVE_PLAN = sub.plan;
         const tiers = [
             {
-                id: 'starter', name: 'Starter', price: '$0', billing: 'Free forever',
+                id: 'trial', name: 'Free Trial', price: '$0', billing: `${trialDaysLeft} day${trialDaysLeft===1?'':'s'} left of 90`,
                 color: '#64748b', icon: 'ph-sprout',
                 features: [
-                    {label:'Up to 3 debts tracked', inc:true},
-                    {label:'Basic avalanche / snowball', inc:true},
-                    {label:'Manual transaction entry', inc:true},
-                    {label:'AI Advisor queries', inc:false, note:'5 / mo'},
-                    {label:'Bank account sync', inc:false},
-                    {label:'Simulations & resilience', inc:false},
-                    {label:'Document vault', inc:false},
+                    {label:'Full access to every feature', inc:true},
+                    {label:'Unlimited debts + transactions', inc:true},
+                    {label:'AI Advisor (unlimited)', inc:true},
+                    {label:'Auto-fit dashboard customization', inc:true},
+                    {label:'Bank sync via Plaid (sandbox)', inc:true},
+                    {label:'Household Mode (Plus only)', inc:false},
                     {label:'Priority support', inc:false},
+                    {label:'Trial converts to free read-only after 90 days', inc:false},
                 ],
                 nextPayment: null, paymentMethod: null
             },
             {
-                id: 'pro', name: 'Pro', price: '$19', billing: '/mo — billed annually',
+                id: 'pro', name: 'Pro Monthly', price: '$9.99', billing: '/mo · cancel anytime',
                 color: '#667eea', icon: 'ph-lightning',
                 features: [
-                    {label:'Unlimited debts', inc:true},
-                    {label:'All payoff strategies', inc:true},
-                    {label:'Unlimited transactions', inc:true},
-                    {label:'AI Advisor queries', inc:true, note:'Unlimited'},
-                    {label:'Bank account sync', inc:true, note:'Up to 3 accounts'},
-                    {label:'Simulations & resilience', inc:true},
-                    {label:'Document vault', inc:true, note:'2 GB'},
-                    {label:'Priority support', inc:false},
+                    {label:'Everything in Free Trial', inc:true},
+                    {label:'Unlimited debts + transactions', inc:true},
+                    {label:'AI Advisor (unlimited queries)', inc:true},
+                    {label:'Spending tracker + simulations', inc:true},
+                    {label:'Bank sync via Plaid', inc:true},
+                    {label:'Recurring auto-detection', inc:true},
+                    {label:'Email + push notifications', inc:true},
+                    {label:'Household Mode (Plus only)', inc:false},
                 ],
                 nextPayment: null, paymentMethod: null
             },
             {
-                id: 'enterprise', name: 'Enterprise', price: '$49', billing: '/mo — billed annually',
+                id: 'plus', name: 'Pro Plus (Annual)', price: '$79', billing: '/yr · save $40 vs monthly',
                 color: '#00d4a8', icon: 'ph-medal',
                 features: [
-                    {label:'Unlimited debts', inc:true},
-                    {label:'All payoff strategies + hybrid', inc:true},
-                    {label:'Unlimited transactions', inc:true},
-                    {label:'AI Advisor queries', inc:true, note:'Unlimited'},
-                    {label:'Bank account sync', inc:true, note:'Up to 10 accounts'},
-                    {label:'Simulations & resilience', inc:true},
-                    {label:'Document vault', inc:true, note:'10 GB'},
-                    {label:'Priority concierge support', inc:true},
+                    {label:'Everything in Pro Monthly', inc:true},
+                    {label:'Household Mode — co-track with partner', inc:true, note:'Plus exclusive'},
+                    {label:'Joint debt strategy view', inc:true},
+                    {label:'Multi-account dashboards', inc:true},
+                    {label:'Priority email support', inc:true},
+                    {label:'Early access to new features', inc:true},
+                    {label:'Annual savings: $40.88', inc:true},
+                    {label:'Cancel anytime, prorated refund', inc:true},
                 ],
-                nextPayment: 'Oct 12, 2026', paymentMethod: 'Visa •••• 4492'
+                nextPayment: null, paymentMethod: null
             }
         ];
 
@@ -11759,7 +11892,7 @@ function initAdvisorPageLogic() {
                 </div>
                 <div style="text-align:right;">
                   <div style="font-size:22px;font-weight:900;color:${isActive?'var(--accent)':'var(--text)'};">${t.price}</div>
-                  ${isActive ? `<div class="badge badge-primary" style="font-size:8px;margin-top:2px;">CURRENT PLAN</div>` : `<button onclick="showToast('Upgrade flow — coming soon.')" style="background:none;border:1px solid ${t.color};border-radius:6px;color:${t.color};font-size:9px;font-weight:700;padding:3px 8px;cursor:pointer;margin-top:2px;">UPGRADE</button>`}
+                  ${isActive ? `<div class="badge badge-primary" style="font-size:8px;margin-top:2px;">CURRENT PLAN</div>` : `<button class="sub-upgrade-btn" data-tier="${t.id}" data-name="${t.name}" data-price="${t.price}${t.billing}" style="background:none;border:1px solid ${t.color};border-radius:6px;color:${t.color};font-size:9px;font-weight:700;padding:3px 8px;cursor:pointer;margin-top:2px;">${t.id==='trial'?'CURRENT TRIAL':'UPGRADE'}</button>`}
                 </div>
               </div>
               <!-- Features -->
@@ -11783,32 +11916,74 @@ function initAdvisorPageLogic() {
             </div>`;
         }).join('');
 
+        const subtitleText = sub.plan === 'trial'
+            ? `You have ${trialDaysLeft} day${trialDaysLeft===1?'':'s'} left in your free trial. Pick a plan to keep going.`
+            : sub.plan === 'pro' ? 'You are on Pro Monthly ($9.99/mo). Upgrade to Plus for Household Mode + annual savings.'
+            : 'You are on Pro Plus (annual). Thanks for supporting WJP — every Plus feature unlocked.';
         openSettingsDrawer({
             icon: 'ph-medal',
             badge: 'MEMBERSHIP',
             title: 'Subscription Plans',
-            subtitle: 'You are on the Enterprise plan. Compare all tiers below.',
+            subtitle: subtitleText,
             body: `
               <div style="display:flex;flex-direction:column;gap:12px;">
                 ${tierHTML}
                 <div style="height:1px;background:var(--border);margin:4px 0;"></div>
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:8px;">Recent Invoices</div>
-                  ${[
-                    {date:'Oct 12, 2025',amt:'$588.00',status:'Paid'},
-                    {date:'Oct 12, 2024',amt:'$588.00',status:'Paid'},
-                  ].map(inv=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
-                    <div style="font-size:11px;font-weight:600;">${inv.date}</div>
-                    <div style="font-size:11px;font-weight:700;">${inv.amt}</div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                      <span class="badge badge-primary" style="font-size:8px;">${inv.status}</span>
-                      <button onclick="showToast('Downloading invoice PDF...')" style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">PDF</button>
-                    </div>
-                  </div>`).join('')}
+                  ${(sub.invoices || []).length === 0
+                    ? `<div style="background:var(--card-2);border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text-3);">
+                         <i class="ph ph-receipt" style="font-size:18px;display:block;margin-bottom:6px;opacity:0.5;"></i>
+                         No invoices yet. You're on the free trial.
+                       </div>`
+                    : (sub.invoices || []).map(inv=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+                        <div style="font-size:11px;font-weight:600;">${new Date(inv.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+                        <div style="font-size:11px;font-weight:700;">$${(inv.amount||0).toFixed(2)}</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                          <span class="badge ${inv.status==='Paid'?'badge-primary':'badge-warning'}" style="font-size:8px;">${inv.status||'Pending'}</span>
+                        </div>
+                      </div>`).join('')}
                 </div>
-                <button class="btn btn-ghost" style="width:100%;padding:11px;font-size:10px;border-color:var(--border);color:#ff4d6d;" onclick="showToast('Cancellation — please contact support to proceed.')">CANCEL SUBSCRIPTION</button>
+                <button id="sub-cancel-btn" class="btn btn-ghost" style="width:100%;padding:11px;font-size:10px;border-color:var(--border);color:#ff4d6d;">${sub.plan === 'trial' ? 'STAY ON FREE TRIAL' : 'CANCEL SUBSCRIPTION'}</button>
               </div>`
         });
+        // Wire upgrade + cancel after the drawer renders
+        setTimeout(() => {
+            const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
+            document.querySelectorAll('.sub-upgrade-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const tier = btn.dataset.tier;
+                    const name = btn.dataset.name;
+                    const price = btn.dataset.price;
+                    // Until billing infra ships, route upgrades through email so
+                    // we can manually onboard early adopters and capture their
+                    // requested plan + email together.
+                    const subj = encodeURIComponent(`WJP upgrade request: ${name}`);
+                    const body = encodeURIComponent(
+                        `Hi WJP team,\n\nI'd like to upgrade to ${name} (${price}).\n\n` +
+                        `Account email: ${profileEmail || '(my signed-in email)'}\n\n` +
+                        `Thanks!`
+                    );
+                    window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+                    showToast(`Opening email to request ${name} upgrade…`);
+                };
+            });
+            const cancelBtn = document.getElementById('sub-cancel-btn');
+            if (cancelBtn) cancelBtn.onclick = () => {
+                if (sub.plan === 'trial') {
+                    showToast("You're already on the free trial — nothing to cancel.");
+                    return;
+                }
+                if (!confirm("Cancel your WJP subscription? You'll keep access until the end of the current billing period.")) return;
+                const subj = encodeURIComponent('WJP cancellation request');
+                const body = encodeURIComponent(
+                    `Hi WJP team,\n\nPlease cancel my subscription.\n\n` +
+                    `Account email: ${profileEmail || '(my signed-in email)'}\n\n` +
+                    `Thanks.`
+                );
+                window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+            };
+        }, 60);
     });
 
     // ── 5. Link New Account ───────────────────────────────────
@@ -11994,18 +12169,23 @@ function initAdvisorPageLogic() {
         });
     });
 
-    // ── 8. Submit Ticket ──────────────────────────────────────
+    // ── 8. Submit Ticket → opens user's email client with everything pre-filled
     document.getElementById('btn-settings-ticket')?.addEventListener('click', () => {
+        const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
         openSettingsDrawer({
             icon: 'ph-envelope-simple',
             badge: 'SUPPORT',
-            title: 'Submit a Ticket',
-            subtitle: 'Our team responds within 4 hours on business days.',
+            title: 'Need Assistance',
+            subtitle: 'Send us an email — we typically reply within 4 hours on weekdays.',
             body: `
               <div style="display:flex;flex-direction:column;gap:14px;">
                 <div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Your Email</div>
+                  <input id="ticket-email" type="email" value="${profileEmail}" placeholder="you@example.com" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
                   <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Category</div>
-                  <select style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                  <select id="ticket-category" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
                     <option>Billing & Subscription</option>
                     <option>Account Access</option>
                     <option>Technical Issue</option>
@@ -12016,54 +12196,60 @@ function initAdvisorPageLogic() {
                 </div>
                 <div>
                   <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Subject</div>
-                  <input type="text" placeholder="Brief summary of your issue" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                  <input id="ticket-subject" type="text" placeholder="Brief summary of your issue" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
                 </div>
                 <div>
                   <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Priority</div>
-                  <div style="display:flex;gap:8px;">
-                    ${['Low','Normal','High','Urgent'].map((p,i)=>`<div onclick="this.parentElement.querySelectorAll('div').forEach(d=>d.style.borderColor='var(--border)');this.style.borderColor='var(--accent)';" style="flex:1;text-align:center;padding:8px;border:1px solid ${i===1?'var(--accent)':'var(--border)'};border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">${p}</div>`).join('')}
-                  </div>
+                  <select id="ticket-priority" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                    <option value="Low">Low</option>
+                    <option value="Normal" selected>Normal</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
                 </div>
                 <div>
                   <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Description</div>
-                  <textarea placeholder="Describe the issue in detail..." rows="5" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;resize:vertical;box-sizing:border-box;font-family:inherit;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+                  <textarea id="ticket-body" placeholder="Describe the issue in detail..." rows="5" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
                 </div>
-                <button class="btn btn-primary settings-drawer-save" data-toast="Ticket submitted! Expect a reply within 4 hours." style="width:100%;padding:12px;">SUBMIT TICKET</button>
+                <div style="font-size:10px;color:var(--text-3);background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+                  <i class="ph ph-info" style="color:var(--accent);"></i> Clicking SEND will open your email client with this message pre-filled, addressed to support.
+                </div>
+                <button id="ticket-send" class="btn btn-primary" style="width:100%;padding:12px;">SEND VIA EMAIL</button>
               </div>`
         });
+        setTimeout(() => {
+            const sendBtn = document.getElementById('ticket-send');
+            if (sendBtn) sendBtn.onclick = () => {
+                const email = (document.getElementById('ticket-email').value || profileEmail || '').trim();
+                const cat = document.getElementById('ticket-category').value;
+                const subj = (document.getElementById('ticket-subject').value || 'WJP Support Request').trim();
+                const pri = document.getElementById('ticket-priority').value;
+                const desc = (document.getElementById('ticket-body').value || '').trim();
+                if (!desc) { showToast('Please add a description so we know what you need.'); return; }
+                const fullSubject = encodeURIComponent(`[${pri}] ${cat}: ${subj}`);
+                const fullBody = encodeURIComponent(
+                    `Hi WJP team,\n\n${desc}\n\n` +
+                    `--\n` +
+                    `From: ${email || '(my signed-in email)'}\n` +
+                    `Category: ${cat}\n` +
+                    `Priority: ${pri}\n` +
+                    `Sent from WJP Debt Tracker`
+                );
+                window.location.href = `mailto:pappoe34@gmail.com?subject=${fullSubject}&body=${fullBody}`;
+                showToast('Opening your email client…');
+            };
+        }, 60);
     });
 
-    // ── 9. Live Chat ──────────────────────────────────────────
+    // ── 9. Quick Email Us — direct mailto with profile email pre-filled
     document.getElementById('btn-settings-chat')?.addEventListener('click', () => {
-        openSettingsDrawer({
-            icon: 'ph-chat-teardrop-dots',
-            badge: 'LIVE SUPPORT',
-            title: 'Live Chat',
-            subtitle: 'Connect with a support specialist. Average wait: under 2 minutes.',
-            body: `
-              <div style="display:flex;flex-direction:column;gap:16px;height:100%;">
-                <div style="display:flex;align-items:center;gap:12px;padding:14px;background:rgba(0,212,168,0.07);border:1px solid rgba(0,212,168,0.2);border-radius:10px;">
-                  <div style="width:10px;height:10px;border-radius:50%;background:#34d399;flex-shrink:0;box-shadow:0 0 6px #34d399;"></div>
-                  <div><div style="font-size:12px;font-weight:700;">Support is online</div><div style="font-size:9px;color:var(--text-3);">3 agents available · Avg. wait &lt;2 min</div></div>
-                </div>
-                <div style="flex:1;background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:240px;display:flex;flex-direction:column;gap:10px;" id="settings-chat-log">
-                  <div style="display:flex;gap:8px;align-items:flex-start;">
-                    <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0;">S</div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;max-width:80%;line-height:1.5;">Hi Marcus! I'm Sarah from WJP Support. How can I help you today?</div>
-                  </div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                  <input type="text" id="settings-chat-input" placeholder="Type a message..." style="flex:1;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
-                    onkeydown="if(event.key==='Enter'){
-                      const inp=this;const log=document.getElementById('settings-chat-log');const msg=inp.value.trim();if(!msg)return;
-                      log.innerHTML+=\`<div style='display:flex;gap:8px;align-items:flex-start;justify-content:flex-end'><div style='background:rgba(0,212,168,0.12);border:1px solid rgba(0,212,168,0.2);border-radius:8px;padding:10px 12px;font-size:11px;max-width:80%;line-height:1.5;'>\${msg}</div></div>\`;
-                      inp.value='';log.scrollTop=log.scrollHeight;
-                      setTimeout(()=>{log.innerHTML+=\`<div style='display:flex;gap:8px;align-items:flex-start'><div style='width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0'>S</div><div style='background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;max-width:80%;line-height:1.5;'>Got it! Let me look into that for you — one moment.</div></div>\`;log.scrollTop=log.scrollHeight},1200);
-                    }">
-                  <button class="btn btn-primary" style="padding:10px 16px;font-size:11px;" onclick="document.getElementById('settings-chat-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}))">Send</button>
-                </div>
-              </div>`
-        });
+        const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
+        const subj = encodeURIComponent('WJP — Question / Feedback');
+        const body = encodeURIComponent(
+            `Hi WJP team,\n\n[Your message here]\n\n--\nFrom: ${profileEmail || '(my signed-in email)'}\nSent from WJP Debt Tracker`
+        );
+        window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+        showToast('Opening your email client…');
     });
 
     // ── 10. Save & Exit ───────────────────────────────────────
