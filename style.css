@@ -7175,3 +7175,214 @@ body.dash-customizing #page-dashboard .reorderable::before {
   .att-analysis-actions { flex-direction: column; }
   .att-apply-btn, .att-rescan-btn { width: 100%; justify-content: center; }
 }
+
+/* ============================================================
+   CARD INSIGHTS MODAL — opens from debt-card pill click
+   ============================================================ */
+.card-insights-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 11, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.18s ease;
+}
+.card-insights-modal {
+  background: var(--card);
+  border: 1px solid var(--border-accent);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+}
+.card-insights-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.card-insights-eyebrow {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-insights-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 4px 0 4px;
+  letter-spacing: -0.01em;
+}
+.card-insights-sub {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.card-insights-close {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 26px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+.card-insights-close:hover { color: var(--text); }
+.card-insights-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.card-insights-loading {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.card-insights-empty {
+  text-align: center;
+  padding: 32px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.card-insights-empty h4 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+}
+.card-insights-empty p {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.6;
+  max-width: 420px;
+  margin: 0;
+}
+.card-insights-scan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: #0b0f1a;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 6px;
+}
+.card-insights-scan-btn:hover { opacity: 0.9; }
+
+.card-insights-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card-insights-att {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.card-insights-att-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.card-insights-att-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-insights-att-date {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.card-insights-att-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 10px;
+  background: rgba(0, 212, 168, 0.1);
+  border: 1px solid var(--border-accent);
+  color: var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.card-insights-att-action:hover {
+  background: var(--accent);
+  color: #0b0f1a;
+}
+.card-insights-att-panel {
+  padding: 14px;
+  border-top: 1px solid var(--border);
+}
+.card-insights-section + .card-insights-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.card-insights-section-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-insights-add-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-2);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  align-self: flex-start;
+}
+.card-insights-add-more:hover {
+  border-color: var(--accent);
+  border-style: solid;
+  color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .card-insights-overlay { padding: 0; align-items: flex-start; }
+  .card-insights-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+}

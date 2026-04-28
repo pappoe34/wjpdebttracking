@@ -4165,11 +4165,18 @@ function updateUI() {
                       <div style="font-size:9.5px; color:var(--text-3); margin-top:3px; line-height:1.4;">${helperText}</div>
                     </div>`;
             } else if (isCard || (!isCard && debt.balance > 0)) {
-                // Nudge to fill in the dates if missing — small inline hint
+                // Clickable empty-state pill — opens the AI insights modal.
+                // If a statement is attached, the modal shows its AI analysis.
+                // If not, it offers to scan one and prefill due/statement dates.
+                const hasAttachments = Array.isArray(debt.attachments) && debt.attachments.length > 0;
+                const ctaText = hasAttachments
+                    ? `View AI insights from your statement`
+                    : `Add ${isCard ? 'statement &amp; due dates' : 'due date'} to unlock pay-by tips.`;
+                const ctaIcon = hasAttachments ? 'ph-sparkle' : 'ph-info';
                 payByHtml = `
-                    <div class="obl-pay-by-empty" style="margin-top:10px; padding:6px 10px; background:var(--card-2); border:1px dashed var(--border); border-radius:6px; font-size:9.5px; color:var(--text-3); line-height:1.4; text-align:center;">
-                      <i class="ph ph-info" style="opacity:0.6;"></i> Add ${isCard ? 'statement &amp; due dates' : 'due date'} to unlock pay-by tips.
-                    </div>`;
+                    <button type="button" class="obl-pay-by-empty obl-insights-btn" data-debt-id="${debt.id}" style="margin-top:10px; padding:6px 10px; background:var(--card-2); border:1px dashed var(--border); border-radius:6px; font-size:9.5px; color:var(--text-3); line-height:1.4; text-align:center; width:100%; cursor:pointer; font-family:inherit;">
+                      <i class="ph ${ctaIcon}" style="opacity:0.7;"></i> ${ctaText}
+                    </button>`;
             }
 
             oblContainer.innerHTML += `
@@ -4715,6 +4722,236 @@ function wireObligationCardActions() {
             openAttachStatementPicker(id);
         });
     });
+    // AI insights pill — opens modal with statement analysis or scan flow
+    document.querySelectorAll('.obl-insights-btn').forEach(btn => {
+        if (btn._wired) return; btn._wired = true;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute('data-debt-id');
+            openCardInsightsModal(id);
+        });
+    });
+}
+
+/* ---------- AI INSIGHTS MODAL ----------
+ * Opens when user clicks the "View AI insights" / "Add statement & due dates"
+ * pill on a debt card. If there's an attached statement, shows the AI analysis
+ * inline. If not, offers to scan one and apply it directly to the debt. */
+function openCardInsightsModal(debtId) {
+    const debt = appState.debts.find(d => d.id === debtId);
+    if (!debt) return;
+
+    document.getElementById('card-insights-modal')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'card-insights-modal';
+    overlay.className = 'card-insights-overlay';
+    overlay.innerHTML = `
+        <div class="card-insights-modal">
+            <div class="card-insights-header">
+                <div>
+                    <div class="card-insights-eyebrow"><i class="ph-fill ph-sparkle"></i> AI Statement Insights</div>
+                    <h3 class="card-insights-title">${debt.name}</h3>
+                    <div class="card-insights-sub">${(debt.balance || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} · ${(debt.apr || 0).toFixed(2)}% APR · Min ${(debt.minPayment || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div>
+                </div>
+                <button class="card-insights-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="card-insights-body" id="card-insights-body">
+                ${renderCardInsightsContent(debt)}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.card-insights-close').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function escClose(ev) {
+        if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', escClose); }
+    });
+
+    // Wire actions inside the modal
+    wireCardInsightsActions(overlay, debtId);
+}
+window.openCardInsightsModal = openCardInsightsModal;
+
+function renderCardInsightsContent(debt) {
+    const attachments = Array.isArray(debt.attachments) ? debt.attachments : [];
+
+    // No attachments — show scan-to-prefill CTA
+    if (!attachments.length) {
+        return `
+            <div class="card-insights-empty">
+                <i class="ph ph-file-magnifying-glass" style="font-size:42px; color:var(--accent); opacity:0.7;"></i>
+                <h4>No statement attached yet</h4>
+                <p>Attach your latest credit card or loan statement and our AI will extract APR, balance, due date, fees, and statement closing date — then auto-update your debt with what it finds.</p>
+                <button class="card-insights-scan-btn" id="card-insights-scan" data-debt-id="${debt.id}">
+                    <i class="ph-fill ph-sparkle"></i> Scan Statement & Apply
+                </button>
+            </div>
+        `;
+    }
+
+    // Statements attached — show analysis for each
+    return `
+        <div class="card-insights-attachments">
+            ${attachments.map((a, i) => {
+                const hasAnalysis = !!a.analysis;
+                const analyzeLabel = hasAnalysis ? 'Re-scan' : 'Run AI Analysis';
+                return `
+                    <div class="card-insights-att">
+                        <div class="card-insights-att-head">
+                            <i class="ph-fill ph-file-text" style="color:var(--accent);"></i>
+                            <span class="card-insights-att-name">${a.name}</span>
+                            <span class="card-insights-att-date">${new Date(a.ts).toLocaleDateString()}</span>
+                            <button class="card-insights-att-action" data-debt-id="${debt.id}" data-att-idx="${i}" data-action="analyze">
+                                <i class="ph ph-sparkle"></i> ${analyzeLabel}
+                            </button>
+                        </div>
+                        <div class="card-insights-att-panel" id="card-insights-panel-${i}" style="display:${hasAnalysis ? 'block' : 'none'};">
+                            ${hasAnalysis ? renderInlineCardAnalysis(debt, i) : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+            <button class="card-insights-add-more" data-debt-id="${debt.id}">
+                <i class="ph ph-plus"></i> Attach another statement
+            </button>
+        </div>
+    `;
+}
+
+function renderInlineCardAnalysis(debt, attIdx) {
+    const a = debt.attachments[attIdx]?.analysis;
+    if (!a) return '';
+    const fields = a.parsed || {};
+    const insightToneColor = (t) => t === 'good' ? '#22c55e' : t === 'warn' ? '#ffab40' : 'var(--accent)';
+    return `
+        <div class="card-insights-section">
+            <div class="card-insights-section-label"><i class="ph-fill ph-lightbulb"></i> Insights</div>
+            ${a.insights.map(ins => `
+                <div class="att-insight" style="border-left-color:${insightToneColor(ins.tone)};">
+                    <i class="ph-fill ${ins.icon}" style="color:${insightToneColor(ins.tone)};"></i>
+                    <span>${ins.text}</span>
+                </div>
+            `).join('')}
+        </div>
+        ${a.supported ? `
+            <div class="card-insights-section">
+                <div class="card-insights-section-label"><i class="ph-fill ph-pencil-simple"></i> Detected fields — review &amp; apply</div>
+                <div class="att-analysis-grid card-insights-fields" data-debt-id="${debt.id}" data-att-idx="${attIdx}">
+                    <label class="att-field"><span>Balance</span><input type="number" step="0.01" data-field="statementBalance" value="${fields.statementBalance != null ? fields.statementBalance.toFixed(2) : ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Min Payment</span><input type="number" step="0.01" data-field="minPayment" value="${fields.minPayment != null ? fields.minPayment.toFixed(2) : ''}" placeholder="—"></label>
+                    <label class="att-field"><span>APR (%)</span><input type="number" step="0.01" data-field="apr" value="${fields.apr != null ? fields.apr.toFixed(2) : ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Cash Adv APR (%)</span><input type="number" step="0.01" data-field="cashAdvanceApr" value="${fields.cashAdvanceApr != null ? fields.cashAdvanceApr.toFixed(2) : ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Penalty APR (%)</span><input type="number" step="0.01" data-field="penaltyApr" value="${fields.penaltyApr != null ? fields.penaltyApr.toFixed(2) : ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Credit Limit</span><input type="number" step="0.01" data-field="creditLimit" value="${fields.creditLimit != null ? fields.creditLimit.toFixed(2) : ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Statement Date</span><input type="text" data-field="statementDate" value="${fields.statementDate || ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Due Date</span><input type="text" data-field="dueDate" value="${fields.dueDate || ''}" placeholder="—"></label>
+                    <label class="att-field"><span>Promo Ends</span><input type="text" data-field="promoExpires" value="${fields.promoExpires || ''}" placeholder="—"></label>
+                </div>
+                <div class="att-analysis-actions">
+                    <button class="att-apply-btn card-insights-apply" data-debt-id="${debt.id}" data-att-idx="${attIdx}">
+                        <i class="ph ph-check-circle"></i> Apply Changes to Debt
+                    </button>
+                </div>
+            </div>
+        ` : ''}
+    `;
+}
+
+function wireCardInsightsActions(overlay, debtId) {
+    // Scan button (no-attachment path)
+    const scanBtn = overlay.querySelector('#card-insights-scan');
+    if (scanBtn) {
+        scanBtn.onclick = () => triggerScanAndApplyToDebt(debtId, overlay);
+    }
+    // Per-attachment Analyze / Re-scan
+    overlay.querySelectorAll('.card-insights-att-action[data-action="analyze"]').forEach(b => {
+        b.onclick = async () => {
+            const idx = parseInt(b.getAttribute('data-att-idx'), 10);
+            const debt = appState.debts.find(d => d.id === debtId);
+            if (!debt) return;
+            const att = debt.attachments[idx];
+            if (att) delete att.analysis; // force fresh
+            const panel = overlay.querySelector(`#card-insights-panel-${idx}`);
+            if (panel) {
+                panel.style.display = 'block';
+                panel.innerHTML = `<div class="card-insights-loading"><i class="ph ph-spinner-gap" style="animation: creditSpin 0.8s linear infinite; display:inline-block;"></i> Reading statement...</div>`;
+            }
+            try {
+                const text = await extractPdfText(att.dataUrl);
+                const parsed = parseStatementText(text);
+                const insights = buildStatementInsights(parsed, debt);
+                att.analysis = { parsedAt: Date.now(), supported: true, parsed, insights };
+                saveState();
+                if (panel) panel.innerHTML = renderInlineCardAnalysis(debt, idx);
+                wireCardInsightsActions(overlay, debtId);
+            } catch (err) {
+                console.warn('analyze failed', err);
+                if (panel) panel.innerHTML = `<div class="card-insights-loading" style="color:var(--danger);">Couldn't read this PDF: ${err.message || 'unknown error'}.</div>`;
+            }
+        };
+    });
+    // Apply changes
+    overlay.querySelectorAll('.card-insights-apply').forEach(b => {
+        b.onclick = () => {
+            const idx = parseInt(b.getAttribute('data-att-idx'), 10);
+            const fieldsContainer = overlay.querySelector(`.card-insights-fields[data-att-idx="${idx}"]`);
+            if (fieldsContainer) applyStatementToDebt(debtId, idx, fieldsContainer);
+            overlay.remove();
+        };
+    });
+    // Add another attachment
+    const addMore = overlay.querySelector('.card-insights-add-more');
+    if (addMore) {
+        addMore.onclick = () => {
+            overlay.remove();
+            openAttachStatementPicker(debtId);
+        };
+    }
+}
+
+/** Pick a PDF, scan it, apply detected fields directly to the debt — used by the
+ *  no-attachment path in the insights modal. */
+async function triggerScanAndApplyToDebt(debtId, overlay) {
+    const debt = appState.debts.find(d => d.id === debtId);
+    if (!debt) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const body = overlay.querySelector('#card-insights-body');
+        if (body) body.innerHTML = `<div class="card-insights-loading"><i class="ph ph-spinner-gap" style="animation: creditSpin 0.8s linear infinite; display:inline-block;"></i> Reading statement...</div>`;
+        try {
+            const dataUrl = await new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = () => reject(r.error);
+                r.readAsDataURL(file);
+            });
+            // Save attachment so insights persist
+            if (!Array.isArray(debt.attachments)) debt.attachments = [];
+            const text = await extractPdfText(dataUrl);
+            const parsed = parseStatementText(text);
+            const insights = buildStatementInsights(parsed, debt);
+            debt.attachments.push({
+                name: file.name,
+                dataUrl: dataUrl,
+                size: file.size,
+                ts: Date.now(),
+                analysis: { parsedAt: Date.now(), supported: true, parsed, insights }
+            });
+            saveState();
+            if (body) body.innerHTML = renderCardInsightsContent(debt);
+            wireCardInsightsActions(overlay, debtId);
+        } catch (err) {
+            console.warn('scan failed', err);
+            if (body) body.innerHTML = `<div class="card-insights-loading" style="color:var(--danger);">Scan failed: ${err.message || 'unknown error'}</div>`;
+        }
+    };
+    input.click();
 }
 
 function openObligationMenu(anchor, debtId) {
