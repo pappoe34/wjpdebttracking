@@ -15570,13 +15570,18 @@ function initAllButtonHandlers() {
         };
         // Read from `category` (current schema) with fallback to legacy `cat`
         const catOf = (r) => (r.category || r.cat || '').toString().toLowerCase();
+        // Income entries are NOT outgoing payments — exclude them from every
+        // payment-side total so the page stays internally consistent.
+        const isIncome = (r) => catOf(r) === 'income' || !!r.linkedIncome;
+        const isPayment = (r) => !isIncome(r);
 
-        const totalMo = all.reduce((s, r) => s + monthlyOf(r), 0);
-        const debtMo  = all.filter(r => catOf(r) === 'debt' || r.linkedDebtId).reduce((s, r) => s + monthlyOf(r), 0);
-        const subMo   = all.filter(r => catOf(r) === 'subscription' || catOf(r) === 'membership').reduce((s, r) => s + monthlyOf(r), 0);
-        // "Active" = anything not explicitly cancelled. If status is unset, count it
-        // (better than showing 0 active when the user clearly has 25 entries).
-        const active  = all.filter(r => !r.status || (r.status !== 'cancelled' && r.status !== 'paused')).length;
+        const payments = all.filter(isPayment);
+        const totalMo = payments.reduce((s, r) => s + monthlyOf(r), 0);
+        const debtMo  = payments.filter(r => catOf(r) === 'debt' || r.linkedDebtId).reduce((s, r) => s + monthlyOf(r), 0);
+        const subMo   = payments.filter(r => catOf(r) === 'subscription' || catOf(r) === 'membership').reduce((s, r) => s + monthlyOf(r), 0);
+        // "Active" = outgoing payments not explicitly cancelled. If status is unset,
+        // count it (better than showing 0 active when the user clearly has entries).
+        const active  = payments.filter(r => !r.status || (r.status !== 'cancelled' && r.status !== 'paused')).length;
         const cards = [
             { label:'Total Monthly', val: recFmtS(totalMo), icon:'ph-money', color:'var(--accent)' },
             { label:'Debt Payments', val: recFmtS(debtMo),  icon:'ph-credit-card', color:'#ff4d6d' },
@@ -15629,7 +15634,8 @@ function initAllButtonHandlers() {
                 if (nextDue <= today) nextDue.setMonth(nextDue.getMonth()+1);
                 const nextDueStr = nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'});
                 const paymentsLeft = recPaymentsLeft(rp);
-                const freqLabel = rp.frequency.charAt(0).toUpperCase()+rp.frequency.slice(1);
+                const freqRaw = (rp.frequency || 'monthly').toString();
+                const freqLabel = freqRaw.charAt(0).toUpperCase()+freqRaw.slice(1);
                 return `<tr style="cursor:default;" title="${rp.notes||''}">
                   <td style="padding-left:16px;">
                     <div style="display:flex;align-items:center;gap:10px;">
@@ -15638,7 +15644,7 @@ function initAllButtonHandlers() {
                       </div>
                       <div>
                         <div style="font-weight:700;font-size:12px;">${rp.name}</div>
-                        <div style="font-size:9px;color:var(--text-3);">${rp.method}</div>
+                        <div style="font-size:9px;color:var(--text-3);">${rp.method || rp.notes || rp.subcategory || ((rp.category || rp.cat || '').replace(/^\w/, c => c.toUpperCase())) || '—'}</div>
                       </div>
                     </div>
                   </td>
