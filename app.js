@@ -3066,7 +3066,29 @@ function initModal() {
 
     // Form 3: Transaction Submit (with optional recurring schedule)
     const formTxn = document.getElementById('new-transaction-form');
-    if(formTxn) {
+    if (formTxn) {
+        // Live auto-categorization: as user types merchant, suggest a category
+        // and auto-set the category dropdown if user hasn't picked one yet.
+        const merchantInput = document.getElementById('txn-merchant');
+        const categorySelect = document.getElementById('txn-category');
+        if (merchantInput && categorySelect) {
+            let userPickedCategory = false;
+            categorySelect.addEventListener('change', () => { userPickedCategory = true; });
+            merchantInput.addEventListener('input', () => {
+                const guess = autoCategorizeMerchant(merchantInput.value);
+                if (!guess) return;
+                if (userPickedCategory) return;
+                // Try to find matching option in select
+                const match = Array.from(categorySelect.options).find(o => {
+                    return o.value.toLowerCase() === guess.toLowerCase()
+                        || o.textContent.toLowerCase().includes(guess.toLowerCase().split(' ')[0]);
+                });
+                if (match) categorySelect.value = match.value;
+            });
+            // Reset auto-pick flag when form opens fresh
+            formTxn.addEventListener('reset', () => { userPickedCategory = false; });
+        }
+
         formTxn.addEventListener('submit', (e) => {
             e.preventDefault();
             handleSuccessState(formTxn, () => {
@@ -3321,6 +3343,118 @@ function renderTop3Strategy() {
         };
     });
 }
+
+/* ---------- MATH BREAKDOWN PANEL ----------
+ * Transparent panel showing exactly what feeds the strategy projections:
+ *   Income − Expenses − Bills − Subscriptions − Debt Minimums = Surplus.
+ * That surplus flows to the priority debt as the auto-derived extra
+ * contribution. Without this panel, users couldn't verify why the projection
+ * said "20 months to debt-free" — it looked like magic. This shows the math.
+ */
+function renderMathBreakdown() {
+    const panel = document.getElementById('math-breakdown');
+    if (!panel) return;
+
+    const income = (appState.balances && parseFloat(appState.balances.monthlyIncome)) || 0;
+    const expensesObj = (appState.budget && appState.budget.expenses) || {};
+    const expenses = Object.values(expensesObj).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const totalMin = (appState.debts || []).reduce((s, d) => s + (parseFloat(d.minPayment) || 0), 0);
+
+    // Split recurring outflows into bills (essential) vs subscriptions (discretionary)
+    const recurring = (appState.recurringPayments || [])
+        .filter(r => r && !r.linkedIncome && r.category !== 'income' && !r.linkedDebtId);
+    const monthlize = (r) => {
+        const freq = (r.frequency || 'monthly').toLowerCase();
+        const amt = parseFloat(r.amount) || 0;
+        if (freq === 'weekly') return amt * 52 / 12;
+        if (freq === 'biweekly') return amt * 26 / 12;
+        if (freq === 'semimonthly') return amt * 2;
+        if (freq === 'quarterly') return amt / 3;
+        if (freq === 'annually') return amt / 12;
+        return amt;
+    };
+    let bills = 0, subscriptions = 0;
+    recurring.forEach(r => {
+        const m = monthlize(r);
+        if (classifyRecurring(r) === 'bill') bills += m;
+        else subscriptions += m;
+    });
+
+    const surplus = Math.max(0, income - expenses - bills - subscriptions - totalMin);
+    const totalToDebt = totalMin + surplus;
+
+    const fmtUsd = n => '$' + Math.round(n || 0).toLocaleString();
+    const fmtNeg = n => (n > 0 ? '−' : '') + fmtUsd(n);
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    set('math-income', fmtUsd(income));
+    set('math-expenses', fmtNeg(expenses));
+    set('math-bills', fmtNeg(bills));
+    set('math-subscriptions', fmtNeg(subscriptions));
+    set('math-minimums', fmtNeg(totalMin));
+    set('math-surplus', fmtUsd(surplus));
+    set('math-total-to-debt', fmtUsd(totalToDebt) + '/mo');
+
+    // Estimated payoff using the user's selected strategy
+    let payoffStr = '—';
+    let warning = '';
+    try {
+        const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+        const stats = calcSimTotals(strategy, surplus, 0, 0);
+        if (stats && stats.months > 0 && stats.months < 600) {
+            const payoff = new Date();
+            payoff.setMonth(payoff.getMonth() + stats.months);
+            payoffStr = `${payoff.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} · ${stats.months} mo`;
+        } else if (stats && stats.months >= 600) {
+            warning = "At your current cash flow, your minimum payments aren't enough to clear the debt. Increase income, reduce expenses, or refinance high-APR debts.";
+        }
+    } catch(_){}
+    set('math-payoff', payoffStr);
+
+    // Sanity warnings
+    const warnEl = document.getElementById('math-warning');
+    if (warnEl) {
+        const warnings = [];
+        if (income <= 0) warnings.push("⚠️ Add your monthly income for an accurate projection.");
+        if (expenses <= 0 && (appState.budget && Object.keys(appState.budget.expenses || {}).length > 0)) {
+            warnings.push("⚠️ Living expenses are $0 — your projection may be too optimistic. Edit budget categories.");
+        }
+        if (warning) warnings.push(warning);
+        if (warnings.length) {
+            warnEl.innerHTML = warnings.join('<br>');
+            warnEl.style.display = 'block';
+        } else {
+            warnEl.style.display = 'none';
+        }
+    }
+}
+
+// Wire up toggle + edit buttons after DOM load
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const toggle = document.getElementById('math-breakdown-toggle');
+        const body = document.getElementById('math-breakdown-body');
+        if (toggle && body) {
+            toggle.addEventListener('click', () => {
+                const isOpen = !body.hidden;
+                body.hidden = isOpen;
+                toggle.setAttribute('aria-expanded', String(!isOpen));
+                const label = toggle.querySelector('.math-breakdown-toggle-label');
+                if (label) label.textContent = isOpen ? 'Show details' : 'Hide details';
+                const caret = toggle.querySelector('i');
+                if (caret) caret.className = isOpen ? 'ph ph-caret-down' : 'ph ph-caret-up';
+            });
+        }
+        const editIncome = document.getElementById('math-edit-income');
+        if (editIncome) editIncome.onclick = () => {
+            if (typeof navTo === 'function') navTo('budgets');
+        };
+        const editExpenses = document.getElementById('math-edit-expenses');
+        if (editExpenses) editExpenses.onclick = () => {
+            if (typeof navTo === 'function') navTo('budgets');
+        };
+    }, 100);
+});
 
 /* ---------- DFD QUARTER MILESTONES ----------
    Updates the encouragement copy based on % paid. Crossing 25/50/75/100
@@ -3604,6 +3738,9 @@ function updateUI() {
 
     // Render the Top-3 Strategy Focus bar
     try { renderTop3Strategy(); } catch(_){}
+
+    // Math Breakdown — transparent view of what feeds the projections
+    try { renderMathBreakdown(); } catch(_){}
 
     // Refresh the Credit Profile AI insights so it tracks any debt / limit changes
     try { if (window.renderCreditAiInsights) window.renderCreditAiInsights(); } catch(_){}
@@ -5380,6 +5517,67 @@ window.addEventListener('resize', () => {
         if(window.budgetUpdateCalculations) window.budgetUpdateCalculations();
     }, 200);
 });
+
+/* ---------- TRANSACTION AUTO-CATEGORIZATION ----------
+ * Maps merchant text to a category by keyword. Used by the Add Transaction
+ * form to pre-fill the category dropdown — user can override before saving.
+ *
+ * Patterns are intentionally simple; if a merchant doesn't match any known
+ * keyword, returns null and the form falls back to whatever the user picks.
+ * Order matters — more-specific patterns appear first.
+ */
+const MERCHANT_CATEGORIES = [
+    // Food & dining
+    { match: /whole\s*foods|trader\s*joe|kroger|safeway|publix|aldi|wegmans|sprouts/i, cat: 'Food & Dining' },
+    { match: /walmart|target|costco|sam'?s\s*club|bj'?s/i, cat: 'Food & Dining' },
+    { match: /mcdonald|starbucks|subway|chipotle|wendy|burger\s*king|taco\s*bell|chick.fil.a|panera|pizza|sushi|restaurant|cafe|coffee|dunkin/i, cat: 'Food & Dining' },
+    { match: /uber\s*eats|doordash|grubhub|postmates|seamless/i, cat: 'Food & Dining' },
+    // Transportation
+    { match: /shell|exxon|chevron|mobil|\bbp\b|sunoco|gulf|valero|marathon|7-eleven\s*gas/i, cat: 'Transport' },
+    { match: /uber(?!\s*eats)|lyft|taxi|parking|toll|metro|transit|amtrak|airline/i, cat: 'Transport' },
+    { match: /tesla|gas\s*station|fuel|oil\s*change|auto\s*shop|jiffy\s*lube/i, cat: 'Transport' },
+    // Utilities
+    { match: /verizon|at&t|t-mobile|sprint|xfinity|comcast|spectrum|cox|optimum|fios/i, cat: 'Utilities' },
+    { match: /electric|power\s*company|gas\s*company|water|sewer|trash/i, cat: 'Utilities' },
+    // Subscriptions / digital services
+    { match: /netflix|hulu|disney\+?|hbo|paramount|peacock|apple\s*tv|prime\s*video|youtube\s*premium/i, cat: 'Subscription' },
+    { match: /spotify|apple\s*music|pandora|tidal|sirius/i, cat: 'Subscription' },
+    { match: /icloud|google\s*one|dropbox|onedrive|notion|adobe|microsoft\s*365|github|aws|google\s*workspace/i, cat: 'Subscription' },
+    { match: /chatgpt|openai|claude|midjourney|grammarly|canva/i, cat: 'Subscription' },
+    // Housing
+    { match: /rent|mortgage|landlord|property\s*management|hoa|home\s*owners/i, cat: 'Housing' },
+    // Insurance
+    { match: /geico|state\s*farm|allstate|progressive|liberty\s*mutual|insurance/i, cat: 'Insurance' },
+    // Health
+    { match: /cvs|walgreens|rite.aid|pharmacy|doctor|hospital|medical|dental|vision|optometry/i, cat: 'Health' },
+    // Entertainment
+    { match: /amc|cinema|theater|movie|netflix|hulu|gym|fitness|peloton|equinox|planet\s*fitness/i, cat: 'Entertainment' },
+    // Debt / payments
+    { match: /chase|amex|american\s*express|discover|capital\s*one|citi|sallie\s*mae|navient|sofi|affirm|paypal\s*credit/i, cat: 'Debt Payment' }
+];
+
+/** Auto-suggest a category from a merchant string. Returns null if no match. */
+function autoCategorizeMerchant(merchant) {
+    if (!merchant || typeof merchant !== 'string') return null;
+    const trimmed = merchant.trim();
+    if (!trimmed) return null;
+    for (const rule of MERCHANT_CATEGORIES) {
+        if (rule.match.test(trimmed)) return rule.cat;
+    }
+    return null;
+}
+
+/** Classify a recurring entry as 'bill' (essential) or 'subscription' (discretionary)
+ *  based on its category. Used by Math Breakdown to separate fixed bills you
+ *  can't cut from subscriptions you could trim. */
+function classifyRecurring(rec) {
+    if (!rec) return 'subscription';
+    const cat = (rec.category || '').toLowerCase();
+    const billCategories = ['rent', 'utility', 'utilities', 'insurance', 'debt', 'mortgage', 'housing', 'health', 'medical'];
+    if (billCategories.some(b => cat.includes(b))) return 'bill';
+    if (rec.linkedDebtId) return 'bill';
+    return 'subscription';
+}
 
 /**
  * projectedInterestAtMin — how much interest this debt accrues if it sits

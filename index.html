@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=74-customize">
+  <link rel="stylesheet" href="style.css?v=75-mathbreak">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -867,6 +867,65 @@
               <i class="ph ph-arrow-counter-clockwise"></i>
               <span>Reset to default</span>
             </button>
+          </div>
+
+          <!-- Math Breakdown: shows EXACTLY what feeds the strategy projections -->
+          <div class="math-breakdown reveal reorderable" id="math-breakdown" data-card-id="math-breakdown">
+            <div class="math-breakdown-header">
+              <div>
+                <div class="math-breakdown-eyebrow"><i class="ph-fill ph-calculator"></i> Math Breakdown</div>
+                <h3 class="math-breakdown-title">How your debt-free date is calculated</h3>
+              </div>
+              <button type="button" class="math-breakdown-toggle" id="math-breakdown-toggle" aria-expanded="false" aria-controls="math-breakdown-body">
+                <span class="math-breakdown-toggle-label">Show details</span>
+                <i class="ph ph-caret-down"></i>
+              </button>
+            </div>
+            <div class="math-breakdown-body" id="math-breakdown-body" hidden>
+              <div class="math-row">
+                <div class="math-row-label">Monthly Income</div>
+                <div class="math-row-val math-row-val-pos" id="math-income">$0</div>
+              </div>
+              <div class="math-row math-row-sub">
+                <div class="math-row-label">− Living Expenses</div>
+                <div class="math-row-val math-row-val-neg" id="math-expenses">−$0</div>
+              </div>
+              <div class="math-row math-row-sub">
+                <div class="math-row-label">− Recurring Bills <span class="math-row-hint">(rent, utilities, insurance)</span></div>
+                <div class="math-row-val math-row-val-neg" id="math-bills">−$0</div>
+              </div>
+              <div class="math-row math-row-sub">
+                <div class="math-row-label">− Subscriptions <span class="math-row-hint">(streaming, gym, etc.)</span></div>
+                <div class="math-row-val math-row-val-neg" id="math-subscriptions">−$0</div>
+              </div>
+              <div class="math-row math-row-sub">
+                <div class="math-row-label">− Debt Minimum Payments</div>
+                <div class="math-row-val math-row-val-neg" id="math-minimums">−$0</div>
+              </div>
+              <div class="math-divider"></div>
+              <div class="math-row math-row-result">
+                <div class="math-row-label">= Available for Extra Debt Payment</div>
+                <div class="math-row-val math-row-val-result" id="math-surplus">$0</div>
+              </div>
+              <div class="math-divider math-divider-strong"></div>
+              <div class="math-row math-row-summary">
+                <div class="math-row-label">Total Monthly to Debt</div>
+                <div class="math-row-val" id="math-total-to-debt">$0</div>
+              </div>
+              <div class="math-row math-row-summary">
+                <div class="math-row-label">Estimated Payoff</div>
+                <div class="math-row-val" id="math-payoff">—</div>
+              </div>
+              <div class="math-warning" id="math-warning" style="display:none;"></div>
+              <div class="math-actions">
+                <button type="button" class="math-edit-btn" id="math-edit-income">
+                  <i class="ph ph-pencil-simple"></i> Edit income
+                </button>
+                <button type="button" class="math-edit-btn" id="math-edit-expenses">
+                  <i class="ph ph-pencil-simple"></i> Edit expenses
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- TOP-3 STRATEGY FOCUS BAR -->
@@ -4684,7 +4743,7 @@
 </div>
 
 
-  <script src="app.js?v=56-projected"></script>
+  <script src="app.js?v=57-mathbreak"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
