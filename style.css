@@ -7454,3 +7454,36 @@ body.dash-customizing #page-dashboard .reorderable:active {
   box-shadow: 0 0 12px rgba(0, 212, 168, 0.65), 0 0 4px rgba(0, 212, 168, 0.9);
   display: none;
 }
+
+/* === v=80-autofit: dashboard auto-fit (no wasted space) ===
+   When auto-fit is on, S/M/L cards keep their preset width as a MINIMUM
+   but flex-grow into any leftover space on their row, eliminating gaps.
+   Full-width cards still claim the whole row by themselves.
+*/
+body.dash-autofit #page-dashboard .reorderable[data-size="small"] {
+  flex: 1 1 calc(33.333% - 14px);
+  min-width: calc(33.333% - 14px);
+  max-width: 100%;
+}
+body.dash-autofit #page-dashboard .reorderable[data-size="medium"] {
+  flex: 1 1 calc(50% - 14px);
+  min-width: calc(50% - 14px);
+  max-width: 100%;
+}
+body.dash-autofit #page-dashboard .reorderable[data-size="large"] {
+  flex: 1 1 calc(66.666% - 14px);
+  min-width: calc(66.666% - 14px);
+  max-width: 100%;
+}
+body.dash-autofit #page-dashboard .reorderable[data-size="full"] {
+  flex: 1 1 100%;
+}
+
+.dash-autofit-btn[aria-pressed="true"] {
+  background: rgba(0, 212, 168, 0.10) !important;
+  color: var(--accent) !important;
+  border: 1px solid rgba(0, 212, 168, 0.35) !important;
+}
+.dash-autofit-btn[aria-pressed="false"] #dash-autofit-state {
+  color: var(--text-3);
+}

@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=79-dragdrop">
+  <link rel="stylesheet" href="style.css?v=80-autofit">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -866,6 +866,10 @@
             <button id="dash-customize-reset" type="button" class="btn btn-ghost dash-reset-btn" style="display:none;">
               <i class="ph ph-arrow-counter-clockwise"></i>
               <span>Reset to default</span>
+            </button>
+            <button id="dash-autofit-toggle" type="button" class="btn btn-ghost dash-autofit-btn" aria-pressed="true" title="Auto-fit cards to fill empty space on each row">
+              <i class="ph ph-frame-corners"></i>
+              <span>Auto-fit: <strong id="dash-autofit-state">On</strong></span>
             </button>
           </div>
 
@@ -4750,7 +4754,7 @@
 </div>
 
 
-  <script src="app.js?v=63-noincomebleed"></script>
+  <script src="app.js?v=64-autofit"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

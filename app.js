@@ -5972,7 +5972,29 @@ function applyHouseholdModeLabel() {
 function initDashCustomize() {
     const btn = document.getElementById('dash-customize-btn');
     const resetBtn = document.getElementById('dash-customize-reset');
+    const autofitBtn = document.getElementById('dash-autofit-toggle');
     if (!btn) return;
+
+    // Auto-fit toggle — defaults ON. When on, S/M/L cards flex-grow into any
+    // unused space on their row so the dashboard never has wasted whitespace.
+    if (autofitBtn) {
+        if (!appState.prefs) appState.prefs = {};
+        // Default to ON for refined look
+        if (typeof appState.prefs.autofit !== 'boolean') appState.prefs.autofit = true;
+        const stateLabel = document.getElementById('dash-autofit-state');
+        const applyAutofit = () => {
+            const on = !!appState.prefs.autofit;
+            document.body.classList.toggle('dash-autofit', on);
+            autofitBtn.setAttribute('aria-pressed', String(on));
+            if (stateLabel) stateLabel.textContent = on ? 'On' : 'Off';
+        };
+        applyAutofit();
+        autofitBtn.addEventListener('click', () => {
+            appState.prefs.autofit = !appState.prefs.autofit;
+            try { saveState(); } catch(_){}
+            applyAutofit();
+        });
+    }
 
     // One-time migration — if a previous dev iteration saved cardOrder in the
     // wrong shape (or made cards unexpectedly hidden), wipe it. Keyed by a
