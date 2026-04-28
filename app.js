@@ -650,7 +650,7 @@ function initTheme() {
     // Apply saved accent color if any
     try {
         const acc = (appState && appState.prefs && appState.prefs.accentColor) || localStorage.getItem('budget-accent');
-        if (acc) document.documentElement.style.setProperty('--accent', acc);
+        if (acc) document.body.style.setProperty('--accent', acc);
     } catch(_){}
     // Apply saved density
     try {
@@ -12175,6 +12175,12 @@ function initAdvisorPageLogic() {
         document.body.classList.add(theme);
         try { localStorage.setItem('budget-theme', theme); } catch(_){}
         try { if (!appState.prefs) appState.prefs = {}; appState.prefs.theme = theme; saveState(); } catch(_){}
+        // Re-assert accent so the new theme's default --accent doesn't replace
+        // the user's chosen color.
+        try {
+            const acc = (appState.prefs && appState.prefs.accentColor) || localStorage.getItem('budget-accent');
+            if (acc) document.body.style.setProperty('--accent', acc);
+        } catch(_){}
         // Sync the top-bar moon/sun icon
         const themeIcon = document.getElementById('theme-icon');
         if (themeIcon) themeIcon.innerHTML = theme === 'dark' ? '<i class="ph ph-moon"></i>' : '<i class="ph ph-sun"></i>';
@@ -12309,7 +12315,7 @@ function initAdvisorPageLogic() {
                 const acc = e.target.closest('.cust-accent-opt');
                 if (acc) {
                     const c = acc.dataset.color;
-                    document.documentElement.style.setProperty('--accent', c);
+                    document.body.style.setProperty('--accent', c);
                     drawerOverlay.querySelectorAll('.cust-accent-opt').forEach(o => o.style.border = '3px solid transparent');
                     acc.style.border = '3px solid #fff';
                     appState.prefs.accentColor = c;
