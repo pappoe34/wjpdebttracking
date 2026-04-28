@@ -3558,6 +3558,52 @@ function materializeRecurringTransactions() {
         else if (typeof r.amount === 'string') r.amount = Math.abs(parseFloat(r.amount) || 0);
     });
 
+    // ONE-TIME AUTO-DEDUPE (v4): consolidate recurringPayments entries that
+    // share the same normalized name + frequency + amount-within-5%. Keeps
+    // the first instance, removes the rest, and drops their synthetic txns.
+    // Runs once per device via a flag in appState.prefs so it doesn't keep
+    // killing legitimate same-name entries the user might add later.
+    try {
+        if (!appState.prefs) appState.prefs = {};
+        if (!appState.prefs.recDupCleanupV1) {
+            const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+            const groups = new Map();
+            appState.recurringPayments.forEach(r => {
+                if (!r || !r.name) return;
+                const key = norm(r.name) + '|' + (r.frequency||'monthly').toLowerCase();
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(r);
+            });
+            const removeIds = new Set();
+            let removedCount = 0;
+            groups.forEach(arr => {
+                if (arr.length < 2) return;
+                const baseAmt = parseFloat(arr[0].amount) || 0;
+                // Sort by createdAt ascending so the oldest entry survives
+                arr.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                for (let i = 1; i < arr.length; i++) {
+                    const a = parseFloat(arr[i].amount) || 0;
+                    const close = baseAmt === 0 ? a === 0 : Math.abs(a - baseAmt) / baseAmt < 0.05;
+                    if (close) {
+                        removeIds.add(arr[i].id);
+                        removedCount++;
+                    }
+                }
+            });
+            if (removeIds.size > 0) {
+                appState.recurringPayments = appState.recurringPayments.filter(r => !removeIds.has(r.id));
+                appState.transactions = (appState.transactions || []).filter(t => !(t.synthetic && t.parentRecurringId && removeIds.has(t.parentRecurringId)));
+                _lastMaterializeHash = null;
+                createdAny = true;
+                if (typeof showToast === 'function') {
+                    setTimeout(() => showToast(`Cleaned up ${removedCount} duplicate recurring entr${removedCount===1?'y':'ies'}.`), 200);
+                }
+            }
+            appState.prefs.recDupCleanupV1 = true;
+            try { saveState(); } catch(_){}
+        }
+    } catch(e) { console.warn('dup cleanup', e); }
+
     // One-time per-page-load: bust the cache so the cleanup pass runs at least
     // once. Catches stale-sign synthetic txns from before the income flag was
     // normalized (e.g. data center entries originally created as outflows).
