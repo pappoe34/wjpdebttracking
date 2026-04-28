@@ -210,6 +210,40 @@ function saveState() {
     localStorage.setItem(getStateKey(), JSON.stringify(appState));
 }
 
+/** Render the user identity (sidebar avatar + name + every other surface
+ *  that reflects "the current user") from appState.profile. Falls back to
+ *  the Firebase user, then to the legacy localStorage bits used pre-auth. */
+function renderUserIdentity() {
+    try {
+        const p = (appState && appState.profile) || {};
+        const fb = (window.__wjpUser) || (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
+        const name =
+            (p.displayName && p.displayName.trim()) ||
+            (p.fullName && p.fullName.trim()) ||
+            (fb && fb.displayName) ||
+            (fb && fb.email && fb.email.split('@')[0]) ||
+            localStorage.getItem('wjp_last_name') ||
+            'User';
+        const initials = (() => {
+            const parts = String(name).trim().split(/\s+/).filter(Boolean);
+            if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+            if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+            return '?';
+        })();
+
+        const sideName = document.getElementById('sidebar-user-name');
+        if (sideName) sideName.textContent = name;
+        const sideInit = document.getElementById('sidebar-user-initials');
+        if (sideInit) sideInit.textContent = initials;
+        // Settings page header avatar (visible inside Settings)
+        const setName = document.getElementById('settings-user-name');
+        if (setName) setName.textContent = name;
+        const setInit = document.getElementById('settings-user-avatar');
+        if (setInit) setInit.textContent = initials;
+    } catch(_){}
+}
+window.renderUserIdentity = renderUserIdentity;
+
 /** Called once after a user signs in: if they don't yet have a per-user state
  *  blob but the legacy 'wjp_budget_state' anonymous blob exists, migrate it
  *  to their user-keyed slot. After migration the anonymous blob is left
@@ -516,6 +550,7 @@ window.addEventListener('wjp-auth-ready', () => {
     try {
         if (typeof migrateAnonStateToUser === 'function') migrateAnonStateToUser();
         loadState();
+        try { renderUserIdentity(); } catch(_){}
         try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
     } catch(_){}
 });
@@ -536,15 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch(_){}
     loadState();
 
-    // Restore saved user identity into sidebar
-    const savedName     = localStorage.getItem('wjp_user_name');
-    const savedInitials = localStorage.getItem('wjp_user_initials');
-    if (savedName) {
-        const userNameEl   = document.querySelector('.user-name');
-        const userAvatarEl = document.querySelector('.user-avatar');
-        if (userNameEl)   userNameEl.textContent   = savedName;
-        if (userAvatarEl && savedInitials) userAvatarEl.textContent = savedInitials;
-    }
+    // Render the identity widget (sidebar avatar + name) from appState.profile,
+    // falling back to legacy localStorage bits and the Firebase user.
+    try { renderUserIdentity(); } catch(_){}
 
     initTheme();
     initRouter();
@@ -11285,7 +11314,9 @@ function initAdvisorPageLogic() {
                 // Close drawer
                 const drawer = document.getElementById('settings-drawer-overlay');
                 if (drawer) drawer.remove();
-                // Re-render anywhere that shows the user name
+                // Push the new name/initials into the sidebar avatar + every
+                // other identity surface, then refresh dependent UI.
+                try { renderUserIdentity(); } catch(_){}
                 try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
             };
         }
