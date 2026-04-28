@@ -6025,12 +6025,28 @@ function initDashCustomize() {
 }
 
 /** Inject ↑/↓/Hide controls + S/M/L/Full size buttons onto every reorderable
- *  card. Idempotent — safe to call multiple times. Removed by removeCardControls. */
+ *  card. Idempotent — safe to call multiple times. Removed by removeCardControls.
+ *  Also makes the card draggable in customize mode for HTML5 DnD reordering. */
 function injectCardControls() {
     document.querySelectorAll('#page-dashboard .reorderable').forEach(card => {
         if (card.querySelector(':scope > .card-reorder-controls')) return;
         const cardId = card.getAttribute('data-card-id');
         const currentSize = (appState.prefs && appState.prefs.cardSize && appState.prefs.cardSize[cardId]) || 'auto';
+
+        // Make the card itself draggable. Wire native HTML5 drag-and-drop so
+        // users can grab any card and drop it anywhere on the dashboard,
+        // including across columns. The drop target's position determines new
+        // ordering (insert before the hovered card).
+        card.setAttribute('draggable', 'true');
+        if (!card._dndWired) {
+            card._dndWired = true;
+            card.addEventListener('dragstart', _onCardDragStart);
+            card.addEventListener('dragend', _onCardDragEnd);
+            card.addEventListener('dragover', _onCardDragOver);
+            card.addEventListener('drop', _onCardDrop);
+            card.addEventListener('dragleave', _onCardDragLeave);
+        }
+
         const wrap = document.createElement('div');
         wrap.className = 'card-reorder-controls';
         wrap.innerHTML = `
@@ -6096,6 +6112,95 @@ function applyCardSizes() {
     });
 }
 window.applyCardSizes = applyCardSizes;
+
+/* ---------- HTML5 DRAG-AND-DROP HANDLERS ----------
+ * Only active when body.dash-customizing. Lets the user grab any reorderable
+ * card and drop it anywhere on the dashboard. Drop target determines new
+ * position: drop on the LEFT half → insert before; RIGHT half → insert after. */
+let _draggedCard = null;
+let _dropIndicator = null;
+
+function _onCardDragStart(e) {
+    if (!document.body.classList.contains('dash-customizing')) {
+        e.preventDefault();
+        return;
+    }
+    _draggedCard = this;
+    this.classList.add('dragging');
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        // Some browsers require setData to enable drag
+        try { e.dataTransfer.setData('text/plain', this.getAttribute('data-card-id') || ''); } catch(_){}
+    }
+}
+
+function _onCardDragEnd() {
+    if (_draggedCard) _draggedCard.classList.remove('dragging');
+    _draggedCard = null;
+    _hideDropIndicator();
+}
+
+function _onCardDragOver(e) {
+    if (!_draggedCard || _draggedCard === this) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    _showDropIndicator(this, e);
+}
+
+function _onCardDragLeave(e) {
+    // Only hide if leaving the card itself (not entering a child)
+    if (e.target === this) _hideDropIndicator();
+}
+
+function _onCardDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!_draggedCard || _draggedCard === this) {
+        _hideDropIndicator();
+        return;
+    }
+    // Decide before/after based on drop position relative to target
+    const rect = this.getBoundingClientRect();
+    const isHorizontal = rect.width > rect.height * 1.4; // wide cards → horizontal split
+    let insertBefore;
+    if (isHorizontal) {
+        // For full/large cards stacked vertically, use vertical midpoint
+        insertBefore = (e.clientY - rect.top) < rect.height / 2;
+    } else {
+        // For side-by-side small cards, use horizontal midpoint
+        insertBefore = (e.clientX - rect.left) < rect.width / 2;
+    }
+    const parent = this.parentElement;
+    if (!parent) return;
+    if (insertBefore) parent.insertBefore(_draggedCard, this);
+    else parent.insertBefore(_draggedCard, this.nextSibling);
+
+    _hideDropIndicator();
+    if (typeof persistDashboardLayout === 'function') persistDashboardLayout();
+}
+
+function _showDropIndicator(targetCard, e) {
+    if (!_dropIndicator) {
+        _dropIndicator = document.createElement('div');
+        _dropIndicator.id = 'card-drop-indicator';
+        document.body.appendChild(_dropIndicator);
+    }
+    const rect = targetCard.getBoundingClientRect();
+    const isHorizontal = rect.width > rect.height * 1.4;
+    let style;
+    if (isHorizontal) {
+        const top = (e.clientY - rect.top) < rect.height / 2 ? rect.top : rect.bottom;
+        style = `left:${rect.left}px; top:${top - 2}px; width:${rect.width}px; height:4px;`;
+    } else {
+        const left = (e.clientX - rect.left) < rect.width / 2 ? rect.left : rect.right;
+        style = `left:${left - 2}px; top:${rect.top}px; width:4px; height:${rect.height}px;`;
+    }
+    _dropIndicator.setAttribute('style', `${style} display:block;`);
+}
+
+function _hideDropIndicator() {
+    if (_dropIndicator) _dropIndicator.style.display = 'none';
+}
 
 function removeCardControls() {
     document.querySelectorAll('.card-reorder-controls').forEach(el => el.remove());

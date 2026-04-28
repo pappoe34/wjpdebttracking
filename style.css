@@ -7432,3 +7432,25 @@ body.dash-customizing #page-dashboard .reorderable::before {
   background: var(--accent) !important;
   color: #0b0f1a !important;
 }
+
+/* === v=79-dragdrop: card drag-and-drop in customize mode === */
+body.dash-customizing #page-dashboard .reorderable {
+  cursor: grab;
+}
+body.dash-customizing #page-dashboard .reorderable:active {
+  cursor: grabbing;
+}
+#page-dashboard .reorderable.dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+#card-drop-indicator {
+  position: fixed;
+  background: var(--accent, #00d4a8);
+  border-radius: 2px;
+  z-index: 10000;
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(0, 212, 168, 0.65), 0 0 4px rgba(0, 212, 168, 0.9);
+  display: none;
+}
