@@ -657,6 +657,70 @@ function initTheme() {
         const dens = (appState && appState.prefs && appState.prefs.density) || localStorage.getItem('budget-density');
         if (dens) document.body.setAttribute('data-density', dens);
     } catch(_){}
+    // Apply saved sidebar-collapsed pref on every load
+    try {
+        if (appState && appState.prefs && appState.prefs.sidebarCollapsed) {
+            document.body.classList.add('sidebar-collapsed');
+        }
+    } catch(_){}
+    // Wire keyboard shortcuts globally — shows the overlay on '?' or Shift+/
+    if (!window._wjpShortcutsBound) {
+        window._wjpShortcutsBound = true;
+        document.addEventListener('keydown', (e) => {
+            // Ignore when typing in inputs / textareas
+            const tag = (e.target && e.target.tagName) || '';
+            if (/INPUT|TEXTAREA|SELECT/.test(tag) || (e.target && e.target.isContentEditable)) return;
+            if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+                e.preventDefault();
+                if (typeof window.openKeyboardShortcuts === 'function') window.openKeyboardShortcuts();
+            } else if (e.key === 'Escape') {
+                const ks = document.getElementById('wjp-shortcuts-overlay');
+                if (ks) ks.remove();
+            } else if (e.key.toLowerCase() === 'b' && (e.metaKey || e.ctrlKey)) {
+                // Cmd/Ctrl+B toggles sidebar
+                e.preventDefault();
+                document.body.classList.toggle('sidebar-collapsed');
+                if (!appState.prefs) appState.prefs = {};
+                appState.prefs.sidebarCollapsed = document.body.classList.contains('sidebar-collapsed');
+                try { saveState(); } catch(_){}
+            } else if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                // Press 'g' then a letter to navigate (g-d dashboard, g-b budgets, etc.)
+                window._wjpAwaitNav = true;
+                setTimeout(() => { window._wjpAwaitNav = false; }, 1500);
+            } else if (window._wjpAwaitNav) {
+                window._wjpAwaitNav = false;
+                const map = { d: 'dashboard', b: 'budgets', s: 'debts', a: 'advisor', c: 'calendar', t: 'settings' };
+                const target = map[e.key.toLowerCase()];
+                if (target) {
+                    const el = document.querySelector(`[data-page="${target}"]`);
+                    if (el) el.click();
+                }
+            }
+        });
+    }
+    /** Open / refresh the keyboard shortcuts cheat-sheet overlay. */
+    window.openKeyboardShortcuts = function() {
+        let ov = document.getElementById('wjp-shortcuts-overlay');
+        if (ov) { ov.remove(); return; }
+        ov = document.createElement('div');
+        ov.id = 'wjp-shortcuts-overlay';
+        ov.innerHTML = `
+          <div class="ks-card">
+            <h3>Keyboard shortcuts</h3>
+            <div class="ks-sub">Press anywhere outside an input. <kbd>Esc</kbd> to close.</div>
+            <div class="ks-row"><span>Show this overlay</span><span><kbd>?</kbd></span></div>
+            <div class="ks-row"><span>Toggle sidebar</span><span><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>B</kbd></span></div>
+            <div class="ks-row"><span>Go to Dashboard</span><span><kbd>g</kbd> <kbd>d</kbd></span></div>
+            <div class="ks-row"><span>Go to Budgets</span><span><kbd>g</kbd> <kbd>b</kbd></span></div>
+            <div class="ks-row"><span>Go to Strategy / Debts</span><span><kbd>g</kbd> <kbd>s</kbd></span></div>
+            <div class="ks-row"><span>Go to AI Advisor</span><span><kbd>g</kbd> <kbd>a</kbd></span></div>
+            <div class="ks-row"><span>Go to Calendar</span><span><kbd>g</kbd> <kbd>c</kbd></span></div>
+            <div class="ks-row"><span>Go to Settings</span><span><kbd>g</kbd> <kbd>t</kbd></span></div>
+            <div class="ks-row"><span>Close any modal</span><span><kbd>Esc</kbd></span></div>
+          </div>`;
+        ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+        document.body.appendChild(ov);
+    };
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {

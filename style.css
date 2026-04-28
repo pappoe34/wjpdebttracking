@@ -7624,5 +7624,59 @@ body[data-density="comfortable"] .reorderable {
 body[data-density="comfortable"] {
   --radius-lg: 18px;
 }
-/* Sidebar collapsed-by-default — minor cosmetic narrowing */
-body.sidebar-collapsed .sidebar { width: var(--sidebar-width-collapsed, 64px); }
+/* === v=85-collapse: real sidebar collapse from Visual Customizer ===
+   Mirrors the behavior the existing @media(max-width:900px) rule already
+   applied for narrow viewports. With body.sidebar-collapsed the sidebar
+   shrinks, labels hide, and the layout reflows so the main content takes
+   the recovered width. */
+body.sidebar-collapsed { --sidebar-width: 64px; }
+body.sidebar-collapsed .sidebar {
+  width: 64px;
+  min-width: 64px;
+}
+body.sidebar-collapsed .logo-text,
+body.sidebar-collapsed .nav-item span,
+body.sidebar-collapsed .user-info,
+body.sidebar-collapsed .nav-badge {
+  display: none;
+}
+body.sidebar-collapsed .nav-item { justify-content: center; padding: 10px; }
+body.sidebar-collapsed .sidebar-logo { padding: 0 16px 20px; }
+body.sidebar-collapsed .sidebar-user { justify-content: center; }
+
+/* Keyboard shortcuts overlay (toggled from Visual Customizer) */
+#wjp-shortcuts-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  z-index: 11000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#wjp-shortcuts-overlay .ks-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+#wjp-shortcuts-overlay h3 { margin: 0 0 6px; font-size: 16px; font-weight: 900; }
+#wjp-shortcuts-overlay .ks-sub { font-size: 11px; color: var(--text-3); margin-bottom: 14px; }
+#wjp-shortcuts-overlay .ks-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+#wjp-shortcuts-overlay .ks-row:last-child { border-bottom: 0; }
+#wjp-shortcuts-overlay kbd {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+}
