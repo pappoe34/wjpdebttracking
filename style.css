@@ -7487,3 +7487,56 @@ body.dash-autofit #page-dashboard .reorderable[data-size="full"] {
 .dash-autofit-btn[aria-pressed="false"] #dash-autofit-state {
   color: var(--text-3);
 }
+
+/* === v=81-autofit-flatten: real auto-fit ===
+   The dashboard uses a 2-column grid with a fixed 320px right column. flex-grow
+   inside that column can't expand cards horizontally. When autofit is on we
+   flatten the hierarchy: dash-grid becomes a flex-wrap row, and dash-left /
+   dash-right disappear (display:contents) so their children become direct
+   siblings of the flex container. Cards then pack 2-up across the full width. */
+body.dash-autofit #page-dashboard .dash-grid {
+  display: flex !important;
+  flex-wrap: wrap;
+  grid-template-columns: none !important;
+  gap: 16px;
+  align-items: flex-start;
+}
+body.dash-autofit #page-dashboard .dash-left,
+body.dash-autofit #page-dashboard .dash-right {
+  display: contents !important;
+}
+/* Default sizing for cards inside the flattened grid: 2-up.
+   Setting min-width prevents cards from collapsing too narrow. */
+body.dash-autofit #page-dashboard .dash-grid .reorderable {
+  flex: 1 1 calc(50% - 16px);
+  min-width: 320px;
+  width: auto;
+  max-width: 100%;
+  margin-top: 0 !important;
+}
+/* Explicit data-size overrides — cards with a chosen size still claim that
+   percentage as a minimum but can flex-grow into leftover space. */
+body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size="small"] {
+  flex: 1 1 calc(33.333% - 16px);
+  min-width: calc(33.333% - 16px);
+}
+body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size="medium"] {
+  flex: 1 1 calc(50% - 16px);
+  min-width: calc(50% - 16px);
+}
+body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size="large"] {
+  flex: 1 1 calc(66.666% - 16px);
+  min-width: calc(66.666% - 16px);
+}
+body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size="full"] {
+  flex: 1 1 100%;
+  min-width: 100%;
+}
+/* On narrow screens collapse to single column */
+@media (max-width: 900px) {
+  body.dash-autofit #page-dashboard .dash-grid .reorderable,
+  body.dash-autofit #page-dashboard .dash-grid .reorderable[data-size] {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+}
