@@ -3626,8 +3626,12 @@ function materializeRecurringTransactions() {
 
         // For each occurrence date, ensure a synthetic transaction exists.
         // Uses pre-built Set for O(1) dedupe rather than O(N) .some() walk.
+        const mutedSet = new Set(appState.mutedTxnIds || []);
         uniqueDates.forEach(iso => {
             if (existingKeys.has(`r:${rec.id}:${iso}`)) return;
+            // Skip occurrences the user explicitly hid via the trash icon.
+            const candidateId = 'rec-' + rec.id + '-' + iso;
+            if (mutedSet.has(candidateId)) return;
 
             const dateObj = new Date(iso + 'T12:00:00');
             const cat = (rec.category || '').toLowerCase();
@@ -15219,7 +15223,7 @@ function initAllButtonHandlers() {
                         <span style="width:6px;height:6px;border-radius:50%;background:${statusDot};flex-shrink:0;display:inline-block;"></span>${statusLabel}
                     </span></td>
                     <td style="text-align:center;">
-                        <button class="btn-txn-del" data-txn-id="${t.id}" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity 0.2s;" title="Delete">
+                        <button class="btn-txn-del" data-txn-id="${t.id}" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.25);cursor:pointer;color:#ff4d6d;font-size:13px;padding:5px 8px;border-radius:6px;opacity:0.85;transition:all 0.15s;" title="${t.synthetic ? 'Delete recurring entry (removes all instances)' : 'Delete this transaction'}">
                             <i class="ph ph-trash"></i>
                         </button>
                     </td>
@@ -15242,11 +15246,11 @@ function initAllButtonHandlers() {
             else el.textContent = '';
         });
 
-        // Row hover delete icon
+        // Row hover (button is now always visible — hover just brightens it)
         tbody.querySelectorAll('.txn-row').forEach(row => {
             const del = row.querySelector('.btn-txn-del');
             row.addEventListener('mouseenter', () => { if (del) del.style.opacity = '1'; });
-            row.addEventListener('mouseleave', () => { if (del) del.style.opacity = '0'; });
+            row.addEventListener('mouseleave', () => { if (del) del.style.opacity = '0.85'; });
             // Click row → open detail panel
             row.addEventListener('click', (e) => {
                 if (e.target.closest('.btn-txn-del')) return;
@@ -15254,19 +15258,91 @@ function initAllButtonHandlers() {
                 const txn = appState.transactions.find(t => t.id === id);
                 if (txn) txnShowDetail(txn);
             });
-            // Delete button
+            // Delete button — handle synthetic vs manual differently
             if (del) {
                 del.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const id = del.dataset.txnId;
-                    appState.transactions = appState.transactions.filter(t => t.id !== id);
-                    saveState();
-                    renderTransactions();
-                    txnRenderAll();
-                    showToast('Transaction deleted.');
+                    const txn = appState.transactions.find(t => t.id === id);
+                    if (!txn) return;
+                    txnConfirmDelete(txn);
                 });
             }
         });
+    }
+
+    /** Confirmation flow for deleting a transaction.
+     *  - Synthetic (auto-generated from recurring/debt): offer to delete the
+     *    underlying schedule, since deleting just the instance gets recreated
+     *    on the next materialize pass. Also offers a "this occurrence only"
+     *    option that adds the txn id to a muted set so it stays gone.
+     *  - Manual: simple confirm + delete. */
+    function txnConfirmDelete(txn) {
+        const isSynthetic = !!txn.synthetic;
+        const parentRec = isSynthetic && txn.parentRecurringId
+            ? (appState.recurringPayments || []).find(r => r.id === txn.parentRecurringId)
+            : null;
+        const parentDebt = isSynthetic && txn.parentDebtId
+            ? (appState.debts || []).find(d => d.id === txn.parentDebtId)
+            : null;
+
+        if (!isSynthetic) {
+            if (!confirm(`Delete this transaction?\n\n${txn.merchant} · ${txn.amount < 0 ? '−' : ''}$${Math.abs(txn.amount).toFixed(2)}\n\nThis can't be undone.`)) return;
+            appState.transactions = appState.transactions.filter(t => t.id !== txn.id);
+            saveState();
+            try { renderTransactions(); } catch(_){}
+            try { txnRenderAll(); } catch(_){}
+            showToast('Transaction deleted.');
+            return;
+        }
+
+        // Synthetic — offer the right scope
+        const parentLabel = parentRec ? parentRec.name : parentDebt ? parentDebt.name : 'this recurring item';
+        const choice = prompt(
+            `This is an auto-generated transaction from "${parentLabel}".\n\n` +
+            `Type 1 to delete just this occurrence (it will stay hidden).\n` +
+            `Type 2 to delete the entire recurring schedule (removes all past and future instances).\n` +
+            `Cancel to keep it.`,
+            '2'
+        );
+        if (choice === null) return;
+        const c = String(choice).trim();
+
+        if (c === '1') {
+            // Hide this single occurrence — add to muted set
+            if (!appState.mutedTxnIds) appState.mutedTxnIds = [];
+            if (!appState.mutedTxnIds.includes(txn.id)) appState.mutedTxnIds.push(txn.id);
+            appState.transactions = appState.transactions.filter(t => t.id !== txn.id);
+            saveState();
+            try { renderTransactions(); } catch(_){}
+            try { txnRenderAll(); } catch(_){}
+            showToast('Occurrence hidden.');
+            return;
+        }
+
+        if (c === '2') {
+            // Delete the parent recurring/debt entirely
+            if (parentRec) {
+                appState.recurringPayments = (appState.recurringPayments || []).filter(r => r.id !== parentRec.id);
+            }
+            // (Don't auto-delete debts here — that's a bigger action; route to manual debt delete)
+            // Drop ALL synthetic txns tied to this parent
+            appState.transactions = (appState.transactions || []).filter(t => {
+                if (!t.synthetic) return true;
+                if (parentRec && t.parentRecurringId === parentRec.id) return false;
+                return true;
+            });
+            // Bust the materialize cache so it doesn't recreate
+            try { _lastMaterializeHash = null; } catch(_){}
+            saveState();
+            try { renderTransactions(); } catch(_){}
+            try { txnRenderAll(); } catch(_){}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            showToast(parentRec ? `"${parentRec.name}" recurring entry deleted.` : 'Schedule removed.');
+            return;
+        }
+
+        // Anything else — no-op
     }
 
     function txnRenderAll() {
