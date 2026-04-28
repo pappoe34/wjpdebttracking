@@ -177,6 +177,13 @@ function loadState() {
                 processedTxIds: Array.isArray(parsed.processedTxIds) ? parsed.processedTxIds : [],
                 // Cache key for syncRecurringTransactions (1h refresh window).
                 lastRecurringSync: Number(parsed.lastRecurringSync) || 0,
+                // User identity profile — fullName, displayName, email, phone, zip,
+                // timezone, updatedAt. MUST be preserved across reloads or the
+                // Settings → Identity form silently loses every save.
+                profile: (parsed.profile && typeof parsed.profile === 'object') ? parsed.profile : {},
+                // Anything else the user persisted that we don't explicitly model
+                // here — keep it so future fields aren't dropped on reload.
+                mutedTxnIds: Array.isArray(parsed.mutedTxnIds) ? parsed.mutedTxnIds : [],
                 prefs: {
                     ...defaultState.prefs,
                     ...(parsed.prefs || {}),
