@@ -14287,8 +14287,14 @@ function renderBudgetStatsRow() {
 window.renderBudgetStatsRow = renderBudgetStatsRow;
 
 /** Expense Distribution donut + allocation list. Pulls from real spending
- *  transactions this month, grouped by category. */
+ *  transactions this month, grouped by category. The page actually uses
+ *  `expense-legend` + `expense-total-spent` (handled by renderExpenseLegend
+ *  which now reads real data), so this function delegates to it and only
+ *  keeps the optional bdg-allocation-list path for the alt layout. */
 function renderExpenseDistribution() {
+    // Delegate to the real-data legend renderer first
+    try { if (typeof renderExpenseLegend === 'function') renderExpenseLegend(); } catch(_){}
+
     const list = document.getElementById('bdg-allocation-list');
     const totalEl = document.getElementById('bdg-donut-total');
     if (!list && !totalEl) return;
@@ -14557,34 +14563,52 @@ function renderPaycheckAllocation() {
 
 function renderExpenseLegend() {
     const legendEl = document.getElementById('expense-legend');
+    const totalEl = document.getElementById('expense-total-spent');
     if (!legendEl) return;
 
-    const income = (appState.budget && appState.budget.monthlyIncome)
-        ? appState.budget.monthlyIncome
-        : (appState.balances && appState.balances.monthlyIncome) || 0;
+    // Read REAL spending this month — no more income-percentage heuristics
+    // that invented fake Housing/Food numbers when the user had no logged
+    // transactions yet.
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const txns = (appState.transactions || [])
+        .filter(t => t.amount < 0 && new Date(t.date) >= monthStart);
+    const byCat = {};
+    txns.forEach(t => {
+        const cat = (t.category || 'Other').toString().trim() || 'Other';
+        byCat[cat] = (byCat[cat] || 0) + Math.abs(t.amount);
+    });
+    const entries = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+    const realTotal = entries.reduce((s, [,v]) => s + v, 0);
+    const PALETTE = ['#00d4a8','#667eea','#ff4d6d','#ffab40','#a855f7','#22c55e','#f59e0b','#60a5fa'];
 
-    if (income === 0) {
-        legendEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-3); font-size:11px;">
-            <i class="ph ph-chart-pie-slice" style="font-size:24px; display:block; margin-bottom:8px; opacity:0.4;"></i>
-            Add your income to see expense breakdown
+    // Update the Total Spent stat in the header
+    if (totalEl) totalEl.textContent = realTotal > 0 ? '$' + Math.round(realTotal).toLocaleString() : '$0';
+
+    // Empty state — no fake categories
+    if (!entries.length) {
+        legendEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-3); font-size:11px; line-height:1.5;">
+            <i class="ph ph-chart-pie-slice" style="font-size:28px; display:block; margin-bottom:8px; opacity:0.4;"></i>
+            No expense categories yet this month.<br>Add transactions to see your real breakdown.
         </div>`;
+        // Reset donut center
+        const dn = document.getElementById('donut-cat-name'); if (dn) dn.textContent = '—';
+        const da = document.getElementById('donut-cat-amt');  if (da) da.textContent = '$0';
+        const dp = document.getElementById('donut-cat-pct');  if (dp) dp.textContent = '0%';
+        // Clear any leftover donut chart
+        if (window._bdgDonut) { try { window._bdgDonut.destroy(); } catch(_){} window._bdgDonut = null; }
         return;
     }
 
-    const exp = (appState.budget && appState.budget.expenses) || {};
-    const debtPayoff = appState.debts ? appState.debts.reduce((s,d) => s + (d.minPayment||0), 0) : 0;
-    const housing  = exp.housing  || Math.round(income * 0.35);
-    const savings  = exp.savings  || Math.round(income * 0.15);
-    const food     = exp.food     || Math.round(income * 0.15);
-    const debt     = debtPayoff   || Math.round(income * 0.20);
-    const total    = housing + savings + food + debt;
-
-    const categories = [
-        { name: 'Housing', amt: housing, color: '#00d4a8', budget: Math.round(income * 0.40) },
-        { name: 'Strategy / Savings', amt: savings, color: '#667eea', budget: Math.round(income * 0.20) },
-        { name: 'Lifestyle & Food', amt: food, color: '#ff4d6d', budget: Math.round(income * 0.20) },
-        { name: 'Debt Payoff', amt: debt, color: '#ffab40', budget: Math.round(income * 0.25) }
-    ];
+    // Build a grouped list with each REAL category vs current pace
+    const today = new Date();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+    const dayPct = today.getDate() / daysInMonth;
+    const categories = entries.slice(0, 8).map(([name, amt], i) => {
+        // "Budget" inferred from current pace × 1/dayPct (project forward to month-end)
+        const projected = Math.round(amt / dayPct);
+        return { name, amt: Math.round(amt), color: PALETTE[i % PALETTE.length], budget: projected, isProjected: true };
+    });
+    const total = realTotal;
 
     legendEl.innerHTML = categories.map((c, i) => {
         const pct = total > 0 ? Math.round((c.amt / total) * 100) : 0;
@@ -14660,10 +14684,28 @@ function renderCashFlowChart() {
         return;
     }
 
-    // Simulate balance throughout month using real debt data
+    // Simulate balance throughout month — use REAL transactions where they
+    // exist, fall back to a small daily lifestyle estimate for days that
+    // haven't happened yet (so the projection has a slope, not a flat line).
     let balance = income;
     const balances = [];
     const debts = appState.debts || [];
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const todayDate = new Date().getDate();
+
+    // Group real txns by day-of-month so we can apply them as they happened
+    const realByDay = {};
+    (appState.transactions || []).forEach(t => {
+        if (t.synthetic) return;
+        const td = new Date(t.date);
+        if (td < monthStart) return;
+        const day = td.getDate();
+        realByDay[day] = (realByDay[day] || 0) + (t.amount || 0); // signed; income +, spend −
+    });
+    // Average daily spend from real history this month — used to project
+    // future days. Falls back to 18% of daily income if no history yet.
+    const realSpendSoFar = Object.values(realByDay).filter(v => v < 0).reduce((s,v) => s + Math.abs(v), 0);
+    const avgDailySpend = todayDate > 0 ? Math.max(income / daysInMonth * 0.18, realSpendSoFar / todayDate) : (income / daysInMonth * 0.18);
 
     for (let d = 1; d <= daysInMonth; d++) {
         if (d === 1) balance = income; // Payday
@@ -14672,8 +14714,13 @@ function renderCashFlowChart() {
             const dueDay = parseInt(debt.dueDate) || 15;
             if (d === dueDay) balance -= (debt.minPayment || 0);
         });
-        balance -= (income / daysInMonth) * 0.25; // Daily lifestyle spend estimate
-        balances.push(Math.max(0, Math.round(balance)));
+        // Past day → use real txns. Future day → use average daily spend projection
+        if (d <= todayDate && realByDay[d] != null) {
+            balance += realByDay[d]; // signed
+        } else if (d > todayDate) {
+            balance -= avgDailySpend;
+        }
+        balances.push(Math.round(balance));
     }
 
     const isDark = document.body.classList.contains('dark');
