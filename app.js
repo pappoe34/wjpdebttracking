@@ -12837,18 +12837,50 @@ function initDashboardInteractivity() {
     const btnClear = document.getElementById('btn-clear-notifications');
 
     if (btnNotify && panelNotify) {
-        // Move panel to <body> so its position:fixed anchors to the viewport
-        // (the top-header has backdrop-filter which would otherwise create
-        //  a containing block and trap the panel under other layers).
+        // Move the panel to <body> so it escapes the top-header's
+        // backdrop-filter containing block. Re-position with fixed coords so
+        // the panel anchors to the viewport — top:100% absolute would place
+        // it below the entire document.
         if (panelNotify.parentElement !== document.body) {
             document.body.appendChild(panelNotify);
         }
+        panelNotify.style.position = 'fixed';
+        panelNotify.style.zIndex = '10000';
+
+        const positionPanel = () => {
+            const rect = btnNotify.getBoundingClientRect();
+            const panelWidth = 380;
+            const right = Math.max(16, window.innerWidth - rect.right);
+            // Anchor below the bell button, aligned to its right edge.
+            panelNotify.style.top = (rect.bottom + 12) + 'px';
+            panelNotify.style.right = right + 'px';
+            panelNotify.style.left = 'auto';
+            panelNotify.style.marginTop = '0';
+            // On narrow screens, full-width with a margin
+            if (window.innerWidth < 460) {
+                panelNotify.style.left = '12px';
+                panelNotify.style.right = '12px';
+                panelNotify.style.width = 'auto';
+            } else {
+                panelNotify.style.width = panelWidth + 'px';
+            }
+        };
 
         btnNotify.addEventListener('click', (e) => {
             e.stopPropagation();
+            const willOpen = !panelNotify.classList.contains('active');
+            if (willOpen) positionPanel();
             panelNotify.classList.toggle('active');
             if (badgeNotify) badgeNotify.style.display = 'none';
         });
+
+        // Re-anchor on resize / scroll while open
+        window.addEventListener('resize', () => {
+            if (panelNotify.classList.contains('active')) positionPanel();
+        });
+        window.addEventListener('scroll', () => {
+            if (panelNotify.classList.contains('active')) positionPanel();
+        }, true);
 
         document.addEventListener('click', (e) => {
             if (!panelNotify.contains(e.target) && !btnNotify.contains(e.target)) {
@@ -14422,52 +14454,91 @@ function renderAIBudgetCoach() {
         return;
     }
 
-    // Build real tips from appState
+    // Build real, data-grounded tips from appState. Each tip only fires if
+    // the underlying real number is non-zero — no synthetic estimates that
+    // would look like the user is over-spending when they haven't logged
+    // anything yet.
     const today = new Date().getDate();
     const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     const pctMonthGone = Math.round((today / daysInMonth) * 100);
 
-    // Dynamic Food/Lifestyle check
-    const budgetCap = (appState.budget && appState.budget.allocation && appState.budget.allocation.budget) || 1550;
-    const foodBudget = budgetCap * 0.4; // assumption: 40% of lifestyle budget goes to food
-    const foodSpent = appState.budget && appState.budget.actual && appState.budget.actual.food ? appState.budget.actual.food : Math.round(foodBudget * (pctMonthGone / 100) * 1.22);
-    const foodPct = Math.round((foodSpent / foodBudget) * 100);
+    // Real spending so far this month from actual transactions
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const realTxns = (appState.transactions || []).filter(t => {
+        if (t.synthetic) return false;
+        const td = new Date(t.date);
+        return td >= monthStart && t.amount < 0;
+    });
+    const monthSpent = realTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
+    const expectedSpend = (income > 0) ? Math.round(income * (pctMonthGone / 100) * 0.7) : 0; // expected if pacing 70% of income on outflows
+    const onPace = expectedSpend === 0 ? null : monthSpent <= expectedSpend;
 
-    // Dynamic Savings check
-    const goals = appState.savingsGoals || [];
-    const efGoal = goals.find(g => g && g.name && typeof g.name === 'string' && g.name.toLowerCase().includes('emergency')) || { current: 0, target: income * 6 };
-    const emergencyGap = Math.max(0, efGoal.target - efGoal.current);
-
-    // Get exact live savings rate from allocation
+    // Real savings figure from explicit savings allocation OR from goal contributions
     const monthlySavings = (appState.budget && appState.budget.allocation && appState.budget.allocation.savings) || (appState.budget && appState.budget.contribution) || 0;
+    const goals = appState.savingsGoals || [];
+    const efGoal = goals.find(g => g && g.name && typeof g.name === 'string' && g.name.toLowerCase().includes('emergency'));
+    const emergencyGap = efGoal ? Math.max(0, (efGoal.target || 0) - (efGoal.current || 0)) : 0;
+    const monthsToGoal = (monthlySavings > 0 && emergencyGap > 0) ? Math.ceil(emergencyGap / monthlySavings) : null;
 
-    const monthsToGoal = monthlySavings > 0 ? Math.ceil(emergencyGap / monthlySavings) : 'N/A';
-    const fasterMonths = monthlySavings > 0 ? Math.ceil(emergencyGap / (monthlySavings + 200)) : Math.ceil(emergencyGap / 200);
-
-    // Dynamic Investing check
+    // Investing bucket — from real allocation only
     const investing = (appState.budget && appState.budget.allocation && appState.budget.allocation.investing) || 0;
-    const investingPct = Math.round((investing / income) * 100);
+    const investingPct = income > 0 ? Math.round((investing / income) * 100) : 0;
 
-    const tipData = [
-        {
-            icon: 'ph-warning',
-            color: '#ff4d6d',
-            bg: 'rgba(255,77,109,0.06)',
-            text: `You're ${pctMonthGone}% through the month and <strong>${foodPct}% through</strong> your estimated food/lifestyle budget. Reducing dining out by 2× this week keeps you on track.`
-        },
-        {
+    const tipData = [];
+    // Tip 1 — pacing, only if there's real spending this month
+    if (monthSpent > 0 && expectedSpend > 0) {
+        tipData.push({
+            icon: onPace ? 'ph-check-circle' : 'ph-warning',
+            color: onPace ? '#00d4a8' : '#ff4d6d',
+            bg: onPace ? 'rgba(0,212,168,0.06)' : 'rgba(255,77,109,0.06)',
+            text: onPace
+                ? `You're ${pctMonthGone}% through the month and have spent <strong>$${monthSpent.toLocaleString()}</strong> — pacing under expectations. Keep it up.`
+                : `You're ${pctMonthGone}% through the month and have spent <strong>$${monthSpent.toLocaleString()}</strong> against an expected $${expectedSpend.toLocaleString()}. Slow discretionary spend to stay on track.`
+        });
+    } else {
+        tipData.push({
+            icon: 'ph-receipt',
+            color: 'var(--text-3)',
+            bg: 'rgba(255,255,255,0.03)',
+            text: `Log transactions or sync a bank to see real spending pace this month.`
+        });
+    }
+    // Tip 2 — emergency fund, only if there's a goal and a savings rate
+    if (efGoal && monthlySavings > 0 && monthsToGoal !== null) {
+        tipData.push({
             icon: 'ph-trend-up',
             color: '#00d4a8',
             bg: 'rgba(0,212,168,0.06)',
-            text: `With your current ${monthlySavings > 0 ? '$'+monthlySavings.toLocaleString() : '<strong>$0</strong>'} savings rate, your Emergency Fund will hit target in ~${monthsToGoal} ${monthlySavings > 0 ? 'months' : ''}. Adding <strong>$200 more</strong> drops that to ${fasterMonths} months.`
-        },
-        {
+            text: `At <strong>$${monthlySavings.toLocaleString()}/mo</strong>, your Emergency Fund will hit its $${(efGoal.target||0).toLocaleString()} target in ~<strong>${monthsToGoal} month${monthsToGoal===1?'':'s'}</strong>.`
+        });
+    } else if (efGoal) {
+        tipData.push({
+            icon: 'ph-shield-check',
+            color: '#fbbf24',
+            bg: 'rgba(251,191,36,0.06)',
+            text: `Set a monthly savings amount to project when your Emergency Fund (target $${(efGoal.target||0).toLocaleString()}) will fully fund.`
+        });
+    } else {
+        tipData.push({
+            icon: 'ph-shield-check',
+            color: 'var(--text-3)',
+            bg: 'rgba(255,255,255,0.03)',
+            text: `Add an Emergency Fund goal to see how fast you can fully fund it.`
+        });
+    }
+    // Tip 3 — investing pacing, only if income is set
+    if (income > 0) {
+        tipData.push({
             icon: 'ph-lightbulb',
             color: '#ffab40',
             bg: 'rgba(255,171,64,0.06)',
-            text: `Your investing bucket is at <strong>${investingPct}% of income</strong>. ${investingPct > 15 ? 'Great discipline! Consider a Roth IRA to shelter gains.' : 'Aiming for 15%+ will significantly accelerate wealth compounding.'}`
-        }
-    ];
+            text: investingPct > 15
+                ? `Your investing bucket is at <strong>${investingPct}% of income</strong>. Strong discipline — consider Roth IRA to shelter gains.`
+                : investingPct > 0
+                    ? `Investing is <strong>${investingPct}% of income</strong>. Aiming for 15%+ accelerates compounding meaningfully.`
+                    : `You haven't allocated to investing yet. Even 5–10% per paycheck compounds dramatically over a decade.`
+        });
+    }
 
     tips.innerHTML = tipData.map(t => `
         <div style="display:flex; gap:10px; align-items:flex-start; padding:10px; background:${t.bg}; border-radius:8px; border-left:3px solid ${t.color};">
