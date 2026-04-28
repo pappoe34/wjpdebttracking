@@ -12423,34 +12423,84 @@ function initAdvisorPageLogic() {
 
     // ── 7. Help Center ────────────────────────────────────────
     document.getElementById('btn-settings-help')?.addEventListener('click', () => {
+        // Real, in-product help. Each article expands an answer pulled from
+        // the actual app behavior — no external doc site to maintain, no
+        // fake links. The 'Email us' button is wired to mailto.
+        const articles = [
+            { title: 'Getting started with debt payoff strategies', tag: 'Strategy', body:
+                'Pick a strategy on the dashboard. <strong>Avalanche</strong> targets the highest APR first — math-optimal for total interest. <strong>Snowball</strong> targets the smallest balance — best for momentum/psychology. <strong>Hybrid</strong> blends both. Tap any of them on the Top-3 strategy bar to switch.' },
+            { title: 'How to add and manage your debts', tag: 'Debts', body:
+                'Click <strong>+ Add</strong> in the top-right. Pick Loan or Credit Card. Required fields: name, balance, APR, minimum payment, due date. You can also drag a statement PDF to auto-fill via OCR.' },
+            { title: 'Understanding Avalanche vs Snowball', tag: 'Education', body:
+                'Both pay minimums on every debt every month. The difference is where the EXTRA goes. Avalanche → highest APR (saves the most interest). Snowball → smallest balance (knocks debts out fast). Hybrid scores both and balances.' },
+            { title: 'Linking your bank account', tag: 'Accounts', body:
+                'Open Settings → Linked Accounts → Connect via Plaid. Plaid uses OAuth + bank-level encryption — WJP never sees your password. Sandbox mode is free; live banks unlock with Pro.' },
+            { title: 'Setting up payment reminders & push', tag: 'Notifications', body:
+                'Settings → Communication Hub. Toggle Email / Push / SMS, pick which alert types fire (Payment Due, Milestone, Strategy Change, etc.), set Quiet Hours. Click "Enable browser push" to get desktop notifications.' },
+            { title: 'Exporting your data', tag: 'Data', body:
+                'Transactions tab → Export button. Outputs CSV. For full state, your data lives in localStorage scoped per-account; we never upload it to a server unless you opt-in.' },
+            { title: 'Resolve duplicate recurring entries', tag: 'Recurring', body:
+                'Recurring Payments tab → if a yellow banner appears, click "Review duplicates". Pick which entry to keep in each group.' },
+            { title: 'Customize your dashboard', tag: 'UI', body:
+                'Dashboard → Customize layout. Drag any card anywhere. Use S/M/L/Full size buttons. Toggle Auto-fit to snap cards together. Press <kbd>?</kbd> for keyboard shortcuts.' },
+        ];
         openSettingsDrawer({
             icon: 'ph-question',
             badge: 'SUPPORT',
             title: 'Help Center',
-            subtitle: 'Browse articles, watch guides, or search for answers to common questions.',
+            subtitle: 'In-product help. Click any article to expand. Still stuck? Email us.',
             body: `
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <input type="text" placeholder="Search help articles..." style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-                <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;">Popular Articles</div>
-                ${[
-                  {title:'Getting started with debt payoff strategies',tag:'Strategy'},
-                  {title:'How to add and manage your debts',tag:'Debts'},
-                  {title:'Understanding the Avalanche vs Snowball method',tag:'Education'},
-                  {title:'Linking your bank account securely',tag:'Accounts'},
-                  {title:'Setting up payment reminders and alerts',tag:'Notifications'},
-                  {title:'Exporting your financial data and reports',tag:'Data'},
-                ].map(a=>`<div onclick="showToast('Opening: ${a.title}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                  <div style="flex:1;margin-right:12px;">
-                    <div style="font-size:11px;font-weight:600;">${a.title}</div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                    <span style="font-size:8px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--text-3);">${a.tag}</span>
-                    <i class="ph ph-arrow-right" style="color:var(--text-3);font-size:12px;"></i>
-                  </div>
-                </div>`).join('')}
-                <button class="btn btn-ghost" style="width:100%;padding:12px;font-size:11px;" onclick="showToast('Opening full Help Center documentation...')">VIEW ALL ARTICLES →</button>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <input id="help-search" type="text" placeholder="Search articles..." style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                <div id="help-articles" style="display:flex;flex-direction:column;gap:8px;">
+                  ${articles.map((a,i)=>`<div class="help-article" data-idx="${i}" data-title="${a.title.replace(/"/g,'&quot;').toLowerCase()}" data-tag="${a.tag.toLowerCase()}" style="background:var(--card-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;overflow:hidden;">
+                    <div class="help-article-head" style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;">
+                      <div style="flex:1;margin-right:12px;font-size:11px;font-weight:600;">${a.title}</div>
+                      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <span style="font-size:8px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--text-3);">${a.tag}</span>
+                        <i class="ph ph-caret-down help-caret" style="color:var(--text-3);font-size:12px;transition:transform 0.2s;"></i>
+                      </div>
+                    </div>
+                    <div class="help-article-body" style="display:none;padding:0 12px 12px;font-size:11px;color:var(--text-2);line-height:1.6;">${a.body}</div>
+                  </div>`).join('')}
+                </div>
+                <button id="help-email-btn" class="btn btn-primary" style="width:100%;padding:11px;font-size:11px;margin-top:6px;"><i class="ph ph-envelope-simple"></i> Can't find it? Email support</button>
               </div>`
         });
+        // Use delegation on the drawer overlay so wire-up doesn't race the mount
+        const overlay = document.getElementById('settings-drawer-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                const head = e.target.closest('.help-article-head');
+                if (head) {
+                    const card = head.closest('.help-article');
+                    const body = card.querySelector('.help-article-body');
+                    const caret = card.querySelector('.help-caret');
+                    const open = body.style.display === 'block';
+                    body.style.display = open ? 'none' : 'block';
+                    if (caret) caret.style.transform = open ? '' : 'rotate(180deg)';
+                    return;
+                }
+                if (e.target.closest('#help-email-btn')) {
+                    const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
+                    const subj = encodeURIComponent('WJP — Help Center question');
+                    const body = encodeURIComponent(`Hi WJP team,\n\n[What's your question?]\n\n--\nFrom: ${profileEmail || '(my signed-in email)'}\nSent from WJP Help Center`);
+                    window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+                    showToast('Opening your email client…');
+                    return;
+                }
+            });
+            // Search filter
+            overlay.addEventListener('input', (e) => {
+                if (e.target.id === 'help-search') {
+                    const q = e.target.value.toLowerCase().trim();
+                    overlay.querySelectorAll('.help-article').forEach(a => {
+                        const hit = !q || (a.dataset.title || '').includes(q) || (a.dataset.tag || '').includes(q);
+                        a.style.display = hit ? '' : 'none';
+                    });
+                }
+            });
+        }
     });
 
     // ── 8. Submit Ticket → opens user's email client with everything pre-filled
@@ -12501,9 +12551,11 @@ function initAdvisorPageLogic() {
                 <button id="ticket-send" class="btn btn-primary" style="width:100%;padding:12px;">SEND VIA EMAIL</button>
               </div>`
         });
-        setTimeout(() => {
-            const sendBtn = document.getElementById('ticket-send');
-            if (sendBtn) sendBtn.onclick = () => {
+        // Use delegation on the drawer overlay so wire-up doesn't race the mount
+        const overlay = document.getElementById('settings-drawer-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (!e.target.closest('#ticket-send')) return;
                 const email = (document.getElementById('ticket-email').value || profileEmail || '').trim();
                 const cat = document.getElementById('ticket-category').value;
                 const subj = (document.getElementById('ticket-subject').value || 'WJP Support Request').trim();
@@ -12519,21 +12571,62 @@ function initAdvisorPageLogic() {
                     `Priority: ${pri}\n` +
                     `Sent from WJP Debt Tracker`
                 );
-                window.location.href = `mailto:pappoe34@gmail.com?subject=${fullSubject}&body=${fullBody}`;
-                showToast('Opening your email client…');
-            };
-        }, 60);
+                // Try mailto first; if browser doesn't open one, copy to
+                // clipboard as a fallback so the user can paste into webmail.
+                const mailto = `mailto:pappoe34@gmail.com?subject=${fullSubject}&body=${fullBody}`;
+                window.location.href = mailto;
+                try {
+                    const fallback = `To: pappoe34@gmail.com\nSubject: [${pri}] ${cat}: ${subj}\n\n${desc}\n\n— ${email || 'your account email'}`;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(fallback).catch(()=>{});
+                    }
+                } catch(_){}
+                showToast('Opening your email client (also copied to clipboard).');
+            });
+        }
     });
 
-    // ── 9. Quick Email Us — direct mailto with profile email pre-filled
+    // ── 9. Live Chat / Email Us — opens a small drawer with a textarea + send
     document.getElementById('btn-settings-chat')?.addEventListener('click', () => {
         const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
-        const subj = encodeURIComponent('WJP — Question / Feedback');
-        const body = encodeURIComponent(
-            `Hi WJP team,\n\n[Your message here]\n\n--\nFrom: ${profileEmail || '(my signed-in email)'}\nSent from WJP Debt Tracker`
-        );
-        window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
-        showToast('Opening your email client…');
+        openSettingsDrawer({
+            icon: 'ph-chat-teardrop-dots',
+            badge: 'CONTACT',
+            title: 'Email Support',
+            subtitle: "Type your question and we'll respond within 4 business hours.",
+            body: `
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Your Email</div>
+                  <input id="livechat-email" type="email" value="${profileEmail}" placeholder="you@example.com" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Message</div>
+                  <textarea id="livechat-body" rows="6" placeholder="What's going on?" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                </div>
+                <div style="font-size:10px;color:var(--text-3);background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;line-height:1.5;">
+                  <i class="ph ph-info" style="color:var(--accent);"></i> Click SEND to open your email client with this message pre-filled. We also copy it to your clipboard as a backup so you can paste into webmail.
+                </div>
+                <button id="livechat-send" class="btn btn-primary" style="width:100%;padding:12px;"><i class="ph ph-paper-plane-right"></i> SEND</button>
+              </div>`
+        });
+        const overlay = document.getElementById('settings-drawer-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (!e.target.closest('#livechat-send')) return;
+                const email = (document.getElementById('livechat-email').value || profileEmail || '').trim();
+                const desc = (document.getElementById('livechat-body').value || '').trim();
+                if (!desc) { showToast('Type a message first.'); return; }
+                const subj = encodeURIComponent('WJP — Question / Feedback');
+                const body = encodeURIComponent(`Hi WJP team,\n\n${desc}\n\n--\nFrom: ${email || '(my signed-in email)'}\nSent from WJP Debt Tracker`);
+                window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+                try {
+                    const fallback = `To: pappoe34@gmail.com\nSubject: WJP — Question / Feedback\n\n${desc}\n\n— ${email || 'your account email'}`;
+                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(fallback).catch(()=>{});
+                } catch(_){}
+                showToast('Opening your email client (also copied to clipboard).');
+            });
+        }
     });
 
     // ── 10. Save & Exit ───────────────────────────────────────
