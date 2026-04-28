@@ -3972,6 +3972,19 @@ function updateUI() {
     // Generate due-date notifications for any debt due in the next 5 days.
     try { syncPaymentDueNotifications(); } catch(_){}
 
+    // Enforce AI Intelligence toggles. proactive=false hides the AI advisor
+    // dashboard card; otherwise it stays visible. Other toggles drive
+    // smaller, scoped behaviors checked at their feature points.
+    try {
+        const ab = (appState.prefs && appState.prefs.aiBehavior) || {};
+        const proactive = ab.proactive !== false; // default on
+        const aiCard = document.getElementById('ai-advisor-card');
+        if (aiCard) aiCard.style.display = proactive ? '' : 'none';
+        // Spending anomaly toggle pulses an indicator on the spending card if on
+        const spendCard = document.getElementById('dash-spending-card');
+        if (spendCard) spendCard.classList.toggle('anomaly-on', !!ab.spendingAnomaly);
+    } catch(_){}
+
     // Reset simulator cache for this render — DFD hero, AI advisor progress
     // strip, projection chart, and Top-3 bar all call calcSimTotals/Trajectory
     // with the same params, so memoizing within a single render saves 4-6
@@ -12260,11 +12273,18 @@ function initAdvisorPageLogic() {
         setTimeout(() => navigateSPA('dashboard'), 800);
     });
 
-    // ── Household Mode toggle (Tier 2.3) ─────────────────────
+    // ── Household Mode toggle (Plus-tier feature) ─────────────
+    // Plus subscribers get a Household drawer to invite a partner, set the
+    // shared scope (debts, income, spending), and view a joint debt summary.
+    // Free Trial / Pro Monthly users see an upgrade prompt instead.
     (function wireHouseholdModeToggle() {
         const toggle = document.getElementById('toggle-household-mode');
         const status = document.getElementById('household-mode-status');
         if (!toggle) return;
+        function isPlus() {
+            const sub = appState.subscription || {};
+            return sub.plan === 'plus';
+        }
         function sync() {
             const on = !!(appState.prefs && appState.prefs.householdMode);
             toggle.classList.toggle('on', on);
@@ -12272,14 +12292,23 @@ function initAdvisorPageLogic() {
             if (status) status.textContent = on ? 'ON' : 'OFF';
         }
         function flip() {
+            // Gate behind Plus tier
+            if (!isPlus()) {
+                if (typeof openHouseholdUpgradePrompt === 'function') openHouseholdUpgradePrompt();
+                return;
+            }
             if (!appState.prefs) appState.prefs = {};
+            // First time turning on: open the configuration drawer
+            const turningOn = !appState.prefs.householdMode;
             appState.prefs.householdMode = !appState.prefs.householdMode;
             saveState();
             sync();
             applyHouseholdModeLabel();
-            showToast(appState.prefs.householdMode
-                ? 'Household mode on. Inviting a partner stays free.'
-                : 'Household mode off.');
+            if (turningOn && typeof openHouseholdConfigDrawer === 'function') {
+                setTimeout(openHouseholdConfigDrawer, 200);
+            } else {
+                showToast(appState.prefs.householdMode ? 'Household Mode on.' : 'Household Mode off.');
+            }
         }
         toggle.addEventListener('click', flip);
         toggle.addEventListener('keydown', (e) => {
@@ -12287,6 +12316,144 @@ function initAdvisorPageLogic() {
         });
         sync();
     })();
+
+    /** Upgrade nudge for non-Plus users who try to enable Household Mode. */
+    window.openHouseholdUpgradePrompt = function() {
+        openSettingsDrawer({
+            icon: 'ph-house-line',
+            badge: 'PLUS FEATURE',
+            title: 'Household Mode',
+            subtitle: 'Co-track debts, income, and spending with a partner. Available on Pro Plus ($79/yr).',
+            body: `
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div style="background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.25);border-radius:10px;padding:14px;">
+                  <div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:8px;"><i class="ph-fill ph-medal"></i> What you get with Household Mode</div>
+                  <ul style="margin:0;padding-left:18px;font-size:11px;line-height:1.7;color:var(--text-2);">
+                    <li>Invite your partner — they sign in with their own account</li>
+                    <li>Joint debt view: see both partners' debts in one strategy</li>
+                    <li>Shared income / spending toggles per category</li>
+                    <li>Joint debt-free date that accounts for both incomes</li>
+                    <li>Per-partner contribution targets and milestone notifications</li>
+                  </ul>
+                </div>
+                <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+                  <div style="font-size:11px;font-weight:700;margin-bottom:6px;">Upgrade to Pro Plus</div>
+                  <div style="font-size:11px;color:var(--text-3);margin-bottom:10px;">$79/year — saves $40 vs Pro Monthly. Includes Household Mode, priority support, and early access.</div>
+                  <button id="hh-upgrade-btn" class="btn btn-primary" style="width:100%;padding:11px;">Request Plus upgrade →</button>
+                </div>
+              </div>`
+        });
+        setTimeout(() => {
+            const btn = document.getElementById('hh-upgrade-btn');
+            if (btn) btn.onclick = () => {
+                const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
+                const subj = encodeURIComponent('WJP upgrade request: Pro Plus (Household Mode)');
+                const body = encodeURIComponent(
+                    `Hi WJP team,\n\nI'd like to upgrade to Pro Plus to unlock Household Mode.\n\n` +
+                    `Account email: ${profileEmail || '(my signed-in email)'}\n\nThanks!`
+                );
+                window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+            };
+        }, 60);
+    };
+
+    /** Configuration drawer for active Household Mode users. Captures partner
+     *  name, partner email, and per-category share scope. Persists to
+     *  appState.prefs.household. */
+    window.openHouseholdConfigDrawer = function() {
+        if (!appState.prefs) appState.prefs = {};
+        if (!appState.prefs.household) {
+            appState.prefs.household = {
+                partnerName: '', partnerEmail: '',
+                shareDebts: true, shareIncome: true, shareSpending: false, shareGoals: true
+            };
+        }
+        const h = appState.prefs.household;
+        const esc = s => String(s||'').replace(/"/g,'&quot;');
+        openSettingsDrawer({
+            icon: 'ph-house-line',
+            badge: 'HOUSEHOLD MODE',
+            title: 'Household Mode',
+            subtitle: 'Invite your partner and choose what you share. Each person keeps their own account — only the categories you enable are linked.',
+            body: `
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Partner Name</div>
+                  <input id="hh-partner-name" type="text" value="${esc(h.partnerName)}" placeholder="e.g. Alex" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Partner Email</div>
+                  <input id="hh-partner-email" type="email" value="${esc(h.partnerEmail)}" placeholder="alex@example.com" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Share Scope</div>
+                  ${[
+                    {key:'shareDebts',    label:'Debts',     desc:"Both partners' debts roll into one strategy"},
+                    {key:'shareIncome',   label:'Income',    desc:'Joint income drives the debt-free date'},
+                    {key:'shareSpending', label:'Spending',  desc:'Combined spending tracker'},
+                    {key:'shareGoals',    label:'Goals',     desc:'Shared milestones + emergency fund'}
+                  ].map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <div>
+                      <div style="font-size:11px;font-weight:600;">${s.label}</div>
+                      <div style="font-size:9px;color:var(--text-3);">${s.desc}</div>
+                    </div>
+                    <div class="toggle-switch hh-share-toggle ${h[s.key]?'on':''}" data-key="${s.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
+                  </div>`).join('')}
+                </div>
+                <div style="display:flex;gap:10px;">
+                  <button id="hh-invite-btn" class="btn btn-ghost" style="flex:1;padding:10px;font-size:11px;border:1px solid var(--border);"><i class="ph ph-paper-plane-tilt"></i> Send invite email</button>
+                  <button id="hh-save-btn" class="btn btn-primary" style="flex:1;padding:10px;">Save household settings</button>
+                </div>
+                <button id="hh-disable-btn" class="btn btn-ghost" style="width:100%;padding:9px;font-size:10px;color:#ff4d6d;border:1px solid rgba(255,77,109,0.25);">Turn Household Mode off</button>
+              </div>`
+        });
+        setTimeout(() => {
+            document.querySelectorAll('.hh-share-toggle').forEach(t => {
+                t.addEventListener('click', () => t.classList.toggle('on'));
+            });
+            document.getElementById('hh-save-btn').onclick = () => {
+                const data = appState.prefs.household;
+                data.partnerName  = document.getElementById('hh-partner-name').value.trim();
+                data.partnerEmail = document.getElementById('hh-partner-email').value.trim();
+                document.querySelectorAll('.hh-share-toggle').forEach(t => {
+                    data[t.dataset.key] = t.classList.contains('on');
+                });
+                saveState();
+                showToast('Household settings saved.');
+                document.getElementById('settings-drawer-overlay')?.remove();
+            };
+            document.getElementById('hh-invite-btn').onclick = () => {
+                const partnerEmail = document.getElementById('hh-partner-email').value.trim();
+                if (!partnerEmail) { showToast('Add a partner email first.'); return; }
+                const myEmail = (appState.profile && appState.profile.email) || '';
+                const subj = encodeURIComponent("You're invited to Household Mode on WJP");
+                const body = encodeURIComponent(
+                    `Hi,\n\n` +
+                    `${(appState.profile && appState.profile.fullName) || 'Your partner'} invited you to share their WJP debt-tracking account in Household Mode.\n\n` +
+                    `WJP Debt Tracker helps couples co-track debts, income, and spending toward a shared debt-free date.\n\n` +
+                    `Sign up here: https://wjpdebttracking.com/signin.html\n\n` +
+                    `Once you're signed in, we'll link your account so you can see joint debts and the combined strategy.\n\n` +
+                    `From: ${myEmail || '(my signed-in email)'}\n` +
+                    `Sent via WJP Debt Tracker`
+                );
+                window.location.href = `mailto:${partnerEmail}?subject=${subj}&body=${body}`;
+                showToast('Opening invite email…');
+            };
+            document.getElementById('hh-disable-btn').onclick = () => {
+                if (!confirm('Turn Household Mode off? Your partner data is preserved but joint views will hide.')) return;
+                appState.prefs.householdMode = false;
+                saveState();
+                if (typeof applyHouseholdModeLabel === 'function') applyHouseholdModeLabel();
+                showToast('Household Mode off.');
+                document.getElementById('settings-drawer-overlay')?.remove();
+                // Re-sync the toggle in the Settings page
+                const t = document.getElementById('toggle-household-mode');
+                if (t) { t.classList.remove('on'); t.setAttribute('aria-checked','false'); }
+                const s = document.getElementById('household-mode-status');
+                if (s) s.textContent = 'OFF';
+            };
+        }, 60);
+    };
 
     // ── Dashboard pin buttons (Tier 2.6) ─────────────────────
     document.querySelectorAll('.pin-card-btn').forEach((btn) => {
