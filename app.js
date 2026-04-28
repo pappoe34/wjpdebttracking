@@ -6961,35 +6961,74 @@ function renderTransactions() {
         return { bg: 'var(--card-2)', clr: 'var(--text-3)' };
     };
 
-    // 1. Dashboard Spending List — top 5 most-recent transactions.
-    // The chart above this list aggregates ALL transactions in the selected
-    // time window; this list is just the "what hit my account most recently"
-    // glance. Empty state explains the chart still represents everything.
+    // 1. Dashboard Spending List — period-aware, scrollable, capped at 20.
+    // Filters by the Spending Tracker timeframe (Daily/Weekly/Monthly/Yearly/
+    // All Years) so the list always matches the chart above it. View all
+    // jumps to the dedicated Transactions tab.
     const dashList = document.getElementById('dash-spending-transactions');
     if (dashList) {
-        const txns = (appState.transactions || []).slice(0, 5);
-        if (!txns.length) {
+        const tf = (appState.settings && appState.settings.spendingTimeFrame) || 'monthly';
+        const now = new Date();
+        let cutoff = null;
+        if (tf === 'daily') { cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 6); cutoff.setHours(0,0,0,0); }
+        else if (tf === 'weekly') { cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 27); cutoff.setHours(0,0,0,0); }
+        else if (tf === 'monthly') { cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1); }
+        else if (tf === 'yearly') { cutoff = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1); }
+        // 'allyears' → cutoff stays null (no filter)
+
+        const filtered = (appState.transactions || [])
+            .filter(t => {
+                if (!cutoff) return true;
+                const td = new Date(t.date);
+                return td >= cutoff && td <= now;
+            })
+            .sort((a,b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 20);
+
+        if (!filtered.length) {
             dashList.innerHTML = `
                 <div class="transaction-empty" style="text-align:center; padding:20px 12px; color:var(--text-3); font-size:11px;">
                     <i class="ph ph-receipt" style="font-size:20px; opacity:0.4; display:block; margin-bottom:6px;"></i>
-                    No transactions yet
+                    No transactions in this period
                 </div>`;
         } else {
-            dashList.innerHTML = '';
-            txns.forEach(t => {
-                const colors = getColors(t.category);
-                dashList.innerHTML += `
+            // Make the container scroll once we have more than ~5 entries
+            try {
+                dashList.style.maxHeight = '320px';
+                dashList.style.overflowY = 'auto';
+                dashList.style.paddingRight = '4px';
+            } catch(_){}
+            dashList.innerHTML = filtered.map(t => {
+                const colors = getColors(t.category || 'Other');
+                const isPos = (t.amount || 0) > 0;
+                return `
                     <div class="transaction-item" style="animation: fadeIn 0.3s ease;">
-                        <div class="txn-icon" style="background:${colors.bg}; color:${colors.clr}"><i class="${getIcon(t.category)}"></i></div>
+                        <div class="txn-icon" style="background:${colors.bg}; color:${colors.clr}"><i class="${getIcon(t.category || 'other')}"></i></div>
                         <div>
                             <div class="txn-name">${t.merchant || '(unnamed)'}</div>
-                            <div class="txn-cat">${t.category || 'Uncategorized'}</div>
+                            <div class="txn-cat">${t.category || 'Uncategorized'} · ${new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
                         </div>
-                        <div class="txn-amount ${t.amount < 0 ? 'neg' : ''}">${fmt(t.amount)}</div>
+                        <div class="txn-amount ${isPos ? '' : 'neg'}" style="color:${isPos ? '#22c55e' : 'var(--danger)'};">${isPos ? '+' : ''}${fmt(t.amount)}</div>
                     </div>
                 `;
-            });
+            }).join('');
         }
+    }
+    // Wire the View all link to the Transactions tab on the Debts page
+    const viewAll = document.getElementById('spend-view-all');
+    if (viewAll && !viewAll._wired) {
+        viewAll._wired = true;
+        viewAll.style.cursor = 'pointer';
+        viewAll.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Switch to Debts page, then to Transactions sub-tab
+            const debtsNav = document.querySelector('[data-page="debts"]');
+            if (debtsNav) debtsNav.click();
+            setTimeout(() => {
+                const txnSubtab = document.querySelector('.debts-subtabs .subtab:nth-child(2)');
+                if (txnSubtab) txnSubtab.click();
+            }, 80);
+        });
     }
 
     // 2. Strategy Overview List
@@ -12445,13 +12484,14 @@ function initDashboardInteractivity() {
         btn.addEventListener('click', () => {
             btn.parentElement.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
+
             if(!appState.settings) appState.settings = {};
             appState.settings.spendingTimeFrame = timeframe;
             saveState();
-            
-            // Redraw charts
+
+            // Redraw charts AND re-render the period-aware recent transactions list
             drawCharts();
+            try { renderTransactions(); } catch(_){}
         });
     });
 
