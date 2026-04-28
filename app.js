@@ -15747,6 +15747,39 @@ function initAllButtonHandlers() {
     }
     window.recOccursOn = recOccursOn;
 
+    /** Find groups of likely-duplicate recurring entries.
+     *  Two entries are flagged as duplicates if their normalized name matches
+     *  AND frequency matches AND amount is within 5%. Returns a Set of ids
+     *  that are part of a duplicate group plus a Map of groupKey -> [rps]. */
+    function findDuplicateRecurring() {
+        const dupIds = new Set();
+        const groups = new Map();
+        const all = appState.recurringPayments || [];
+        const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        all.forEach(rp => {
+            if (!rp || !rp.name) return;
+            const key = norm(rp.name) + '|' + (rp.frequency||'monthly').toLowerCase();
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(rp);
+        });
+        const dupGroups = [];
+        groups.forEach((arr, key) => {
+            if (arr.length < 2) return;
+            // Filter by amount-within-5% to avoid false positives
+            const baseAmt = parseFloat(arr[0].amount) || 0;
+            const close = arr.filter(r => {
+                const a = parseFloat(r.amount) || 0;
+                if (baseAmt === 0) return a === 0;
+                return Math.abs(a - baseAmt) / baseAmt < 0.05;
+            });
+            if (close.length < 2) return;
+            dupGroups.push(close);
+            close.forEach(r => dupIds.add(r.id));
+        });
+        return { dupIds, dupGroups };
+    }
+    window.findDuplicateRecurring = findDuplicateRecurring;
+
     // ── Payments Left for a recurring entry ──
     function recPaymentsLeft(rp) {
         if (rp.cat !== 'debt' || !rp.debtId) return '∞ Ongoing';
@@ -15817,6 +15850,33 @@ function initAllButtonHandlers() {
         const label = document.getElementById('rec-page-label');
         if (!tbody) return;
         const all = appState.recurringPayments || [];
+
+        // Surface duplicate-detection banner above the table
+        const { dupIds, dupGroups } = findDuplicateRecurring();
+        const statsBar = document.getElementById('rec-stats-bar');
+        let banner = document.getElementById('rec-dup-banner');
+        if (dupGroups.length > 0) {
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'rec-dup-banner';
+                banner.style.cssText = 'background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.40);border-radius:10px;padding:12px 14px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+                if (statsBar && statsBar.parentNode) statsBar.parentNode.insertBefore(banner, statsBar.nextSibling);
+            }
+            const totalDupes = dupGroups.reduce((s, g) => s + g.length, 0);
+            const groupNames = dupGroups.map(g => `"${g[0].name}"`).join(', ');
+            banner.innerHTML = `
+              <div style="display:flex;align-items:center;gap:10px;">
+                <i class="ph-fill ph-warning-circle" style="color:#fbbf24;font-size:18px;"></i>
+                <div>
+                  <div style="font-size:12px;font-weight:800;color:#fbbf24;">${dupGroups.length} possible duplicate${dupGroups.length>1?'s':''} detected</div>
+                  <div style="font-size:10px;color:var(--text-3);margin-top:2px;">${groupNames} appear${dupGroups.length===1?'s':''} multiple times. Review and remove the extra.</div>
+                </div>
+              </div>
+              <button id="rec-dup-resolve" class="btn btn-primary" style="font-size:11px;"><i class="ph ph-broom"></i> Review duplicates</button>`;
+            banner.querySelector('#rec-dup-resolve').onclick = () => recOpenDuplicateResolver();
+        } else if (banner) {
+            banner.remove();
+        }
         // Read category with fallback to legacy field
         const catOf = (r) => (r.category || r.cat || '').toString().toLowerCase();
         const filtered = recState.cat === 'all'
@@ -15844,14 +15904,17 @@ function initAllButtonHandlers() {
                 const paymentsLeft = recPaymentsLeft(rp);
                 const freqRaw = (rp.frequency || 'monthly').toString();
                 const freqLabel = freqRaw.charAt(0).toUpperCase()+freqRaw.slice(1);
-                return `<tr class="rec-row" data-rec-id="${rp.id}" style="cursor:pointer;" title="Click to edit">
+                const isDup = dupIds.has(rp.id);
+                const dupBadge = isDup ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:8px;margin-left:6px;">⚠ DUPLICATE</span>` : '';
+                const rowStyle = isDup ? 'cursor:pointer;background:rgba(251,191,36,0.04);box-shadow:inset 3px 0 0 #fbbf24;' : 'cursor:pointer;';
+                return `<tr class="rec-row" data-rec-id="${rp.id}" style="${rowStyle}" title="${isDup ? 'Possible duplicate — click to edit or delete' : 'Click to edit'}">
                   <td style="padding-left:16px;">
                     <div style="display:flex;align-items:center;gap:10px;">
                       <div style="width:28px;height:28px;border-radius:7px;background:rgba(0,0,0,0.35);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <i class="ph ${rp.icon||'ph-receipt'}" style="color:${rp.color||'var(--accent)'};font-size:14px;"></i>
                       </div>
                       <div>
-                        <div style="font-weight:700;font-size:12px;">${rp.name}</div>
+                        <div style="font-weight:700;font-size:12px;">${rp.name}${dupBadge}</div>
                         <div style="font-size:9px;color:var(--text-3);">${rp.method || rp.notes || rp.subcategory || ((rp.category || rp.cat || '').replace(/^\w/, c => c.toUpperCase())) || '—'}</div>
                       </div>
                     </div>
@@ -16052,6 +16115,82 @@ function initAllButtonHandlers() {
     }
     // Expose for outside callers (e.g. dashboard upcoming card click)
     window.recOpenEditModal = recOpenEditModal;
+
+    /** Duplicate resolver — lists each group of likely duplicates and lets the
+     *  user delete the extra entries. The kept entry retains its synthetic
+     *  txns; deleted entries clean up their txns and bust the materialize
+     *  cache so the chart redraws without them. */
+    function recOpenDuplicateResolver() {
+        const { dupGroups } = findDuplicateRecurring();
+        if (!dupGroups.length) { showToast('No duplicates detected.'); return; }
+
+        let modal = document.getElementById('rec-dup-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'rec-dup-modal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px;';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        }
+        const fmt = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
+        const groupHtml = dupGroups.map((group, gi) => `
+          <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;background:var(--card-2);">
+            <div style="font-size:11px;color:#fbbf24;font-weight:800;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em;">
+              <i class="ph ph-warning-circle"></i> Duplicate group: ${group[0].name}
+            </div>
+            ${group.map((rp, idx) => `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--card);">
+                <div>
+                  <div style="font-weight:700;font-size:12px;">${rp.name} ${idx===0?'<span style="font-size:9px;color:var(--accent);">· first</span>':''}</div>
+                  <div style="font-size:9px;color:var(--text-3);margin-top:2px;">${fmt(rp.amount)} · ${(rp.frequency||'monthly')} · ${(rp.category||rp.cat||'other')}${rp.nextDate ? ' · next ' + String(rp.nextDate).slice(0,10) : ''}</div>
+                </div>
+                <button class="btn btn-ghost dup-del-btn" data-rec-id="${rp.id}" style="font-size:11px;color:#ff4d6d;border-color:rgba(255,77,109,0.30);">
+                  <i class="ph ph-trash"></i> Delete this one
+                </button>
+              </div>`).join('')}
+          </div>`).join('');
+
+        modal.innerHTML = `
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+              <div>
+                <h3 style="font-size:16px;font-weight:900;margin:0;">Resolve duplicates</h3>
+                <div style="font-size:11px;color:var(--text-3);margin-top:4px;">Pick which entry to keep in each group and delete the rest.</div>
+              </div>
+              <button id="rec-dup-close" type="button" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:18px;"><i class="ph ph-x"></i></button>
+            </div>
+            ${groupHtml}
+            <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+              <button id="rec-dup-done" class="btn btn-primary"><i class="ph ph-check"></i> Done</button>
+            </div>
+          </div>`;
+        modal.querySelector('#rec-dup-close').onclick = () => modal.remove();
+        modal.querySelector('#rec-dup-done').onclick = () => modal.remove();
+        modal.querySelectorAll('.dup-del-btn').forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.dataset.recId;
+                const rp = (appState.recurringPayments || []).find(r => r.id === id);
+                if (!rp) return;
+                if (!confirm(`Delete duplicate "${rp.name}" (${fmt(rp.amount)} ${rp.frequency})?`)) return;
+                appState.recurringPayments = (appState.recurringPayments || []).filter(r => r.id !== id);
+                appState.transactions = (appState.transactions || []).filter(t => !(t.synthetic && t.parentRecurringId === id));
+                try { _lastMaterializeHash = null; } catch(_){}
+                saveState();
+                modal.remove();
+                try { recRenderTable(); } catch(_){}
+                try { recRenderStats(); } catch(_){}
+                try { recRenderCalendar && recRenderCalendar(); } catch(_){}
+                try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+                showToast(`Duplicate "${rp.name}" removed.`);
+                // Re-open the resolver if there are more groups
+                setTimeout(() => {
+                    const fresh = findDuplicateRecurring();
+                    if (fresh.dupGroups.length > 0) recOpenDuplicateResolver();
+                }, 300);
+            };
+        });
+    }
+    window.recOpenDuplicateResolver = recOpenDuplicateResolver;
 
     // ── Category filter pills ──
     function recBindCatPills() {
