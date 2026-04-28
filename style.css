@@ -7608,3 +7608,21 @@ body.dash-customizing .reorderable.dragging {
   outline: 2px dashed var(--accent, #00d4a8);
   outline-offset: 4px;
 }
+
+/* === v=84-density: dashboard density variants from Visual Customizer === */
+body[data-density="compact"] .card,
+body[data-density="compact"] .reorderable {
+  padding: 12px !important;
+}
+body[data-density="compact"] {
+  --radius-lg: 10px;
+}
+body[data-density="comfortable"] .card,
+body[data-density="comfortable"] .reorderable {
+  padding: 28px !important;
+}
+body[data-density="comfortable"] {
+  --radius-lg: 18px;
+}
+/* Sidebar collapsed-by-default — minor cosmetic narrowing */
+body.sidebar-collapsed .sidebar { width: var(--sidebar-width-collapsed, 64px); }

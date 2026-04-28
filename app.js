@@ -635,24 +635,40 @@ function initTheme() {
     const themeToggle = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
 
-    // Always start in light (daytime) mode on load — per Winston.
-    // Use classList so we don't clobber other body classes (e.g. wjp-auth-ready).
+    // Restore saved preference if any. Order: appState.prefs.theme →
+    // localStorage 'budget-theme' → fall back to 'light'.
+    let saved = null;
+    try {
+        if (appState && appState.prefs && (appState.prefs.theme === 'dark' || appState.prefs.theme === 'light')) saved = appState.prefs.theme;
+        else saved = localStorage.getItem('budget-theme');
+    } catch(_){}
+    const initial = (saved === 'dark' || saved === 'light') ? saved : 'light';
+
     document.body.classList.remove('dark','light');
-    document.body.classList.add('light');
-    updateThemeIcon('light');
+    document.body.classList.add(initial);
+    updateThemeIcon(initial);
+    // Apply saved accent color if any
+    try {
+        const acc = (appState && appState.prefs && appState.prefs.accentColor) || localStorage.getItem('budget-accent');
+        if (acc) document.documentElement.style.setProperty('--accent', acc);
+    } catch(_){}
+    // Apply saved density
+    try {
+        const dens = (appState && appState.prefs && appState.prefs.density) || localStorage.getItem('budget-density');
+        if (dens) document.body.setAttribute('data-density', dens);
+    } catch(_){}
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
             const isDark = document.body.classList.contains('dark');
             const newTheme = isDark ? 'light' : 'dark';
-
             document.body.classList.remove('dark','light');
             document.body.classList.add(newTheme);
             localStorage.setItem('budget-theme', newTheme);
+            try { if (!appState.prefs) appState.prefs = {}; appState.prefs.theme = newTheme; saveState(); } catch(_){}
             updateThemeIcon(newTheme);
-
-            // Redraw charts with new theme colors
             if (typeof drawCharts === 'function') drawCharts();
+            try { if (typeof window.syncThemePickers === 'function') window.syncThemePickers(); } catch(_){}
         });
     }
 
@@ -12149,35 +12165,61 @@ function initAdvisorPageLogic() {
     });
 
     // ── 6. Enter Customizer ───────────────────────────────────
-    // Central theme apply function (used by card picker + customizer drawer)
+    // Central theme apply function — used by card picker, customizer drawer,
+    // and the sidebar moon/sun button. Persists to both localStorage and
+    // appState.prefs.theme so the choice survives reload AND syncs across
+    // user-keyed state slots.
     function applyTheme(theme) {
+        if (theme !== 'dark' && theme !== 'light') return;
         document.body.classList.remove('dark','light');
         document.body.classList.add(theme);
-        // Sync the card-level picker labels & dots
-        const isDark = theme === 'dark';
+        try { localStorage.setItem('budget-theme', theme); } catch(_){}
+        try { if (!appState.prefs) appState.prefs = {}; appState.prefs.theme = theme; saveState(); } catch(_){}
+        // Sync the top-bar moon/sun icon
+        const themeIcon = document.getElementById('theme-icon');
+        if (themeIcon) themeIcon.innerHTML = theme === 'dark' ? '<i class="ph ph-moon"></i>' : '<i class="ph ph-sun"></i>';
+        // Sync every theme picker on the page (Settings card + Customizer drawer)
+        if (typeof window.syncThemePickers === 'function') window.syncThemePickers();
+        // Redraw charts with new theme colors
+        if (typeof drawCharts === 'function') try { drawCharts(); } catch(_){}
+    }
+
+    /** Sync every visible theme picker to reflect the currently-active theme.
+     *  Call after applyTheme() and on initial page mount so the dots/labels
+     *  always match what the body class actually is. */
+    window.syncThemePickers = function() {
+        const isDark = document.body.classList.contains('dark');
+        // Settings card picker (Visual Interface tile)
         const darkOpt = document.querySelector('.theme-option[data-theme="dark"]');
         const lightOpt = document.querySelector('.theme-option[data-theme="light"]');
         if (darkOpt) {
             darkOpt.style.borderColor = isDark ? 'var(--accent)' : 'transparent';
-            darkOpt.style.opacity = '1';
-            darkOpt.querySelector('.theme-status-dark').style.color = isDark ? 'var(--accent)' : 'var(--text-3)';
-            darkOpt.querySelector('.theme-status-dark').textContent = isDark ? 'ACTIVE' : 'AVAILABLE';
+            darkOpt.style.opacity = isDark ? '1' : '0.75';
+            const sd = darkOpt.querySelector('.theme-status-dark');
+            if (sd) { sd.style.color = isDark ? 'var(--accent)' : 'var(--text-3)'; sd.textContent = isDark ? 'ACTIVE' : 'AVAILABLE'; }
             const dot = darkOpt.querySelector('.theme-dot-dark');
-            dot.style.background = isDark ? 'var(--accent)' : '';
-            dot.style.border = isDark ? 'none' : '2px solid var(--text-3)';
+            if (dot) { dot.style.background = isDark ? 'var(--accent)' : ''; dot.style.border = isDark ? 'none' : '2px solid var(--text-3)'; }
         }
         if (lightOpt) {
             lightOpt.style.borderColor = !isDark ? 'var(--accent)' : 'transparent';
             lightOpt.style.opacity = !isDark ? '1' : '0.75';
-            lightOpt.querySelector('.theme-status-light').style.color = !isDark ? 'var(--accent)' : 'var(--text-3)';
-            lightOpt.querySelector('.theme-status-light').textContent = !isDark ? 'ACTIVE' : 'AVAILABLE';
+            const sl = lightOpt.querySelector('.theme-status-light');
+            if (sl) { sl.style.color = !isDark ? 'var(--accent)' : 'var(--text-3)'; sl.textContent = !isDark ? 'ACTIVE' : 'AVAILABLE'; }
             const dot = lightOpt.querySelector('.theme-dot-light');
-            dot.style.background = !isDark ? 'var(--accent)' : '';
-            dot.style.border = !isDark ? 'none' : '2px solid var(--text-3)';
+            if (dot) { dot.style.background = !isDark ? 'var(--accent)' : ''; dot.style.border = !isDark ? 'none' : '2px solid var(--text-3)'; }
         }
-    }
+        // Customizer drawer picker (only present when drawer is open)
+        document.querySelectorAll('.cust-theme-opt').forEach(opt => {
+            const isThisActive = (isDark && opt.dataset.theme === 'dark') || (!isDark && opt.dataset.theme === 'light');
+            opt.style.borderColor = isThisActive ? 'var(--accent)' : 'var(--border)';
+            opt.style.background  = isThisActive ? 'rgba(0,212,168,0.06)' : 'var(--card-2)';
+            const dot = opt.querySelector('div:last-child');
+            if (dot) { dot.style.background = isThisActive ? 'var(--accent)' : ''; dot.style.border = isThisActive ? 'none' : '2px solid var(--text-3)'; }
+        });
+    };
 
-    // Wire the Visual Interface card theme picker
+    // Wire the Visual Interface card theme picker — initial sync + click handlers
+    window.syncThemePickers();
     document.querySelectorAll('.theme-option').forEach(opt => {
         opt.addEventListener('click', () => applyTheme(opt.dataset.theme));
     });
@@ -12208,55 +12250,98 @@ function initAdvisorPageLogic() {
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Accent Color</div>
-                  <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    ${[
-                      {name:'Teal (Default)',color:'#00d4a8'},
-                      {name:'Indigo',color:'#667eea'},
-                      {name:'Amber',color:'#f59e0b'},
-                      {name:'Rose',color:'#ff4d6d'},
-                      {name:'Cyan',color:'#38bdf8'},
-                      {name:'Violet',color:'#a78bfa'},
-                    ].map(c=>`<div onclick="document.documentElement.style.setProperty('--accent','${c.color}');showToast('Accent color changed.');" title="${c.name}" style="width:28px;height:28px;border-radius:50%;background:${c.color};cursor:pointer;border:2px solid transparent;transition:border 0.15s;box-shadow:0 0 0 2px rgba(0,0,0,0.3);" onmouseover="this.style.border='2px solid white'" onmouseout="this.style.border='2px solid transparent'"></div>`).join('')}
+                  <div style="display:flex;gap:10px;flex-wrap:wrap;" id="cust-accent-picker">
+                    ${(() => {
+                      const cur = (appState.prefs && appState.prefs.accentColor) || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00d4a8';
+                      return [
+                        {name:'Teal (Default)',color:'#00d4a8'},
+                        {name:'Indigo',color:'#667eea'},
+                        {name:'Amber',color:'#f59e0b'},
+                        {name:'Rose',color:'#ff4d6d'},
+                        {name:'Cyan',color:'#38bdf8'},
+                        {name:'Violet',color:'#a78bfa'},
+                      ].map(c=>`<div class="cust-accent-opt" data-color="${c.color}" title="${c.name}" style="width:30px;height:30px;border-radius:50%;background:${c.color};cursor:pointer;border:3px solid ${cur.toLowerCase()===c.color.toLowerCase()?'#fff':'transparent'};transition:border 0.15s;box-shadow:0 0 0 2px rgba(0,0,0,0.3);"></div>`).join('');
+                    })()}
                   </div>
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Display Density</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-                    ${['Compact','Default','Comfortable'].map((d,i)=>`<div onclick="showToast('Display density set to ${d}.');" style="text-align:center;padding:12px 8px;border:1px solid ${i===1?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;font-size:10px;font-weight:700;transition:border 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${i===1?'var(--accent)':'var(--border)'}'">
-                      ${d}
-                    </div>`).join('')}
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="cust-density-picker">
+                    ${(() => {
+                      const cur = (appState.prefs && appState.prefs.density) || 'default';
+                      return [
+                        {key:'compact',     label:'Compact'},
+                        {key:'default',     label:'Default'},
+                        {key:'comfortable', label:'Comfortable'}
+                      ].map(d=>`<div class="cust-density-opt" data-density="${d.key}" style="text-align:center;padding:12px 8px;border:2px solid ${cur===d.key?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;font-size:10px;font-weight:700;background:${cur===d.key?'rgba(0,212,168,0.06)':'transparent'};transition:all 0.15s;">${d.label}</div>`).join('');
+                    })()}
                   </div>
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Sidebar</div>
                   <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
                     <div><div style="font-size:11px;font-weight:600;">Collapse sidebar by default</div><div style="font-size:9px;color:var(--text-3);">Maximizes content area on load</div></div>
-                    <div class="toggle-switch" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                    <div class="toggle-switch cust-toggle" data-key="sidebarCollapsed" ${appState.prefs && appState.prefs.sidebarCollapsed ? 'class="toggle-switch on"' : ''}><div class="thumb"></div></div>
                   </div>
                   <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);">
                     <div><div style="font-size:11px;font-weight:600;">Show keyboard shortcuts</div><div style="font-size:9px;color:var(--text-3);">Display shortcut hints on hover</div></div>
-                    <div class="toggle-switch on" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                    <div class="toggle-switch cust-toggle ${appState.prefs && appState.prefs.showShortcuts !== false ? 'on' : ''}" data-key="showShortcuts"><div class="thumb"></div></div>
                   </div>
                 </div>
+                <button id="cust-save-btn" class="btn btn-primary" style="width:100%;padding:12px;margin-top:6px;">Save customizations</button>
               </div>`
         });
-        // Wire customizer theme picker
+        // Wire customizer theme picker, accent, density, toggles, save
         setTimeout(() => {
             document.querySelectorAll('.cust-theme-opt').forEach(opt => {
                 opt.addEventListener('click', () => {
                     applyTheme(opt.dataset.theme);
-                    document.querySelectorAll('.cust-theme-opt').forEach(o => {
-                        const active = o.dataset.theme === opt.dataset.theme;
-                        o.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
-                        o.style.background  = active ? 'rgba(0,212,168,0.06)' : 'var(--card-2)';
-                        const icon = o.querySelector('i');
-                        if (icon.classList.contains('ph-moon')) icon.style.color = active ? 'var(--accent)' : 'var(--text-3)';
-                        const dot = o.querySelector('div:last-child');
-                        dot.style.background = active ? 'var(--accent)' : '';
-                        dot.style.border = active ? 'none' : '2px solid var(--text-3)';
-                    });
                     showToast(`${opt.dataset.theme === 'dark' ? 'Midnight Heritage' : 'Verdant'} theme applied.`);
                 });
+            });
+            // Accent — apply live + persist on save
+            document.querySelectorAll('.cust-accent-opt').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const c = opt.dataset.color;
+                    document.documentElement.style.setProperty('--accent', c);
+                    document.querySelectorAll('.cust-accent-opt').forEach(o => o.style.border = '3px solid transparent');
+                    opt.style.border = '3px solid #fff';
+                    if (!appState.prefs) appState.prefs = {};
+                    appState.prefs.accentColor = c;
+                });
+            });
+            // Density
+            document.querySelectorAll('.cust-density-opt').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const d = opt.dataset.density;
+                    document.body.setAttribute('data-density', d);
+                    if (!appState.prefs) appState.prefs = {};
+                    appState.prefs.density = d;
+                    document.querySelectorAll('.cust-density-opt').forEach(o => {
+                        const active = o.dataset.density === d;
+                        o.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+                        o.style.background  = active ? 'rgba(0,212,168,0.06)' : 'transparent';
+                    });
+                });
+            });
+            // Toggles
+            document.querySelectorAll('.cust-toggle').forEach(t => {
+                t.addEventListener('click', () => {
+                    t.classList.toggle('on');
+                    if (!appState.prefs) appState.prefs = {};
+                    appState.prefs[t.dataset.key] = t.classList.contains('on');
+                    if (t.dataset.key === 'sidebarCollapsed') {
+                        document.body.classList.toggle('sidebar-collapsed', t.classList.contains('on'));
+                    }
+                });
+            });
+            // Save
+            document.getElementById('cust-save-btn')?.addEventListener('click', () => {
+                try { saveState(); } catch(_){}
+                try { localStorage.setItem('budget-accent', appState.prefs.accentColor || ''); } catch(_){}
+                try { localStorage.setItem('budget-density', appState.prefs.density || ''); } catch(_){}
+                showToast('Customizations saved.');
+                document.getElementById('settings-drawer-overlay')?.remove();
             });
         }, 50);
     });
