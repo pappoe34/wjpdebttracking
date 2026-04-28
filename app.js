@@ -7403,26 +7403,129 @@ function renderAnalysisModal(simData, currentStrat) {
 
 /* ---------- AI CHAT LOGIC ---------- */
 /* ---------- GLOBAL AI ENGINE ---------- */
+/** AI Advisor — answers grounded entirely in the user's account data.
+ *  Pattern-matches the question against intents (debt totals, due dates,
+ *  credit, spending, budget, savings, strategy, payoff, advice) and returns
+ *  a real answer computed from appState. No external API calls. */
 function generateAiResponse(input) {
-    const low = input.toLowerCase();
-    const totalDebt = appState.debts.reduce((acc, d) => acc + d.balance, 0);
-    const strategy = appState.settings.strategy;
+    const low = (input || '').toLowerCase().trim();
+    const fmt = n => '$' + Math.round(n || 0).toLocaleString();
+    const debts = appState.debts || [];
+    const totalDebt = debts.reduce((s, d) => s + (d.balance || 0), 0);
+    const totalMin  = debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+    const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+    const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
 
-    if (low.includes('debt') || low.includes('balance')) {
-        return `Your total combined liability is currently ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalDebt)}. Under the ${strategy} strategy, we are prioritizing your highest ROI paths.`;
+    // 1. Greeting
+    if (/^(hi|hello|hey|yo|sup)\b/.test(low) || low === 'hi' || low === 'hello') {
+        const name = (appState.profile && appState.profile.fullName && appState.profile.fullName.split(' ')[0]) || 'there';
+        return `Hi ${name}. I can answer questions about your debts, due dates, credit, spending, savings, and which payoff strategy fits best. What's on your mind?`;
     }
-    if (low.includes('extra') || low.includes('payment') || low.includes('1000')) {
-         const sim = simulateAllStrategies();
-         return `Adding an extra $1,000 monthly contribution would accelerate your "Debt Freedom" date by approximately 14 months and save you roughly $4,200 in interest across the portfolio.`;
+
+    // 2. Due dates
+    if (/\b(due|when|next payment|when is|coming up|due date)\b/.test(low)) {
+        if (!debts.length) return "You haven't added any debts yet, so I can't check due dates. Add a debt with its dueDate and I'll track it.";
+        const today = new Date();
+        const upcoming = debts.map(d => {
+            const dd = parseInt(d.dueDate || d.dueDay, 10) || 1;
+            let due = new Date(today.getFullYear(), today.getMonth(), dd);
+            if (due < today) due.setMonth(due.getMonth()+1);
+            const days = Math.round((due - today) / 86400000);
+            return { name: d.name, days, due, min: d.minPayment };
+        }).sort((a,b) => a.days - b.days).slice(0, 5);
+        const lines = upcoming.map(u => `• ${u.name}: due in ${u.days} day${u.days===1?'':'s'} (${u.due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}) — ${fmt(u.min)} minimum`);
+        return `Next payments due:\n${lines.join('\n')}`;
     }
-    if (low.includes('hello') || low.includes('hi')) {
-        return "Greetings. I am Evergreen, your strategic financial engine. I've mapped over 4,000 simulations for your current path. What specific optimization can I run for you?";
+
+    // 3. Credit / utilization
+    if (/\b(credit|score|utilization|fico)\b/.test(low)) {
+        const cards = debts.filter(d => /credit|card/i.test(d.name + ' ' + (d.type||'')));
+        const totalLimit = cards.reduce((s,d) => s + (d.creditLimit || 0), 0);
+        const totalCardBalance = cards.reduce((s,d) => s + (d.balance || 0), 0);
+        const util = totalLimit > 0 ? Math.round((totalCardBalance / totalLimit) * 100) : null;
+        const cs = appState.creditScore || (appState.creditScoreHistory && appState.creditScoreHistory.length ? appState.creditScoreHistory[appState.creditScoreHistory.length-1] : null);
+        const score = cs ? (typeof cs === 'number' ? cs : cs.score) : null;
+        let parts = [];
+        if (score) parts.push(`Your tracked credit score is ${score} (${score >= 740 ? 'very good' : score >= 670 ? 'good' : score >= 580 ? 'fair' : 'rebuilding'}).`);
+        if (util !== null) {
+            parts.push(`Card utilization is ${util}% (${fmt(totalCardBalance)} of ${fmt(totalLimit)} limit). Below 30% is ideal; below 10% is best.`);
+            if (util > 30) parts.push(`Bringing utilization under 30% is the fastest credit-score win — typically +20 to +40 points within one statement cycle.`);
+        }
+        if (!parts.length) return 'Add credit cards with limits and I can compute your utilization, plus a real score-improvement plan.';
+        return parts.join(' ');
     }
-    if (low.includes('strategy') || low.includes('optimal')) {
-        const sim = simulateAllStrategies();
-        return `I've analyzed all models. The ${sim.best} method is mathematically superior for your profile, potentially saving you ${fmt(sim.simulations[sim.best].interest - sim.simulations[strategy].interest)} if implemented today.`;
+
+    // 4. Spending
+    if (/\b(spend|spending|expense|expenses|where.*money|categor)\b/.test(low)) {
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+        const realTxns = (appState.transactions || []).filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= monthStart);
+        if (!realTxns.length) return "I don't see any logged spending this month yet. Add transactions or sync a bank account and I'll break it down by category.";
+        const byCat = {};
+        realTxns.forEach(t => { const c = t.category || 'Other'; byCat[c] = (byCat[c]||0) + Math.abs(t.amount); });
+        const total = Object.values(byCat).reduce((s,v) => s+v, 0);
+        const top = Object.entries(byCat).sort((a,b) => b[1]-a[1]).slice(0,3);
+        const lines = top.map(([c,v]) => `• ${c}: ${fmt(v)} (${Math.round(v/total*100)}%)`);
+        return `So far this month you've spent ${fmt(total)} across ${realTxns.length} transactions. Top categories:\n${lines.join('\n')}`;
     }
-    return "I've processed that query. Based on your current cash flow and the 12-month trailing spending trend, I recommend maintaining your current liquidity buffer while aggressively targeting the " + (appState.debts[0] ? appState.debts[0].name : "primary debt") + ".";
+
+    // 5. Income / cash flow
+    if (/\b(income|earn|paycheck|cash flow|cashflow|paid)\b/.test(low)) {
+        if (!income) return "I don't have your income on file. Add it under Settings → AI Intelligence → Monthly Extra, or in your Budget allocation, so I can compute cash flow.";
+        const surplus = Math.max(0, income - totalMin);
+        return `You bring in ${fmt(income)}/mo. After ${fmt(totalMin)} in debt minimums, you have ${fmt(surplus)} of unallocated cash flow before living expenses.`;
+    }
+
+    // 6. Savings
+    if (/\b(save|saving|emergency fund|goal)\b/.test(low)) {
+        const goals = appState.savingsGoals || [];
+        const monthlySavings = (appState.budget && appState.budget.allocation && appState.budget.allocation.savings) || 0;
+        if (!goals.length) return `You haven't set any savings goals. A good first goal: 3–6 months of expenses as an emergency fund. Want me to suggest a target?`;
+        const lines = goals.map(g => {
+            const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
+            const months = monthlySavings > 0 ? Math.ceil((g.target - g.current) / monthlySavings) : '?';
+            return `• ${g.name}: ${fmt(g.current)} of ${fmt(g.target)} (${pct}%) — ~${months} months at current pace`;
+        });
+        return `Your savings goals:\n${lines.join('\n')}`;
+    }
+
+    // 7. Debt totals / balance
+    if (/\b(debt|owe|total|balance|liabilit)\b/.test(low)) {
+        if (!debts.length) return "You haven't added any debts yet. Add them under the Debts page and I can build a payoff plan.";
+        return `Total debt: ${fmt(totalDebt)} across ${debts.length} accounts (avg APR ${(debts.reduce((s,d)=>s+(d.apr||0)*1,0)/debts.length).toFixed(1)}%, total minimums ${fmt(totalMin)}/mo). Current strategy: ${strategy}.`;
+    }
+
+    // 8. Strategy / payoff plan / how to pay off / advice
+    if (/\b(strategy|optimal|best|payoff|pay off|free|when.*debt-free|free of debt|advice|recommend|how to|out of debt)\b/.test(low)) {
+        if (!debts.length) return "Add a debt and I'll run all three strategies (Snowball, Hybrid, Avalanche) on it and show which finishes fastest with the least interest.";
+        try {
+            const sim = simulateAllStrategies();
+            if (!sim) return "Run a strategy from the dashboard and I'll explain it in detail.";
+            const best = sim.best;
+            const months = sim.simulations[best].months;
+            const interest = sim.simulations[best].interest;
+            const dfd = new Date(); dfd.setMonth(dfd.getMonth() + months);
+            const monthsCurrent = sim.simulations[strategy] && sim.simulations[strategy].months;
+            const interestCurrent = sim.simulations[strategy] && sim.simulations[strategy].interest;
+            let savingsLine = '';
+            if (best !== strategy && interestCurrent != null) {
+                const save = Math.max(0, interestCurrent - interest);
+                savingsLine = ` Switching from ${strategy} to ${best} saves ~${fmt(save)} in interest.`;
+            }
+            return `Best math: ${best.charAt(0).toUpperCase()+best.slice(1)} — finishes in ${months} months (${dfd.toLocaleDateString('en-US',{month:'long',year:'numeric'})}) with ${fmt(interest)} total interest.${savingsLine} Top target: ${debts[0].name} (${(debts[0].apr||0)}% APR).`;
+        } catch(_) { return `Best strategy for your portfolio is computed on the dashboard's Top-3 strategy bar. ${strategy.charAt(0).toUpperCase()+strategy.slice(1)} is currently active.`; }
+    }
+
+    // 9. Extra payment "what if"
+    if (/\b(extra|what if|add|more|\$\d+)/.test(low)) {
+        const m = low.match(/\$?(\d{2,5})/);
+        const extra = m ? parseInt(m[1], 10) : 200;
+        const cur = (appState.budget && appState.budget.contribution) || 0;
+        return `If you bumped your monthly extra payment from ${fmt(cur)} to ${fmt(cur + extra)}, you'd shorten the projected payoff by months and reduce total interest. Open the AI Intelligence settings to update Monthly Extra Payment, then I'll re-simulate.`;
+    }
+
+    // Default — summarize the account
+    if (!debts.length && !income) return "I work entirely from your account data. Once you've added income, debts, or transactions I can give specific guidance — payoff timing, due-date alerts, spending breakdown, credit-score moves.";
+    return `Quick snapshot: ${fmt(totalDebt)} total debt across ${debts.length} accounts, ${fmt(totalMin)} minimums, ${fmt(income)} income, current strategy: ${strategy}. Ask me about due dates, credit, spending, savings, or your payoff plan.`;
 }
 
 /* ---------- NOTIFICATION ENGINE ---------- */
@@ -14046,6 +14149,10 @@ function initBudgetControlPage() {
     renderSavingsGoals();
     renderCashFlowChart();
     renderAIBudgetCoach();
+    try { renderBudgetStatsRow(); } catch(_){}
+    try { renderExpenseDistribution(); } catch(_){}
+    try { renderDetailedTransactionsBudget(); } catch(_){}
+    try { renderAIBudgetInsights(); } catch(_){}
 
     // Wire Refresh Coach button
     const refreshBtn = document.getElementById('btn-refresh-coach');
@@ -14127,7 +14234,203 @@ function syncBudgetState() {
     refreshBudgetVsPredicted();
     renderExpenseLegend();
     renderAIBudgetCoach();
+    try { renderBudgetStatsRow(); } catch(_){}
+    try { renderExpenseDistribution(); } catch(_){}
+    try { renderDetailedTransactionsBudget(); } catch(_){}
+    try { renderAIBudgetInsights(); } catch(_){}
 }
+
+/** Renders the 3 stat cards: Savings Rate, Debt-to-Income, Spending Velocity.
+ *  All numbers come from real appState — no fakes. */
+function renderBudgetStatsRow() {
+    const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
+    const debts = appState.debts || [];
+    const totalMin = debts.reduce((s,d) => s + (d.minPayment || 0), 0);
+    const monthlySavings = (appState.budget && appState.budget.allocation && appState.budget.allocation.savings)
+        || (appState.budget && appState.budget.contribution) || 0;
+
+    // Savings Rate
+    const elSR  = document.getElementById('bdg-savings-rate');
+    const elSRSub = document.getElementById('bdg-savings-rate-sub');
+    if (elSR) {
+        const sr = income > 0 ? Math.round((monthlySavings / income) * 100) : 0;
+        elSR.textContent = sr + '%';
+        if (elSRSub) elSRSub.textContent = income > 0 ? `$${monthlySavings.toLocaleString()} of $${income.toLocaleString()}/mo` : 'Add income & expenses to track.';
+    }
+    // Debt-to-Income
+    const elDTI = document.getElementById('bdg-dti-ratio');
+    const elDTISub = document.getElementById('bdg-dti-sub');
+    if (elDTI) {
+        const dti = income > 0 ? Math.round((totalMin / income) * 100) : 0;
+        elDTI.textContent = dti + '%';
+        if (elDTISub) elDTISub.textContent = income > 0
+            ? (dti < 36 ? `Healthy — under 36% threshold.` : dti < 50 ? `Moderate. Watch lifestyle creep.` : `High. Prioritize debt reduction.`)
+            : 'Add income & debts to calculate.';
+    }
+    // Spending Velocity — REAL transactions this month
+    const elSV  = document.getElementById('bdg-spending-velocity');
+    const elSVSub = document.getElementById('bdg-spending-velocity-sub');
+    if (elSV) {
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+        const today = new Date();
+        const dayCount = Math.max(1, Math.floor((today - monthStart) / 86400000) + 1);
+        const realSpend = (appState.transactions || [])
+            .filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= monthStart)
+            .reduce((s,t) => s + Math.abs(t.amount), 0);
+        const perDay = Math.round(realSpend / dayCount);
+        elSV.innerHTML = `$${perDay.toLocaleString()}<span style="font-size:14px; font-weight:500">/day</span>`;
+        if (elSVSub) elSVSub.textContent = realSpend > 0
+            ? `$${realSpend.toLocaleString()} spent over ${dayCount} day${dayCount===1?'':'s'} this month.`
+            : 'Log transactions to see velocity.';
+    }
+}
+window.renderBudgetStatsRow = renderBudgetStatsRow;
+
+/** Expense Distribution donut + allocation list. Pulls from real spending
+ *  transactions this month, grouped by category. */
+function renderExpenseDistribution() {
+    const list = document.getElementById('bdg-allocation-list');
+    const totalEl = document.getElementById('bdg-donut-total');
+    if (!list && !totalEl) return;
+
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const txns = (appState.transactions || [])
+        .filter(t => t.amount < 0 && new Date(t.date) >= monthStart);
+    const byCat = {};
+    txns.forEach(t => {
+        const cat = (t.category || 'Other').trim() || 'Other';
+        byCat[cat] = (byCat[cat] || 0) + Math.abs(t.amount);
+    });
+    const entries = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+    const total = entries.reduce((s, [,v]) => s + v, 0);
+    const PALETTE = ['#00d4a8','#667eea','#ff4d6d','#ffab40','#a855f7','#22c55e','#f59e0b','#60a5fa'];
+
+    if (totalEl) totalEl.textContent = total > 0 ? '$' + Math.round(total).toLocaleString() : '$0';
+
+    if (!list) return;
+    if (!entries.length) {
+        list.innerHTML = `<div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
+            <i class="ph ph-chart-pie-slice" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+            No expense categories yet this month. Add transactions or recurring payments to populate.
+        </div>`;
+    } else {
+        list.innerHTML = entries.slice(0, 8).map(([cat, val], i) => {
+            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+            const color = PALETTE[i % PALETTE.length];
+            return `<div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:10px; height:10px; border-radius:50%; background:${color}; flex-shrink:0;"></div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; margin-bottom:3px;"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${cat}</span><span>$${Math.round(val).toLocaleString()}</span></div>
+                    <div style="height:4px; background:var(--card-2); border-radius:2px; overflow:hidden;"><div style="height:4px; width:${pct}%; background:${color};"></div></div>
+                </div>
+                <div style="font-size:10px; color:var(--text-3); font-weight:700; min-width:32px; text-align:right;">${pct}%</div>
+            </div>`;
+        }).join('');
+    }
+
+    // Draw the donut canvas if Chart.js available
+    const canvas = document.getElementById('budgetDonut');
+    if (canvas && typeof Chart !== 'undefined' && entries.length > 0) {
+        if (window._bdgDonut) try { window._bdgDonut.destroy(); } catch(_){}
+        const ctx = canvas.getContext('2d');
+        window._bdgDonut = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: entries.slice(0,8).map(e => e[0]),
+                datasets: [{
+                    data: entries.slice(0,8).map(e => e[1]),
+                    backgroundColor: entries.slice(0,8).map((_,i) => PALETTE[i % PALETTE.length]),
+                    borderWidth: 0, cutout: '70%'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: $${Math.round(c.parsed).toLocaleString()}` } } } }
+        });
+    }
+}
+window.renderExpenseDistribution = renderExpenseDistribution;
+
+/** Detailed Transactions table on the Budgets tab — top 10 most-recent real
+ *  transactions (filtered to outflows so the budget context makes sense). */
+function renderDetailedTransactionsBudget() {
+    const tbody = document.getElementById('dbg-detailed-txn-body');
+    if (!tbody) return;
+    const txns = (appState.transactions || [])
+        .filter(t => t.amount < 0)
+        .sort((a,b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10);
+    if (!txns.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px;">
+            <i class="ph ph-receipt" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
+            No transactions yet. Connect a bank or add one manually to get started.
+        </td></tr>`;
+        return;
+    }
+    tbody.innerHTML = txns.map(t => {
+        const d = new Date(t.date);
+        return `<tr>
+            <td class="txn-date">${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+            <td style="font-weight:600;">${t.merchant || '(unnamed)'}</td>
+            <td><span class="badge" style="background:rgba(0,0,0,0.3); font-size:9px;">${t.category || 'Other'}</span></td>
+            <td style="font-weight:700; color:var(--danger);">−$${Math.abs(t.amount).toFixed(2)}</td>
+        </tr>`;
+    }).join('');
+}
+window.renderDetailedTransactionsBudget = renderDetailedTransactionsBudget;
+
+/** AI Budget Insights — well-documented summary of the user's account. */
+function renderAIBudgetInsights() {
+    const cards = document.querySelectorAll('#page-budgets .ai-perf-card, #page-budgets .ai-performance-card');
+    if (!cards.length) return;
+    // Find the one explicitly labeled "AI Budget Insights"
+    let target = null;
+    cards.forEach(c => {
+        if (c.querySelector('.ai-perf-title') && /Budget Insights/i.test(c.querySelector('.ai-perf-title').textContent)) target = c;
+    });
+    if (!target) return;
+
+    const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
+    const debts = appState.debts || [];
+    const totalDebt = debts.reduce((s,d) => s + (d.balance || 0), 0);
+    const totalMin = debts.reduce((s,d) => s + (d.minPayment || 0), 0);
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const realSpend = (appState.transactions || [])
+        .filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= monthStart)
+        .reduce((s,t) => s + Math.abs(t.amount), 0);
+    const dti = income > 0 ? Math.round((totalMin / income) * 100) : 0;
+    const savingsRate = income > 0 ? Math.round(((income - totalMin - realSpend) / income) * 100) : 0;
+
+    // Wellness tier
+    const wellnessTier = dti < 20 && savingsRate > 20 ? 'Excellent'
+        : dti < 36 && savingsRate > 10 ? 'Healthy'
+        : dti < 50 ? 'Moderate'
+        : 'Stretched';
+    const wellnessColor = wellnessTier === 'Excellent' ? '#00d4a8' : wellnessTier === 'Healthy' ? '#22c55e' : wellnessTier === 'Moderate' ? '#fbbf24' : '#ff4d6d';
+
+    // Replace the body inside this card after the header
+    const summary = target.querySelector('p');
+    if (summary) {
+        if (income === 0 && debts.length === 0) {
+            summary.innerHTML = `Add your income, debts, and a few transactions and a real diagnostic appears here — savings rate, debt-to-income, top spending categories, and concrete next actions.`;
+        } else {
+            summary.innerHTML = `You bring in <strong>$${income.toLocaleString()}/mo</strong> with <strong>$${Math.round(totalDebt).toLocaleString()}</strong> across ${debts.length} debt${debts.length===1?'':'s'}. ` +
+                `So far this month you've spent <strong>$${Math.round(realSpend).toLocaleString()}</strong> in real transactions. ` +
+                `Your debt-to-income is <strong style="color:${dti<36?'var(--accent)':'#ff4d6d'};">${dti}%</strong> and your savings rate is <strong>${savingsRate}%</strong>.`;
+        }
+    }
+    const metrics = target.querySelectorAll('.ai-perf-val');
+    if (metrics.length >= 3) {
+        // Expense Efficiency
+        metrics[0].textContent = realSpend > 0 && income > 0 ? Math.round(100 - (realSpend / income) * 100) + '%' : '—';
+        metrics[0].style.color = realSpend > 0 && income > 0 ? wellnessColor : 'var(--text-3)';
+        // Savings Target Alignment
+        metrics[1].textContent = income > 0 ? Math.max(0, savingsRate) + '%' : '—';
+        metrics[1].style.color = savingsRate > 10 ? 'var(--accent)' : savingsRate > 0 ? '#fbbf24' : 'var(--text-3)';
+        // Wellness Tier
+        metrics[2].textContent = (income > 0 || debts.length > 0) ? wellnessTier : '—';
+        metrics[2].style.color = wellnessColor;
+    }
+}
+window.renderAIBudgetInsights = renderAIBudgetInsights;
 
 // AI Prediction Engine — computes optimal per-category budgets
 function computeAIBudgetPrediction() {
