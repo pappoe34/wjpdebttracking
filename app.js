@@ -217,13 +217,23 @@ function renderUserIdentity() {
     try {
         const p = (appState && appState.profile) || {};
         const fb = (window.__wjpUser) || (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
-        const name =
-            (p.displayName && p.displayName.trim()) ||
-            (p.fullName && p.fullName.trim()) ||
-            (fb && fb.displayName) ||
-            (fb && fb.email && fb.email.split('@')[0]) ||
-            localStorage.getItem('wjp_last_name') ||
-            'User';
+        // Resolve the name in priority order. Each step trims to ensure we
+        // never accept "" as a winning value.
+        const cand = [
+            p.displayName,
+            p.fullName,
+            fb && fb.displayName,
+            localStorage.getItem('wjp_user_name'),  // legacy onboarding key
+            localStorage.getItem('wjp_last_name'),  // auth-gate stash
+            fb && fb.email && fb.email.split('@')[0]
+        ];
+        let name = '';
+        for (const v of cand) {
+            const s = (v || '').toString().trim();
+            if (s) { name = s; break; }
+        }
+        if (!name) name = 'User';
+
         const initials = (() => {
             const parts = String(name).trim().split(/\s+/).filter(Boolean);
             if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
@@ -231,15 +241,30 @@ function renderUserIdentity() {
             return '?';
         })();
 
-        const sideName = document.getElementById('sidebar-user-name');
-        if (sideName) sideName.textContent = name;
-        const sideInit = document.getElementById('sidebar-user-initials');
-        if (sideInit) sideInit.textContent = initials;
-        // Settings page header avatar (visible inside Settings)
-        const setName = document.getElementById('settings-user-name');
-        if (setName) setName.textContent = name;
-        const setInit = document.getElementById('settings-user-avatar');
-        if (setInit) setInit.textContent = initials;
+        const writeIdentity = () => {
+            const sideName = document.getElementById('sidebar-user-name');
+            if (sideName) sideName.textContent = name;
+            const sideInit = document.getElementById('sidebar-user-initials');
+            if (sideInit) sideInit.textContent = initials;
+            const setName = document.getElementById('settings-user-name');
+            if (setName) setName.textContent = name;
+            const setInit = document.getElementById('settings-user-avatar');
+            if (setInit) setInit.textContent = initials;
+            // Also write any unstamped legacy elements by class so we cover
+            // older surfaces that don't have IDs.
+            document.querySelectorAll('.user-name').forEach(el => {
+                if (el.id === 'sidebar-user-name' || el.id === 'settings-user-name') return;
+                el.textContent = name;
+            });
+            document.querySelectorAll('.user-avatar').forEach(el => {
+                if (el.id === 'sidebar-user-initials' || el.id === 'settings-user-avatar') return;
+                el.textContent = initials;
+            });
+        };
+        writeIdentity();
+        // Belt-and-suspenders: re-write a moment later to overwrite anything
+        // that races after us during initial mount.
+        setTimeout(writeIdentity, 200);
     } catch(_){}
 }
 window.renderUserIdentity = renderUserIdentity;
@@ -3878,6 +3903,11 @@ function materializeRecurringTransactions() {
 /* ---------- UI RENDER ENGINE ---------- */
 function updateUI() {
     if (!appState) return;
+
+    // Refresh the sidebar avatar / name from current state. Cheap, idempotent —
+    // running it on every render guarantees no other writer can leave a stale
+    // 'User / ?' behind even if it overwrites the sidebar later in this pass.
+    try { if (typeof renderUserIdentity === 'function') renderUserIdentity(); } catch(_){}
 
     // Reset simulator cache for this render — DFD hero, AI advisor progress
     // strip, projection chart, and Top-3 bar all call calcSimTotals/Trajectory
