@@ -7869,3 +7869,31 @@ body.sidebar-collapsed .sidebar-user { justify-content: center; }
   .advisor-quick-rail { padding: 10px 16px; }
   .advisor-composer { padding: 14px 14px 4px; }
 }
+
+/* === v=88-thinkdots: pulsing 3-dot thinking indicator for AI replies === */
+.wjp-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+  height: 18px;
+}
+.wjp-thinking .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  animation: wjp-thinking-bounce 1.2s infinite ease-in-out;
+}
+.wjp-thinking .dot:nth-child(2) { animation-delay: 0.15s; }
+.wjp-thinking .dot:nth-child(3) { animation-delay: 0.30s; }
+@keyframes wjp-thinking-bounce {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30%           { opacity: 1;    transform: translateY(-3px); }
+}
+.wjp-thinking-label {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-left: 6px;
+  font-style: italic;
+}

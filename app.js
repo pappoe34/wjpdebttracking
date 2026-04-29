@@ -7827,13 +7827,16 @@ window.WJP_DeepAI = {
             { role: 'system', content: sysPrompt },
             { role: 'user', content: question }
         ];
-        // Cap output so answers come back fast. 350 tokens ≈ 250 words ≈
-        // 15-25 seconds on a 3B model on consumer GPU. Users wanting more
-        // depth can ask "give me the full breakdown" in a follow-up.
+        // Tier-tuned output cap so smaller models finish faster.
+        // Fast (1.5B) → 180 tokens (~12s). Smart (3B) → 320 (~18s).
+        // Smartest (8B) → 480 (~35s). User can ask "give me the full
+        // breakdown" for depth.
+        const tier = (typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.deepModelTier) || 'smart';
+        const maxTokens = tier === 'fast' ? 180 : tier === 'smartest' ? 480 : 320;
         let full = '';
         try {
             const stream = await this.engine.chat.completions.create({
-                messages, temperature: 0.2, top_p: 0.9, max_tokens: 350, stream: true
+                messages, temperature: 0.2, top_p: 0.9, max_tokens: maxTokens, stream: true
             });
             for await (const chunk of stream) {
                 const delta = chunk.choices[0]?.delta?.content || '';
@@ -7846,7 +7849,7 @@ window.WJP_DeepAI = {
         } catch (err) {
             // Fall back to non-streaming
             const resp = await this.engine.chat.completions.create({
-                messages, temperature: 0.2, top_p: 0.9, max_tokens: 350
+                messages, temperature: 0.2, top_p: 0.9, max_tokens: maxTokens
             });
             return resp.choices[0].message.content;
         }
@@ -11923,28 +11926,39 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
         containerEl.appendChild(thinking);
         containerEl.scrollTop = containerEl.scrollHeight;
 
-        // If Deep Mode is enabled, ALWAYS route to WJP_DeepAI.ask() — that
-        // method will lazy-load the engine if needed and waits for it. This
-        // is more robust than the old `enabled && engine` check which fell
-        // through to rule-based whenever engine was momentarily null.
+        // Deep Mode path: keep an animated 3-dot thinking indicator on screen
+        // until the first streamed token arrives, then swap it out for the
+        // streaming reply. This eliminates the dead-air pause while the
+        // model processes the prompt.
         const deepEnabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
         if (deepEnabled) {
-            thinking.remove();
-            const msg = addMessage('', 'ai');
-            const bubble = msg.querySelector('.ai-bubble');
-            bubble.style.whiteSpace = 'pre-line';
-            bubble.style.lineHeight = '1.55';
-            const badge = document.createElement('div');
-            badge.style.cssText = 'font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
-            badge.textContent = window.WJP_DeepAI.engine ? '◆ Deep Mode' : '◆ Deep Mode · loading model…';
-            bubble.parentElement.insertBefore(badge, bubble);
+            const thinkingBubble = thinking.querySelector('.ai-bubble');
+            if (thinkingBubble) {
+                thinkingBubble.innerHTML = `<div class="wjp-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="wjp-thinking-label">${window.WJP_DeepAI.engine ? 'thinking…' : 'loading model…'}</span></div>`;
+            }
+            let firstChunk = true;
+            let bubble, badge;
             window.WJP_DeepAI.ask(val, (delta) => {
-                badge.textContent = '◆ Deep Mode';
+                if (firstChunk) {
+                    firstChunk = false;
+                    thinking.remove();
+                    const msg = addMessage('', 'ai');
+                    bubble = msg.querySelector('.ai-bubble');
+                    bubble.style.whiteSpace = 'pre-line';
+                    bubble.style.lineHeight = '1.55';
+                    badge = document.createElement('div');
+                    badge.style.cssText = 'font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
+                    badge.textContent = '◆ Deep Mode';
+                    bubble.parentElement.insertBefore(badge, bubble);
+                }
                 bubble.textContent += delta;
                 containerEl.scrollTop = containerEl.scrollHeight;
             }).catch(err => {
-                badge.textContent = '◆ Deep Mode · fallback';
-                bubble.textContent = `Deep Mode failed (${err.message || err}).\n\nFalling back to standard AI:\n\n` + generateAiResponse(val);
+                thinking.remove();
+                const errMsg = addMessage('', 'ai');
+                const errBubble = errMsg.querySelector('.ai-bubble');
+                errBubble.style.whiteSpace = 'pre-line';
+                errBubble.textContent = `Deep Mode failed (${err.message || err}).\n\nFalling back to standard AI:\n\n` + generateAiResponse(val);
             });
             return;
         }
@@ -13458,10 +13472,10 @@ function initAdvisorPageLogic() {
             appendMsg('user', text);
             document.getElementById('lvs-input').value = '';
             const log = document.getElementById('lvs-log');
-            // Always show typing indicator first
+            // Animated 3-dot thinking indicator while the model processes
             const typing = document.createElement('div');
             typing.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
-            typing.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text-3);">…</div>';
+            typing.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;"><div class="wjp-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="wjp-thinking-label">thinking…</span></div></div>';
             log.appendChild(typing); log.scrollTop = log.scrollHeight;
 
             const deepEnabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
