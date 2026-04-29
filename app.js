@@ -627,14 +627,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         if (appState && appState.prefs && appState.prefs.deepMode && window.WJP_DeepAI && !window.WJP_DeepAI.engine && !window.WJP_DeepAI.loading) {
             if ('gpu' in navigator) {
+                window.WJP_DeepAI.enabled = true;
                 ensureDeepStatusPill();
+                if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
+                // Subscribe to refresh the FAB badge on progress
+                if (window.WJP_DeepAI.onProgress) {
+                    window.WJP_DeepAI.onProgress(() => updateFabDeepBadge && updateFabDeepBadge());
+                }
                 window.WJP_DeepAI.load().then(() => {
                     showToast('Deep Mode ready.');
+                    updateFabDeepBadge && updateFabDeepBadge();
                 }).catch(err => {
                     console.warn('Deep Mode load failed', err);
+                    updateFabDeepBadge && updateFabDeepBadge();
                 });
             }
         }
+        // Always sync the FAB badge once the FAB is in the DOM
+        setTimeout(() => updateFabDeepBadge && updateFabDeepBadge(), 200);
     } catch(_){}
 
     // Draw charts and initialize UI state properly. On initial page load the
@@ -7570,6 +7580,60 @@ function ensureDeepStatusPill() {
 }
 window.ensureDeepStatusPill = ensureDeepStatusPill;
 
+/** Debug helper — type `wjpDebugDeepAI()` in the browser console to inspect
+ *  Deep Mode state and run a tiny health check. Logs everything to console
+ *  AND shows a toast so you don't need devtools open. */
+window.wjpDebugDeepAI = async function() {
+    const state = {
+        webgpu: 'gpu' in navigator,
+        prefEnabled: !!(appState && appState.prefs && appState.prefs.deepMode),
+        runtimeEnabled: !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled),
+        engineLoaded: !!(window.WJP_DeepAI && window.WJP_DeepAI.engine),
+        loading: !!(window.WJP_DeepAI && window.WJP_DeepAI.loading),
+        progress: window.WJP_DeepAI ? window.WJP_DeepAI.progress : 0,
+        progressLabel: window.WJP_DeepAI ? window.WJP_DeepAI.progressLabel : '',
+        modelId: window.WJP_DeepAI ? window.WJP_DeepAI.modelId : ''
+    };
+    console.log('[WJP Deep AI] state', state);
+    if (typeof showToast === 'function') {
+        const summary = !state.webgpu ? '✗ WebGPU not supported in this browser'
+            : !state.prefEnabled ? '✗ Deep Mode pref is OFF'
+            : !state.engineLoaded ? `… engine still loading (${Math.round(state.progress*100)}%)`
+            : '✓ engine loaded — running health check…';
+        showToast(summary);
+    }
+    if (state.engineLoaded) {
+        const health = await window.WJP_DeepAI.verify();
+        console.log('[WJP Deep AI] health check', health);
+        if (typeof showToast === 'function') {
+            showToast(health.ok ? `✓ Engine healthy. Sample: "${health.sample}"` : `✗ Engine failed: ${health.error}`);
+        }
+    }
+    return state;
+};
+
+/** Add a small dot badge to the floating FAB showing Deep Mode status. */
+function updateFabDeepBadge() {
+    const fab = document.getElementById('ai-chat-fab');
+    if (!fab) return;
+    let badge = fab.querySelector('.fab-deep-dot');
+    const enabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
+    const ready = !!(window.WJP_DeepAI && window.WJP_DeepAI.engine);
+    if (!enabled) {
+        if (badge) badge.remove();
+        return;
+    }
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'fab-deep-dot';
+        badge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg, #0b0f1a);font-size:0;';
+        fab.appendChild(badge);
+    }
+    badge.style.background = ready ? '#22c55e' : '#fbbf24';
+    badge.title = ready ? 'Deep Mode ready' : 'Deep Mode loading';
+}
+window.updateFabDeepBadge = updateFabDeepBadge;
+
 /* ========================================================================
    WJP_DeepAI — Optional in-browser LLM (WebLLM / WebGPU).
    Free + private: model downloads once to IndexedDB, runs locally on the
@@ -7664,6 +7728,22 @@ window.WJP_DeepAI = {
             top.forEach(([c,v]) => lines.push(`- ${c}: $${Math.round(v).toLocaleString()}`));
         }
         return lines.join('\n');
+    },
+
+    /** Quick health-check: verify the engine actually responds to a tiny prompt.
+     *  Surfaces silent failures (e.g. SDK loaded but model shards missing). */
+    async verify() {
+        if (!this.engine) await this.load();
+        try {
+            const r = await this.engine.chat.completions.create({
+                messages: [{ role: 'user', content: 'Reply with the single word: ready' }],
+                temperature: 0, max_tokens: 8
+            });
+            const out = (r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content) || '';
+            return { ok: true, sample: out.trim() };
+        } catch (err) {
+            return { ok: false, error: (err && err.message) || String(err) };
+        }
     },
 
     /** Ask the model. Returns the full reply string. Streams via onChunk. */
@@ -11775,10 +11855,12 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
         containerEl.appendChild(thinking);
         containerEl.scrollTop = containerEl.scrollHeight;
 
-        // If Deep Mode is enabled AND the engine is loaded, stream from
-        // WebLLM. Otherwise fall back to the rule-based generateAiResponse.
-        const useDeep = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled && window.WJP_DeepAI.engine);
-        if (useDeep) {
+        // If Deep Mode is enabled, ALWAYS route to WJP_DeepAI.ask() — that
+        // method will lazy-load the engine if needed and waits for it. This
+        // is more robust than the old `enabled && engine` check which fell
+        // through to rule-based whenever engine was momentarily null.
+        const deepEnabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
+        if (deepEnabled) {
             thinking.remove();
             const msg = addMessage('', 'ai');
             const bubble = msg.querySelector('.ai-bubble');
@@ -11786,13 +11868,15 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
             bubble.style.lineHeight = '1.55';
             const badge = document.createElement('div');
             badge.style.cssText = 'font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
-            badge.textContent = '◆ Deep Mode';
+            badge.textContent = window.WJP_DeepAI.engine ? '◆ Deep Mode' : '◆ Deep Mode · loading model…';
             bubble.parentElement.insertBefore(badge, bubble);
             window.WJP_DeepAI.ask(val, (delta) => {
+                badge.textContent = '◆ Deep Mode';
                 bubble.textContent += delta;
                 containerEl.scrollTop = containerEl.scrollHeight;
             }).catch(err => {
-                bubble.textContent = `Deep Mode failed (${err.message || err}). Falling back to standard AI:\n\n` + generateAiResponse(val);
+                badge.textContent = '◆ Deep Mode · fallback';
+                bubble.textContent = `Deep Mode failed (${err.message || err}).\n\nFalling back to standard AI:\n\n` + generateAiResponse(val);
             });
             return;
         }
@@ -13184,20 +13268,23 @@ function initAdvisorPageLogic() {
             typing.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text-3);">…</div>';
             log.appendChild(typing); log.scrollTop = log.scrollHeight;
 
-            const useDeep = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled && window.WJP_DeepAI.engine);
-            if (useDeep) {
+            const deepEnabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
+            if (deepEnabled) {
                 typing.remove();
-                // Build the bubble shell, then stream tokens
                 const wrap = document.createElement('div');
                 wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
-                wrap.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="display:flex;flex-direction:column;max-width:85%;"><div style="font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">◆ Deep Mode</div><div class="lvs-stream-bubble" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55;white-space:pre-line;"></div></div>';
+                const isReady = !!window.WJP_DeepAI.engine;
+                wrap.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="display:flex;flex-direction:column;max-width:85%;"><div class="lvs-badge" style="font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">' + (isReady ? '◆ Deep Mode' : '◆ Deep Mode · loading model…') + '</div><div class="lvs-stream-bubble" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55;white-space:pre-line;"></div></div>';
                 log.appendChild(wrap);
                 const bubble = wrap.querySelector('.lvs-stream-bubble');
+                const badge = wrap.querySelector('.lvs-badge');
                 window.WJP_DeepAI.ask(text, (delta) => {
+                    if (badge) badge.textContent = '◆ Deep Mode';
                     bubble.textContent += delta;
                     log.scrollTop = log.scrollHeight;
                 }).catch(err => {
-                    bubble.textContent = `Deep Mode failed (${err.message || err}). Falling back:\n\n` + (typeof generateAiResponse === 'function' ? generateAiResponse(text) : '');
+                    if (badge) badge.textContent = '◆ Deep Mode · fallback';
+                    bubble.textContent = `Deep Mode failed (${err.message || err}).\n\nFalling back:\n\n` + (typeof generateAiResponse === 'function' ? generateAiResponse(text) : '');
                 });
                 return;
             }
