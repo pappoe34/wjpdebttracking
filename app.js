@@ -7491,6 +7491,141 @@ function renderAnalysisModal(simData, currentStrat) {
 
 /* ---------- AI CHAT LOGIC ---------- */
 /* ---------- GLOBAL AI ENGINE ---------- */
+/* ========================================================================
+   WJP_DeepAI — Optional in-browser LLM (WebLLM / WebGPU).
+   Free + private: model downloads once to IndexedDB, runs locally on the
+   user's GPU, no API keys, no data ever leaves the device. Toggled on
+   from Settings → AI Intelligence → Deep Mode.
+   ======================================================================== */
+window.WJP_DeepAI = {
+    enabled: !!(typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.deepMode),
+    engine: null,
+    loading: false,
+    progress: 0,
+    progressLabel: 'Loading…',
+    // Qwen 2.5 1.5B — best balance of size (~1.2GB), speed, and reasoning
+    // for our use case. Also instruction-tuned, which matters here.
+    modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    listeners: new Set(),
+
+    onProgress(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
+    _emit() { this.listeners.forEach(fn => { try { fn(this.progress, this.progressLabel); } catch(_){} }); },
+
+    /** Lazy-load WebLLM SDK + model. Idempotent. */
+    async load() {
+        if (this.engine) return this.engine;
+        if (this.loading) {
+            // Wait for in-progress load to finish
+            return new Promise(resolve => {
+                const off = this.onProgress(() => { if (this.engine) { off(); resolve(this.engine); } });
+            });
+        }
+        this.loading = true;
+        try {
+            this.progressLabel = 'Fetching WebLLM SDK…'; this.progress = 0; this._emit();
+            const { CreateMLCEngine } = await import('https://esm.run/@mlc-ai/web-llm');
+            this.engine = await CreateMLCEngine(this.modelId, {
+                initProgressCallback: (p) => {
+                    this.progress = p.progress || 0;
+                    this.progressLabel = p.text || 'Loading model…';
+                    this._emit();
+                }
+            });
+            this.progress = 1; this.progressLabel = 'Ready'; this._emit();
+            return this.engine;
+        } catch (err) {
+            this.progressLabel = 'Failed: ' + (err && err.message || err);
+            this._emit();
+            throw err;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    /** Build sanitized account context — first name only, dollar amounts ok,
+     *  no addresses/phones/emails/account numbers. Stays on the device anyway,
+     *  but sanitization keeps screenshots / shared logs safe. */
+    _buildContext() {
+        const lines = [];
+        const p = (typeof appState !== 'undefined' && appState && appState.profile) || {};
+        const firstName = (p.fullName || '').split(/\s+/)[0] || 'the user';
+        lines.push(`User first name: ${firstName}`);
+        const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
+        if (income) lines.push(`Monthly income: $${income.toLocaleString()}`);
+        const debts = appState.debts || [];
+        if (debts.length) {
+            lines.push(`\nDebts (${debts.length} accounts):`);
+            debts.forEach(d => {
+                const monthlyInt = ((d.balance || 0) * (d.apr || 0) / 100 / 12).toFixed(2);
+                lines.push(`- ${d.name}: balance $${(d.balance||0).toLocaleString()}, APR ${d.apr||0}%, min payment $${(d.minPayment||0).toLocaleString()}, due day-of-month ${d.dueDate||d.dueDay||'?'}, monthly interest cost $${monthlyInt}${d.creditLimit?`, credit limit $${d.creditLimit.toLocaleString()}`:''}`);
+            });
+            const totalDebt = debts.reduce((s,d)=>s+(d.balance||0),0);
+            const totalMin = debts.reduce((s,d)=>s+(d.minPayment||0),0);
+            const avgApr = debts.reduce((s,d)=>s+(d.apr||0),0) / debts.length;
+            lines.push(`Totals: $${totalDebt.toLocaleString()} debt, $${totalMin.toLocaleString()}/mo minimums, avg APR ${avgApr.toFixed(1)}%`);
+            if (income) lines.push(`Debt-to-income ratio: ${Math.round(totalMin/income*100)}%`);
+        }
+        const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+        lines.push(`\nCurrent payoff strategy: ${strategy}`);
+        const extra = (appState.budget && appState.budget.contribution) || 0;
+        if (extra) lines.push(`Monthly extra payment beyond minimums: $${extra.toLocaleString()}`);
+        const goals = appState.savingsGoals || [];
+        if (goals.length) {
+            lines.push(`\nSavings goals:`);
+            goals.forEach(g => lines.push(`- ${g.name}: $${(g.current||0).toLocaleString()} of $${(g.target||0).toLocaleString()}`));
+        }
+        // Real (non-synthetic) spending this month, by category
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+        const realTxns = (appState.transactions || []).filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= monthStart);
+        if (realTxns.length) {
+            const byCat = {};
+            realTxns.forEach(t => { const c = t.category || 'Other'; byCat[c] = (byCat[c]||0) + Math.abs(t.amount); });
+            const top = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            lines.push(`\nReal spending this month (top categories):`);
+            top.forEach(([c,v]) => lines.push(`- ${c}: $${Math.round(v).toLocaleString()}`));
+        }
+        return lines.join('\n');
+    },
+
+    /** Ask the model. Returns the full reply string. Streams via onChunk. */
+    async ask(question, onChunk) {
+        if (!this.engine) await this.load();
+        const ctx = this._buildContext();
+        const messages = [
+            { role: 'system', content:
+                'You are an in-product debt-tracking AI advisor inside the WJP app. ' +
+                'Answer questions concretely using the user account context provided. ' +
+                'Be concise and actionable — bullet points and short paragraphs. ' +
+                'Never invent numbers; if the data isn\'t in the context, say so. ' +
+                'Never share or repeat the user context verbatim. ' +
+                'Focus on debt payoff, credit improvement, savings, and cash flow.\n\n' +
+                'Account context (private to this user):\n' + ctx
+            },
+            { role: 'user', content: question }
+        ];
+        let full = '';
+        try {
+            const stream = await this.engine.chat.completions.create({
+                messages, temperature: 0.4, max_tokens: 600, stream: true
+            });
+            for await (const chunk of stream) {
+                const delta = chunk.choices[0]?.delta?.content || '';
+                if (delta) {
+                    full += delta;
+                    if (onChunk) onChunk(delta, full);
+                }
+            }
+            return full;
+        } catch (err) {
+            // Fall back to non-streaming
+            const resp = await this.engine.chat.completions.create({
+                messages, temperature: 0.4, max_tokens: 600
+            });
+            return resp.choices[0].message.content;
+        }
+    }
+};
+
 /** AI Advisor — answers grounded entirely in the user's account data.
  *  Pattern-matches the question against intents (debt totals, due dates,
  *  credit, spending, budget, savings, strategy, payoff, advice) and returns
@@ -7506,10 +7641,79 @@ function generateAiResponse(input) {
     const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
     const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
 
+    // 0. Specific debt by name — answer about a single account
+    {
+        const matched = debts.find(d => d.name && low.includes(d.name.toLowerCase()));
+        if (matched && /\b(my|about|tell|details|status|info|what.*on|how much|left|balance|owe)\b/.test(low) && !/strategy|priority|first|next|due/.test(low)) {
+            const monthlyInt = (matched.balance || 0) * (matched.apr || 0) / 100 / 12;
+            const months = matched.minPayment > 0 ? Math.ceil(matched.balance / matched.minPayment) : '?';
+            const today = new Date();
+            const dd = parseInt(matched.dueDate || matched.dueDay, 10) || 1;
+            let due = new Date(today.getFullYear(), today.getMonth(), dd);
+            if (due < today) due.setMonth(due.getMonth()+1);
+            const daysUntil = Math.round((due - today) / 86400000);
+            const lines = [
+                `📋 ${matched.name}`,
+                `• Current balance: ${fmt(matched.balance)}`,
+                `• APR: ${matched.apr || 0}%`,
+                `• Minimum payment: ${fmt(matched.minPayment)}/mo`,
+                `• Next due: in ${daysUntil} days (${due.toLocaleDateString('en-US',{month:'short',day:'numeric'})})`,
+                `• Monthly interest cost: ${fmt(monthlyInt)} (${fmt(monthlyInt*12)}/year)`,
+                `• Min-only payoff: ${typeof months === 'number' ? months + ' months' : "never (minimum doesn't cover interest)"}`
+            ];
+            if (matched.creditLimit) {
+                const u = Math.round((matched.balance / matched.creditLimit) * 100);
+                lines.push(`• Card utilization: ${u}% (${u<10?'Excellent':u<30?'Healthy':u<50?'Watch':'High'})`);
+            }
+            // Position in payoff priority
+            const sortedByApr = [...debts].sort((a,b) => (b.apr||0)-(a.apr||0));
+            const priorityIdx = sortedByApr.findIndex(d => d.id === matched.id);
+            if (priorityIdx >= 0) lines.push(`• Avalanche priority: #${priorityIdx + 1} of ${debts.length}`);
+            return lines.join('\n');
+        }
+    }
+
+    // 0b. Compare two named debts
+    {
+        const named = debts.filter(d => d.name && low.includes(d.name.toLowerCase()));
+        if (named.length >= 2 && /\b(vs|versus|compare|or|which|worse|better|first)\b/.test(low)) {
+            const lines = ['⚖️  Side-by-side:'];
+            named.slice(0, 4).forEach(d => {
+                const monthlyInt = (d.balance||0) * (d.apr||0) / 100 / 12;
+                lines.push(`• ${d.name}: ${fmt(d.balance)} @ ${d.apr||0}% → burns ${fmt(monthlyInt)}/mo`);
+            });
+            const worst = named.sort((a,b) => ((b.balance||0)*(b.apr||0)) - ((a.balance||0)*(a.apr||0)))[0];
+            lines.push(`\n🎯 Hit ${worst.name} first — it costs the most in raw interest dollars per month.`);
+            return lines.join('\n');
+        }
+    }
+
+    // 0c. Refinance / consolidation break-even
+    if (/\b(refinanc|consolidat|balance transfer|new rate|lower.*apr|0%)\b/.test(low)) {
+        if (!debts.length) return "Add your debts first and I'll model whether refinancing or balance-transferring makes sense.";
+        const m = low.match(/(\d+(?:\.\d+)?)\s*%/);
+        const newApr = m ? parseFloat(m[1]) : 5.99;
+        const sortedByApr = [...debts].sort((a,b) => (b.apr||0)-(a.apr||0));
+        const top = sortedByApr[0];
+        const currentMonthlyInt = (top.balance||0) * (top.apr||0) / 100 / 12;
+        const newMonthlyInt = (top.balance||0) * newApr / 100 / 12;
+        const monthlySave = currentMonthlyInt - newMonthlyInt;
+        const yearlySave = monthlySave * 12;
+        const months = top.minPayment > 0 ? Math.ceil(top.balance / top.minPayment) : 60;
+        const lifetimeSave = monthlySave * months;
+        return `🔁 Refinance / consolidation analysis on your highest-APR debt:\n\n` +
+            `• Current: ${top.name} at ${top.apr || 0}% APR (${fmt(top.balance)})\n` +
+            `• Hypothetical: same balance at ${newApr}% APR\n\n` +
+            `• Interest cost today: ${fmt(currentMonthlyInt)}/mo (${fmt(currentMonthlyInt*12)}/yr)\n` +
+            `• Interest cost after: ${fmt(newMonthlyInt)}/mo (${fmt(newMonthlyInt*12)}/yr)\n` +
+            `• Monthly savings: ${fmt(monthlySave)} (${fmt(yearlySave)}/yr, ${fmt(lifetimeSave)} over the payoff)\n\n` +
+            `💡 Break-even logic: if the refi has fees + closing costs, divide them by ${fmt(monthlySave)} to find the months-to-break-even. Beyond that point, every dollar is pure savings. Balance transfer cards usually charge 3-5% upfront — at 3% on ${fmt(top.balance)} that's ${fmt(top.balance * 0.03)} fee, recovered in ${monthlySave > 0 ? Math.ceil(top.balance * 0.03 / monthlySave) : '∞'} months.`;
+    }
+
     // 1. Greeting
     if (/^(hi|hello|hey|yo|sup)\b/.test(low) || low === 'hi' || low === 'hello') {
         const name = (appState.profile && appState.profile.fullName && appState.profile.fullName.split(' ')[0]) || 'there';
-        return `Hi ${name}. I can answer questions about your debts, due dates, credit, spending, savings, and which payoff strategy fits best. What's on your mind?`;
+        return `Hi ${name}. I can answer questions about your debts, due dates, credit, spending, savings, and which payoff strategy fits best. Try asking about a specific debt by name, or "what if I add $200 extra?" or "compare Avant and Sofi."`;
     }
 
     // 2. Due dates — detailed schedule + urgency framing
@@ -10010,15 +10214,30 @@ function renderCreditScoreTab() {
         const inputEl = document.getElementById('cs-chat-input');
         const clearBtn = document.getElementById('cs-chat-clear');
 
-        const sendMessage = (textOverride) => {
+        const sendMessage = async (textOverride) => {
             const text = (textOverride !== undefined ? textOverride : (inputEl ? inputEl.value : '')).trim();
             if (!text) return;
             chat.push({ role: 'user', text, ts: Date.now() });
-            const reply = answerQuestion(text);
-            chat.push({ role: 'assistant', text: reply, ts: Date.now() });
+            // Always seed with the credit-specific rule-based answer so the
+            // user sees something instantly. Deep Mode upgrades it if loaded.
+            const ruleReply = answerQuestion(text);
+            chat.push({ role: 'assistant', text: ruleReply, ts: Date.now() });
             saveChat();
             if (inputEl) inputEl.value = '';
             renderCreditScoreTab();
+            // If Deep Mode is enabled and ready, ask the LLM for a richer
+            // follow-up answer and append it.
+            const useDeep = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled && window.WJP_DeepAI.engine);
+            if (useDeep) {
+                try {
+                    const deepReply = await window.WJP_DeepAI.ask(`Credit-related question: ${text}\n\n(Provide deeper analysis beyond a generic answer.)`);
+                    if (deepReply && deepReply.trim()) {
+                        chat.push({ role: 'assistant', text: '◆ Deep Mode\n\n' + deepReply, ts: Date.now() });
+                        saveChat();
+                        renderCreditScoreTab();
+                    }
+                } catch(_){}
+            }
         };
 
         if (sendBtn) sendBtn.addEventListener('click', () => sendMessage());
@@ -11477,6 +11696,28 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
         containerEl.appendChild(thinking);
         containerEl.scrollTop = containerEl.scrollHeight;
 
+        // If Deep Mode is enabled AND the engine is loaded, stream from
+        // WebLLM. Otherwise fall back to the rule-based generateAiResponse.
+        const useDeep = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled && window.WJP_DeepAI.engine);
+        if (useDeep) {
+            thinking.remove();
+            const msg = addMessage('', 'ai');
+            const bubble = msg.querySelector('.ai-bubble');
+            bubble.style.whiteSpace = 'pre-line';
+            bubble.style.lineHeight = '1.55';
+            const badge = document.createElement('div');
+            badge.style.cssText = 'font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
+            badge.textContent = '◆ Deep Mode';
+            bubble.parentElement.insertBefore(badge, bubble);
+            window.WJP_DeepAI.ask(val, (delta) => {
+                bubble.textContent += delta;
+                containerEl.scrollTop = containerEl.scrollHeight;
+            }).catch(err => {
+                bubble.textContent = `Deep Mode failed (${err.message || err}). Falling back to standard AI:\n\n` + generateAiResponse(val);
+            });
+            return;
+        }
+
         setTimeout(() => {
             thinking.remove();
             const response = generateAiResponse(val);
@@ -11638,6 +11879,25 @@ function initAdvisorPageLogic() {
                     <span style="font-size:10px;color:var(--text-3);">/mo</span>
                   </div>
                 </div>
+                <!-- Deep Mode (private in-browser LLM) -->
+                <div style="background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.25);border-radius:10px;padding:14px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+                    <div>
+                      <div style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;"><i class="ph-fill ph-sparkle" style="color:var(--accent);"></i> Deep Mode <span style="font-size:8px;background:var(--accent);color:#0b0f1a;padding:2px 6px;border-radius:4px;font-weight:900;">BETA</span></div>
+                      <div style="font-size:10px;color:var(--text-3);margin-top:3px;">Private in-browser LLM. Smarter free-form answers. Stays 100% on your device.</div>
+                    </div>
+                    <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.deepMode)?'on':''}" data-key="deepMode" style="flex-shrink:0;"><div class="thumb"></div></div>
+                  </div>
+                  <div id="deep-mode-info" style="font-size:10px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(0,212,168,0.15);padding-top:10px;margin-top:6px;">
+                    First time you enable: ~1.2 GB model downloads from CDN to your browser cache. Takes 2-5 min on a normal connection. Subsequent loads are instant. Works offline once cached.<br>
+                    Requires a modern browser with WebGPU (Chrome, Edge, Safari TP, or Arc).
+                  </div>
+                  <div id="deep-mode-progress" style="display:none;margin-top:10px;">
+                    <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;" id="deep-mode-progress-label">Loading…</div>
+                    <div style="height:6px;background:rgba(0,212,168,0.10);border-radius:3px;overflow:hidden;"><div id="deep-mode-progress-bar" style="height:6px;width:0%;background:var(--accent);transition:width 0.3s;"></div></div>
+                  </div>
+                </div>
+
                 <!-- AI Behaviour toggles — read/write appState.prefs.aiBehavior -->
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">AI Behaviour</div>
@@ -11707,7 +11967,49 @@ function initAdvisorPageLogic() {
             });
             // Toggle clicks just flip the .on class — values are read on save
             document.querySelectorAll('.ai-behavior-toggle, .privacy-toggle').forEach(t => {
-                t.addEventListener('click', () => t.classList.toggle('on'));
+                t.addEventListener('click', () => {
+                    t.classList.toggle('on');
+                    // Special handling for Deep Mode — start the model
+                    // download immediately so the user sees progress.
+                    if (t.dataset.key === 'deepMode' && t.classList.contains('on')) {
+                        if (!appState.prefs) appState.prefs = {};
+                        appState.prefs.deepMode = true;
+                        window.WJP_DeepAI.enabled = true;
+                        const info = document.getElementById('deep-mode-info');
+                        const prog = document.getElementById('deep-mode-progress');
+                        const bar  = document.getElementById('deep-mode-progress-bar');
+                        const lbl  = document.getElementById('deep-mode-progress-label');
+                        if (info) info.style.display = 'none';
+                        if (prog) prog.style.display = 'block';
+                        // Check WebGPU support before kicking off the download
+                        if (!('gpu' in navigator)) {
+                            if (lbl) lbl.textContent = "Your browser doesn't support WebGPU. Try Chrome / Edge / Arc.";
+                            t.classList.remove('on');
+                            appState.prefs.deepMode = false;
+                            window.WJP_DeepAI.enabled = false;
+                            return;
+                        }
+                        const off = window.WJP_DeepAI.onProgress((p, label) => {
+                            if (bar) bar.style.width = Math.round(p * 100) + '%';
+                            if (lbl) lbl.textContent = `${label} · ${Math.round(p * 100)}%`;
+                        });
+                        window.WJP_DeepAI.load().then(() => {
+                            if (lbl) lbl.textContent = '✓ Deep Mode ready. Ask the AI anything.';
+                            showToast('Deep Mode loaded. Try a question.');
+                            off();
+                        }).catch(err => {
+                            if (lbl) lbl.textContent = 'Failed: ' + (err && err.message || err);
+                            t.classList.remove('on');
+                            appState.prefs.deepMode = false;
+                            window.WJP_DeepAI.enabled = false;
+                            off();
+                        });
+                    } else if (t.dataset.key === 'deepMode' && !t.classList.contains('on')) {
+                        if (!appState.prefs) appState.prefs = {};
+                        appState.prefs.deepMode = false;
+                        window.WJP_DeepAI.enabled = false;
+                    }
+                });
             });
             document.getElementById('ai-settings-save-btn')?.addEventListener('click', () => {
                 const extra = parseFloat(document.getElementById('ai-extra-input')?.value) || 0;
@@ -12780,18 +13082,38 @@ function initAdvisorPageLogic() {
             log.scrollTop = log.scrollHeight;
         }
 
-        // Send a message — runs through generateAiResponse (the real account-aware bot)
+        // Send a message — uses WebLLM Deep Mode if enabled, falls back to
+        // the rule-based generateAiResponse otherwise. Streams when possible.
         function sendQuery(q) {
             const text = (q || document.getElementById('lvs-input').value || '').trim();
             if (!text) return;
             appendMsg('user', text);
             document.getElementById('lvs-input').value = '';
-            // Brief typing indicator, then the real reply
             const log = document.getElementById('lvs-log');
+            // Always show typing indicator first
             const typing = document.createElement('div');
             typing.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
             typing.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text-3);">…</div>';
             log.appendChild(typing); log.scrollTop = log.scrollHeight;
+
+            const useDeep = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled && window.WJP_DeepAI.engine);
+            if (useDeep) {
+                typing.remove();
+                // Build the bubble shell, then stream tokens
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+                wrap.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="display:flex;flex-direction:column;max-width:85%;"><div style="font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">◆ Deep Mode</div><div class="lvs-stream-bubble" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55;white-space:pre-line;"></div></div>';
+                log.appendChild(wrap);
+                const bubble = wrap.querySelector('.lvs-stream-bubble');
+                window.WJP_DeepAI.ask(text, (delta) => {
+                    bubble.textContent += delta;
+                    log.scrollTop = log.scrollHeight;
+                }).catch(err => {
+                    bubble.textContent = `Deep Mode failed (${err.message || err}). Falling back:\n\n` + (typeof generateAiResponse === 'function' ? generateAiResponse(text) : '');
+                });
+                return;
+            }
+
             setTimeout(() => {
                 typing.remove();
                 const reply = (typeof generateAiResponse === 'function')
