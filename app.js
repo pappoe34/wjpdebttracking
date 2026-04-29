@@ -622,6 +622,21 @@ document.addEventListener('DOMContentLoaded', () => {
     initDashCustomize();
     initSearch();
     
+    // If Deep Mode was previously enabled, auto-resume the model download in
+    // the background and surface progress globally via a floating status pill.
+    try {
+        if (appState && appState.prefs && appState.prefs.deepMode && window.WJP_DeepAI && !window.WJP_DeepAI.engine && !window.WJP_DeepAI.loading) {
+            if ('gpu' in navigator) {
+                ensureDeepStatusPill();
+                window.WJP_DeepAI.load().then(() => {
+                    showToast('Deep Mode ready.');
+                }).catch(err => {
+                    console.warn('Deep Mode load failed', err);
+                });
+            }
+        }
+    } catch(_){}
+
     // Draw charts and initialize UI state properly. On initial page load the
     // dashboard is already class="page active" in the HTML, so navigateSPA
     // never fires — which means drawCharts() never runs until the user
@@ -7510,6 +7525,51 @@ function renderAnalysisModal(simData, currentStrat) {
 
 /* ---------- AI CHAT LOGIC ---------- */
 /* ---------- GLOBAL AI ENGINE ---------- */
+/** Floating Deep Mode status pill — fixed bottom-left, visible on every page.
+ *  Subscribes to WJP_DeepAI progress events and updates a percentage label
+ *  + a green progress bar. Removes itself when the engine is ready or the
+ *  user explicitly disables Deep Mode. */
+function ensureDeepStatusPill() {
+    let pill = document.getElementById('deep-status-pill');
+    if (pill) return pill;
+    pill = document.createElement('div');
+    pill.id = 'deep-status-pill';
+    pill.style.cssText = 'position:fixed;bottom:24px;left:24px;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-size:11px;color:var(--text-2);min-width:240px;max-width:320px;display:flex;flex-direction:column;gap:6px;';
+    pill.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <i class="ph-fill ph-sparkle" style="color:var(--accent);font-size:14px;"></i>
+          <span style="font-weight:800;">Deep Mode</span>
+        </div>
+        <button id="deep-status-close" type="button" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:14px;padding:0;line-height:1;">×</button>
+      </div>
+      <div id="deep-status-label" style="font-size:10px;color:var(--text-3);line-height:1.4;">Initializing…</div>
+      <div style="height:5px;background:var(--card-2);border-radius:3px;overflow:hidden;">
+        <div id="deep-status-bar" style="height:5px;width:0%;background:var(--accent);transition:width 0.3s;"></div>
+      </div>
+      <div id="deep-status-pct" style="font-size:9px;color:var(--text-3);font-variant-numeric:tabular-nums;">0%</div>`;
+    document.body.appendChild(pill);
+    pill.querySelector('#deep-status-close').onclick = () => pill.remove();
+    // Subscribe to progress
+    if (window.WJP_DeepAI) {
+        const off = window.WJP_DeepAI.onProgress((progress, label) => {
+            const bar = pill.querySelector('#deep-status-bar');
+            const lbl = pill.querySelector('#deep-status-label');
+            const pct = pill.querySelector('#deep-status-pct');
+            if (bar) bar.style.width = Math.round(progress * 100) + '%';
+            if (lbl) lbl.textContent = label || 'Loading…';
+            if (pct) pct.textContent = Math.round(progress * 100) + '%';
+            if (progress >= 1 && window.WJP_DeepAI.engine) {
+                if (lbl) lbl.textContent = '✓ Ready — open the AI to ask anything';
+                if (pct) pct.textContent = '100%';
+                setTimeout(() => { if (pill && pill.parentElement) pill.remove(); off && off(); }, 4000);
+            }
+        });
+    }
+    return pill;
+}
+window.ensureDeepStatusPill = ensureDeepStatusPill;
+
 /* ========================================================================
    WJP_DeepAI — Optional in-browser LLM (WebLLM / WebGPU).
    Free + private: model downloads once to IndexedDB, runs locally on the
@@ -11994,6 +12054,7 @@ function initAdvisorPageLogic() {
                         if (!appState.prefs) appState.prefs = {};
                         appState.prefs.deepMode = true;
                         window.WJP_DeepAI.enabled = true;
+                        try { saveState(); } catch(_){}
                         const info = document.getElementById('deep-mode-info');
                         const prog = document.getElementById('deep-mode-progress');
                         const bar  = document.getElementById('deep-mode-progress-bar');
@@ -12008,6 +12069,9 @@ function initAdvisorPageLogic() {
                             window.WJP_DeepAI.enabled = false;
                             return;
                         }
+                        // ALSO mount the global floating status pill so progress
+                        // is visible even after the drawer closes
+                        ensureDeepStatusPill();
                         const off = window.WJP_DeepAI.onProgress((p, label) => {
                             if (bar) bar.style.width = Math.round(p * 100) + '%';
                             if (lbl) lbl.textContent = `${label} · ${Math.round(p * 100)}%`;
@@ -12021,12 +12085,17 @@ function initAdvisorPageLogic() {
                             t.classList.remove('on');
                             appState.prefs.deepMode = false;
                             window.WJP_DeepAI.enabled = false;
+                            try { saveState(); } catch(_){}
                             off();
                         });
                     } else if (t.dataset.key === 'deepMode' && !t.classList.contains('on')) {
                         if (!appState.prefs) appState.prefs = {};
                         appState.prefs.deepMode = false;
                         window.WJP_DeepAI.enabled = false;
+                        try { saveState(); } catch(_){}
+                        // Remove the floating pill if it's up
+                        const pill = document.getElementById('deep-status-pill');
+                        if (pill) pill.remove();
                     }
                 });
             });
