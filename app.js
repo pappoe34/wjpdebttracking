@@ -622,11 +622,30 @@ document.addEventListener('DOMContentLoaded', () => {
     initDashCustomize();
     initSearch();
     
-    // Draw charts and initialize UI state properly
+    // Draw charts and initialize UI state properly. On initial page load the
+    // dashboard is already class="page active" in the HTML, so navigateSPA
+    // never fires — which means drawCharts() never runs until the user
+    // clicks another tab and comes back. Fix by triggering the same render
+    // pipeline navigateSPA uses on initial load.
     setTimeout(() => {
         updateUI();
         animateProgressBars();
         renderActivityPage();
+        // Figure out which page is actually active (HTML defaults to dashboard
+        // but other init paths may have switched it) and run that page's
+        // post-mount render hooks — same as if the user had navigated here.
+        const activePage = document.querySelector('.page.active');
+        const initialTarget = activePage && activePage.id ? activePage.id.replace(/^page-/, '') : 'dashboard';
+        try { if (typeof drawCharts === 'function') drawCharts(); } catch(_){}
+        if (initialTarget === 'budgets' && typeof renderCashFlowChart === 'function') {
+            try { renderCashFlowChart(); } catch(_){}
+            try { renderPaycheckAllocation(); } catch(_){}
+            try { renderSavingsGoals(); } catch(_){}
+            try { refreshBudgetVsPredicted && refreshBudgetVsPredicted(); } catch(_){}
+        }
+        if ((initialTarget === 'budgets' || initialTarget === 'debts') && typeof refreshBudgetVsPredicted === 'function') {
+            setTimeout(() => { try { refreshBudgetVsPredicted(); } catch(_){} }, 200);
+        }
     }, 100);
 });
 
