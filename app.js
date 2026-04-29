@@ -12586,47 +12586,115 @@ function initAdvisorPageLogic() {
         }
     });
 
-    // ── 9. Live Chat / Email Us — opens a small drawer with a textarea + send
+    // ── 9. Live Support — AI chatbot grounded in account data + email fallback
     document.getElementById('btn-settings-chat')?.addEventListener('click', () => {
         const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
+        const greetName = (appState.profile && appState.profile.fullName && appState.profile.fullName.split(' ')[0]) || 'there';
         openSettingsDrawer({
             icon: 'ph-chat-teardrop-dots',
-            badge: 'CONTACT',
-            title: 'Email Support',
-            subtitle: "Type your question and we'll respond within 4 business hours.",
+            badge: 'LIVE SUPPORT',
+            title: 'AI Live Support',
+            subtitle: 'Ask anything about your account — debts, due dates, credit, spending, payoff strategy. Need a human? Email option stays available.',
             body: `
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <div>
-                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Your Email</div>
-                  <input id="livechat-email" type="email" value="${profileEmail}" placeholder="you@example.com" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;gap:12px;height:100%;">
+                <!-- Status pill -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(0,212,168,0.07);border:1px solid rgba(0,212,168,0.25);border-radius:10px;">
+                  <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0;"></div>
+                  <div style="font-size:11px;font-weight:700;">AI Support is online</div>
+                  <div style="font-size:9px;color:var(--text-3);margin-left:auto;">Reads your account data only · stays on your device</div>
                 </div>
-                <div>
-                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Message</div>
-                  <textarea id="livechat-body" rows="6" placeholder="What's going on?" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                <!-- Conversation log -->
+                <div id="lvs-log" style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;min-height:280px;max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+                  <div style="display:flex;gap:8px;align-items:flex-start;">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div>
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55;max-width:85%;">Hi ${greetName}. I can answer questions about your debts, due dates, credit, spending, savings, and which payoff strategy fits best. Ask me anything.</div>
+                  </div>
                 </div>
-                <div style="font-size:10px;color:var(--text-3);background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;line-height:1.5;">
-                  <i class="ph ph-info" style="color:var(--accent);"></i> Click SEND to open your email client with this message pre-filled. We also copy it to your clipboard as a backup so you can paste into webmail.
+                <!-- Quick prompts -->
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${[
+                    'When are my next payments due?',
+                    "How's my credit utilization?",
+                    "What's the best payoff strategy?",
+                    'Where am I spending this month?',
+                    'How fast can I pay off my debts?',
+                    'How can I improve my savings rate?'
+                  ].map(p => `<button class="lvs-prompt" type="button" style="background:var(--card-2);border:1px solid var(--border);color:var(--text-2);font-size:10px;padding:6px 10px;border-radius:14px;cursor:pointer;">${p}</button>`).join('')}
                 </div>
-                <button id="livechat-send" class="btn btn-primary" style="width:100%;padding:12px;"><i class="ph ph-paper-plane-right"></i> SEND</button>
+                <!-- Input -->
+                <div style="display:flex;gap:8px;">
+                  <input id="lvs-input" type="text" placeholder="Type a question..." style="flex:1;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;">
+                  <button id="lvs-send" class="btn btn-primary" style="padding:10px 16px;font-size:11px;"><i class="ph-fill ph-paper-plane-right"></i></button>
+                </div>
+                <!-- Email fallback -->
+                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                  <div style="font-size:10px;color:var(--text-3);">Need a human? Open the email form anytime.</div>
+                  <button id="lvs-email-btn" type="button" style="background:transparent;border:1px solid var(--border);color:var(--accent);font-size:11px;font-weight:700;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="ph ph-envelope-simple"></i> Email support</button>
+                </div>
               </div>`
         });
+
         const overlay = document.getElementById('settings-drawer-overlay');
-        if (overlay) {
-            overlay.addEventListener('click', (e) => {
-                if (!e.target.closest('#livechat-send')) return;
-                const email = (document.getElementById('livechat-email').value || profileEmail || '').trim();
-                const desc = (document.getElementById('livechat-body').value || '').trim();
-                if (!desc) { showToast('Type a message first.'); return; }
-                const subj = encodeURIComponent('WJP — Question / Feedback');
-                const body = encodeURIComponent(`Hi WJP team,\n\n${desc}\n\n--\nFrom: ${email || '(my signed-in email)'}\nSent from WJP Debt Tracker`);
-                window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
-                try {
-                    const fallback = `To: pappoe34@gmail.com\nSubject: WJP — Question / Feedback\n\n${desc}\n\n— ${email || 'your account email'}`;
-                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(fallback).catch(()=>{});
-                } catch(_){}
-                showToast('Opening your email client (also copied to clipboard).');
-            });
+        if (!overlay) return;
+
+        // Helper: append a message bubble to the log
+        function appendMsg(role, text) {
+            const log = document.getElementById('lvs-log');
+            if (!log) return;
+            const wrap = document.createElement('div');
+            if (role === 'user') {
+                wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-start;justify-content:flex-end;';
+                wrap.innerHTML = `<div style="background:rgba(0,212,168,0.12);border:1px solid rgba(0,212,168,0.25);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55;max-width:85%;">${text.replace(/[<>]/g, c => c === '<' ? '&lt;' : '&gt;')}</div>`;
+            } else {
+                wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+                wrap.innerHTML = `<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55;max-width:85%;white-space:pre-line;">${text.replace(/[<>]/g, c => c === '<' ? '&lt;' : '&gt;')}</div>`;
+            }
+            log.appendChild(wrap);
+            log.scrollTop = log.scrollHeight;
         }
+
+        // Send a message — runs through generateAiResponse (the real account-aware bot)
+        function sendQuery(q) {
+            const text = (q || document.getElementById('lvs-input').value || '').trim();
+            if (!text) return;
+            appendMsg('user', text);
+            document.getElementById('lvs-input').value = '';
+            // Brief typing indicator, then the real reply
+            const log = document.getElementById('lvs-log');
+            const typing = document.createElement('div');
+            typing.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+            typing.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b0f1a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;"><i class="ph-fill ph-robot"></i></div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text-3);">…</div>';
+            log.appendChild(typing); log.scrollTop = log.scrollHeight;
+            setTimeout(() => {
+                typing.remove();
+                const reply = (typeof generateAiResponse === 'function')
+                    ? generateAiResponse(text)
+                    : "I'm thinking about that. Try asking about due dates, credit, spending, or your payoff strategy.";
+                appendMsg('ai', reply);
+            }, 350);
+        }
+
+        // Delegate every interaction off the overlay so wiring doesn't race
+        overlay.addEventListener('click', (e) => {
+            if (e.target.closest('#lvs-send')) { sendQuery(); return; }
+            const prompt = e.target.closest('.lvs-prompt');
+            if (prompt) { sendQuery(prompt.textContent); return; }
+            if (e.target.closest('#lvs-email-btn')) {
+                // Pop the email form on top of the chat
+                const subj = encodeURIComponent('WJP — Question for support team');
+                const body = encodeURIComponent(`Hi WJP team,\n\n[Your message here]\n\n--\nFrom: ${profileEmail || '(my signed-in email)'}\nSent from WJP Live Support`);
+                window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+                showToast('Opening your email client…');
+                return;
+            }
+        });
+        // Enter key sends
+        overlay.addEventListener('keydown', (e) => {
+            if (e.target && e.target.id === 'lvs-input' && e.key === 'Enter') {
+                e.preventDefault();
+                sendQuery();
+            }
+        });
     });
 
     // ── 10. Save & Exit ───────────────────────────────────────
