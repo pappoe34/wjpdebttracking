@@ -11926,21 +11926,28 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
         containerEl.appendChild(thinking);
         containerEl.scrollTop = containerEl.scrollHeight;
 
-        // Deep Mode path: keep an animated 3-dot thinking indicator on screen
-        // until the first streamed token arrives, then swap it out for the
-        // streaming reply. This eliminates the dead-air pause while the
-        // model processes the prompt.
+        // Re-sync runtime enabled from the saved pref so a stale flag from
+        // earlier doesn't block Deep Mode when the user actually has it on.
+        const prefDeep = !!(window.appState && appState.prefs && appState.prefs.deepMode);
+        if (window.WJP_DeepAI && prefDeep) window.WJP_DeepAI.enabled = true;
+
+        // Deep Mode path: pulsing dots until first token, then stream into a
+        // fresh bubble. Lots of diagnostic logging so we can see in DevTools
+        // whether the route was taken and how the engine behaved.
         const deepEnabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
+        const engineReady = !!(window.WJP_DeepAI && window.WJP_DeepAI.engine);
+        console.log('[WJP chat] send', { prefDeep, deepEnabled, engineReady, loading: window.WJP_DeepAI && window.WJP_DeepAI.loading });
         if (deepEnabled) {
             const thinkingBubble = thinking.querySelector('.ai-bubble');
             if (thinkingBubble) {
-                thinkingBubble.innerHTML = `<div class="wjp-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="wjp-thinking-label">${window.WJP_DeepAI.engine ? 'thinking…' : 'loading model…'}</span></div>`;
+                thinkingBubble.innerHTML = `<div class="wjp-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="wjp-thinking-label">${engineReady ? 'thinking…' : 'loading model…'}</span></div>`;
             }
             let firstChunk = true;
-            let bubble, badge;
+            let bubble, badge, fullReply = '';
             window.WJP_DeepAI.ask(val, (delta) => {
                 if (firstChunk) {
                     firstChunk = false;
+                    console.log('[WJP chat] first chunk arrived');
                     thinking.remove();
                     const msg = addMessage('', 'ai');
                     bubble = msg.querySelector('.ai-bubble');
@@ -11951,17 +11958,36 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
                     badge.textContent = '◆ Deep Mode';
                     bubble.parentElement.insertBefore(badge, bubble);
                 }
+                fullReply += delta;
                 bubble.textContent += delta;
                 containerEl.scrollTop = containerEl.scrollHeight;
+            }).then(finalReply => {
+                console.log('[WJP chat] ask resolved, length:', (finalReply || fullReply || '').length);
+                // Empty-reply fallback — if the model returned nothing usable
+                // (rare but happens with bad prompts on small models), don't
+                // leave the user staring at dots.
+                if (firstChunk) {
+                    thinking.remove();
+                    const msg = addMessage('', 'ai');
+                    const bubble2 = msg.querySelector('.ai-bubble');
+                    bubble2.style.whiteSpace = 'pre-line';
+                    const note = document.createElement('div');
+                    note.style.cssText = 'font-size:8px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
+                    note.textContent = '◆ Deep Mode · empty reply, using Standard';
+                    bubble2.parentElement.insertBefore(note, bubble2);
+                    bubble2.textContent = generateAiResponse(val);
+                }
             }).catch(err => {
+                console.warn('[WJP chat] Deep Mode error', err);
                 thinking.remove();
                 const errMsg = addMessage('', 'ai');
                 const errBubble = errMsg.querySelector('.ai-bubble');
                 errBubble.style.whiteSpace = 'pre-line';
-                errBubble.textContent = `Deep Mode failed (${err.message || err}).\n\nFalling back to standard AI:\n\n` + generateAiResponse(val);
+                errBubble.textContent = `Deep Mode failed: ${err.message || err}\n\nFalling back to Standard AI:\n\n` + generateAiResponse(val);
             });
             return;
         }
+        console.log('[WJP chat] using Standard (Deep Mode off)');
 
         setTimeout(() => {
             thinking.remove();
@@ -12009,6 +12035,15 @@ function initChatLogic() {
         const toggleChat = () => {
             panel.classList.toggle('active');
             fab.classList.toggle('active');
+            // Refresh the mode badge in the panel header every time it opens
+            try { if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge(); } catch(_){}
+            // Focus the input when opening so you can type right away
+            if (panel.classList.contains('active')) {
+                setTimeout(() => {
+                    const inp = document.getElementById('chat-input');
+                    if (inp) inp.focus();
+                }, 50);
+            }
         };
         fab.addEventListener('click', toggleChat);
         if(closeBtn) closeBtn.addEventListener('click', toggleChat);
