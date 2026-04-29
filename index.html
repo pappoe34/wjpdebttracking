@@ -192,7 +192,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
-  <link rel="stylesheet" href="style.css?v=86-fabwidget">
+  <link rel="stylesheet" href="style.css?v=87-advisorv2">
 
   <!-- Resource hints: start the TCP/DNS handshake early, but don't block render.
        The actual scripts are loaded on demand in app.js when their feature is used.
@@ -2536,83 +2536,58 @@
           </div>
         </div>
            <!-- PAGE: AI ADVISOR -->
-        <div class="page" id="page-advisor">
-           
-           <div style="margin-bottom:32px;" class="reveal">
-             <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em; margin-bottom:8px;">AI coach</div>
-             <h1 style="font-size:40px; font-weight:900; margin-bottom:16px;">AI Advisor</h1>
-             <p style="font-size:14px; color:var(--text-3); max-width:650px; line-height:1.6;">Your architectural debt strategy, refined through real-time market analysis and liquidity forecasting.</p>
-           </div>
+        <div class="page advisor-page-v2" id="page-advisor">
+          <!-- Compact header -->
+          <div class="advisor-header reveal">
+            <div class="advisor-header-left">
+              <div class="advisor-header-icon"><i class="ph-fill ph-sparkle"></i></div>
+              <div>
+                <div class="advisor-eyebrow">AI Advisor</div>
+                <h1 class="advisor-title">Ask anything about your money</h1>
+                <div class="advisor-sub">Real answers from your account. Local. Private. Free.</div>
+              </div>
+            </div>
+            <div class="advisor-header-right">
+              <span id="advisor-mode-badge" class="advisor-mode-badge">Standard</span>
+              <button id="advisor-clear-btn" class="advisor-icon-btn" title="Clear conversation"><i class="ph ph-trash"></i></button>
+            </div>
+          </div>
 
-           <div class="advisor-layout-grid reveal reveal-1">
-             
-             <!-- Left: Chat Interface -->
-             <div class="card advisor-chat-container">
-               
-               <div class="advisor-chat-scroll" id="advisor-chat-scroll">
-                 <!-- Greeting AI Message -->
-                 <div class="chat-msg ai">
-                   <div class="chat-avatar ai-avatar"><i class="ph-fill ph-robot"></i></div>
-                   <div class="chat-content">
-                     <div class="chat-bubble ai-bubble">
-                       <p>Hi — I'm your AI debt strategist. Once you add a debt or two, ask me anything: "What's my fastest path to debt-free?", "Should I pay extra on my highest APR?", or "What if I get a $5,000 raise?" I'll model it.</p>
-                     </div>
-                   </div>
-                 </div>
-               </div>
+          <!-- Chat shell -->
+          <div class="advisor-shell reveal reveal-1">
+            <div class="advisor-chat-scroll" id="advisor-chat-scroll">
+              <div class="chat-msg ai">
+                <div class="chat-avatar ai-avatar"><i class="ph-fill ph-robot"></i></div>
+                <div class="chat-content">
+                  <div class="chat-bubble ai-bubble">
+                    Hi — ready when you are. Ask about your debts, due dates, credit, spending, savings, or any what-if scenario. I work entirely from your account data on this device.
+                  </div>
+                </div>
+              </div>
+            </div>
 
-               <div class="advisor-chat-bottom">
-                 <div class="advisor-suggestions">
-                   <button class="chat-suggestion-chip" id="suggest-strat-4">EXECUTE STRATEGY #4</button>
-                   <button class="chat-suggestion-chip" id="suggest-compare-2023">COMPARE VS 2023</button>
-                   <button class="chat-suggestion-chip" id="suggest-tax">TAX IMPLICATIONS?</button>
-                 </div>
-                 
-                 <div class="chat-input-wrapper">
-                   <input type="text" class="chat-input" id="advisor-page-input" placeholder="Inquire about your debt strategy...">
-                   <button class="btn btn-ghost" id="advisor-page-attach" style="padding:10px; color:var(--text-3);"><i class="ph ph-paperclip" style="font-size:20px;"></i></button>
-                   <button class="btn btn-primary" id="advisor-page-send" style="padding:10px 16px; border-radius:var(--radius-sm); margin-left:4px;"><i class="ph ph-arrow-right" style="font-size:18px;"></i></button>
-                 </div>
-               </div>
-             </div>
+            <!-- Quick prompt rail -->
+            <div class="advisor-quick-rail" id="advisor-quick-rail">
+              <button class="advisor-chip" data-q="When are my next payments due?">📅 Next payments</button>
+              <button class="advisor-chip" data-q="How's my credit utilization?">💳 Credit utilization</button>
+              <button class="advisor-chip" data-q="What's the best payoff strategy?">🎯 Best strategy</button>
+              <button class="advisor-chip" data-q="Where am I spending this month?">🧾 This month's spend</button>
+              <button class="advisor-chip" data-q="How fast can I be debt-free?">⚡ Debt-free speed</button>
+              <button class="advisor-chip" data-q="What if I add $200/mo extra?">💡 What-if $200</button>
+            </div>
 
-             <!-- Right Sidebar -->
-             <div class="advisor-sidebar">
-               
-               <!-- Recent Insights -->
-               <div class="card" style="padding:24px;">
-                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px;">
-                   <div style="background:rgba(0,212,168,0.1); color:var(--accent); width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                     <i class="ph ph-trend-up" style="font-size:20px;"></i>
-                   </div>
-                   <div class="badge" style="background:transparent; border:1px solid rgba(0,212,168,0.2); color:var(--accent); font-size:8px;">FEED</div>
-                 </div>
-                 <h2 style="font-size:20px; font-weight:700; margin-bottom:24px;">Recent Insights</h2>
-
-                 <div id="advisor-insights-list">
-                   <div style="text-align:center; padding:24px 12px; color:var(--text-3); font-size:11px; line-height:1.5;">
-                     <i class="ph ph-lightbulb" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
-                     Add debts and a few payments — fresh insights will surface here.
-                   </div>
-                 </div>
-               </div>
-
-               <!-- Advanced Simulations -->
-               <div class="card" style="padding:24px;">
-                 <h3 style="font-size:16px; font-weight:700; margin-bottom:12px;">Advanced<br>Simulations</h3>
-                 <p style="font-size:10px; color:var(--text-3); line-height:1.6; margin-bottom:24px;">Unlock multi-variable stress testing for your 2026 financial horizon.</p>
-                 <button id="btn-go-pro" class="btn btn-primary" style="width:100%; font-size:10px; padding:12px;">GO PRO</button>
-               </div>
-
-               <!-- Secure Compute -->
-               <div style="border:1px dashed var(--border); border-radius:var(--radius); padding:24px; text-align:center;">
-                 <i class="ph-fill ph-shield-check" style="color:var(--accent); font-size:24px; margin-bottom:12px; opacity:0.8;"></i>
-                 <div style="font-size:9px; font-weight:700; color:var(--text); letter-spacing:0.05em; margin-bottom:8px;">SECURE COMPUTE</div>
-                 <p style="font-size:8px; color:var(--text-3); line-height:1.5; text-transform:uppercase;">Data is encrypted with AES-256 & never used for training models.</p>
-               </div>
-
-             </div>
-           </div>
+            <!-- Composer -->
+            <div class="advisor-composer">
+              <textarea id="advisor-page-input" rows="1" placeholder="Ask anything about your account…" class="advisor-input"></textarea>
+              <button id="advisor-page-send" class="advisor-send-btn" title="Send (Enter)">
+                <i class="ph-fill ph-paper-plane-right"></i>
+              </button>
+            </div>
+            <div class="advisor-composer-hint">
+              <i class="ph-fill ph-shield-check"></i>
+              <span>Stays on your device. <span id="advisor-mode-hint">Using Standard AI · enable Deep Mode in Settings for richer answers.</span></span>
+            </div>
+          </div>
         </div>
 
         <!-- PAGE: ACTIVITY LOG -->
@@ -4757,7 +4732,7 @@
 </div>
 
 
-  <script src="app.js?v=103-smartmodel"></script>
+  <script src="app.js?v=104-advisorv2"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

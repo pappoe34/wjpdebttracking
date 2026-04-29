@@ -7827,10 +7827,13 @@ window.WJP_DeepAI = {
             { role: 'system', content: sysPrompt },
             { role: 'user', content: question }
         ];
+        // Cap output so answers come back fast. 350 tokens ≈ 250 words ≈
+        // 15-25 seconds on a 3B model on consumer GPU. Users wanting more
+        // depth can ask "give me the full breakdown" in a follow-up.
         let full = '';
         try {
             const stream = await this.engine.chat.completions.create({
-                messages, temperature: 0.2, top_p: 0.9, max_tokens: 900, stream: true
+                messages, temperature: 0.2, top_p: 0.9, max_tokens: 350, stream: true
             });
             for await (const chunk of stream) {
                 const delta = chunk.choices[0]?.delta?.content || '';
@@ -7843,7 +7846,7 @@ window.WJP_DeepAI = {
         } catch (err) {
             // Fall back to non-streaming
             const resp = await this.engine.chat.completions.create({
-                messages, temperature: 0.2, top_p: 0.9, max_tokens: 900
+                messages, temperature: 0.2, top_p: 0.9, max_tokens: 350
             });
             return resp.choices[0].message.content;
         }
@@ -12000,11 +12003,70 @@ function initChatLogic() {
     // Initialize FAB Chat
     setupChatInstance(chatInput, sendBtn, messagesCont);
 
-    // Initialize Page Chat
+    // Initialize Advisor Page Chat
     const pageInput = document.getElementById('advisor-page-input');
     const pageSend = document.getElementById('advisor-page-send');
     const pageCont = document.querySelector('.advisor-chat-scroll');
     advisorPageChat = setupChatInstance(pageInput, pageSend, pageCont);
+
+    // Wire the modernized Advisor page extras (chips, clear button, mode badge)
+    if (pageInput && pageSend) {
+        // Auto-grow textarea + Enter to send (Shift+Enter newline)
+        pageInput.addEventListener('input', () => {
+            pageInput.style.height = 'auto';
+            pageInput.style.height = Math.min(140, pageInput.scrollHeight) + 'px';
+        });
+        pageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                pageSend.click();
+            }
+        });
+    }
+    document.querySelectorAll('#advisor-quick-rail .advisor-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            if (!pageInput || !pageSend) return;
+            pageInput.value = chip.dataset.q || chip.textContent;
+            pageSend.click();
+        });
+    });
+    const advisorClear = document.getElementById('advisor-clear-btn');
+    if (advisorClear && pageCont) {
+        advisorClear.addEventListener('click', () => {
+            if (!confirm('Clear this conversation?')) return;
+            pageCont.innerHTML = `<div class="chat-msg ai"><div class="chat-avatar ai-avatar"><i class="ph-fill ph-robot"></i></div><div class="chat-content"><div class="chat-bubble ai-bubble">Conversation cleared. What's next?</div></div></div>`;
+        });
+    }
+    // Sync the advisor mode badge from Deep Mode state
+    function syncAdvisorBadge() {
+        const badge = document.getElementById('advisor-mode-badge');
+        const hint  = document.getElementById('advisor-mode-hint');
+        if (!badge) return;
+        const enabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
+        const ready   = !!(window.WJP_DeepAI && window.WJP_DeepAI.engine);
+        badge.classList.remove('deep', 'deep-loading');
+        if (!enabled) {
+            badge.textContent = 'Standard';
+            if (hint) hint.textContent = 'Using Standard AI · enable Deep Mode in Settings for richer answers.';
+        } else if (!ready) {
+            badge.textContent = '◆ Deep · loading';
+            badge.classList.add('deep-loading');
+            const pct = window.WJP_DeepAI ? Math.round(window.WJP_DeepAI.progress * 100) : 0;
+            if (hint) hint.textContent = `Deep Mode loading (${pct}%) · using Standard for now.`;
+        } else {
+            badge.textContent = '◆ Deep Mode';
+            badge.classList.add('deep');
+            if (hint) hint.textContent = 'Deep Mode active · in-browser LLM, stays on device.';
+        }
+    }
+    syncAdvisorBadge();
+    if (window.WJP_DeepAI && window.WJP_DeepAI.onProgress) {
+        window.WJP_DeepAI.onProgress(() => syncAdvisorBadge());
+    }
+    // Re-sync whenever the user navigates back to the advisor page
+    document.querySelectorAll('[data-page="advisor"]').forEach(el => {
+        el.addEventListener('click', () => setTimeout(syncAdvisorBadge, 100));
+    });
 
     // Handle floating chat prompts
     document.querySelectorAll('.chat-prompt').forEach(p => {
@@ -12231,24 +12293,33 @@ function initAdvisorPageLogic() {
                             dot.style.border = active ? 'none' : '2px solid var(--text-3)';
                         }
                     });
-                    // If Deep Mode is on, swap the engine
+                    // If Deep Mode is on, swap the engine. Properly unload the
+                    // old one to release WebGPU memory before starting a new
+                    // download — that was the model-swap-failed bug.
                     if (appState.prefs.deepMode && window.WJP_DeepAI) {
-                        showToast(`Switching to ${tier} model — re-downloading…`);
-                        // Wipe current engine + kick a fresh load
-                        window.WJP_DeepAI.engine = null;
-                        window.WJP_DeepAI.loading = false;
-                        window.WJP_DeepAI.progress = 0;
-                        ensureDeepStatusPill();
-                        if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
-                        window.WJP_DeepAI.load().then(async () => {
-                            const health = await window.WJP_DeepAI.verify();
-                            showToast(health.ok ? `${tier} model ready ✓` : `Loaded but verify failed: ${health.error}`);
-                            if (!health.ok) window.WJP_DeepAI.engine = null;
+                        showToast(`Switching to ${tier} model…`);
+                        (async () => {
+                            try {
+                                if (window.WJP_DeepAI.engine && typeof window.WJP_DeepAI.engine.unload === 'function') {
+                                    try { await window.WJP_DeepAI.engine.unload(); } catch(e) { console.warn('unload', e); }
+                                }
+                            } catch(_){}
+                            window.WJP_DeepAI.engine = null;
+                            window.WJP_DeepAI.loading = false;
+                            window.WJP_DeepAI.progress = 0;
+                            ensureDeepStatusPill();
+                            if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
+                            try {
+                                await window.WJP_DeepAI.load();
+                                const health = await window.WJP_DeepAI.verify();
+                                showToast(health.ok ? `${tier} model ready ✓` : `Loaded but verify failed: ${health.error}`);
+                                if (!health.ok) window.WJP_DeepAI.engine = null;
+                            } catch(err) {
+                                console.warn('[WJP Deep AI] swap failed', err);
+                                showToast('Model swap failed: ' + (err.message || err).slice(0, 120));
+                            }
                             updateFabDeepBadge && updateFabDeepBadge();
-                        }).catch(err => {
-                            showToast('Model swap failed: ' + (err.message || err));
-                            updateFabDeepBadge && updateFabDeepBadge();
-                        });
+                        })();
                     }
                 });
             });
