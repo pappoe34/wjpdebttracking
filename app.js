@@ -632,13 +632,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
                 // Subscribe to refresh the FAB badge on progress
                 if (window.WJP_DeepAI.onProgress) {
-                    window.WJP_DeepAI.onProgress(() => updateFabDeepBadge && updateFabDeepBadge());
+                    window.WJP_DeepAI.onProgress(() => {
+                        if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
+                    });
                 }
-                window.WJP_DeepAI.load().then(() => {
-                    showToast('Deep Mode ready.');
+                window.WJP_DeepAI.load().then(async () => {
+                    // Verify the engine actually responds before claiming success.
+                    // Catches silent failures where load resolves but inference is broken.
+                    const health = await window.WJP_DeepAI.verify();
+                    if (health.ok) {
+                        showToast('Deep Mode ready ✓');
+                    } else {
+                        showToast('Deep Mode loaded but failed verify: ' + health.error);
+                        // Wipe the engine so we don't keep routing to a broken one
+                        window.WJP_DeepAI.engine = null;
+                    }
                     updateFabDeepBadge && updateFabDeepBadge();
                 }).catch(err => {
-                    console.warn('Deep Mode load failed', err);
+                    console.warn('[WJP Deep AI] load failed', err);
+                    showToast('Deep Mode failed: ' + (err.message || err).slice(0, 100));
+                    window.WJP_DeepAI.enabled = false;
                     updateFabDeepBadge && updateFabDeepBadge();
                 });
             }
@@ -7612,25 +7625,55 @@ window.wjpDebugDeepAI = async function() {
     return state;
 };
 
-/** Add a small dot badge to the floating FAB showing Deep Mode status. */
+/** Add a small dot badge to the floating FAB showing Deep Mode status,
+ *  AND update the chat panel header badge so it's obvious whether the next
+ *  question will use Deep Mode or Standard. */
 function updateFabDeepBadge() {
     const fab = document.getElementById('ai-chat-fab');
-    if (!fab) return;
-    let badge = fab.querySelector('.fab-deep-dot');
     const enabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
     const ready = !!(window.WJP_DeepAI && window.WJP_DeepAI.engine);
-    if (!enabled) {
-        if (badge) badge.remove();
-        return;
+
+    // FAB dot
+    if (fab) {
+        let dot = fab.querySelector('.fab-deep-dot');
+        if (!enabled) {
+            if (dot) dot.remove();
+        } else {
+            if (!dot) {
+                dot = document.createElement('div');
+                dot.className = 'fab-deep-dot';
+                dot.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg, #0b0f1a);font-size:0;';
+                fab.appendChild(dot);
+            }
+            dot.style.background = ready ? '#22c55e' : '#fbbf24';
+            dot.title = ready ? 'Deep Mode ready' : 'Deep Mode loading';
+        }
     }
-    if (!badge) {
-        badge = document.createElement('div');
-        badge.className = 'fab-deep-dot';
-        badge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg, #0b0f1a);font-size:0;';
-        fab.appendChild(badge);
+
+    // Chat panel header badge
+    const headerBadge = document.getElementById('ai-chat-mode-badge');
+    const headerSub = document.getElementById('ai-chat-mode-sub');
+    if (headerBadge) {
+        if (!enabled) {
+            headerBadge.textContent = 'Standard';
+            headerBadge.style.background = 'rgba(255,255,255,0.08)';
+            headerBadge.style.color = 'var(--text-3)';
+            if (headerSub) headerSub.textContent = 'Private · rule-based';
+        } else if (!ready) {
+            headerBadge.textContent = '◆ Deep · loading';
+            headerBadge.style.background = 'rgba(251,191,36,0.18)';
+            headerBadge.style.color = '#fbbf24';
+            if (headerSub) {
+                const pct = window.WJP_DeepAI ? Math.round(window.WJP_DeepAI.progress * 100) : 0;
+                headerSub.textContent = `Loading model · ${pct}%`;
+            }
+        } else {
+            headerBadge.textContent = '◆ Deep Mode';
+            headerBadge.style.background = 'rgba(0,212,168,0.18)';
+            headerBadge.style.color = 'var(--accent)';
+            if (headerSub) headerSub.textContent = 'In-browser LLM · stays on device';
+        }
     }
-    badge.style.background = ready ? '#22c55e' : '#fbbf24';
-    badge.title = ready ? 'Deep Mode ready' : 'Deep Mode loading';
 }
 window.updateFabDeepBadge = updateFabDeepBadge;
 

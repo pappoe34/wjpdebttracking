@@ -3907,8 +3907,8 @@
         <div style="display:flex; align-items:center; gap:12px;">
           <div class="ai-icon" style="background:var(--accent); color:#0b0f1a; width:32px; height:32px;"><i class="ph ph-robot"></i></div>
           <div>
-            <div style="font-size:14px; font-weight:800;">AI Advisor</div>
-            <div style="font-size:9px; color:var(--text-3); text-transform:uppercase;">Private · stays on your device</div>
+            <div style="font-size:14px; font-weight:800;display:flex;align-items:center;gap:6px;">AI Advisor <span id="ai-chat-mode-badge" style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.08);color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;">Standard</span></div>
+            <div style="font-size:9px; color:var(--text-3); text-transform:uppercase;" id="ai-chat-mode-sub">Private · stays on your device</div>
           </div>
         </div>
         <button class="chat-close" id="ai-chat-close" aria-label="Close chat"><i class="ph ph-x"></i></button>
@@ -4757,7 +4757,7 @@
 </div>
 
 
-  <script src="app.js?v=101-deeprobust"></script>
+  <script src="app.js?v=102-fabbadge"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
