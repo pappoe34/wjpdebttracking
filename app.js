@@ -7689,9 +7689,17 @@ window.WJP_DeepAI = {
     loading: false,
     progress: 0,
     progressLabel: 'Loading…',
-    // Qwen 2.5 1.5B — best balance of size (~1.2GB), speed, and reasoning
-    // for our use case. Also instruction-tuned, which matters here.
-    modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    // Three model tiers — user picks in Settings → AI Intelligence:
+    //   fast    = Qwen 2.5 1.5B (~1.2GB) — quick, basic reasoning
+    //   smart   = Llama-3.2 3B   (~1.9GB) — much better answers, default
+    //   smartest= Llama-3.1 8B   (~4.4GB) — Claude-level for simple Qs, slower
+    // Default to 'smart' since 1.5B was too vague.
+    get modelId() {
+        const tier = (typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.deepModelTier) || 'smart';
+        if (tier === 'smartest') return 'Llama-3.1-8B-Instruct-q4f16_1-MLC';
+        if (tier === 'fast')     return 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+        return 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+    },
     listeners: new Set(),
 
     onProgress(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
@@ -7793,22 +7801,36 @@ window.WJP_DeepAI = {
     async ask(question, onChunk) {
         if (!this.engine) await this.load();
         const ctx = this._buildContext();
+        const sysPrompt = [
+            'You are WJP\'s in-app debt-tracking AI advisor. The USER ACCOUNT DATA below is real, current, and private to this user.',
+            '',
+            '=== USER ACCOUNT DATA ===',
+            ctx,
+            '=== END USER ACCOUNT DATA ===',
+            '',
+            'RULES — follow strictly:',
+            '1. Always cite SPECIFIC NUMBERS from the account data. Never give generic advice that ignores the user\'s actual debts/income/spending.',
+            '2. When the user asks about something specific (a debt name, a strategy, a date), pull the exact number from the data above. Do not paraphrase or round excessively.',
+            '3. Use bullet points and short paragraphs. Lead with the specific number, then the recommendation.',
+            '4. If the data needed isn\'t in the account context, say "I don\'t have X in your account yet — add it under [tab]" rather than guessing.',
+            '5. Be direct and concrete. No "depends on your situation" or "consult a professional" hedging — the data IS the situation.',
+            '6. Keep answers under 250 words unless the user asks for "details" or "full breakdown".',
+            '',
+            'EXAMPLE GOOD ANSWER:',
+            'Q: "What\'s my biggest debt?"',
+            'A: "Your biggest debt is **Aidadvantage Student Loan** at $28,000 (6% APR). It costs you $140/mo in interest alone. Avalanche has it as priority #4 because three of your credit cards have higher APRs (Avant 30%, BOA 29.99%, Affirm 28%). Hit those first — your student loan can wait."',
+            '',
+            'EXAMPLE BAD ANSWER (do not do this):',
+            'A: "Your biggest debt depends on your priorities. Generally, it\'s good to pay off high-interest debt first."'
+        ].join('\n');
         const messages = [
-            { role: 'system', content:
-                'You are an in-product debt-tracking AI advisor inside the WJP app. ' +
-                'Answer questions concretely using the user account context provided. ' +
-                'Be concise and actionable — bullet points and short paragraphs. ' +
-                'Never invent numbers; if the data isn\'t in the context, say so. ' +
-                'Never share or repeat the user context verbatim. ' +
-                'Focus on debt payoff, credit improvement, savings, and cash flow.\n\n' +
-                'Account context (private to this user):\n' + ctx
-            },
+            { role: 'system', content: sysPrompt },
             { role: 'user', content: question }
         ];
         let full = '';
         try {
             const stream = await this.engine.chat.completions.create({
-                messages, temperature: 0.4, max_tokens: 600, stream: true
+                messages, temperature: 0.2, top_p: 0.9, max_tokens: 900, stream: true
             });
             for await (const chunk of stream) {
                 const delta = chunk.choices[0]?.delta?.content || '';
@@ -7821,7 +7843,7 @@ window.WJP_DeepAI = {
         } catch (err) {
             // Fall back to non-streaming
             const resp = await this.engine.chat.completions.create({
-                messages, temperature: 0.4, max_tokens: 600
+                messages, temperature: 0.2, top_p: 0.9, max_tokens: 900
             });
             return resp.choices[0].message.content;
         }
@@ -12095,8 +12117,27 @@ function initAdvisorPageLogic() {
                     <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.deepMode)?'on':''}" data-key="deepMode" style="flex-shrink:0;"><div class="thumb"></div></div>
                   </div>
                   <div id="deep-mode-info" style="font-size:10px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(0,212,168,0.15);padding-top:10px;margin-top:6px;">
-                    First time you enable: ~1.2 GB model downloads from CDN to your browser cache. Takes 2-5 min on a normal connection. Subsequent loads are instant. Works offline once cached.<br>
+                    First time you enable: model downloads from CDN to your browser cache. Subsequent loads are instant. Works offline once cached.<br>
                     Requires a modern browser with WebGPU (Chrome, Edge, Safari TP, or Arc).
+                  </div>
+                  <!-- Model tier picker — bigger = smarter answers, slower + more storage -->
+                  <div style="border-top:1px solid rgba(0,212,168,0.15);padding-top:10px;margin-top:10px;">
+                    <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:8px;">Model Tier</div>
+                    ${(() => {
+                      const cur = (appState.prefs && appState.prefs.deepModelTier) || 'smart';
+                      return [
+                        {key:'fast',     label:'Fast',     size:'~1.2 GB', desc:'Qwen 2.5 1.5B · quick, basic answers'},
+                        {key:'smart',    label:'Smart',    size:'~1.9 GB', desc:'Llama 3.2 3B · default · much better reasoning'},
+                        {key:'smartest', label:'Smartest', size:'~4.4 GB', desc:'Llama 3.1 8B · Claude-like · slow, large download'},
+                      ].map(m => `<div class="deep-tier-opt" data-tier="${m.key}" style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:2px solid ${cur===m.key?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;background:${cur===m.key?'rgba(0,212,168,0.06)':'transparent'};margin-bottom:5px;">
+                        <div style="width:11px;height:11px;border-radius:50%;${cur===m.key?'background:var(--accent)':'border:2px solid var(--text-3)'};flex-shrink:0;"></div>
+                        <div style="flex:1;">
+                          <div style="font-size:11px;font-weight:700;">${m.label} <span style="font-size:9px;color:var(--text-3);font-weight:500;">${m.size}</span></div>
+                          <div style="font-size:9px;color:var(--text-3);margin-top:2px;">${m.desc}</div>
+                        </div>
+                      </div>`).join('');
+                    })()}
+                    <div style="font-size:9px;color:var(--text-3);font-style:italic;margin-top:4px;">Switching tiers triggers a fresh download. Your old cache stays for offline fallback.</div>
                   </div>
                   <div id="deep-mode-progress" style="display:none;margin-top:10px;">
                     <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;" id="deep-mode-progress-label">Loading…</div>
@@ -12171,6 +12212,47 @@ function initAdvisorPageLogic() {
                     });
                 };
             });
+            // Tier picker — switching triggers a fresh model load
+            document.querySelectorAll('.deep-tier-opt').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const tier = opt.dataset.tier;
+                    if (!appState.prefs) appState.prefs = {};
+                    if (appState.prefs.deepModelTier === tier) return; // no-op
+                    appState.prefs.deepModelTier = tier;
+                    saveState();
+                    // Visual update
+                    document.querySelectorAll('.deep-tier-opt').forEach(o => {
+                        const active = o.dataset.tier === tier;
+                        o.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+                        o.style.background = active ? 'rgba(0,212,168,0.06)' : 'transparent';
+                        const dot = o.querySelector('div:first-child');
+                        if (dot) {
+                            dot.style.background = active ? 'var(--accent)' : '';
+                            dot.style.border = active ? 'none' : '2px solid var(--text-3)';
+                        }
+                    });
+                    // If Deep Mode is on, swap the engine
+                    if (appState.prefs.deepMode && window.WJP_DeepAI) {
+                        showToast(`Switching to ${tier} model — re-downloading…`);
+                        // Wipe current engine + kick a fresh load
+                        window.WJP_DeepAI.engine = null;
+                        window.WJP_DeepAI.loading = false;
+                        window.WJP_DeepAI.progress = 0;
+                        ensureDeepStatusPill();
+                        if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
+                        window.WJP_DeepAI.load().then(async () => {
+                            const health = await window.WJP_DeepAI.verify();
+                            showToast(health.ok ? `${tier} model ready ✓` : `Loaded but verify failed: ${health.error}`);
+                            if (!health.ok) window.WJP_DeepAI.engine = null;
+                            updateFabDeepBadge && updateFabDeepBadge();
+                        }).catch(err => {
+                            showToast('Model swap failed: ' + (err.message || err));
+                            updateFabDeepBadge && updateFabDeepBadge();
+                        });
+                    }
+                });
+            });
+
             // Toggle clicks just flip the .on class — values are read on save
             document.querySelectorAll('.ai-behavior-toggle, .privacy-toggle').forEach(t => {
                 t.addEventListener('click', () => {
