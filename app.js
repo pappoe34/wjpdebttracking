@@ -7494,13 +7494,15 @@ function renderAnalysisModal(simData, currentStrat) {
 /** AI Advisor — answers grounded entirely in the user's account data.
  *  Pattern-matches the question against intents (debt totals, due dates,
  *  credit, spending, budget, savings, strategy, payoff, advice) and returns
- *  a real answer computed from appState. No external API calls. */
+ *  a DETAILED multi-paragraph answer computed from appState. No external
+ *  API calls. */
 function generateAiResponse(input) {
     const low = (input || '').toLowerCase().trim();
     const fmt = n => '$' + Math.round(n || 0).toLocaleString();
     const debts = appState.debts || [];
     const totalDebt = debts.reduce((s, d) => s + (d.balance || 0), 0);
     const totalMin  = debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+    const avgApr = debts.length ? debts.reduce((s,d) => s + (d.apr || 0), 0) / debts.length : 0;
     const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
     const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
 
@@ -7510,22 +7512,30 @@ function generateAiResponse(input) {
         return `Hi ${name}. I can answer questions about your debts, due dates, credit, spending, savings, and which payoff strategy fits best. What's on your mind?`;
     }
 
-    // 2. Due dates
-    if (/\b(due|when|next payment|when is|coming up|due date)\b/.test(low)) {
-        if (!debts.length) return "You haven't added any debts yet, so I can't check due dates. Add a debt with its dueDate and I'll track it.";
+    // 2. Due dates — detailed schedule + urgency framing
+    if (/\b(due|when|next payment|when is|coming up|due date|owe.*soon)\b/.test(low)) {
+        if (!debts.length) return "You haven't added any debts yet, so I can't check due dates. Add a debt with its dueDate and I'll start tracking it across the calendar, dashboard, and notifications.";
         const today = new Date();
         const upcoming = debts.map(d => {
             const dd = parseInt(d.dueDate || d.dueDay, 10) || 1;
             let due = new Date(today.getFullYear(), today.getMonth(), dd);
             if (due < today) due.setMonth(due.getMonth()+1);
             const days = Math.round((due - today) / 86400000);
-            return { name: d.name, days, due, min: d.minPayment };
-        }).sort((a,b) => a.days - b.days).slice(0, 5);
-        const lines = upcoming.map(u => `• ${u.name}: due in ${u.days} day${u.days===1?'':'s'} (${u.due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}) — ${fmt(u.min)} minimum`);
-        return `Next payments due:\n${lines.join('\n')}`;
+            return { name: d.name, days, due, min: d.minPayment, apr: d.apr, balance: d.balance };
+        }).sort((a,b) => a.days - b.days);
+        const totalNext30 = upcoming.filter(u => u.days <= 30).reduce((s,u) => s + (u.min||0), 0);
+        const lines = upcoming.slice(0, 8).map(u => {
+            const tag = u.days <= 1 ? '🔴 URGENT' : u.days <= 5 ? '🟡 SOON' : '🟢 SCHEDULED';
+            return `${tag} ${u.name} — due ${u.days===0?'today':u.days===1?'tomorrow':`in ${u.days} days`} (${u.due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}) · ${fmt(u.min)} minimum · ${u.apr||0}% APR`;
+        });
+        const urgent = upcoming.filter(u => u.days <= 5).length;
+        const summary = urgent > 0
+            ? `\n\n⚠️ ${urgent} payment${urgent===1?'':'s'} need attention this week. Late fees typically run $25–40 plus a credit-score hit of 30–80 points if reported.`
+            : '\n\nAll your payments are more than 5 days out. Good runway to cover them.';
+        return `Here's your full payment schedule:\n\n${lines.join('\n')}\n\nTotal due in the next 30 days: ${fmt(totalNext30)}.${summary}`;
     }
 
-    // 3. Credit / utilization
+    // 3. Credit / utilization — full diagnostic + ranked actions
     if (/\b(credit|score|utilization|fico)\b/.test(low)) {
         const cards = debts.filter(d => /credit|card/i.test(d.name + ' ' + (d.type||'')));
         const totalLimit = cards.reduce((s,d) => s + (d.creditLimit || 0), 0);
@@ -7533,87 +7543,197 @@ function generateAiResponse(input) {
         const util = totalLimit > 0 ? Math.round((totalCardBalance / totalLimit) * 100) : null;
         const cs = appState.creditScore || (appState.creditScoreHistory && appState.creditScoreHistory.length ? appState.creditScoreHistory[appState.creditScoreHistory.length-1] : null);
         const score = cs ? (typeof cs === 'number' ? cs : cs.score) : null;
-        let parts = [];
-        if (score) parts.push(`Your tracked credit score is ${score} (${score >= 740 ? 'very good' : score >= 670 ? 'good' : score >= 580 ? 'fair' : 'rebuilding'}).`);
-        if (util !== null) {
-            parts.push(`Card utilization is ${util}% (${fmt(totalCardBalance)} of ${fmt(totalLimit)} limit). Below 30% is ideal; below 10% is best.`);
-            if (util > 30) parts.push(`Bringing utilization under 30% is the fastest credit-score win — typically +20 to +40 points within one statement cycle.`);
+        if (!cards.length && !score) return "I need credit cards with limits, or a tracked credit score, to give you a real diagnostic. Add a Credit Card debt with its credit-limit field, or log a score in the Credit Score tab.";
+        const parts = [];
+        if (score) {
+            const tier = score >= 800 ? 'Exceptional' : score >= 740 ? 'Very Good' : score >= 670 ? 'Good' : score >= 580 ? 'Fair' : 'Rebuilding';
+            parts.push(`📊 Credit Score: ${score} (${tier})`);
+            const gap = score < 740 ? 740 - score : 0;
+            if (gap) parts.push(`You're ${gap} points away from Very Good (740+) — the threshold for the best mortgage and auto-loan rates.`);
         }
-        if (!parts.length) return 'Add credit cards with limits and I can compute your utilization, plus a real score-improvement plan.';
-        return parts.join(' ');
+        if (util !== null) {
+            const tierUtil = util < 10 ? 'Excellent' : util < 30 ? 'Healthy' : util < 50 ? 'Watch' : 'High';
+            parts.push(`\n💳 Utilization: ${util}% (${tierUtil}) — ${fmt(totalCardBalance)} of ${fmt(totalLimit)} total limit across ${cards.length} card${cards.length===1?'':'s'}.`);
+            if (util > 30) {
+                const target30 = Math.round(totalLimit * 0.30);
+                const target10 = Math.round(totalLimit * 0.10);
+                const payDown30 = Math.max(0, totalCardBalance - target30);
+                const payDown10 = Math.max(0, totalCardBalance - target10);
+                parts.push(`To hit <30% you'd need to pay down ${fmt(payDown30)}. To hit <10% (best-in-class), pay down ${fmt(payDown10)}.`);
+            }
+            // Per-card analysis
+            const overCards = cards.filter(c => c.creditLimit && (c.balance / c.creditLimit) > 0.30);
+            if (overCards.length) {
+                parts.push(`\nCards above 30% utilization (drag your score most):`);
+                overCards.forEach(c => {
+                    const u = Math.round((c.balance / c.creditLimit) * 100);
+                    parts.push(`• ${c.name}: ${u}% (${fmt(c.balance)} / ${fmt(c.creditLimit)})`);
+                });
+            }
+        }
+        // Ranked action plan
+        parts.push(`\n🎯 Top actions for your score (in order of impact):`);
+        if (util > 30) parts.push(`1. Drop overall utilization under 30% → typically +20–40 points within one statement cycle.`);
+        parts.push(`${util > 30 ? '2.' : '1.'} Pay every debt on time → 35% of your FICO is payment history. Even one 30-day late drops 30–80 points.`);
+        parts.push(`${util > 30 ? '3.' : '2.'} Keep oldest accounts open → average account age is 15% of your score.`);
+        parts.push(`${util > 30 ? '4.' : '3.'} Avoid new hard inquiries unless necessary → each costs ~5 points for 12 months.`);
+        return parts.join('\n');
     }
 
-    // 4. Spending
+    // 4. Spending — category breakdown + trend + outlier callouts
     if (/\b(spend|spending|expense|expenses|where.*money|categor)\b/.test(low)) {
         const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
         const realTxns = (appState.transactions || []).filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= monthStart);
-        if (!realTxns.length) return "I don't see any logged spending this month yet. Add transactions or sync a bank account and I'll break it down by category.";
+        if (!realTxns.length) return "I don't see any logged real spending this month yet (auto-generated debt minimums don't count as discretionary). Add transactions manually or sync a bank account and I'll give you a real category breakdown plus anomaly flags.";
         const byCat = {};
         realTxns.forEach(t => { const c = t.category || 'Other'; byCat[c] = (byCat[c]||0) + Math.abs(t.amount); });
         const total = Object.values(byCat).reduce((s,v) => s+v, 0);
-        const top = Object.entries(byCat).sort((a,b) => b[1]-a[1]).slice(0,3);
-        const lines = top.map(([c,v]) => `• ${c}: ${fmt(v)} (${Math.round(v/total*100)}%)`);
-        return `So far this month you've spent ${fmt(total)} across ${realTxns.length} transactions. Top categories:\n${lines.join('\n')}`;
+        const sorted = Object.entries(byCat).sort((a,b) => b[1]-a[1]);
+        const lines = sorted.map(([c,v]) => `• ${c}: ${fmt(v)} (${Math.round(v/total*100)}%)`);
+        const today = new Date();
+        const dayCount = Math.max(1, today.getDate());
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+        const projected = Math.round((total / dayCount) * daysInMonth);
+        const projectedLine = `\n📈 Pacing: ${fmt(total)} spent over ${dayCount} day${dayCount===1?'':'s'} → ${fmt(projected)} projected for the full month.`;
+        let incomeNote = '';
+        if (income > 0) {
+            const pctIncome = Math.round((projected / income) * 100);
+            incomeNote = ` That's ${pctIncome}% of your $${income.toLocaleString()} income — ${pctIncome < 60 ? 'a healthy ratio with room for savings/debt' : pctIncome < 80 ? 'tight; consider trimming the top categories' : 'unsustainable; aggressive cuts needed to free cash for debt'}.`;
+        }
+        const top = sorted[0];
+        const topNote = top ? `\n\n⚠️ Biggest line: ${top[0]} at ${Math.round(top[1]/total*100)}% of spend. ${top[1] > total * 0.40 ? 'That single category is over 40% — high concentration risk.' : 'Reasonable share, but worth auditing if you want to free up cash for debt acceleration.'}` : '';
+        return `🧾 Spending breakdown for the current month (${realTxns.length} real transactions):\n\n${lines.join('\n')}\n\nTotal: ${fmt(total)}.${projectedLine}${incomeNote}${topNote}`;
     }
 
-    // 5. Income / cash flow
-    if (/\b(income|earn|paycheck|cash flow|cashflow|paid)\b/.test(low)) {
-        if (!income) return "I don't have your income on file. Add it under Settings → AI Intelligence → Monthly Extra, or in your Budget allocation, so I can compute cash flow.";
-        const surplus = Math.max(0, income - totalMin);
-        return `You bring in ${fmt(income)}/mo. After ${fmt(totalMin)} in debt minimums, you have ${fmt(surplus)} of unallocated cash flow before living expenses.`;
+    // 5. Income / cash flow — full waterfall
+    if (/\b(income|earn|paycheck|cash flow|cashflow|paid|payday)\b/.test(low)) {
+        if (!income) return "I don't have your income on file. Add it under the Budget Control tab → Paycheck Allocation Engine, or in Settings → AI Intelligence → Monthly Extra. Once it's set, I can compute your full cash-flow waterfall.";
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+        const realSpend = (appState.transactions || []).filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= monthStart).reduce((s,t) => s + Math.abs(t.amount), 0);
+        const surplus = Math.max(0, income - totalMin - realSpend);
+        const dti = income > 0 ? Math.round((totalMin / income) * 100) : 0;
+        const recommendedExtra = Math.round(surplus * 0.6);
+        const recommendedSavings = Math.round(surplus * 0.4);
+        return `💰 Cash-flow waterfall:\n\n` +
+            `• Monthly income: ${fmt(income)}\n` +
+            `• − Debt minimums: ${fmt(totalMin)} (${dti}% DTI — ${dti<36?'healthy':dti<50?'moderate':'high'})\n` +
+            `• − Spending so far this month: ${fmt(realSpend)}\n` +
+            `• = Free cash this month: ${fmt(surplus)}\n\n` +
+            `🎯 Optimal split for that ${fmt(surplus)} surplus:\n` +
+            `• ${fmt(recommendedExtra)} (60%) → extra debt payment on your highest-APR account → fastest payoff\n` +
+            `• ${fmt(recommendedSavings)} (40%) → savings/emergency fund → keeps you from going back to credit when life hits`;
     }
 
-    // 6. Savings
+    // 6. Savings — full progress + acceleration math
     if (/\b(save|saving|emergency fund|goal)\b/.test(low)) {
         const goals = appState.savingsGoals || [];
         const monthlySavings = (appState.budget && appState.budget.allocation && appState.budget.allocation.savings) || 0;
-        if (!goals.length) return `You haven't set any savings goals. A good first goal: 3–6 months of expenses as an emergency fund. Want me to suggest a target?`;
+        if (!goals.length) {
+            const suggested = income > 0 ? Math.round(income * 6) : 10000;
+            return `You haven't set any savings goals yet.\n\n💡 Recommended starter goals:\n` +
+                `• Emergency Fund: ${fmt(suggested)} (~6 months of income) — protects you from going back to credit when something breaks\n` +
+                `• Sinking Fund: ${fmt(Math.round((income||5000)*0.5))} — for known annual expenses (taxes, gifts, car maintenance)\n` +
+                `• Debt-payoff Acceleration Pool: ${fmt(Math.round((income||5000)*0.1))} — extra money to hit highest-APR debt monthly\n\n` +
+                `Add a goal under the Budget tab → Savings Goals.`;
+        }
         const lines = goals.map(g => {
             const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
-            const months = monthlySavings > 0 ? Math.ceil((g.target - g.current) / monthlySavings) : '?';
-            return `• ${g.name}: ${fmt(g.current)} of ${fmt(g.target)} (${pct}%) — ~${months} months at current pace`;
+            const remaining = Math.max(0, g.target - g.current);
+            const months = monthlySavings > 0 ? Math.ceil(remaining / monthlySavings) : null;
+            const eta = months !== null ? new Date(Date.now() + months*30*86400000).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '?';
+            return `• ${g.name}: ${fmt(g.current)} of ${fmt(g.target)} (${pct}%) — ${months !== null ? `${months} months to fund (${eta})` : 'set a savings rate to project'}`;
         });
-        return `Your savings goals:\n${lines.join('\n')}`;
+        const total = goals.reduce((s,g) => s + (g.target||0) - (g.current||0), 0);
+        const totalMonths = monthlySavings > 0 ? Math.ceil(total / monthlySavings) : null;
+        const accelerate = monthlySavings > 0 ? `Bumping savings by ${fmt(Math.round(monthlySavings * 0.5))}/mo (50% boost) cuts that to ${Math.ceil(total / (monthlySavings * 1.5))} months.` : `Set a monthly savings amount and I can project completion dates.`;
+        return `🎯 Savings goals progress:\n\n${lines.join('\n')}\n\nTotal remaining across all goals: ${fmt(total)}${totalMonths !== null ? ` (~${totalMonths} months at ${fmt(monthlySavings)}/mo current pace)` : ''}.\n\n💡 Acceleration: ${accelerate}`;
     }
 
-    // 7. Debt totals / balance
+    // 7. Debt totals / balance — full portfolio breakdown
     if (/\b(debt|owe|total|balance|liabilit)\b/.test(low)) {
-        if (!debts.length) return "You haven't added any debts yet. Add them under the Debts page and I can build a payoff plan.";
-        return `Total debt: ${fmt(totalDebt)} across ${debts.length} accounts (avg APR ${(debts.reduce((s,d)=>s+(d.apr||0)*1,0)/debts.length).toFixed(1)}%, total minimums ${fmt(totalMin)}/mo). Current strategy: ${strategy}.`;
+        if (!debts.length) return "You haven't added any debts yet. Add them under the Debts page and I'll build a full payoff plan with timing, interest projections, and which account to attack first.";
+        const sorted = [...debts].sort((a,b) => (b.apr||0) - (a.apr||0));
+        const lines = sorted.slice(0, 10).map((d,i) => {
+            const monthlyInterest = (d.balance || 0) * (d.apr || 0) / 100 / 12;
+            return `${i+1}. ${d.name}: ${fmt(d.balance)} @ ${(d.apr||0)}% APR · ${fmt(d.minPayment)}/mo min · ${fmt(monthlyInterest)} burned in interest each month`;
+        });
+        const totalMonthlyInterest = debts.reduce((s,d) => s + (d.balance||0) * (d.apr||0) / 100 / 12, 0);
+        const yearlyInterest = totalMonthlyInterest * 12;
+        return `💰 Debt portfolio (${debts.length} accounts, ${fmt(totalDebt)} total):\n\n${lines.join('\n')}\n\n` +
+            `📊 At your current balances and APRs you're burning ${fmt(totalMonthlyInterest)}/month — that's ${fmt(yearlyInterest)}/year — in interest alone.\n` +
+            `Average APR: ${avgApr.toFixed(1)}%. Minimum payments: ${fmt(totalMin)}/mo.\n\n` +
+            `🎯 Highest-impact target: ${sorted[0].name} (${(sorted[0].apr||0)}% APR). Every extra dollar there saves the most interest.`;
     }
 
     // 8. Strategy / payoff plan / how to pay off / advice
-    if (/\b(strategy|optimal|best|payoff|pay off|free|when.*debt-free|free of debt|advice|recommend|how to|out of debt)\b/.test(low)) {
+    if (/\b(strategy|optimal|best|payoff|pay off|free|when.*debt-free|free of debt|advice|recommend|how to|out of debt|how fast|how long|how many month)\b/.test(low)) {
         if (!debts.length) return "Add a debt and I'll run all three strategies (Snowball, Hybrid, Avalanche) on it and show which finishes fastest with the least interest.";
         try {
             const sim = simulateAllStrategies();
             if (!sim) return "Run a strategy from the dashboard and I'll explain it in detail.";
             const best = sim.best;
-            const months = sim.simulations[best].months;
-            const interest = sim.simulations[best].interest;
-            const dfd = new Date(); dfd.setMonth(dfd.getMonth() + months);
-            const monthsCurrent = sim.simulations[strategy] && sim.simulations[strategy].months;
-            const interestCurrent = sim.simulations[strategy] && sim.simulations[strategy].interest;
-            let savingsLine = '';
-            if (best !== strategy && interestCurrent != null) {
-                const save = Math.max(0, interestCurrent - interest);
-                savingsLine = ` Switching from ${strategy} to ${best} saves ~${fmt(save)} in interest.`;
-            }
-            return `Best math: ${best.charAt(0).toUpperCase()+best.slice(1)} — finishes in ${months} months (${dfd.toLocaleDateString('en-US',{month:'long',year:'numeric'})}) with ${fmt(interest)} total interest.${savingsLine} Top target: ${debts[0].name} (${(debts[0].apr||0)}% APR).`;
-        } catch(_) { return `Best strategy for your portfolio is computed on the dashboard's Top-3 strategy bar. ${strategy.charAt(0).toUpperCase()+strategy.slice(1)} is currently active.`; }
+            const bestMonths = sim.simulations[best].months;
+            const bestInterest = sim.simulations[best].interest;
+            const dfd = new Date(); dfd.setMonth(dfd.getMonth() + bestMonths);
+            const lines = ['🏆 Strategy comparison for your portfolio:\n'];
+            ['snowball','hybrid','avalanche'].forEach(s => {
+                if (!sim.simulations[s]) return;
+                const m = sim.simulations[s].months, i = sim.simulations[s].interest;
+                const mark = s === best ? '🥇' : s === strategy ? '👈 (current)' : '  ';
+                lines.push(`${mark} ${s.charAt(0).toUpperCase()+s.slice(1)}: ${m} months · ${fmt(i)} total interest`);
+            });
+            const switchSavings = (best !== strategy && sim.simulations[strategy]) ? Math.max(0, sim.simulations[strategy].interest - bestInterest) : 0;
+            const switchMonths = (best !== strategy && sim.simulations[strategy]) ? Math.max(0, sim.simulations[strategy].months - bestMonths) : 0;
+            const switchLine = (best !== strategy)
+                ? `\n\n⚡ Switching from ${strategy} to ${best} would save ~${fmt(switchSavings)} in interest and finish ${switchMonths} months earlier.`
+                : `\n\n✅ You're already on the math-optimal strategy.`;
+            const topApr = [...debts].sort((a,b) => (b.apr||0)-(a.apr||0))[0];
+            const focusLine = `\n\n🎯 Focus this month: every extra dollar should hit ${topApr.name} (${topApr.apr||0}% APR). At your current minimum, this debt alone burns ${fmt((topApr.balance||0)*(topApr.apr||0)/100/12)}/mo in interest.`;
+            return `${lines.join('\n')}\n\n📅 Best-case debt-free date: ${dfd.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} (${bestMonths} months from today).${switchLine}${focusLine}\n\n💡 To accelerate further: open Settings → AI Intelligence and bump Monthly Extra Payment. Every $100/mo extra typically removes 1–3 months from total payoff.`;
+        } catch(e) { return `Best strategy for your portfolio is computed on the dashboard's Top-3 strategy bar. ${strategy.charAt(0).toUpperCase()+strategy.slice(1)} is currently active.`; }
     }
 
     // 9. Extra payment "what if"
-    if (/\b(extra|what if|add|more|\$\d+)/.test(low)) {
+    if (/\b(extra|what if|add|more|\$\d+|bump|boost)\b/.test(low) && /\d/.test(low)) {
         const m = low.match(/\$?(\d{2,5})/);
         const extra = m ? parseInt(m[1], 10) : 200;
         const cur = (appState.budget && appState.budget.contribution) || 0;
-        return `If you bumped your monthly extra payment from ${fmt(cur)} to ${fmt(cur + extra)}, you'd shorten the projected payoff by months and reduce total interest. Open the AI Intelligence settings to update Monthly Extra Payment, then I'll re-simulate.`;
+        if (!debts.length) return `Adding ${fmt(extra)}/mo extra would have nowhere to go yet — add your debts first.`;
+        try {
+            const baseSim = simulateAllStrategies();
+            // Re-simulate with bumped contribution (in-memory only)
+            const origContrib = (appState.budget && appState.budget.contribution) || 0;
+            if (!appState.budget) appState.budget = {};
+            appState.budget.contribution = origContrib + extra;
+            const newSim = simulateAllStrategies();
+            appState.budget.contribution = origContrib; // restore
+            if (baseSim && newSim) {
+                const baseM = baseSim.simulations[strategy].months;
+                const baseI = baseSim.simulations[strategy].interest;
+                const newM  = newSim.simulations[strategy].months;
+                const newI  = newSim.simulations[strategy].interest;
+                const monthsSaved = Math.max(0, baseM - newM);
+                const interestSaved = Math.max(0, baseI - newI);
+                return `Bumping your monthly extra from ${fmt(cur)} to ${fmt(cur + extra)}:\n\n` +
+                    `• Payoff: ${baseM} months → ${newM} months (${monthsSaved} months sooner)\n` +
+                    `• Total interest: ${fmt(baseI)} → ${fmt(newI)} (saves ${fmt(interestSaved)})\n` +
+                    `• ROI on ${fmt(extra)}/mo: ${fmt(interestSaved)} interest avoided over the life of the plan\n\n` +
+                    `To make it real: Settings → AI Intelligence → Monthly Extra Payment.`;
+            }
+        } catch(_){}
+        return `Bumping monthly extra from ${fmt(cur)} to ${fmt(cur + extra)} typically removes ${Math.ceil(extra / 80)}–${Math.ceil(extra / 40)} months from total payoff. Open AI Intelligence settings to commit.`;
     }
 
-    // Default — summarize the account
-    if (!debts.length && !income) return "I work entirely from your account data. Once you've added income, debts, or transactions I can give specific guidance — payoff timing, due-date alerts, spending breakdown, credit-score moves.";
-    return `Quick snapshot: ${fmt(totalDebt)} total debt across ${debts.length} accounts, ${fmt(totalMin)} minimums, ${fmt(income)} income, current strategy: ${strategy}. Ask me about due dates, credit, spending, savings, or your payoff plan.`;
+    // Default — detailed account snapshot
+    if (!debts.length && !income) return "I work entirely from your account data and I haven't seen any yet. Once you've added income, debts, or transactions, ask me about: due dates, credit utilization, spending by category, savings goals, payoff strategy, or any what-if scenario.";
+    const snap = [];
+    if (income) snap.push(`💰 Income: ${fmt(income)}/mo`);
+    if (debts.length) {
+        const monthlyInterest = debts.reduce((s,d) => s + (d.balance||0)*(d.apr||0)/100/12, 0);
+        snap.push(`💳 Debt: ${fmt(totalDebt)} across ${debts.length} accounts (avg ${avgApr.toFixed(1)}% APR, ${fmt(totalMin)}/mo min, ${fmt(monthlyInterest)}/mo interest)`);
+    }
+    snap.push(`🎯 Strategy: ${strategy.charAt(0).toUpperCase()+strategy.slice(1)}`);
+    return `Here's where you stand:\n\n${snap.join('\n')}\n\nAsk me about:\n• Due dates ("when are my payments due?")\n• Credit ("how's my utilization?")\n• Spending ("where am I spending this month?")\n• Strategy ("what's the best payoff plan?")\n• Savings ("how am I doing on goals?")\n• What-if ("what if I add $200 extra?")`;
 }
 
 /* ---------- NOTIFICATION ENGINE ---------- */
@@ -11362,18 +11482,25 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
             const response = generateAiResponse(val);
             const msg = addMessage('', 'ai');
             const bubble = msg.querySelector('.ai-bubble');
-            
+            // Preserve newlines + bullets in detailed responses
+            bubble.style.whiteSpace = 'pre-line';
+            bubble.style.lineHeight = '1.55';
+            // Faster typing on long responses so detailed answers don't drag.
+            // Per-char delay scales inversely with length.
+            const perChar = response.length > 400 ? 4 : response.length > 200 ? 6 : 10;
             let i = 0;
             const interval = setInterval(() => {
                 if (i < response.length) {
+                    // textContent (not innerHTML) so we don't execute embedded
+                    // markup but DO render newlines via white-space:pre-line.
                     bubble.textContent += response[i];
                     i++;
                     containerEl.scrollTop = containerEl.scrollHeight;
                 } else {
                     clearInterval(interval);
                 }
-            }, 10);
-        }, 800);
+            }, perChar);
+        }, 500);
     };
 
     sendBtn.addEventListener('click', handleSend);

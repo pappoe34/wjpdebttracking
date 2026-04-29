@@ -7680,3 +7680,48 @@ body.sidebar-collapsed .sidebar-user { justify-content: center; }
   font-weight: 700;
   margin-left: 4px;
 }
+
+/* === v=86-fabwidget: floating AI Advisor widget polish === */
+/* "Ask AI" tooltip pill on hover (only on first few seconds, fades out) */
+.ai-chat-fab::before {
+  content: 'Ask AI';
+  position: absolute;
+  right: 70px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.ai-chat-fab:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) translateX(-4px);
+}
+/* Subtle pulse ring so the FAB is more discoverable */
+.ai-chat-fab::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0.45;
+  animation: wjp-fab-pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes wjp-fab-pulse {
+  0%   { transform: scale(0.92); opacity: 0.55; }
+  70%  { transform: scale(1.30); opacity: 0; }
+  100% { transform: scale(1.30); opacity: 0; }
+}
+/* Hide the pulse when chat is open so it doesn't compete with the panel */
+.ai-chat-fab.active::after { display: none; }
+.ai-chat-fab.active::before { display: none; }
