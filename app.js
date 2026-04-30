@@ -7846,13 +7846,16 @@ window.WJP_CloudAI = {
         return lines.join('\n');
     },
 
-    /** POST to /ai-cloud, returns the full answer string. */
+    /** POST to /ai-cloud, returns the full answer string.
+     *  Honors user-configured tone + length from Settings → AI Intelligence. */
     async ask(question) {
         const ctx = this._buildContext();
+        const tone   = (appState.prefs && appState.prefs.aiTone)   || 'friendly';
+        const length = (appState.prefs && appState.prefs.aiLength) || 'standard';
         const resp = await fetch('/.netlify/functions/ai-cloud', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, context: ctx })
+            body: JSON.stringify({ question, context: ctx, tone, length })
         });
         if (!resp.ok) {
             const text = await resp.text().catch(() => '');
@@ -12535,19 +12538,26 @@ function initAdvisorPageLogic() {
         const strat = appState.settings?.strategy || 'avalanche';
         const extra = appState.budget?.contribution || 0;
         const fmt = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
+        if (!appState.prefs) appState.prefs = {};
+        const curMode   = appState.prefs.cloudMode === false ? 'standard' : 'cloud';
+        const curTone   = appState.prefs.aiTone   || 'friendly';
+        const curLength = appState.prefs.aiLength || 'standard';
+        const ab = appState.prefs.aiBehavior || {};
+
         openSettingsDrawer({
             icon: 'ph-brain',
             badge: 'STEP 03',
             title: 'AI Intelligence',
             subtitle: 'Configure how the AI Advisor thinks, learns, and communicates.',
             body: `
-              <div style="display:flex;flex-direction:column;gap:20px;">
-                <!-- Strategy -->
+              <div style="display:flex;flex-direction:column;gap:22px;">
+
+                <!-- 1. Payoff Strategy -->
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Payoff Strategy</div>
                   <div style="display:flex;flex-direction:column;gap:6px;" id="ai-strat-picker">
                     ${[
-                      {id:'avalanche',label:'Avalanche',desc:'Highest APR first — minimises total interest paid',icon:'ph-trend-up'},
+                      {id:'avalanche',label:'Avalanche',desc:'Highest APR first — minimizes total interest paid',icon:'ph-trend-up'},
                       {id:'snowball', label:'Snowball', desc:'Lowest balance first — builds momentum with quick wins',icon:'ph-snowflake'},
                       {id:'hybrid',  label:'Hybrid',   desc:'Balanced blend — APR-to-balance ratio targeting',icon:'ph-intersect'},
                     ].map(s=>`<div class="ai-strat-opt" data-strat="${s.id}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px solid ${strat===s.id?'var(--accent)':'var(--border)'};border-radius:10px;cursor:pointer;background:${strat===s.id?'rgba(0,212,168,0.06)':'var(--card-2)'};transition:all 0.15s;">
@@ -12560,7 +12570,8 @@ function initAdvisorPageLogic() {
                     </div>`).join('')}
                   </div>
                 </div>
-                <!-- Extra payment -->
+
+                <!-- 2. Monthly Extra Payment -->
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:6px;">Monthly Extra Payment</div>
                   <div style="font-size:9px;color:var(--text-3);margin-bottom:8px;">Additional funds routed to the target debt above minimums.</div>
@@ -12570,105 +12581,216 @@ function initAdvisorPageLogic() {
                     <span style="font-size:10px;color:var(--text-3);">/mo</span>
                   </div>
                 </div>
-                <!-- Cloud Mode (Groq Llama 70B — fastest, free) -->
-                <div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:10px;padding:14px;margin-bottom:14px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
-                    <div>
-                      <div style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;color:#667eea;"><i class="ph-fill ph-cloud"></i> Cloud Mode <span style="font-size:8px;background:#667eea;color:#0b0f1a;padding:2px 6px;border-radius:4px;font-weight:900;">RECOMMENDED</span></div>
-                      <div style="font-size:10px;color:var(--text-3);margin-top:3px;">Fast (sub-1s), powered by Llama 3.3 70B via Groq. Free for normal usage.</div>
-                    </div>
-                    <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.cloudMode)?'on':''}" data-key="cloudMode" style="flex-shrink:0;"><div class="thumb"></div></div>
+
+                <!-- 3. AI Mode — single radio (Cloud vs Standard) -->
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">AI Mode</div>
+                  <div style="display:flex;flex-direction:column;gap:6px;" id="ai-mode-picker">
+                    ${[
+                      {id:'cloud',    label:'Cloud Mode',    badge:'RECOMMENDED', desc:'Llama 3.3 70B via Groq · sub-1s adaptive answers · free',  color:'#667eea', icon:'ph-cloud'},
+                      {id:'standard', label:'Standard Mode', badge:'OFFLINE',     desc:'Rule-based · instant · works without internet · privacy-first', color:'var(--text-3)', icon:'ph-cpu'},
+                    ].map(m => `<div class="ai-mode-opt" data-mode="${m.id}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px solid ${curMode===m.id?m.color:'var(--border)'};border-radius:10px;cursor:pointer;background:${curMode===m.id?'rgba(102,126,234,0.06)':'var(--card-2)'};">
+                      <i class="ph-fill ${m.icon}" style="color:${curMode===m.id?m.color:'var(--text-3)'};font-size:18px;flex-shrink:0;"></i>
+                      <div style="flex:1;">
+                        <div style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">${m.label} <span style="font-size:8px;background:${m.color};color:#0b0f1a;padding:2px 5px;border-radius:3px;font-weight:900;">${m.badge}</span></div>
+                        <div style="font-size:9px;color:var(--text-3);margin-top:2px;">${m.desc}</div>
+                      </div>
+                      <div style="width:14px;height:14px;border-radius:50%;${curMode===m.id?`background:${m.color}`:'border:2px solid var(--text-3)'};flex-shrink:0;"></div>
+                    </div>`).join('')}
                   </div>
-                  <div style="font-size:10px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(102,126,234,0.15);padding-top:10px;margin-top:6px;">
-                    <strong>Privacy:</strong> Your account context is sent to Groq's API (server-side). Groq states they don't train on inputs or store conversations. Choose Deep Mode below for fully on-device alternative.
+                  <button id="ai-test-cloud-btn" style="width:100%;margin-top:8px;padding:8px 12px;background:rgba(102,126,234,0.10);border:1px solid rgba(102,126,234,0.30);border-radius:8px;color:#667eea;font-size:10px;font-weight:700;cursor:pointer;">⚡ Test Cloud Connection</button>
+                  <div id="ai-test-result" style="font-size:10px;color:var(--text-3);margin-top:6px;text-align:center;"></div>
+                </div>
+
+                <!-- 4. Response Style: tone + length -->
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Response Style</div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:6px;">Tone</div>
+                  <div id="ai-tone-picker" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;">
+                    ${[
+                      {id:'friendly', label:'Friendly', desc:'Warm + supportive'},
+                      {id:'direct',   label:'Direct',   desc:'No fluff, just facts'},
+                      {id:'coach',    label:'Coach',    desc:'Motivating + decisive'},
+                    ].map(t => `<div class="ai-tone-opt" data-tone="${t.id}" style="padding:9px 8px;border:2px solid ${curTone===t.id?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;background:${curTone===t.id?'rgba(0,212,168,0.06)':'var(--card-2)'};text-align:center;">
+                      <div style="font-size:11px;font-weight:700;">${t.label}</div>
+                      <div style="font-size:8px;color:var(--text-3);margin-top:2px;">${t.desc}</div>
+                    </div>`).join('')}
+                  </div>
+                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:6px;">Length</div>
+                  <div id="ai-length-picker" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+                    ${[
+                      {id:'brief',    label:'Brief',    desc:'1–3 sentences'},
+                      {id:'standard', label:'Standard', desc:'Bullets + tail'},
+                      {id:'detailed', label:'Detailed', desc:'Full breakdown'},
+                    ].map(t => `<div class="ai-length-opt" data-length="${t.id}" style="padding:9px 8px;border:2px solid ${curLength===t.id?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;background:${curLength===t.id?'rgba(0,212,168,0.06)':'var(--card-2)'};text-align:center;">
+                      <div style="font-size:11px;font-weight:700;">${t.label}</div>
+                      <div style="font-size:8px;color:var(--text-3);margin-top:2px;">${t.desc}</div>
+                    </div>`).join('')}
                   </div>
                 </div>
 
-                <!-- Deep Mode (private in-browser LLM) -->
-                <div style="background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.25);border-radius:10px;padding:14px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
-                    <div>
-                      <div style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;"><i class="ph-fill ph-sparkle" style="color:var(--accent);"></i> Deep Mode <span style="font-size:8px;background:var(--accent);color:#0b0f1a;padding:2px 6px;border-radius:4px;font-weight:900;">BETA</span></div>
-                      <div style="font-size:10px;color:var(--text-3);margin-top:3px;">Private in-browser LLM. Smarter free-form answers. Stays 100% on your device.</div>
+                <!-- 5. Behavior — only the wired toggles -->
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Behavior</div>
+                  ${[
+                    {key:'proactive',      label:'Proactive Insights',      desc:'Floating AI widget appears on every page', def:true},
+                    {key:'spendingAnomaly',label:'Spending Anomaly Detection',desc:'Highlight unusual transactions in the dashboard', def:false},
+                  ].map(t => {
+                    const isOn = ab[t.key] === undefined ? t.def : !!ab[t.key];
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                      <div>
+                        <div style="font-size:11px;font-weight:600;">${t.label}</div>
+                        <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
+                      </div>
+                      <div class="toggle-switch ai-behavior-toggle ${isOn?'on':''}" data-key="${t.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
+                    </div>`;
+                  }).join('')}
+                </div>
+
+                <!-- 6. Transparency: What the AI Sees -->
+                <div>
+                  <div id="ai-context-toggle" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">
+                    <i class="ph ph-eye"></i> What the AI sees about you
+                    <i class="ph ph-caret-down" id="ai-context-caret" style="margin-left:auto;transition:transform 0.2s;"></i>
+                  </div>
+                  <pre id="ai-context-preview" style="display:none;margin-top:6px;padding:10px;background:#0b0f1a;border:1px solid var(--border);border-radius:8px;color:var(--text-3);font-size:10px;line-height:1.5;max-height:240px;overflow:auto;white-space:pre-wrap;font-family:'SF Mono',Menlo,monospace;"></pre>
+                  <div style="font-size:9px;color:var(--text-3);margin-top:6px;font-style:italic;">This is the exact context sent with each Cloud Mode question. No PII like SSN, phone, or address — just numbers and account names.</div>
+                </div>
+
+                <!-- 7. Advanced (collapsed) — Deep Mode for power users -->
+                <div>
+                  <div id="ai-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;color:var(--text-3);">
+                    <i class="ph ph-gear-six"></i> Advanced — Offline LLM (Deep Mode)
+                    <i class="ph ph-caret-down" id="ai-advanced-caret" style="margin-left:auto;transition:transform 0.2s;"></i>
+                  </div>
+                  <div id="ai-advanced-body" style="display:none;margin-top:8px;background:rgba(0,212,168,0.04);border:1px solid rgba(0,212,168,0.20);border-radius:10px;padding:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+                      <div>
+                        <div style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;"><i class="ph-fill ph-sparkle" style="color:var(--accent);"></i> Deep Mode <span style="font-size:8px;background:var(--accent);color:#0b0f1a;padding:2px 5px;border-radius:3px;font-weight:900;">100% PRIVATE</span></div>
+                        <div style="font-size:9px;color:var(--text-3);margin-top:3px;">In-browser LLM. Stays on your device. Slow on consumer GPUs (~30s–2m per answer).</div>
+                      </div>
+                      <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.deepMode)?'on':''}" data-key="deepMode" style="flex-shrink:0;"><div class="thumb"></div></div>
                     </div>
-                    <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.deepMode)?'on':''}" data-key="deepMode" style="flex-shrink:0;"><div class="thumb"></div></div>
-                  </div>
-                  <div id="deep-mode-info" style="font-size:10px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(0,212,168,0.15);padding-top:10px;margin-top:6px;">
-                    First time you enable: model downloads from CDN to your browser cache. Subsequent loads are instant. Works offline once cached.<br>
-                    Requires a modern browser with WebGPU (Chrome, Edge, Safari TP, or Arc).
-                  </div>
-                  <!-- Model tier picker — bigger = smarter answers, slower + more storage -->
-                  <div style="border-top:1px solid rgba(0,212,168,0.15);padding-top:10px;margin-top:10px;">
-                    <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:8px;">Model Tier</div>
-                    ${(() => {
-                      const cur = (appState.prefs && appState.prefs.deepModelTier) || 'smart';
-                      return [
-                        {key:'fast',     label:'Fast',     size:'~1.2 GB', desc:'Qwen 2.5 1.5B · quick, basic answers'},
-                        {key:'smart',    label:'Smart',    size:'~1.9 GB', desc:'Llama 3.2 3B · default · much better reasoning'},
-                        {key:'smartest', label:'Smartest', size:'~4.4 GB', desc:'Llama 3.1 8B · Claude-like · slow, large download'},
-                      ].map(m => `<div class="deep-tier-opt" data-tier="${m.key}" style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:2px solid ${cur===m.key?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;background:${cur===m.key?'rgba(0,212,168,0.06)':'transparent'};margin-bottom:5px;">
-                        <div style="width:11px;height:11px;border-radius:50%;${cur===m.key?'background:var(--accent)':'border:2px solid var(--text-3)'};flex-shrink:0;"></div>
-                        <div style="flex:1;">
-                          <div style="font-size:11px;font-weight:700;">${m.label} <span style="font-size:9px;color:var(--text-3);font-weight:500;">${m.size}</span></div>
-                          <div style="font-size:9px;color:var(--text-3);margin-top:2px;">${m.desc}</div>
-                        </div>
-                      </div>`).join('');
-                    })()}
-                    <div style="font-size:9px;color:var(--text-3);font-style:italic;margin-top:4px;">Switching tiers triggers a fresh download. Your old cache stays for offline fallback.</div>
-                  </div>
-                  <div id="deep-mode-progress" style="display:none;margin-top:10px;">
-                    <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;" id="deep-mode-progress-label">Loading…</div>
-                    <div style="height:6px;background:rgba(0,212,168,0.10);border-radius:3px;overflow:hidden;"><div id="deep-mode-progress-bar" style="height:6px;width:0%;background:var(--accent);transition:width 0.3s;"></div></div>
+                    <div id="deep-mode-info" style="font-size:9px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(0,212,168,0.15);padding-top:8px;margin-top:6px;">
+                      Model downloads from CDN to browser cache on first enable. Requires WebGPU (Chrome / Edge / Arc / Safari TP).
+                    </div>
+                    <div style="border-top:1px solid rgba(0,212,168,0.15);padding-top:10px;margin-top:10px;">
+                      <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:6px;">Model Tier</div>
+                      ${(() => {
+                        const cur = (appState.prefs && appState.prefs.deepModelTier) || 'smart';
+                        return [
+                          {key:'fast',     label:'Fast',     size:'~1.2 GB', desc:'Qwen 2.5 1.5B'},
+                          {key:'smart',    label:'Smart',    size:'~1.9 GB', desc:'Llama 3.2 3B (default)'},
+                          {key:'smartest', label:'Smartest', size:'~4.4 GB', desc:'Llama 3.1 8B'},
+                        ].map(m => `<div class="deep-tier-opt" data-tier="${m.key}" style="display:flex;align-items:center;gap:9px;padding:7px 10px;border:2px solid ${cur===m.key?'var(--accent)':'var(--border)'};border-radius:7px;cursor:pointer;background:${cur===m.key?'rgba(0,212,168,0.06)':'transparent'};margin-bottom:4px;">
+                          <div style="width:10px;height:10px;border-radius:50%;${cur===m.key?'background:var(--accent)':'border:2px solid var(--text-3)'};flex-shrink:0;"></div>
+                          <div style="flex:1;"><div style="font-size:10px;font-weight:700;">${m.label} <span style="font-size:9px;color:var(--text-3);font-weight:500;">${m.size}</span></div><div style="font-size:8px;color:var(--text-3);">${m.desc}</div></div>
+                        </div>`).join('');
+                      })()}
+                    </div>
+                    <div id="deep-mode-progress" style="display:none;margin-top:10px;">
+                      <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;" id="deep-mode-progress-label">Loading…</div>
+                      <div style="height:5px;background:rgba(0,212,168,0.10);border-radius:3px;overflow:hidden;"><div id="deep-mode-progress-bar" style="height:5px;width:0%;background:var(--accent);transition:width 0.3s;"></div></div>
+                    </div>
                   </div>
                 </div>
 
-                <!-- AI Behaviour toggles — read/write appState.prefs.aiBehavior -->
-                <div>
-                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">AI Behaviour</div>
-                  ${(() => {
-                    const ab = (appState.prefs && appState.prefs.aiBehavior) || {};
-                    const rows = [
-                      {key:'proactive',     label:'Proactive Insights',     desc:'AI surfaces recommendations without prompting', def:true},
-                      {key:'savings',       label:'Savings Opportunities',  desc:'Alerts for rate changes or refinancing chances', def:true},
-                      {key:'spendingAnomaly',label:'Spending Pattern Analysis',desc:'Cross-reference transactions to flag anomalies', def:false},
-                      {key:'personalLang',  label:'Personalised Language',  desc:'Adjust tone based on your financial progress', def:true},
-                    ];
-                    return rows.map(t=>{
-                      const isOn = ab[t.key] === undefined ? t.def : !!ab[t.key];
-                      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-                        <div>
-                          <div style="font-size:11px;font-weight:600;">${t.label}</div>
-                          <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
-                        </div>
-                        <div class="toggle-switch ai-behavior-toggle ${isOn?'on':''}" data-key="${t.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
-                      </div>`;
-                    }).join('');
-                  })()}
-                </div>
-                <!-- Data Privacy — read/write appState.prefs.privacy -->
-                <div>
-                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Data & Privacy</div>
-                  ${(() => {
-                    const pv = (appState.prefs && appState.prefs.privacy) || {};
-                    const rows = [
-                      {key:'improveAI',   label:'Improve AI with anonymised data', desc:'Help train better recommendations (no PII shared)', def:false},
-                      {key:'crashReports',label:'Share crash reports',             desc:'Send error logs to improve stability',              def:true},
-                    ];
-                    return rows.map(t=>{
-                      const isOn = pv[t.key] === undefined ? t.def : !!pv[t.key];
-                      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-                        <div>
-                          <div style="font-size:11px;font-weight:600;">${t.label}</div>
-                          <div style="font-size:9px;color:var(--text-3);">${t.desc}</div>
-                        </div>
-                        <div class="toggle-switch privacy-toggle ${isOn?'on':''}" data-key="${t.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
-                      </div>`;
-                    }).join('');
-                  })()}
-                </div>
                 <button id="ai-settings-save-btn" class="btn btn-primary" style="width:100%;padding:12px;">SAVE AI SETTINGS</button>
               </div>`
         });
+
+        // === Wire AI Mode picker (Cloud vs Standard) ===
+        setTimeout(() => {
+            document.querySelectorAll('.ai-mode-opt').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const mode = opt.dataset.mode;
+                    if (!appState.prefs) appState.prefs = {};
+                    appState.prefs.cloudMode = (mode === 'cloud');
+                    if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = appState.prefs.cloudMode;
+                    saveState();
+                    document.querySelectorAll('.ai-mode-opt').forEach(o => {
+                        const active = o.dataset.mode === mode;
+                        const color = o.dataset.mode === 'cloud' ? '#667eea' : 'var(--text-3)';
+                        o.style.borderColor = active ? color : 'var(--border)';
+                        o.style.background  = active ? (o.dataset.mode === 'cloud' ? 'rgba(102,126,234,0.06)' : 'rgba(255,255,255,0.04)') : 'var(--card-2)';
+                        const dot = o.querySelector('div:last-child');
+                        if (dot) {
+                            dot.style.background = active ? color : '';
+                            dot.style.border = active ? 'none' : '2px solid var(--text-3)';
+                        }
+                        const icon = o.querySelector('i.ph-fill');
+                        if (icon) icon.style.color = active ? color : 'var(--text-3)';
+                    });
+                    if (typeof updateFabDeepBadge === 'function') updateFabDeepBadge();
+                    showToast(mode === 'cloud' ? 'Cloud Mode on — sub-1s answers via Groq.' : 'Standard Mode — offline rule-based.');
+                });
+            });
+
+            // === Test Cloud Connection ===
+            document.getElementById('ai-test-cloud-btn')?.addEventListener('click', async () => {
+                const btn = document.getElementById('ai-test-cloud-btn');
+                const result = document.getElementById('ai-test-result');
+                if (!btn || !result) return;
+                btn.disabled = true; btn.textContent = '⏳ Testing…';
+                result.textContent = '';
+                const t0 = Date.now();
+                try {
+                    const reply = await window.WJP_CloudAI.ask('Reply with the single word: ready');
+                    const elapsed = Date.now() - t0;
+                    result.style.color = '#22c55e';
+                    result.innerHTML = `✓ Cloud connected · ${elapsed}ms · "${(reply||'').slice(0,40)}"`;
+                } catch (err) {
+                    result.style.color = '#ef4444';
+                    result.textContent = '✗ ' + (err.message || err).slice(0, 200);
+                }
+                btn.disabled = false; btn.textContent = '⚡ Test Cloud Connection';
+            });
+
+            // === Tone + Length pickers ===
+            const wirePicker = (selector, prefKey) => {
+                document.querySelectorAll(selector).forEach(opt => {
+                    opt.addEventListener('click', () => {
+                        const v = opt.dataset.tone || opt.dataset.length;
+                        if (!appState.prefs) appState.prefs = {};
+                        appState.prefs[prefKey] = v;
+                        saveState();
+                        document.querySelectorAll(selector).forEach(o => {
+                            const active = (o.dataset.tone || o.dataset.length) === v;
+                            o.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+                            o.style.background = active ? 'rgba(0,212,168,0.06)' : 'var(--card-2)';
+                        });
+                    });
+                });
+            };
+            wirePicker('.ai-tone-opt', 'aiTone');
+            wirePicker('.ai-length-opt', 'aiLength');
+
+            // === What the AI sees — collapsible context preview ===
+            document.getElementById('ai-context-toggle')?.addEventListener('click', () => {
+                const pre = document.getElementById('ai-context-preview');
+                const caret = document.getElementById('ai-context-caret');
+                if (!pre) return;
+                if (pre.style.display === 'none') {
+                    pre.textContent = (window.WJP_CloudAI && window.WJP_CloudAI._buildContext)
+                        ? window.WJP_CloudAI._buildContext()
+                        : '(context unavailable)';
+                    pre.style.display = 'block';
+                    if (caret) caret.style.transform = 'rotate(180deg)';
+                } else {
+                    pre.style.display = 'none';
+                    if (caret) caret.style.transform = '';
+                }
+            });
+
+            // === Advanced (Deep Mode) collapsible ===
+            document.getElementById('ai-advanced-toggle')?.addEventListener('click', () => {
+                const body = document.getElementById('ai-advanced-body');
+                const caret = document.getElementById('ai-advanced-caret');
+                if (!body) return;
+                const open = body.style.display !== 'none';
+                body.style.display = open ? 'none' : 'block';
+                if (caret) caret.style.transform = open ? '' : 'rotate(180deg)';
+            });
 
         // Wire strategy picker after render
         setTimeout(() => {

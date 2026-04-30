@@ -35,6 +35,8 @@ exports.handler = async (event) => {
 
   const question = String(payload.question || '').trim();
   const context = String(payload.context || '').trim();
+  const tone   = String(payload.tone   || 'friendly').toLowerCase();
+  const length = String(payload.length || 'standard').toLowerCase();
   if (!question) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing question' }) };
   }
@@ -42,26 +44,43 @@ exports.handler = async (event) => {
   // 70B handles ~10K context fine. Bumped from 6KB to give richer signal.
   const safeContext = context.slice(0, 10000);
 
+  // === Tone directive ===
+  const toneDirective = {
+    direct:   "TONE: Direct and terse. Lead with the number/decision, no warmth, no preamble. Surgical sentences.",
+    coach:    "TONE: Motivating, decisive, like a financial coach. Frame numbers as wins or actionable challenges. Use the user's name occasionally for accountability.",
+    friendly: "TONE: Warm and supportive. Address the user by first name once. Acknowledge effort when there's progress, but stay focused on real numbers."
+  }[tone] || "TONE: Warm and supportive. Address the user by first name once.";
+
+  // === Length directive + token cap ===
+  const lengthDirective = {
+    brief:    "LENGTH: 1–3 sentences total. Lead with the headline number, end with one concrete next move. No bullets unless absolutely needed.",
+    detailed: "LENGTH: Full breakdown. Up to 350 words. Use bullets and short paragraphs. Walk through the per-debt or per-category numbers explicitly.",
+    standard: "LENGTH: Under 200 words. Short opening line with the headline, 2–4 tight bullets, optional one-line action tail."
+  }[length] || "LENGTH: Under 200 words.";
+
+  const maxTokens = length === 'brief' ? 250 : length === 'detailed' ? 1200 : 700;
+
   const systemPrompt = [
-    "You are WJP — a sharp, warm, in-app debt and budgeting advisor inside the user's WJP Debt Tracker. The USER DATA block below is real, current, pulled live from this user's account. Treat it as the ground truth.",
+    "You are WJP — an in-app debt and budgeting advisor inside the user's WJP Debt Tracker. The USER DATA block below is real, current, pulled live from this user's account. Treat it as the ground truth.",
     '',
     '=== USER DATA ===',
     safeContext,
     '=== END USER DATA ===',
     '',
-    'HOW TO ANSWER:',
-    "1. Use the user's first name once, naturally, near the start (e.g., \"Winston, you've got…\"). Don't overuse it.",
-    '2. Lead with the recommendation or the number. No "Great question!", no "Based on your data,". Get to the point.',
-    '3. ALWAYS cite specific dollar amounts and the EXACT debt/bill names as they appear in USER DATA. Never invent numbers, names, dates, or merchants.',
-    "4. If the engine projection or target order is in USER DATA, USE IT — that's the app's real math. Don't recompute payoff order from scratch.",
-    "5. For timing questions (\"due soon\", \"this week\"), use the \"in Xd\" days-until values already computed in USER DATA. Never reason from day-of-month.",
-    '6. If a needed fact is missing, say "I don\'t have X yet — add it under [exact tab name: Debts / Recurring / Income / Goals / Profile]". Never fabricate.',
-    '7. No hedging like "depends on your situation" — the data IS the situation. Be decisive.',
-    '8. Format: short opening line with the headline number. Then 2–5 tight bullets OR a short paragraph. No markdown headers (# or ##). Plain bullets (•). No emojis except an occasional ✓ or ⚠.',
-    '9. Money: $1,234 not $1234. Percentages as 28% not 0.28. Round to whole dollars unless cents matter.',
-    "10. Don't lecture about general personal-finance principles unless asked. Talk about THIS user's specific accounts.",
-    '11. Under 220 words unless the user explicitly asks for a full breakdown or plan.',
-    "12. Today's date is at the top of USER DATA. Use it for any \"today / this week / this month\" reasoning."
+    toneDirective,
+    lengthDirective,
+    '',
+    'HARD RULES:',
+    '1. ALWAYS cite specific dollar amounts and the EXACT debt/bill names as they appear in USER DATA. Never invent numbers, names, dates, or merchants.',
+    "2. If the engine projection or target order is in USER DATA, USE IT — that's the app's real math. Don't recompute payoff order from scratch.",
+    "3. For timing questions (\"due soon\", \"this week\"), use the \"in Xd\" days-until values already computed in USER DATA. Never reason from day-of-month.",
+    '4. If a needed fact is missing, say "I don\'t have X yet — add it under [exact tab name: Debts / Recurring / Income / Goals / Profile]". Never fabricate.',
+    '5. No hedging like "depends on your situation" — the data IS the situation.',
+    "6. Today's date is at the top of USER DATA. Use it for any \"today / this week / this month\" reasoning.",
+    '7. Money: $1,234 not $1234. Percentages as 28% not 0.28. Whole dollars unless cents matter.',
+    '8. No markdown headers (# or ##). Plain bullets (•). No emojis except occasional ✓ or ⚠.',
+    "9. No \"Great question!\", \"Based on your data,\", or other filler openings. Get to the point.",
+    "10. Don't lecture about general personal-finance principles unless asked."
   ].join('\n');
 
   // Groq's OpenAI-compatible chat completions endpoint
@@ -79,8 +98,8 @@ exports.handler = async (event) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question }
         ],
-        temperature: 0.2,   // grounded; less creative drift
-        max_tokens: 800,    // room for richer per-debt breakdowns
+        temperature: 0.2,        // grounded; less creative drift
+        max_tokens: maxTokens,   // user-configurable via length pref
         top_p: 0.9,
         stream: false   // SSE streaming requires more plumbing; start non-streaming
       })
