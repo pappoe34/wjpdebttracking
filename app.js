@@ -7678,6 +7678,45 @@ function updateFabDeepBadge() {
 window.updateFabDeepBadge = updateFabDeepBadge;
 
 /* ========================================================================
+   WJP_CloudAI — Cloud-mode AI via the /ai-cloud Netlify function (Groq).
+   Sub-1-second responses, Llama 3.3 70B reasoning, free for the volumes a
+   personal-finance app sees. Data goes through Groq's API but Groq states
+   they don't train on inputs and don't store conversations.
+   ======================================================================== */
+window.WJP_CloudAI = {
+    enabled: !!(typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.cloudMode),
+
+    /** Build a sanitized account context — same shape as Deep Mode. */
+    _buildContext() {
+        if (window.WJP_DeepAI && typeof window.WJP_DeepAI._buildContext === 'function') {
+            return window.WJP_DeepAI._buildContext();
+        }
+        return '';
+    },
+
+    /** POST to /ai-cloud, returns the full answer string. */
+    async ask(question) {
+        const ctx = this._buildContext();
+        const resp = await fetch('/.netlify/functions/ai-cloud', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question, context: ctx })
+        });
+        if (!resp.ok) {
+            const text = await resp.text().catch(() => '');
+            // 503 means Cloud AI isn't configured — surface a clean message
+            if (resp.status === 503) {
+                throw new Error('Cloud AI not configured. Add GROQ_API_KEY in Netlify environment.');
+            }
+            throw new Error(`Cloud AI ${resp.status}: ${text.slice(0, 200)}`);
+        }
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        return data.reply || '';
+    }
+};
+
+/* ========================================================================
    WJP_DeepAI — Optional in-browser LLM (WebLLM / WebGPU).
    Free + private: model downloads once to IndexedDB, runs locally on the
    user's GPU, no API keys, no data ever leaves the device. Toggled on
@@ -11926,10 +11965,40 @@ function setupChatInstance(inputEl, sendBtn, containerEl) {
         containerEl.appendChild(thinking);
         containerEl.scrollTop = containerEl.scrollHeight;
 
-        // Re-sync runtime enabled from the saved pref so a stale flag from
-        // earlier doesn't block Deep Mode when the user actually has it on.
-        const prefDeep = !!(window.appState && appState.prefs && appState.prefs.deepMode);
+        // Re-sync runtime enabled flags from saved prefs every send.
+        const prefCloud = !!(window.appState && appState.prefs && appState.prefs.cloudMode);
+        const prefDeep  = !!(window.appState && appState.prefs && appState.prefs.deepMode);
+        if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = prefCloud;
         if (window.WJP_DeepAI && prefDeep) window.WJP_DeepAI.enabled = true;
+
+        // Cloud Mode (Groq) — fastest path. Sub-second responses via Llama 70B.
+        if (prefCloud && window.WJP_CloudAI) {
+            const thinkingBubble = thinking.querySelector('.ai-bubble');
+            if (thinkingBubble) {
+                thinkingBubble.innerHTML = `<div class="wjp-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="wjp-thinking-label">cloud thinking…</span></div>`;
+            }
+            window.WJP_CloudAI.ask(val).then(reply => {
+                thinking.remove();
+                const msg = addMessage('', 'ai');
+                const bubble = msg.querySelector('.ai-bubble');
+                bubble.style.whiteSpace = 'pre-line';
+                bubble.style.lineHeight = '1.55';
+                const badge = document.createElement('div');
+                badge.style.cssText = 'font-size:8px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
+                badge.textContent = '☁ Cloud AI';
+                bubble.parentElement.insertBefore(badge, bubble);
+                bubble.textContent = reply;
+                containerEl.scrollTop = containerEl.scrollHeight;
+            }).catch(err => {
+                console.warn('[WJP chat] Cloud Mode failed', err);
+                thinking.remove();
+                const errMsg = addMessage('', 'ai');
+                const errBubble = errMsg.querySelector('.ai-bubble');
+                errBubble.style.whiteSpace = 'pre-line';
+                errBubble.textContent = `Cloud AI failed: ${err.message || err}\n\nFalling back to Standard:\n\n` + generateAiResponse(val);
+            });
+            return;
+        }
 
         // Deep Mode path: pulsing dots until first token, then stream into a
         // fresh bubble. Lots of diagnostic logging so we can see in DevTools
@@ -12218,6 +12287,22 @@ function initAdvisorPageLogic() {
                     <span style="font-size:10px;color:var(--text-3);">/mo</span>
                   </div>
                 </div>
+                <!-- Cloud Mode (Groq Llama 70B — fastest, free) -->
+                <div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:10px;padding:14px;margin-bottom:14px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+                    <div>
+                      <div style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;color:#667eea;"><i class="ph-fill ph-cloud"></i> Cloud Mode <span style="font-size:8px;background:#667eea;color:#0b0f1a;padding:2px 6px;border-radius:4px;font-weight:900;">RECOMMENDED</span></div>
+                      <div style="font-size:10px;color:var(--text-3);margin-top:3px;">Fast (sub-1s), powered by Llama 3.3 70B via Groq. Free for normal usage.</div>
+                    </div>
+                    <div class="ai-behavior-toggle ${(appState.prefs && appState.prefs.cloudMode)?'on':''}" data-key="cloudMode" style="flex-shrink:0;">
+                      <div class="toggle-switch ${(appState.prefs && appState.prefs.cloudMode)?'on':''}"><div class="thumb"></div></div>
+                    </div>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(102,126,234,0.15);padding-top:10px;margin-top:6px;">
+                    <strong>Privacy:</strong> Your account context is sent to Groq's API (server-side). Groq states they don't train on inputs or store conversations. Choose Deep Mode below for fully on-device alternative.
+                  </div>
+                </div>
+
                 <!-- Deep Mode (private in-browser LLM) -->
                 <div style="background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.25);border-radius:10px;padding:14px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">

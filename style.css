@@ -7897,3 +7897,14 @@ body.sidebar-collapsed .sidebar-user { justify-content: center; }
   margin-left: 6px;
   font-style: italic;
 }
+
+/* === v=89-fabalways: ensure floating AI button is visible on every page === */
+#ai-chat-fab {
+  /* Override any page-scoped display:none that might leak in */
+  display: flex !important;
+  z-index: 9000;
+}
+#ai-chat-panel {
+  z-index: 9100;
+}
+@media print { #ai-chat-fab, #ai-chat-panel { display: none !important; } }
