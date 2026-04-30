@@ -1812,6 +1812,7 @@
               <div id="txn-filter-date" class="filter-pill active" style="cursor:pointer; position:relative;">Date: All Time <i class="ph ph-caret-down"></i></div>
               <div id="txn-filter-status" class="filter-pill" style="cursor:pointer; position:relative;">Status: All <i class="ph ph-caret-down"></i></div>
               <div id="txn-filter-source" class="filter-pill" style="cursor:pointer; position:relative;">Source: All <i class="ph ph-caret-down"></i></div>
+              <div id="txn-filter-review" class="filter-pill" style="cursor:pointer; position:relative; background:rgba(251,191,36,0.10); border-color:rgba(251,191,36,0.30); color:#fbbf24; font-weight:800; display:none;" title="Review duplicate transactions detected by Plaid sync">⚠ Review <span id="txn-review-count" style="background:#fbbf24;color:#0b0f1a;border-radius:10px;padding:1px 7px;font-size:9px;margin-left:4px;">0</span></div>
               <div id="txn-filter-adv" class="filter-icon-btn" style="cursor:pointer;" title="Advanced filters"><i class="ph ph-sliders-horizontal"></i></div>
               <button id="txn-clear-filters" class="btn btn-ghost" style="font-size:10px; padding:4px 10px; display:none;">Clear Filters ✕</button>
               <!-- Dropdown floats at body level via JS -->
@@ -4748,7 +4749,7 @@
 </div>
 
 
-  <script src="app.js?v=121-phase0"></script>
+  <script src="app.js?v=122-phase1-dedup"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

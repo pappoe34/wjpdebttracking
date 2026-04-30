@@ -3616,6 +3616,10 @@ function initModal() {
                     if (debt) {
                         debt.balance = Math.max(0, debt.balance - amt);
                         newTxn.merchant = `Payment: ${debt.name}`;
+                        // Tag for Phase 1 idempotency — Plaid sync skips re-decrement
+                        // when it sees a Plaid txn matching this manual entry's
+                        // amount + date pointing at the same debt.
+                        newTxn.appliedToDebt = debt.id;
                     }
                 }
 
@@ -7588,6 +7592,179 @@ function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
     }
     return results;
 }
+
+/* ============================================================
+   PHASE 1 — TRANSACTION DEDUPLICATION + REVIEW QUEUE
+   When Plaid syncs a transaction that overlaps with a user-entered
+   manual transaction, we DO NOT silently merge. Both stay in the
+   ledger, but the pair is queued for user review.
+   Per Winston: always-review even at 95%+ confidence.
+   ============================================================ */
+
+/** Compute a confidence score (0-100) that two transactions are the same
+ *  real-world payment. Uses amount, date, and fuzzy merchant/debt-name match. */
+function txnDuplicateScore(a, b) {
+    if (!a || !b) return 0;
+    if (a.id === b.id) return 0; // same record, not a dup
+    // Both must be the same sign (both outflows OR both inflows)
+    if (Math.sign(a.amount || 0) !== Math.sign(b.amount || 0)) return 0;
+
+    // Amount: full points if within $0.50, decay to zero by $5 difference
+    const aAmt = Math.abs(a.amount || 0);
+    const bAmt = Math.abs(b.amount || 0);
+    const dollarDelta = Math.abs(aAmt - bAmt);
+    const amtScore = dollarDelta < 0.5 ? 1 : Math.max(0, 1 - (dollarDelta - 0.5) / 4.5);
+    if (amtScore < 0.5) return 0; // amounts too different — bail early
+
+    // Date: full points within ±3 days, decay to zero at ±10 days
+    const aDate = new Date(a.date), bDate = new Date(b.date);
+    if (isNaN(aDate) || isNaN(bDate)) return 0;
+    const daysDelta = Math.abs((aDate - bDate) / 86400000);
+    const dateScore = daysDelta <= 3 ? 1 : Math.max(0, 1 - (daysDelta - 3) / 7);
+    if (dateScore <= 0) return 0;
+
+    // Name: fuzzy substring match (case-insensitive). "Payment: Capital One Venture"
+    // should match "Capital One Venture" or "Capital One"
+    const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').trim();
+    const aName = norm(a.merchant || a.name || '');
+    const bName = norm(b.merchant || b.name || '');
+    let nameScore = 0;
+    if (aName && bName) {
+        if (aName === bName) nameScore = 1;
+        else if (aName.includes(bName) || bName.includes(aName)) nameScore = 0.85;
+        else {
+            // Token overlap
+            const aTokens = new Set(aName.split(/\s+/).filter(t => t.length > 2));
+            const bTokens = new Set(bName.split(/\s+/).filter(t => t.length > 2));
+            const overlap = [...aTokens].filter(t => bTokens.has(t)).length;
+            const total = Math.max(aTokens.size, bTokens.size, 1);
+            nameScore = overlap / total;
+        }
+    }
+
+    // Weighted: amount 50%, date 30%, name 20% — amount is most reliable signal
+    const score = 100 * (amtScore * 0.5 + dateScore * 0.3 + nameScore * 0.2);
+    return Math.round(score);
+}
+window.txnDuplicateScore = txnDuplicateScore;
+
+/** Scan for duplicate pairs after a Plaid sync. Adds new pairs to
+ *  `appState.txnReviewQueue`. Skips pairs the user has already
+ *  decided on (`appState.txnReviewDecisions`). */
+function detectTransactionDuplicates() {
+    if (!Array.isArray(appState.transactions)) return;
+    if (!Array.isArray(appState.txnReviewQueue)) appState.txnReviewQueue = [];
+    if (!appState.txnReviewDecisions) appState.txnReviewDecisions = {};
+
+    const txns = appState.transactions;
+    const plaidTxns = txns.filter(t => t && t.source === 'plaid' && !t.dupResolved);
+    const manualTxns = txns.filter(t => t && (!t.source || t.source === 'manual') && !t.synthetic && !t.dupResolved);
+
+    const queueIds = new Set(appState.txnReviewQueue.map(q => q.plaidId + ':' + q.manualId));
+
+    plaidTxns.forEach(p => {
+        manualTxns.forEach(m => {
+            const pairKey = p.id + ':' + m.id;
+            // Already queued
+            if (queueIds.has(pairKey)) return;
+            // User already decided on this pair (Merge / Not Dup / Deleted)
+            if (appState.txnReviewDecisions[pairKey]) return;
+            const score = txnDuplicateScore(p, m);
+            if (score >= 60) {
+                appState.txnReviewQueue.push({
+                    plaidId: p.id,
+                    manualId: m.id,
+                    confidence: score,
+                    detectedAt: Date.now(),
+                    reason: `Amount $${Math.abs(p.amount).toFixed(2)} ≈ $${Math.abs(m.amount).toFixed(2)}, date ${p.date.slice(0,10)} ≈ ${m.date.slice(0,10)}`
+                });
+            }
+        });
+    });
+
+    // Sort by confidence descending so user sees most-likely-dup first
+    appState.txnReviewQueue.sort((a, b) => b.confidence - a.confidence);
+
+    // Push a notification if there are new pairs
+    const queueLen = appState.txnReviewQueue.length;
+    if (queueLen > 0 && queueLen !== window.__wjpLastReviewBadge) {
+        window.__wjpLastReviewBadge = queueLen;
+        if (typeof pushNotification === 'function' && !window.__wjpReviewNotified) {
+            window.__wjpReviewNotified = true;
+            pushNotification({
+                title: queueLen + ' duplicate transaction' + (queueLen===1?'':'s') + ' detected',
+                text: 'Plaid synced transactions that look like ones you entered manually. Review the matches in Detailed Transactions → Review tab to merge or keep both.',
+                type: 'review',
+                priority: 'normal',
+                link: '#transactions'
+            });
+        }
+    }
+}
+window.detectTransactionDuplicates = detectTransactionDuplicates;
+
+/** Resolve a duplicate pair. Action is one of:
+ *  - 'merge'      → delete the manual txn (Plaid is canonical), no double-decrement
+ *  - 'not-dup'    → keep both, never re-flag this pair
+ *  - 'reject-plaid' → delete the Plaid txn (user's manual is canonical)
+ */
+function resolveTxnDuplicate(pairIdx, action) {
+    if (!Array.isArray(appState.txnReviewQueue)) return;
+    const pair = appState.txnReviewQueue[pairIdx];
+    if (!pair) return;
+    if (!appState.txnReviewDecisions) appState.txnReviewDecisions = {};
+    const key = pair.plaidId + ':' + pair.manualId;
+    appState.txnReviewDecisions[key] = { action, resolvedAt: Date.now() };
+
+    if (action === 'merge') {
+        // Manual was already applied to the debt; the Plaid version came in
+        // AFTER and would have re-applied. We delete the manual (Plaid is
+        // canonical going forward). Debt balance was already decremented once
+        // by the manual entry → don't decrement again.
+        appState.transactions = appState.transactions.filter(t => t.id !== pair.manualId);
+        // Mark the Plaid txn as resolved so it won't re-pair
+        const plaid = appState.transactions.find(t => t.id === pair.plaidId);
+        if (plaid) plaid.dupResolved = true;
+        if (typeof showToast === 'function') showToast('Merged — manual entry replaced by Plaid record.');
+    } else if (action === 'not-dup') {
+        // Keep both; never re-pair these two
+        const plaid = appState.transactions.find(t => t.id === pair.plaidId);
+        const manual = appState.transactions.find(t => t.id === pair.manualId);
+        if (plaid) plaid.dupResolved = true;
+        if (manual) manual.dupResolved = true;
+        if (typeof showToast === 'function') showToast('Kept both — these are different transactions.');
+    } else if (action === 'reject-plaid') {
+        // Delete the Plaid version. Need to roll back the auto-decrement
+        // we may have applied during sync.
+        const plaid = appState.transactions.find(t => t.id === pair.plaidId);
+        if (plaid && plaid.appliedToDebt) {
+            const debt = (appState.debts || []).find(d => d.id === plaid.appliedToDebt);
+            if (debt && plaid.amount < 0) {
+                // Plaid txn was an outflow that decremented the debt — add back
+                debt.balance = (Number(debt.balance) || 0) + Math.abs(plaid.amount);
+            }
+        }
+        appState.transactions = appState.transactions.filter(t => t.id !== pair.plaidId);
+        const manual = appState.transactions.find(t => t.id === pair.manualId);
+        if (manual) manual.dupResolved = true;
+        if (typeof showToast === 'function') showToast('Plaid record rejected — your manual entry is canonical.');
+    }
+
+    // Remove the pair from the queue (and any other pairs that referenced
+    // either deleted txn id)
+    const removedIds = new Set();
+    if (action === 'merge') removedIds.add(pair.manualId);
+    if (action === 'reject-plaid') removedIds.add(pair.plaidId);
+    appState.txnReviewQueue = appState.txnReviewQueue.filter((p, i) => {
+        if (i === pairIdx) return false;
+        if (removedIds.has(p.plaidId) || removedIds.has(p.manualId)) return false;
+        return true;
+    });
+
+    try { saveState(); } catch(_){}
+    try { updateUI && updateUI(); } catch(_){}
+}
+window.resolveTxnDuplicate = resolveTxnDuplicate;
 
 /**
  * Provenance system — classify each transaction's origin so the UI can
@@ -12503,15 +12680,39 @@ async function syncBankTransactions(opts) {
                 const debtType = String(debt.type || '').toLowerCase();
                 const amount = Number(tx.amount) || 0;
 
+                // === IDEMPOTENCY (Phase 1) ===
+                // Before decrementing the debt, check if a manual transaction
+                // for this same payment already decremented it. If yes, SKIP
+                // the auto-decrement and let the dedup queue surface the pair
+                // for the user. Avoids double-counting when both Plaid + manual
+                // describe the same real-world payment.
+                let manualAlreadyApplied = false;
+                if (amount < 0) {
+                    const txDate = new Date(tx.date || tx.authorized_date || Date.now());
+                    manualAlreadyApplied = (appState.transactions || []).some(other => {
+                        if (!other || other.synthetic) return false;
+                        if (other.source === 'plaid') return false;
+                        if (other.appliedToDebt !== debtId) return false;
+                        // Same direction, similar amount, similar date
+                        if ((other.amount||0) >= 0) return false;
+                        const amtMatch = Math.abs(Math.abs(other.amount) - Math.abs(amount)) < 0.5;
+                        const dateMatch = Math.abs((new Date(other.date) - txDate) / 86400000) <= 3;
+                        return amtMatch && dateMatch;
+                    });
+                }
+
                 // Only credit-card payments are auto-applied here. Loans / mortgages
                 // get their balance from liabilitiesGet via refreshLinkedAccounts.
-                if (debtType === 'credit card' && amount < 0) {
+                if (debtType === 'credit card' && amount < 0 && !manualAlreadyApplied) {
                     const paymentAmt = Math.abs(amount);
                     const prev = Number(debt.balance || 0);
                     const next = Math.max(0, prev - paymentAmt);
                     debt.balance = next;
                     debt.lastUpdated = Date.now();
                     debt.lastSyncedFromTransactions = Date.now();
+                    // Tag the Plaid txn record so we know the decrement happened
+                    const ptx = appState.transactions.find(x => x.id === 'plaid_' + tx.transaction_id);
+                    if (ptx) ptx.appliedToDebt = debtId;
                     paymentsApplied++;
                     totalPaid += paymentAmt;
 
@@ -12556,6 +12757,10 @@ async function syncBankTransactions(opts) {
         // Stamp the throttle clock so the next page load won't re-poll
         // until the user's chosen interval has elapsed.
         setLastBankSyncAt(Date.now());
+
+        // Phase 1 — Run the dedup detector after every successful sync.
+        // Adds new pairs to appState.txnReviewQueue (never auto-merges).
+        try { if (typeof detectTransactionDuplicates === 'function') detectTransactionDuplicates(); } catch(_){}
 
         return { paymentsApplied, totalPaid, chargesSeen };
     } finally {
@@ -19101,6 +19306,7 @@ function initAllButtonHandlers() {
         dateRange: '',
         status: '',
         source: '',     // '' | 'plaid' | 'manual' | 'recurring' | 'system'
+        viewMode: 'normal',  // 'normal' | 'review' (Phase 1)
         advMin: null,
         advMax: null,
         advMethod: ''
@@ -19541,13 +19747,111 @@ function initAllButtonHandlers() {
     }
 
     function txnRenderAll() {
+        // Update Review pill (count + visibility)
+        try { updateReviewPill(); } catch(_){}
+        // Show review view if user clicked Review pill
+        if (txnState.viewMode === 'review') {
+            renderReviewPairs();
+            return;
+        }
         const filtered = txnGetFiltered();
         txnRenderStats(filtered);
         txnRenderTable(filtered);
-        // Show/hide clear filters button
-        const hasFilt = txnState.search || txnState.category || txnState.dateRange || txnState.status || txnState.advMin !== null || txnState.advMax !== null || txnState.advMethod;
+        const hasFilt = txnState.search || txnState.category || txnState.dateRange || txnState.status || txnState.source || txnState.advMin !== null || txnState.advMax !== null || txnState.advMethod;
         const clearBtn = document.getElementById('txn-clear-filters');
         if (clearBtn) clearBtn.style.display = hasFilt ? 'inline-flex' : 'none';
+    }
+
+    /** Sync the Review pill: visible only when there are pairs, count badge updated. */
+    function updateReviewPill() {
+        const pill = document.getElementById('txn-filter-review');
+        const countEl = document.getElementById('txn-review-count');
+        const queue = (appState && appState.txnReviewQueue) || [];
+        const n = queue.length;
+        if (pill) {
+            pill.style.display = n > 0 ? 'inline-flex' : 'none';
+            // Highlight when active
+            if (txnState.viewMode === 'review') {
+                pill.style.background = 'rgba(251,191,36,0.25)';
+                pill.style.borderColor = '#fbbf24';
+            } else {
+                pill.style.background = 'rgba(251,191,36,0.10)';
+                pill.style.borderColor = 'rgba(251,191,36,0.30)';
+            }
+        }
+        if (countEl) countEl.textContent = n;
+    }
+
+    /** Render the side-by-side review-pairs view. Replaces the table body. */
+    function renderReviewPairs() {
+        const tbody = document.getElementById('txn-tbody');
+        const label = document.getElementById('txn-results-label');
+        if (!tbody) return;
+        const queue = (appState.txnReviewQueue || []).slice();
+        if (label) label.textContent = queue.length === 0 ? 'No pending reviews' : `${queue.length} pending review${queue.length===1?'':'s'}`;
+
+        if (queue.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="padding:0;">
+                <div style="background:var(--card-2);padding:36px 24px;text-align:center;border-radius:10px;margin:8px 0;">
+                    <i class="ph-fill ph-check-circle" style="font-size:42px;color:#22c55e;display:block;margin-bottom:10px;"></i>
+                    <div style="font-size:14px;font-weight:800;margin-bottom:4px;">All caught up</div>
+                    <div style="font-size:11px;color:var(--text-3);">No duplicate transactions to review. Plaid + manual entries are clean.</div>
+                </div>
+            </td></tr>`;
+            return;
+        }
+
+        const fmt = n => '$' + Math.abs(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+        const fmtDate = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const txns = appState.transactions || [];
+
+        tbody.innerHTML = queue.map((pair, idx) => {
+            const plaid = txns.find(t => t.id === pair.plaidId);
+            const manual = txns.find(t => t.id === pair.manualId);
+            if (!plaid || !manual) {
+                return ''; // stale pair — will be cleaned by next detector run
+            }
+            const confidenceColor = pair.confidence >= 90 ? '#ef4444' : pair.confidence >= 75 ? '#fbbf24' : '#94a3b8';
+            return `<tr><td colspan="8" style="padding:0;">
+                <div style="background:var(--card-2);border:1px solid var(--border);border-left:3px solid ${confidenceColor};border-radius:10px;padding:14px;margin:8px 0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <div style="font-size:11px;font-weight:800;color:${confidenceColor};">⚠ Possible Duplicate · ${pair.confidence}% confidence</div>
+                        <div style="font-size:10px;color:var(--text-3);font-style:italic;">${pair.reason || ''}</div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.30);border-radius:8px;padding:12px;">
+                            <div style="font-size:9px;font-weight:800;color:#fbbf24;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">✏️ Your Manual Entry</div>
+                            <div style="font-size:14px;font-weight:800;">${manual.merchant||'(unnamed)'}</div>
+                            <div style="font-size:11px;color:var(--text-3);margin-top:3px;">${fmtDate(manual.date)} · ${manual.category||'Uncategorized'}</div>
+                            <div style="font-size:18px;font-weight:900;color:${(manual.amount||0)<0?'#ef4444':'#22c55e'};margin-top:6px;">${(manual.amount||0)<0?'−':'+'}${fmt(manual.amount)}</div>
+                        </div>
+                        <div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:8px;padding:12px;">
+                            <div style="font-size:9px;font-weight:800;color:#667eea;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">🏦 Plaid Synced ${plaid.institutionName?'· '+plaid.institutionName:''}</div>
+                            <div style="font-size:14px;font-weight:800;">${plaid.merchant||'(unnamed)'}</div>
+                            <div style="font-size:11px;color:var(--text-3);margin-top:3px;">${fmtDate(plaid.date)} · ${plaid.category||'Uncategorized'}</div>
+                            <div style="font-size:18px;font-weight:900;color:${(plaid.amount||0)<0?'#ef4444':'#22c55e'};margin-top:6px;">${(plaid.amount||0)<0?'−':'+'}${fmt(plaid.amount)}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;">
+                        <button data-resolve-idx="${idx}" data-resolve-action="merge" style="padding:10px;background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.40);border-radius:7px;color:#22c55e;font-size:11px;font-weight:800;cursor:pointer;">✓ Merge (keep Plaid)</button>
+                        <button data-resolve-idx="${idx}" data-resolve-action="not-dup" style="padding:10px;background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--text-2);font-size:11px;font-weight:800;cursor:pointer;">× Not a Duplicate</button>
+                        <button data-resolve-idx="${idx}" data-resolve-action="reject-plaid" style="padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.30);border-radius:7px;color:#ef4444;font-size:11px;font-weight:800;cursor:pointer;">🗑 Delete Plaid (keep manual)</button>
+                    </div>
+                </div>
+            </td></tr>`;
+        }).join('');
+
+        // Wire resolve buttons
+        tbody.querySelectorAll('button[data-resolve-action]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.resolveIdx);
+                const action = btn.dataset.resolveAction;
+                if (typeof resolveTxnDuplicate === 'function') {
+                    resolveTxnDuplicate(idx, action);
+                    txnRenderAll();
+                }
+            });
+        });
     }
 
     function txnShowDetail(t) {
@@ -19764,6 +20068,16 @@ function initAllButtonHandlers() {
                 filterStatusBtn.classList.toggle('active', !!val);
                 txnRenderAll();
             });
+        });
+    }
+
+    // Review pill — toggles the duplicate-review view
+    const filterReviewBtn = document.getElementById('txn-filter-review');
+    if (filterReviewBtn) {
+        filterReviewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            txnState.viewMode = (txnState.viewMode === 'review') ? 'normal' : 'review';
+            txnRenderAll();
         });
     }
 
