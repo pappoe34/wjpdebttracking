@@ -15712,6 +15712,144 @@ document.addEventListener('DOMContentLoaded', () => {
             plaidModal.classList.add('active');
         });
 
+        // === Bank Health Check modal ===
+        document.getElementById('btn-bank-health')?.addEventListener('click', async () => {
+            // Build modal shell
+            const overlay = document.createElement('div');
+            overlay.id = 'bank-health-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:9100;display:flex;align-items:center;justify-content:center;padding:24px;';
+            overlay.innerHTML = `
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:min(720px,100%);max-height:88vh;overflow:auto;padding:22px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;">
+                        <div>
+                            <div style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;"><i class="ph-fill ph-pulse" style="color:var(--accent);"></i> Bank Health Check</div>
+                            <div style="font-size:11px;color:var(--text-3);margin-top:4px;">Live status of Plaid connection, linked items, and data sync</div>
+                        </div>
+                        <button id="bh-close" style="background:none;border:none;color:var(--text-3);font-size:22px;cursor:pointer;line-height:1;">×</button>
+                    </div>
+                    <div id="bh-body" style="font-size:13px;color:var(--text-3);">
+                        <div style="display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;"><i class="ph ph-spinner-gap spinning" style="font-size:24px;color:var(--accent);"></i> Probing Plaid…</div>
+                    </div>
+                    <div style="margin-top:16px;display:flex;gap:8px;">
+                        <button id="bh-refresh" class="btn btn-secondary" style="flex:1;padding:10px;font-size:12px;">↻ Re-check</button>
+                        <button id="bh-resync" class="btn btn-primary" style="flex:1;padding:10px;font-size:12px;">⟳ Force Re-sync All</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            const close = () => overlay.remove();
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+            document.getElementById('bh-close').addEventListener('click', close);
+
+            const renderHealth = async () => {
+                const body = document.getElementById('bh-body');
+                if (!body) return;
+                body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;"><i class="ph ph-spinner-gap spinning" style="font-size:24px;color:var(--accent);"></i> Probing Plaid…</div>`;
+                let token = null;
+                try {
+                    if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+                        token = await firebase.auth().currentUser.getIdToken();
+                    }
+                } catch (_) {}
+                if (!token) {
+                    body.innerHTML = `<div style="padding:16px;color:#ef4444;">Sign in required — please log in then re-open Bank Health.</div>`;
+                    return;
+                }
+                try {
+                    const resp = await fetch('/.netlify/functions/plaid-health', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+                    const data = await resp.json();
+                    body.innerHTML = renderHealthHtml(data);
+                } catch (err) {
+                    body.innerHTML = `<div style="padding:16px;color:#ef4444;">✗ ${err.message || err}</div>`;
+                }
+            };
+
+            const renderHealthHtml = (d) => {
+                const s = d.summary || {};
+                const envBadge = d.env === 'production'
+                    ? `<span style="background:#22c55e;color:#0b0f1a;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:900;">PRODUCTION</span>`
+                    : `<span style="background:#fbbf24;color:#0b0f1a;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:900;">SANDBOX</span>`;
+                const fmt = ts => ts ? new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+
+                const summaryHtml = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--card-2);padding:12px 14px;border-radius:8px;margin-bottom:14px;">
+                        <div>
+                            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;">Plaid Environment</div>
+                            <div style="font-size:14px;font-weight:700;margin-top:3px;">${envBadge}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;">Last Webhook</div>
+                            <div style="font-size:12px;font-weight:600;margin-top:3px;">${fmt(s.lastWebhookAt)}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
+                        ${[
+                            {label:'Items Linked', val: s.itemCount||0, color:'var(--accent)'},
+                            {label:'Accounts',     val: s.accountCount||0, color:'#667eea'},
+                            {label:'Tx (30d)',     val: s.transactionCount30d||0, color:'#22c55e'},
+                            {label:'Recurring',    val: s.recurringCount||0, color:'#fbbf24'}
+                        ].map(t => `<div style="background:var(--card-2);padding:10px;border-radius:8px;text-align:center;">
+                            <div style="font-size:20px;font-weight:800;color:${t.color};">${t.val}</div>
+                            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${t.label}</div>
+                        </div>`).join('')}
+                    </div>`;
+
+                const issuesHtml = (d.issues||[]).length ? `
+                    <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.30);border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+                        <div style="font-size:11px;font-weight:800;color:#ef4444;margin-bottom:6px;">⚠ ${d.issues.length} issue${d.issues.length===1?'':'s'} detected</div>
+                        ${d.issues.map(i => `<div style="font-size:11px;color:var(--text);margin-top:4px;">• <strong>${i.code}</strong>: ${i.message}</div>`).join('')}
+                    </div>` : '';
+
+                const itemsHtml = (d.items||[]).length === 0 ? `
+                    <div style="background:var(--card-2);padding:18px;border-radius:8px;text-align:center;font-size:12px;color:var(--text-3);">
+                        No banks linked yet. Click <strong>Sync Bank</strong> to connect your first institution.
+                    </div>` : (d.items||[]).map(item => {
+                        const statusColor = item.status === 'healthy' ? '#22c55e' : '#ef4444';
+                        const statusLabel = item.status === 'healthy' ? '✓ Healthy' : '⚠ ' + (item.errorCode || 'Error');
+                        return `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <div style="font-size:13px;font-weight:700;">${item.institutionName}</div>
+                                <div style="font-size:10px;font-weight:700;color:${statusColor};">${statusLabel}</div>
+                            </div>
+                            <div style="font-size:10px;color:var(--text-3);margin-bottom:6px;">
+                                ${item.accountCount} account${item.accountCount===1?'':'s'} ·
+                                Last sync: ${fmt(item.lastSuccessfulUpdate)} ·
+                                Item: <code style="font-size:9px;">${item.itemId.slice(0,8)}</code>
+                            </div>
+                            ${(item.accounts||[]).map(a => `<div style="font-size:11px;padding:3px 0;display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.04);">
+                                <span>${a.name||a.subtype||'Account'} ${a.mask?'····'+a.mask:''} <span style="color:var(--text-3);">· ${a.subtype||a.type}</span></span>
+                                <span style="font-weight:700;">${a.balance!=null?'$'+Number(a.balance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</span>
+                            </div>`).join('')}
+                            ${item.errorMessage ? `<div style="font-size:10px;color:#ef4444;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.08);border-radius:5px;">${item.errorMessage}</div>` : ''}
+                        </div>`;
+                    }).join('');
+
+                return summaryHtml + issuesHtml + itemsHtml +
+                    `<div style="font-size:9px;color:var(--text-3);text-align:center;margin-top:10px;font-style:italic;">Generated ${fmt(d.generatedAt)} · Plaid env: ${d.env}</div>`;
+            };
+
+            await renderHealth();
+            document.getElementById('bh-refresh')?.addEventListener('click', renderHealth);
+            document.getElementById('bh-resync')?.addEventListener('click', async () => {
+                const btn = document.getElementById('bh-resync');
+                if (!btn) return;
+                btn.disabled = true; btn.textContent = '⏳ Resyncing…';
+                try {
+                    const tk = await firebase.auth().currentUser.getIdToken();
+                    const r = await fetch('/.netlify/functions/sync-transactions', { method:'POST', headers:{'Authorization':`Bearer ${tk}`} });
+                    const j = await r.json().catch(()=>({}));
+                    showToast(r.ok ? `Re-synced. Added: ${j.added||0}, Modified: ${j.modified||0}` : `Sync error: ${j.error||r.status}`);
+                } catch (err) {
+                    showToast('Sync failed: ' + (err.message||err));
+                }
+                btn.disabled = false; btn.textContent = '⟳ Force Re-sync All';
+                renderHealth();
+            });
+        });
+
         if (plaidClose) {
             plaidClose.addEventListener('click', () => {
                 plaidModal.classList.remove('active');
