@@ -124,7 +124,12 @@ const defaultState = {
         },
         goals: [],
         householdMode: false,
-        pinned: ['credit-profile-card', 'dash-spending-card']
+        pinned: ['credit-profile-card', 'dash-spending-card'],
+        // Cloud Mode (Llama 70B via Groq) is on by default — adaptive answers
+        // grounded in the user's actual data. Users can opt back to Standard
+        // (rule-based, fully offline) in Settings → AI Intelligence.
+        cloudMode: true,
+        cloudModeAutoMigrated: true
     }
 };
 
@@ -211,6 +216,19 @@ function loadState() {
     } else {
         appState = JSON.parse(JSON.stringify(defaultState));
     }
+
+    // ---- One-time migration: turn Cloud Mode on for everyone ----
+    // It was opt-in before, but Cloud Mode is now the default adaptive engine.
+    // We only run this migration once; after it runs the user can still turn
+    // Cloud Mode off in Settings → AI Intelligence and we'll respect that.
+    if (!appState.prefs) appState.prefs = {};
+    if (!appState.prefs.cloudModeAutoMigrated) {
+        appState.prefs.cloudMode = true;
+        appState.prefs.cloudModeAutoMigrated = true;
+        try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch(_){}
+    }
+    // Sync runtime flag immediately so the very first chat send routes to Cloud
+    try { if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = !!appState.prefs.cloudMode; } catch(_){}
 }
 
 function saveState() {
@@ -8382,16 +8400,96 @@ function generateAiResponse(input) {
         return `Bumping monthly extra from ${fmt(cur)} to ${fmt(cur + extra)} typically removes ${Math.ceil(extra / 80)}–${Math.ceil(extra / 40)} months from total payoff. Open AI Intelligence settings to commit.`;
     }
 
-    // Default — detailed account snapshot
-    if (!debts.length && !income) return "I work entirely from your account data and I haven't seen any yet. Once you've added income, debts, or transactions, ask me about: due dates, credit utilization, spending by category, savings goals, payoff strategy, or any what-if scenario.";
-    const snap = [];
-    if (income) snap.push(`💰 Income: ${fmt(income)}/mo`);
-    if (debts.length) {
-        const monthlyInterest = debts.reduce((s,d) => s + (d.balance||0)*(d.apr||0)/100/12, 0);
-        snap.push(`💳 Debt: ${fmt(totalDebt)} across ${debts.length} accounts (avg ${avgApr.toFixed(1)}% APR, ${fmt(totalMin)}/mo min, ${fmt(monthlyInterest)}/mo interest)`);
+    // Default — best-effort, data-driven adaptive answer
+    // Instead of suggesting fixed prompts, scan the question for keywords and
+    // surface whatever subset of the account is most relevant.
+    if (!debts.length && !income) return "I work entirely from your account data and I haven't seen any yet. Add an income source, a debt, or sync your bank to get started — then I can answer anything about your numbers.";
+
+    // Pull whatever's relevant based on cue words in the question
+    const cues = {
+        highest:   /\b(highest|biggest|most|top|worst|expensive|costliest)\b/.test(low),
+        lowest:    /\b(lowest|smallest|least|cheapest|smallest)\b/.test(low),
+        save:      /\b(save|saving|cut|reduce|trim|extra|emergency)\b/.test(low),
+        afford:    /\b(afford|budget|pay|cover|squeeze|fit|cash)\b/.test(low),
+        progress:  /\b(progress|track|status|where.*at|how.*doing|going)\b/.test(low),
+        time:      /\b(payoff|done|free|finish|end|years|months|how long)\b/.test(low),
+        recurring: /\b(recurring|subscription|bill|monthly|netflix|streaming|subscription)\b/.test(low),
+        income:    /\b(income|earn|salary|pay|paycheck|make)\b/.test(low),
+        goal:      /\b(goal|target|saving|save up)\b/.test(low),
+        what:      /^(what|tell|give|show|explain|describe|summary)\b/.test(low),
+    };
+
+    const hits = [];
+
+    // Highest-cost debt (interest dollars/month)
+    if (debts.length && (cues.highest || cues.what || !Object.values(cues).some(Boolean))) {
+        const ranked = [...debts].map(d => ({...d, monthlyInt: (d.balance||0)*(d.apr||0)/100/12})).sort((a,b)=>b.monthlyInt-a.monthlyInt);
+        const top = ranked[0];
+        hits.push(`Your costliest debt right now: ${top.name} — ${fmt(top.balance)} at ${top.apr||0}% APR, burning ${fmt(top.monthlyInt)}/mo (${fmt(top.monthlyInt*12)}/yr) in interest.`);
     }
-    snap.push(`🎯 Strategy: ${strategy.charAt(0).toUpperCase()+strategy.slice(1)}`);
-    return `Here's where you stand:\n\n${snap.join('\n')}\n\nAsk me about:\n• Due dates ("when are my payments due?")\n• Credit ("how's my utilization?")\n• Spending ("where am I spending this month?")\n• Strategy ("what's the best payoff plan?")\n• Savings ("how am I doing on goals?")\n• What-if ("what if I add $200 extra?")`;
+
+    // Cheapest debt (smallest balance — Snowball candidate)
+    if (debts.length && cues.lowest) {
+        const smallest = [...debts].sort((a,b)=>(a.balance||0)-(b.balance||0))[0];
+        const months = smallest.minPayment > 0 ? Math.ceil(smallest.balance / smallest.minPayment) : '?';
+        hits.push(`Smallest balance: ${smallest.name} at ${fmt(smallest.balance)}. At ${fmt(smallest.minPayment)}/mo minimum it'd clear in ~${months} months. Snowball-friendly target if you want a quick win.`);
+    }
+
+    // Cashflow / affordability
+    if (cues.afford || cues.save) {
+        const recurring = (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome);
+        const recurringTotal = recurring.reduce((s,r)=>s+Math.abs(r.amount||0), 0);
+        const free = income - totalMin - recurringTotal;
+        hits.push(`Cashflow snapshot: ${fmt(income)} income − ${fmt(totalMin)} debt mins − ${fmt(recurringTotal)} recurring = ${fmt(free)} discretionary. Anything you redirect from discretionary goes straight to debt-free speed.`);
+    }
+
+    // Recurring bills view
+    if (cues.recurring) {
+        const recurring = (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome);
+        if (recurring.length) {
+            const tot = recurring.reduce((s,r)=>s+Math.abs(r.amount||0), 0);
+            const top3 = recurring.sort((a,b)=>Math.abs(b.amount||0)-Math.abs(a.amount||0)).slice(0,3);
+            hits.push(`You have ${recurring.length} recurring bills totaling ${fmt(tot)}/mo. Top 3: ${top3.map(r => `${r.name||'?'} (${fmt(Math.abs(r.amount||0))})`).join(', ')}.`);
+        } else {
+            hits.push(`No recurring bills logged yet. Add subscriptions and recurring expenses under Recurring Payments — once tracked, I can spot ones you might cancel to free up debt-payoff cash.`);
+        }
+    }
+
+    // Time to debt-free
+    if (cues.time) {
+        try {
+            const sim = simulateAllStrategies && simulateAllStrategies();
+            if (sim && sim.simulations[strategy]) {
+                const m = sim.simulations[strategy].months;
+                const i = sim.simulations[strategy].interest;
+                const dfd = new Date(); dfd.setMonth(dfd.getMonth() + m);
+                hits.push(`At your current ${strategy} pace: debt-free in ~${m} months (${dfd.toLocaleDateString('en-US',{month:'long',year:'numeric'})}), with ${fmt(i)} total interest paid along the way.`);
+            }
+        } catch(_){}
+    }
+
+    // Goals
+    if (cues.goal && (appState.savingsGoals||[]).length) {
+        const g = appState.savingsGoals;
+        const lines = g.slice(0,3).map(x => `${x.name}: ${fmt(x.current||0)}/${fmt(x.target||0)} (${x.target?Math.round((x.current||0)/x.target*100):0}%)`);
+        hits.push(`Goals progress:\n• ${lines.join('\n• ')}`);
+    }
+
+    // If nothing keyword-matched, default to a data snapshot + best next move
+    if (!hits.length) {
+        const monthlyInterest = debts.reduce((s,d) => s + (d.balance||0)*(d.apr||0)/100/12, 0);
+        const dti = income ? Math.round(totalMin / income * 100) : null;
+        hits.push(`${income?`Income ${fmt(income)}/mo. `:''}${debts.length?`Debt ${fmt(totalDebt)} across ${debts.length} accounts (avg ${avgApr.toFixed(1)}% APR), losing ${fmt(monthlyInterest)}/mo to interest.`:''}${dti?` DTI ${dti}%.`:''}`);
+        if (debts.length) {
+            const top = [...debts].map(d => ({...d, mi: (d.balance||0)*(d.apr||0)/100/12})).sort((a,b)=>b.mi-a.mi)[0];
+            hits.push(`Best next move: send any spare cash to ${top.name} — at ${top.apr||0}% APR every $100 there saves ~${fmt(100*(top.apr||0)/100)}/yr in interest you'd otherwise pay forever.`);
+        }
+    }
+
+    // Closing nudge: tell them they can ask anything specific
+    const closing = `\n\nFor a smarter, fully adaptive answer turn on Cloud Mode (Settings → AI Intelligence) — Llama 70B reads your full account context and reasons across it.`;
+
+    return hits.join('\n\n') + (appState.prefs && appState.prefs.cloudMode ? '' : closing);
 }
 
 /* ---------- NOTIFICATION ENGINE ---------- */
