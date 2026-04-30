@@ -12792,8 +12792,7 @@ function initAdvisorPageLogic() {
                 if (caret) caret.style.transform = open ? '' : 'rotate(180deg)';
             });
 
-        // Wire strategy picker after render
-        setTimeout(() => {
+            // Wire strategy picker after render (in same tick)
             document.querySelectorAll('.ai-strat-opt').forEach(opt => {
                 opt.onclick = () => {
                     const s = opt.dataset.strat;
