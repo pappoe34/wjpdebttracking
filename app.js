@@ -8119,27 +8119,78 @@ function generateAiResponse(input) {
         return `Hi ${name}. I can answer questions about your debts, due dates, credit, spending, savings, and which payoff strategy fits best. Try asking about a specific debt by name, or "what if I add $200 extra?" or "compare Avant and Sofi."`;
     }
 
-    // 2. Due dates — detailed schedule + urgency framing
-    if (/\b(due|when|next payment|when is|coming up|due date|owe.*soon)\b/.test(low)) {
-        if (!debts.length) return "You haven't added any debts yet, so I can't check due dates. Add a debt with its dueDate and I'll start tracking it across the calendar, dashboard, and notifications.";
+    // 2. Due dates — window-aware (today / this week / soon / next 30) + actionable advice
+    if (/\b(due|when|next payment|when is|coming up|due date|owe.*soon|bills?)\b/.test(low)) {
+        if (!debts.length && !(appState.recurring||[]).length) {
+            return "You haven't added any debts or recurring bills yet, so I can't check due dates. Add them under Debts or Recurring Payments and I'll start tracking them across the calendar, dashboard, and notifications.";
+        }
         const today = new Date();
-        const upcoming = debts.map(d => {
-            const dd = parseInt(d.dueDate || d.dueDay, 10) || 1;
+        // Detect the time window the user actually asked about
+        let windowDays = 30, label = 'the next 30 days';
+        if (/\btoday\b|right now|this very/.test(low))                 { windowDays = 0;  label = 'today'; }
+        else if (/\btomorrow\b/.test(low))                              { windowDays = 1;  label = 'tomorrow'; }
+        else if (/\bthis week\b|next 7|7 days/.test(low))               { windowDays = 7;  label = 'this week'; }
+        else if (/\bthis month\b/.test(low))                            { windowDays = 30; label = 'this month'; }
+
+        // Combine debts AND recurring bills (real bill universe, not just debts)
+        const items = [];
+        debts.forEach(d => {
+            const dd = parseInt(d.dueDate || d.dueDay, 10);
+            if (!dd) return;
             let due = new Date(today.getFullYear(), today.getMonth(), dd);
-            if (due < today) due.setMonth(due.getMonth()+1);
-            const days = Math.round((due - today) / 86400000);
-            return { name: d.name, days, due, min: d.minPayment, apr: d.apr, balance: d.balance };
-        }).sort((a,b) => a.days - b.days);
-        const totalNext30 = upcoming.filter(u => u.days <= 30).reduce((s,u) => s + (u.min||0), 0);
-        const lines = upcoming.slice(0, 8).map(u => {
-            const tag = u.days <= 1 ? '🔴 URGENT' : u.days <= 5 ? '🟡 SOON' : '🟢 SCHEDULED';
-            return `${tag} ${u.name} — due ${u.days===0?'today':u.days===1?'tomorrow':`in ${u.days} days`} (${u.due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}) · ${fmt(u.min)} minimum · ${u.apr||0}% APR`;
+            if (due < new Date(today.getFullYear(), today.getMonth(), today.getDate())) due.setMonth(due.getMonth()+1);
+            const days = Math.round((due - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+            items.push({ name: d.name, kind: 'debt', days, due, amt: d.minPayment, apr: d.apr });
         });
-        const urgent = upcoming.filter(u => u.days <= 5).length;
-        const summary = urgent > 0
-            ? `\n\n⚠️ ${urgent} payment${urgent===1?'':'s'} need attention this week. Late fees typically run $25–40 plus a credit-score hit of 30–80 points if reported.`
-            : '\n\nAll your payments are more than 5 days out. Good runway to cover them.';
-        return `Here's your full payment schedule:\n\n${lines.join('\n')}\n\nTotal due in the next 30 days: ${fmt(totalNext30)}.${summary}`;
+        (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome).forEach(r => {
+            if (!r.nextDate) return;
+            const nd = new Date(r.nextDate); if (isNaN(nd)) return;
+            const days = Math.round((nd - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+            if (days < 0) return; // skip past
+            items.push({ name: r.name||r.description||'Recurring', kind: 'recurring', days, due: nd, amt: Math.abs(r.amount||0), apr: 0 });
+        });
+        items.sort((a,b) => a.days - b.days);
+
+        // Window filter
+        const inWindow = items.filter(u => u.days <= windowDays);
+
+        // Special-case: user asked "today" / "tomorrow" and nothing matches
+        if (windowDays <= 1 && !inWindow.length) {
+            const next = items[0];
+            const dollarsNext30 = items.filter(u => u.days <= 30).reduce((s,u)=>s+(u.amt||0),0);
+            if (!next) return "Nothing is due " + label + ", and I don't see any other upcoming bills logged.";
+            return `Nothing is due ${label}. ✓\n\n` +
+                   `Your next bill: ${next.name} — in ${next.days} day${next.days===1?'':'s'} (${next.due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}) · ${fmt(next.amt)}${next.kind==='debt'?` · ${next.apr||0}% APR`:''}\n\n` +
+                   `Total coming up in the next 30 days: ${fmt(dollarsNext30)}.\n\n` +
+                   `💡 Use the breathing room: if you have surplus cash, send an extra ${fmt(50)}–${fmt(200)} to your highest-APR debt today. It compounds harder than it sounds — every $100 dropped on a 28% APR card is ~$28/yr in interest you never pay.`;
+        }
+
+        if (!inWindow.length) {
+            return `No bills due in ${label}.`;
+        }
+
+        // Build the answer
+        const lines = inWindow.slice(0, 10).map(u => {
+            const tag = u.days <= 0 ? '🔴 TODAY' : u.days <= 1 ? '🔴 TOMORROW' : u.days <= 5 ? '🟡 SOON' : '🟢 SCHEDULED';
+            const when = u.days <= 0 ? 'today' : u.days === 1 ? 'tomorrow' : `in ${u.days} days`;
+            return `${tag} ${u.name} — due ${when} (${u.due.toLocaleDateString('en-US',{month:'short',day:'numeric'})}) · ${fmt(u.amt)}${u.kind==='debt'?` · ${u.apr||0}% APR`:''}`;
+        });
+        const total = inWindow.reduce((s,u)=>s+(u.amt||0),0);
+        const urgent = inWindow.filter(u => u.days <= 1).length;
+
+        // Actionable advice tail
+        let advice = '';
+        if (urgent) {
+            advice = `\n\n⚠️ ${urgent} payment${urgent===1?'':'s'} due in the next 24 hours. Late fees typically run $25–40, plus a credit-score hit of 30–80 points if reported. Pay these first.`;
+        } else if (windowDays <= 7) {
+            const highApr = inWindow.filter(u => u.kind==='debt').sort((a,b)=>(b.apr||0)-(a.apr||0))[0];
+            if (highApr) advice = `\n\n💡 If cash is tight, prioritize ${highApr.name} — at ${highApr.apr||0}% APR it costs you the most per dollar of late fee + interest. Pay minimums on the rest, hit it hard.`;
+            else advice = `\n\n✓ All comfortably scheduled. Set up autopay for any you frequently almost-miss to take it off your plate.`;
+        } else {
+            advice = `\n\n💡 Total ${fmt(total)} due in ${label}. Compared to monthly income, that's ${income?Math.round(total/income*100)+'% of one paycheck':'a meaningful chunk'} — front-load the high-APR ones early in the month so any extra cash later in the month becomes principal.`;
+        }
+
+        return `Bills due ${label} (${inWindow.length}):\n\n${lines.join('\n')}\n\nTotal: ${fmt(total)}.${advice}`;
     }
 
     // 3. Credit / utilization — full diagnostic + ranked actions
