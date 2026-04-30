@@ -71,7 +71,14 @@ exports.handler = async (event) => {
       linkPayload.access_token = updateAccessToken;
     } else {
       // Normal new-link mode.
-      linkPayload.products = ['transactions', 'liabilities'];
+      // - `transactions` is REQUIRED (every bank supports it; this is what
+      //   powers the spending tracker + auto-payment matching).
+      // - `liabilities` is OPTIONAL — banks WITH credit cards/loans expose it
+      //   and we get APR + min-payment data. Banks WITHOUT (pure checking/
+      //   savings like some online banks) are still allowed to link instead
+      //   of being rejected with "No liability accounts".
+      linkPayload.products = ['transactions'];
+      linkPayload.optional_products = ['liabilities'];
     }
     if (webhookUrl) linkPayload.webhook = webhookUrl;
 
