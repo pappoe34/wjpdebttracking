@@ -576,9 +576,14 @@ function navigateSPA(target) {
             setTimeout(() => renderActivityPage(), 50);
         }
 
-        // Settings: refresh the live Linked Accounts mini-list
-        if (target === 'settings' && typeof renderSettingsLinkedList === 'function') {
-            setTimeout(() => renderSettingsLinkedList(), 50);
+        // Settings: refresh the live Linked Accounts mini-list + tier card
+        if (target === 'settings') {
+            if (typeof renderSettingsLinkedList === 'function') {
+                setTimeout(() => renderSettingsLinkedList(), 50);
+            }
+            if (typeof renderSettingsTierCard === 'function') {
+                setTimeout(() => renderSettingsTierCard(), 50);
+            }
         }
         // Calendar: re-render with live event data
         if (target === 'calendar' && typeof renderMainCalendar === 'function') {
@@ -7977,6 +7982,76 @@ function renderTransactions() {
 }
 
 /* ============================================================
+   PHASE 3 — TIER + ADMIN SYSTEM
+   - WJP_IS_ADMIN flag set after /admin-status fetch on auth-ready
+   - Tier defaults: Free (paywalls applied unless admin)
+   - Tier UI rendered in Settings → Subscription drawer
+   ============================================================ */
+
+window.WJP_IS_ADMIN = false;
+window.WJP_ADMIN_DATA = null;
+
+async function fetchAdminStatus() {
+    try {
+        const token = await getIdToken();
+        if (!token) return;
+        const r = await fetch('/.netlify/functions/admin-status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        window.WJP_IS_ADMIN = !!data.isAdmin;
+        window.WJP_ADMIN_DATA = data;
+        // Mirror onto subscription state so the rest of the app honors it
+        if (!appState.subscription) appState.subscription = { tier: 'free', billingCycle: 'monthly', invoices: [] };
+        appState.subscription.isAdmin = !!data.isAdmin;
+        if (data.isAdmin) {
+            // Admins effectively have Pro Plus unlocked
+            appState.subscription.tier = 'pro-plus';
+        }
+        try { saveState(); } catch(_){}
+        // Re-render tier card if visible
+        try { renderSettingsTierCard(); } catch(_){}
+    } catch (_) {}
+}
+window.fetchAdminStatus = fetchAdminStatus;
+
+/** Render the live tier card on the Settings page. */
+function renderSettingsTierCard() {
+    const host = document.getElementById('settings-tier-card');
+    if (!host) return;
+    const sub = appState.subscription || { tier: 'free', billingCycle: 'monthly' };
+    const isAdmin = !!(window.WJP_IS_ADMIN || sub.isAdmin);
+    const tierLabel = isAdmin ? 'Admin' : (sub.tier || 'free').replace(/-/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+    const cycle = sub.billingCycle === 'annual' ? 'Annual' : 'Monthly';
+    const tierColor = isAdmin ? '#a855f7' : sub.tier === 'pro-plus' ? '#00d4a8' : sub.tier === 'pro' ? '#667eea' : sub.tier === 'starter' ? '#fbbf24' : '#94a3b8';
+
+    host.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <h3 style="font-size:16px;font-weight:800;color:${tierColor};margin:0;">${isAdmin ? '👑 Admin' : tierLabel}</h3>
+            <div class="badge" style="background:rgba(0,212,168,0.15);color:var(--accent);font-size:8px;padding:4px 8px;font-weight:800;">ACTIVE</div>
+        </div>
+        <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.05em;margin-bottom:14px;">
+            ${isAdmin ? 'ALL FEATURES UNLOCKED · NO BILLING' : sub.tier === 'free' ? 'FOREVER FREE' : cycle.toUpperCase() + ' BILLING'}
+        </div>
+        <div style="font-size:11px;color:var(--text-2);line-height:1.5;flex:1;">
+            ${isAdmin
+                ? `Admin override active. Every Pro Plus feature unlocked, no billing. <a href="admin.html" style="color:var(--accent);font-weight:700;">Manage admin invites →</a>`
+                : sub.tier === 'pro-plus' ? 'Pro Plus — Household Mode, unlimited bank links, daily sync, investments.'
+                : sub.tier === 'pro' ? 'Pro — 6 bank links, full Cloud AI, recurring detection.'
+                : sub.tier === 'starter' ? 'Starter — 2 bank links, weekly sync, Cloud AI.'
+                : 'Free — manual entry, all strategies, rule-based AI. Upgrade for Plaid sync.'}
+        </div>
+    `;
+}
+window.renderSettingsTierCard = renderSettingsTierCard;
+
+// Hook into auth-ready so admin status is checked once Firebase auth lands
+window.addEventListener('wjp-auth-ready', () => {
+    setTimeout(() => fetchAdminStatus(), 100);
+});
+
+/* ============================================================
    PHASE 2 — REAL INCOME & SPENDING TRACKER
    - Detects recurring deposits from Plaid → auto-tags as income
      (a single source recurring 2+ times with similar amount = trusted)
@@ -14588,68 +14663,95 @@ function initAdvisorPageLogic() {
         }, 50);
     });
 
-    // ── 4. Manage Subscription ───────────────────────────────
+    // ── 4. Manage Subscription — Phase 3A tier rollout ──────────
     document.getElementById('btn-settings-subscription')?.addEventListener('click', () => {
-        // Real WJP plan structure: 3-month free trial, then Pro monthly or annual.
-        // Plan + trial state read from appState.subscription with sensible defaults.
+        // Phase 3 tier structure: Free / Starter / Pro / Pro Plus.
+        // Admin accounts auto-bypass into the equivalent of Pro Plus + no billing.
         if (!appState.subscription) {
-            // Default: every signed-in user starts in the 3-month free trial.
-            const start = (appState.profile && appState.profile.createdAt) || Date.now();
-            const trialEnd = start + (90 * 24 * 60 * 60 * 1000);
-            appState.subscription = { plan: 'trial', trialStart: start, trialEnd, invoices: [] };
+            appState.subscription = {
+                tier: 'free',
+                billingCycle: 'monthly', // 'monthly' | 'annual'
+                isAdmin: false,
+                invoices: []
+            };
             saveState();
         }
         const sub = appState.subscription;
-        const now = Date.now();
-        const trialDaysLeft = Math.max(0, Math.ceil((sub.trialEnd - now) / (1000*60*60*24)));
-        const ACTIVE_PLAN = sub.plan;
+        const isAdmin = !!(window.WJP_IS_ADMIN || sub.isAdmin);
+        const ACTIVE_PLAN = isAdmin ? 'admin' : (sub.tier || 'free');
+        const billingCycle = sub.billingCycle || 'monthly';
         const tiers = [
             {
-                id: 'trial', name: 'Free Trial', price: '$0', billing: `${trialDaysLeft} day${trialDaysLeft===1?'':'s'} left of 90`,
-                color: '#64748b', icon: 'ph-sprout',
+                id: 'free', name: 'Free', price: '$0', billing: 'forever',
+                color: '#94a3b8', icon: 'ph-circle-half',
                 features: [
-                    {label:'Full access to every feature', inc:true},
-                    {label:'Unlimited debts + transactions', inc:true},
-                    {label:'AI Advisor (unlimited)', inc:true},
-                    {label:'Auto-fit dashboard customization', inc:true},
-                    {label:'Bank sync via Plaid (sandbox)', inc:true},
-                    {label:'Household Mode (Plus only)', inc:false},
-                    {label:'Priority support', inc:false},
-                    {label:'Trial converts to free read-only after 90 days', inc:false},
-                ],
-                nextPayment: null, paymentMethod: null
+                    {label:'Manual debt + transaction entry', inc:true},
+                    {label:'All payoff strategies (Snowball / Avalanche / Hybrid)', inc:true},
+                    {label:'Standard rule-based AI advisor', inc:true},
+                    {label:'Bank sync via Plaid', inc:false},
+                    {label:'Cloud Mode AI (Llama 70B)', inc:false},
+                    {label:'Recurring detection + alerts', inc:false}
+                ]
             },
             {
-                id: 'pro', name: 'Pro Monthly', price: '$9.99', billing: '/mo · cancel anytime',
+                id: 'starter', name: 'Starter',
+                price: billingCycle === 'annual' ? '$3.25' : '$4.99',
+                billing: billingCycle === 'annual' ? '/mo · billed $39/yr' : '/mo · cancel anytime',
+                color: '#fbbf24', icon: 'ph-sprout',
+                features: [
+                    {label:'Everything in Free', inc:true},
+                    {label:'Up to 2 linked bank accounts', inc:true},
+                    {label:'Weekly auto-sync from Plaid', inc:true},
+                    {label:'Cloud Mode AI advisor', inc:true},
+                    {label:'Recurring auto-detection', inc:true},
+                    {label:'Household Mode (Pro Plus only)', inc:false}
+                ]
+            },
+            {
+                id: 'pro', name: 'Pro',
+                price: billingCycle === 'annual' ? '$6.58' : '$9.99',
+                billing: billingCycle === 'annual' ? '/mo · billed $79/yr' : '/mo · cancel anytime',
                 color: '#667eea', icon: 'ph-lightning',
                 features: [
-                    {label:'Everything in Free Trial', inc:true},
-                    {label:'Unlimited debts + transactions', inc:true},
-                    {label:'AI Advisor (unlimited queries)', inc:true},
-                    {label:'Spending tracker + simulations', inc:true},
-                    {label:'Bank sync via Plaid', inc:true},
-                    {label:'Recurring auto-detection', inc:true},
-                    {label:'Email + push notifications', inc:true},
-                    {label:'Household Mode (Plus only)', inc:false},
-                ],
-                nextPayment: null, paymentMethod: null
+                    {label:'Everything in Starter', inc:true},
+                    {label:'Up to 6 linked bank accounts', inc:true},
+                    {label:'2x/week auto-sync', inc:true},
+                    {label:'Bills calendar + payment alerts', inc:true},
+                    {label:'AI spending insights', inc:true},
+                    {label:'Custom payoff strategies + export', inc:true},
+                    {label:'Household Mode (Pro Plus only)', inc:false}
+                ]
             },
             {
-                id: 'plus', name: 'Pro Plus (Annual)', price: '$79', billing: '/yr · save $40 vs monthly',
+                id: 'pro-plus', name: 'Pro Plus',
+                price: billingCycle === 'annual' ? '$10.75' : '$14.99',
+                billing: billingCycle === 'annual' ? '/mo · billed $129/yr' : '/mo · cancel anytime',
                 color: '#00d4a8', icon: 'ph-medal',
                 features: [
-                    {label:'Everything in Pro Monthly', inc:true},
-                    {label:'Household Mode — co-track with partner', inc:true, note:'Plus exclusive'},
-                    {label:'Joint debt strategy view', inc:true},
-                    {label:'Multi-account dashboards', inc:true},
+                    {label:'Everything in Pro', inc:true},
+                    {label:'Unlimited linked bank accounts', inc:true},
+                    {label:'Daily auto-sync', inc:true},
+                    {label:'Household Mode — up to 5 family members', inc:true, note:'Pro Plus exclusive'},
+                    {label:'Investment account tracking', inc:true},
                     {label:'Priority email support', inc:true},
-                    {label:'Early access to new features', inc:true},
-                    {label:'Annual savings: $40.88', inc:true},
-                    {label:'Cancel anytime, prorated refund', inc:true},
-                ],
-                nextPayment: null, paymentMethod: null
+                    {label:'White-glove import help', inc:true}
+                ]
             }
         ];
+
+        // Admin tier — only shown when account has admin flag
+        if (isAdmin) {
+            tiers.unshift({
+                id: 'admin', name: 'Admin · Pro Plus Unlocked', price: '—', billing: 'admin · all features · no billing',
+                color: '#a855f7', icon: 'ph-crown',
+                features: [
+                    {label:'All Pro Plus features unlocked', inc:true},
+                    {label:'Household Mode + unlimited members', inc:true},
+                    {label:'No billing · admin override', inc:true},
+                    {label:'Manage admin invite list (10 slots)', inc:true, note:'admin.html'}
+                ]
+            });
+        }
 
         const tierHTML = tiers.map(t => {
             const isActive = t.id === ACTIVE_PLAN;
@@ -14691,10 +14793,12 @@ function initAdvisorPageLogic() {
             </div>`;
         }).join('');
 
-        const subtitleText = sub.plan === 'trial'
-            ? `You have ${trialDaysLeft} day${trialDaysLeft===1?'':'s'} left in your free trial. Pick a plan to keep going.`
-            : sub.plan === 'pro' ? 'You are on Pro Monthly ($9.99/mo). Upgrade to Plus for Household Mode + annual savings.'
-            : 'You are on Pro Plus (annual). Thanks for supporting WJP — every Plus feature unlocked.';
+        const subtitleText = isAdmin
+            ? '👑 Admin account — every feature unlocked, no billing. Manage your admin invite list at /admin.html.'
+            : ACTIVE_PLAN === 'free' ? 'You\'re on Free. Upgrade to Starter for Plaid sync, Pro for full AI, or Pro Plus for Household Mode.'
+            : ACTIVE_PLAN === 'starter' ? 'You\'re on Starter. Upgrade to Pro for more bank links + alerts, or Pro Plus for Household Mode.'
+            : ACTIVE_PLAN === 'pro' ? 'You\'re on Pro. Upgrade to Pro Plus for Household Mode and unlimited bank links.'
+            : 'You\'re on Pro Plus — every feature unlocked. Thanks for supporting WJP.';
         openSettingsDrawer({
             icon: 'ph-medal',
             badge: 'MEMBERSHIP',
@@ -14719,7 +14823,12 @@ function initAdvisorPageLogic() {
                         </div>
                       </div>`).join('')}
                 </div>
-                <button id="sub-cancel-btn" class="btn btn-ghost" style="width:100%;padding:11px;font-size:10px;border-color:var(--border);color:#ff4d6d;">${sub.plan === 'trial' ? 'STAY ON FREE TRIAL' : 'CANCEL SUBSCRIPTION'}</button>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <button id="sub-toggle-cycle" class="btn btn-ghost" style="padding:10px;font-size:10px;border-color:var(--border);color:var(--accent);">
+                        ${billingCycle === 'annual' ? 'SWITCH TO MONTHLY BILLING' : 'SAVE 30% — SWITCH TO ANNUAL'}
+                    </button>
+                    <button id="sub-cancel-btn" class="btn btn-ghost" style="padding:10px;font-size:10px;border-color:var(--border);color:#ff4d6d;">${ACTIVE_PLAN === 'free' || isAdmin ? 'NOTHING TO CANCEL' : 'CANCEL SUBSCRIPTION'}</button>
+                </div>
               </div>`
         });
         // Wire upgrade + cancel after the drawer renders
@@ -14745,8 +14854,8 @@ function initAdvisorPageLogic() {
             });
             const cancelBtn = document.getElementById('sub-cancel-btn');
             if (cancelBtn) cancelBtn.onclick = () => {
-                if (sub.plan === 'trial') {
-                    showToast("You're already on the free trial — nothing to cancel.");
+                if (ACTIVE_PLAN === 'free' || isAdmin) {
+                    showToast(isAdmin ? "Admin accounts have nothing to cancel." : "You're on the Free tier — nothing to cancel.");
                     return;
                 }
                 if (!confirm("Cancel your WJP subscription? You'll keep access until the end of the current billing period.")) return;
@@ -14757,6 +14866,15 @@ function initAdvisorPageLogic() {
                     `Thanks.`
                 );
                 window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
+            };
+            // Toggle billing cycle (monthly ↔ annual) — re-renders the drawer with new prices
+            const cycleBtn = document.getElementById('sub-toggle-cycle');
+            if (cycleBtn) cycleBtn.onclick = () => {
+                if (!appState.subscription) appState.subscription = { tier: 'free', billingCycle: 'monthly', invoices: [] };
+                appState.subscription.billingCycle = appState.subscription.billingCycle === 'annual' ? 'monthly' : 'annual';
+                saveState();
+                document.getElementById('settings-drawer-overlay')?.remove();
+                setTimeout(() => document.getElementById('btn-settings-subscription')?.click(), 80);
             };
         }, 60);
     });

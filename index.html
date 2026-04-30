@@ -3143,20 +3143,17 @@
               <button class="btn btn-ghost sjc-btn" id="btn-settings-notifications" style="background:var(--card-2); border-color:var(--border);">SET PREFERENCES <i class="ph-fill ph-faders" style="color:var(--text-3);"></i></button>
             </div>
 
-            <!-- Card 5: Enterprise -->
+            <!-- Card 5: Membership / Tier -->
             <div class="card settings-journey-card">
               <div class="sjc-header" style="margin-bottom:24px;">
                 <div class="sjc-icon-blob"><i class="ph-fill ph-medal"></i></div>
                 <div class="badge" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-3); font-size:8px;">MEMBERSHIP</div>
               </div>
-              
-              <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:20px; display:flex; flex-direction:column; margin-bottom:24px; flex:1;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <h3 style="font-size:16px; font-weight:700; color:var(--accent); margin:0;">Enterprise</h3>
-                  <div class="badge badge-primary" style="font-size:8px; padding:4px 8px;">ACTIVE</div>
+
+              <div id="settings-tier-card" style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:18px; display:flex; flex-direction:column; margin-bottom:24px; flex:1;">
+                <div style="display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:11px;justify-content:center;padding:14px;">
+                  <i class="ph ph-spinner-gap spinning"></i> Loading membership…
                 </div>
-                <div style="font-size:9px; color:var(--text-3); text-transform:uppercase; font-weight:600; letter-spacing:0.05em; margin-bottom:16px;">ANNUAL BILLING</div>
-                <div style="font-size:10px; color:var(--text-2);">Next renewal: <strong style="color:var(--text);">Oct 12, 2026</strong></div>
               </div>
 
               <button class="btn btn-ghost sjc-btn" id="btn-settings-subscription" style="border:1px solid var(--border-accent); color:var(--accent);">MANAGE SUBSCRIPTION</button>
@@ -4763,7 +4760,7 @@
 </div>
 
 
-  <script src="app.js?v=123-phase2-income"></script>
+  <script src="app.js?v=124-phase3-tiers-admin"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

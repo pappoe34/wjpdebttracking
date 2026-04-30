@@ -457,6 +457,7 @@ html, body {
     <button data-tab="revenue"   type="button">Revenue &amp; Growth</button>
     <button data-tab="tax"       type="button">Taxes</button>
     <button data-tab="users"     type="button">Users</button>
+    <button data-tab="admins"    type="button">Admin Roster</button>
   </div>
 
   <!-- ================== ANALYTICS TAB ================== -->
@@ -648,6 +649,44 @@ html, body {
     </div>
   </section>
 
+  <!-- ================== ADMIN ROSTER TAB ================== -->
+  <section id="tab-admins" class="tab-section">
+    <div class="banner-info">
+      <div class="icon">👑</div>
+      <div>
+        <div class="title">Admin Roster · 10-slot invite list</div>
+        <div class="msg">Add up to 9 additional admin accounts. Each admin gets full Pro Plus features unlocked, no billing. Seed admin (pappoe34@gmail.com) cannot be removed.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">Slots Used</div>
+          <div id="admin-slot-readout" style="font-size:24px;font-weight:900;color:#16a34a;margin-top:2px;">— / 10</div>
+        </div>
+        <button id="btn-refresh-admins" class="btn-ghost" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Add admin by email</div>
+      <div style="display:flex;gap:8px;">
+        <input type="email" id="admin-add-email" placeholder="user@example.com" style="flex:1;padding:10px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;outline:none;">
+        <button id="btn-admin-add" class="btn-primary" style="background:#16a34a;color:#fff;border:0;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;">+ ADD ADMIN</button>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:6px;">User must already have a WJP account (signed up at least once) before they can be added.</div>
+      <div id="admin-add-status" style="font-size:11px;margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Current admins</div>
+      <div id="admin-roster-body">
+        <div style="text-align:center;color:#64748b;padding:14px;font-size:11px;">Loading…</div>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <script type="module">
@@ -753,6 +792,91 @@ html, body {
     });
     document.getElementById('btn-refresh').addEventListener('click', () => loadRange(currentRange));
     document.getElementById('btn-export').addEventListener('click', exportCsv);
+
+    // Admin Roster wiring
+    async function loadAdminRoster() {
+        const body = document.getElementById('admin-roster-body');
+        const slot = document.getElementById('admin-slot-readout');
+        if (!body) return;
+        body.innerHTML = '<div style="text-align:center;color:#64748b;padding:14px;font-size:11px;">Loading…</div>';
+        try {
+            const user = auth.currentUser;
+            if (!user) { body.innerHTML = '<div style="color:#ef4444;">Sign in required.</div>'; return; }
+            const token = await user.getIdToken();
+            const r = await fetch('/.netlify/functions/admin-status', { headers: { 'Authorization':'Bearer '+token } });
+            const d = await r.json();
+            if (!r.ok || !d.isAdmin) {
+                body.innerHTML = '<div style="color:#ef4444;font-size:12px;">⚠ This account is not an admin. Only admins can manage the roster.</div>';
+                if (slot) slot.textContent = '— / 10';
+                return;
+            }
+            if (slot) {
+                slot.textContent = d.slotCount + ' / ' + d.slotMax;
+                slot.style.color = d.slotCount >= d.slotMax ? '#ef4444' : d.slotCount >= 8 ? '#f59e0b' : '#16a34a';
+            }
+            const rows = (d.admins || []).map(a => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;margin-bottom:6px;">
+                    <div>
+                        <div style="font-size:12px;font-weight:700;">${a.email} ${a.isSeed?'<span style="font-size:9px;color:#a855f7;font-weight:800;margin-left:6px;">SEED</span>':''}</div>
+                        <div style="font-size:10px;color:#64748b;">UID: <code style="font-size:9px;">${a.uid.slice(0,16)}…</code>${a.addedAt?' · added '+new Date(a.addedAt).toLocaleDateString():''}</div>
+                    </div>
+                    ${a.isSeed ? '<span style="font-size:10px;color:#64748b;font-style:italic;">cannot remove</span>' : `<button data-revoke-email="${a.email}" style="background:rgba(239,68,68,0.10);color:#ef4444;border:1px solid rgba(239,68,68,0.30);border-radius:6px;padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;">Revoke</button>`}
+                </div>
+            `).join('');
+            body.innerHTML = rows || '<div style="color:#64748b;padding:14px;text-align:center;font-size:11px;">No admins yet.</div>';
+            body.querySelectorAll('button[data-revoke-email]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const email = btn.dataset.revokeEmail;
+                    if (!confirm('Revoke admin access for ' + email + '?')) return;
+                    btn.disabled = true; btn.textContent = '…';
+                    const tk = await user.getIdToken();
+                    const r2 = await fetch('/.netlify/functions/admin-manage', {
+                        method:'POST', headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'},
+                        body: JSON.stringify({ action:'remove', email })
+                    });
+                    const j2 = await r2.json().catch(()=>({}));
+                    if (!r2.ok) { alert('Failed: ' + (j2.error||r2.status)); btn.disabled = false; btn.textContent = 'Revoke'; return; }
+                    loadAdminRoster();
+                });
+            });
+        } catch (e) {
+            body.innerHTML = '<div style="color:#ef4444;">Failed to load: ' + (e.message||e) + '</div>';
+        }
+    }
+
+    document.getElementById('btn-refresh-admins')?.addEventListener('click', loadAdminRoster);
+    document.getElementById('btn-admin-add')?.addEventListener('click', async () => {
+        const input = document.getElementById('admin-add-email');
+        const status = document.getElementById('admin-add-status');
+        if (!input || !status) return;
+        const email = (input.value || '').trim().toLowerCase();
+        if (!email) { status.innerHTML = '<span style="color:#ef4444;">Email required</span>'; return; }
+        status.innerHTML = '<span style="color:#94a3b8;">Adding…</span>';
+        try {
+            const tk = await auth.currentUser.getIdToken();
+            const r = await fetch('/.netlify/functions/admin-manage', {
+                method:'POST', headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'},
+                body: JSON.stringify({ action:'add', email })
+            });
+            const j = await r.json().catch(()=>({}));
+            if (!r.ok) { status.innerHTML = '<span style="color:#ef4444;">✗ ' + (j.error||r.status) + '</span>'; return; }
+            status.innerHTML = '<span style="color:#16a34a;">✓ ' + email + ' added as admin.</span>';
+            input.value = '';
+            loadAdminRoster();
+        } catch (e) {
+            status.innerHTML = '<span style="color:#ef4444;">✗ ' + (e.message||e) + '</span>';
+        }
+    });
+
+    // Load roster when the Admin tab is clicked
+    document.querySelectorAll('.tabs button[data-tab="admins"]').forEach(b => {
+        b.addEventListener('click', () => loadAdminRoster());
+    });
+    // Auto-load if URL hash is #admins
+    if (location.hash === '#admins') {
+        const adminTabBtn = document.querySelector('.tabs button[data-tab="admins"]');
+        if (adminTabBtn) adminTabBtn.click();
+    }
 
     // Initial load
     loadRange(currentRange);
