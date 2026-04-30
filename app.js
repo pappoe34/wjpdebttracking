@@ -7801,38 +7801,38 @@ window.WJP_DeepAI = {
     async ask(question, onChunk) {
         if (!this.engine) await this.load();
         const ctx = this._buildContext();
-        const sysPrompt = [
+        const tier = (typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.deepModelTier) || 'smart';
+
+        // Tier-tuned prompt — Fast gets a slim version (no few-shot, terse
+        // rules) so the small model spends less time processing system tokens
+        // and more time generating. Fast tier should answer in ~8-15s.
+        const sysPrompt = (tier === 'fast') ? [
+            'You are WJP\'s debt-tracking AI advisor. Use the USER DATA to answer concretely with specific numbers. Bullet points, under 100 words. No hedging.',
+            '',
+            '=== USER DATA ===',
+            ctx
+        ].join('\n') : [
             'You are WJP\'s in-app debt-tracking AI advisor. The USER ACCOUNT DATA below is real, current, and private to this user.',
             '',
             '=== USER ACCOUNT DATA ===',
             ctx,
             '=== END USER ACCOUNT DATA ===',
             '',
-            'RULES — follow strictly:',
-            '1. Always cite SPECIFIC NUMBERS from the account data. Never give generic advice that ignores the user\'s actual debts/income/spending.',
-            '2. When the user asks about something specific (a debt name, a strategy, a date), pull the exact number from the data above. Do not paraphrase or round excessively.',
-            '3. Use bullet points and short paragraphs. Lead with the specific number, then the recommendation.',
-            '4. If the data needed isn\'t in the account context, say "I don\'t have X in your account yet — add it under [tab]" rather than guessing.',
-            '5. Be direct and concrete. No "depends on your situation" or "consult a professional" hedging — the data IS the situation.',
-            '6. Keep answers under 250 words unless the user asks for "details" or "full breakdown".',
-            '',
-            'EXAMPLE GOOD ANSWER:',
-            'Q: "What\'s my biggest debt?"',
-            'A: "Your biggest debt is **Aidadvantage Student Loan** at $28,000 (6% APR). It costs you $140/mo in interest alone. Avalanche has it as priority #4 because three of your credit cards have higher APRs (Avant 30%, BOA 29.99%, Affirm 28%). Hit those first — your student loan can wait."',
-            '',
-            'EXAMPLE BAD ANSWER (do not do this):',
-            'A: "Your biggest debt depends on your priorities. Generally, it\'s good to pay off high-interest debt first."'
+            'RULES:',
+            '1. Always cite SPECIFIC NUMBERS from the account data.',
+            '2. Lead with the number, then the recommendation. Bullet points + short paragraphs.',
+            '3. If data isn\'t in context, say "I don\'t have X yet — add it under [tab]".',
+            '4. No "depends on your situation" hedging. The data IS the situation.',
+            '5. Under 200 words unless user asks for "details" or "full breakdown".'
         ].join('\n');
         const messages = [
             { role: 'system', content: sysPrompt },
             { role: 'user', content: question }
         ];
-        // Tier-tuned output cap so smaller models finish faster.
-        // Fast (1.5B) → 180 tokens (~12s). Smart (3B) → 320 (~18s).
-        // Smartest (8B) → 480 (~35s). User can ask "give me the full
-        // breakdown" for depth.
-        const tier = (typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.deepModelTier) || 'smart';
-        const maxTokens = tier === 'fast' ? 180 : tier === 'smartest' ? 480 : 320;
+        // Aggressive token caps so small models finish in human time.
+        // Fast (1.5B) → 120 tokens (~8-12s). Smart (3B) → 240 (~15-25s).
+        // Smartest (8B) → 360 (~30-50s). User can ask for full breakdown.
+        const maxTokens = tier === 'fast' ? 120 : tier === 'smartest' ? 360 : 240;
         let full = '';
         try {
             const stream = await this.engine.chat.completions.create({
