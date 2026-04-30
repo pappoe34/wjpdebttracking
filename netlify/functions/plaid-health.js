@@ -90,7 +90,10 @@ exports.handler = async (event) => {
       }
 
       try {
-        const bal = await plaid.accountsBalanceGet({ access_token });
+        // /accounts/get is included with Transactions/Liabilities products.
+        // (Avoid /accounts/balance/get — that needs the Balance product
+        // which we did not contract for.) Returns last-known balances.
+        const bal = await plaid.accountsGet({ access_token });
         liveAccounts = bal.data.accounts || [];
         accountCount += liveAccounts.length;
       } catch (e) {

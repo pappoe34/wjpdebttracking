@@ -576,6 +576,15 @@ function navigateSPA(target) {
             setTimeout(() => renderActivityPage(), 50);
         }
 
+        // Settings: refresh the live Linked Accounts mini-list
+        if (target === 'settings' && typeof renderSettingsLinkedList === 'function') {
+            setTimeout(() => renderSettingsLinkedList(), 50);
+        }
+        // Calendar: re-render with live event data
+        if (target === 'calendar' && typeof renderMainCalendar === 'function') {
+            setTimeout(() => renderMainCalendar(), 50);
+        }
+
         // Redraw charts
         setTimeout(() => {
             drawCharts();
@@ -1170,8 +1179,36 @@ function renderMainCalendar() {
     // Sidebar
     renderDetailedUpcoming();
 
+    // Color-key legend above the grid so users immediately know what each badge means
+    try { renderCalendarLegend(); } catch(_){}
     // Inject a "this-month status" panel below the grid (paid vs pending vs overdue)
     try { renderCalendarMonthStatus(eventsByDay, today, isCurrentMonth, daysInMonth); } catch(_){}
+}
+
+/** Render a small legend above the calendar grid explaining the color codes. */
+function renderCalendarLegend() {
+    let host = document.getElementById('cal-legend');
+    if (!host) {
+        const grid = document.getElementById('main-calendar-grid');
+        if (!grid || !grid.parentElement) return;
+        host = document.createElement('div');
+        host.id = 'cal-legend';
+        host.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap;padding:10px 0 14px;font-size:10px;color:var(--text-2);align-items:center;';
+        // Insert BEFORE the grid
+        grid.parentElement.insertBefore(host, grid);
+    }
+    const items = [
+        { dot:'#22c55e', icon:'✓', label:'Paid' },
+        { dot:'#fbbf24', icon:'○', label:'Pending' },
+        { dot:'#ef4444', icon:'⚠', label:'Overdue' },
+        { dot:'#a855f7', icon:'🔄', label:'Recurring' },
+        { dot:'#667eea', icon:'💰', label:'Income / Payday' }
+    ];
+    host.innerHTML = `<div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-right:6px;">Legend:</div>` +
+        items.map(i => `<div style="display:flex;align-items:center;gap:5px;">
+            <span style="width:10px;height:10px;border-radius:3px;background:${i.dot};display:inline-block;"></span>
+            <span style="font-weight:600;">${i.icon} ${i.label}</span>
+        </div>`).join('');
 }
 
 /** Render the per-month status panel below the calendar grid: tally of
@@ -1215,48 +1252,119 @@ function renderCalendarMonthStatus(eventsByDay, today, isCurrentMonth, daysInMon
 function renderDetailedUpcoming() {
     const cont = document.getElementById('cal-detailed-upcoming');
     if (!cont) return;
-    
     cont.innerHTML = '';
-    
-    // Combine all events for the next 30 days
-    const events = [];
-    appState.debts.forEach(d => {
-        events.push({ day: parseInt(d.dueDate) || 15, name: d.name, amount: d.minPayment, type: 'debt', apr: d.apr });
-    });
-    const calIncome = (appState.balances && appState.balances.monthlyIncome) || 0;
-    if (calIncome > 0) {
-        const halfPay = Math.round(calIncome / 2);
-        events.push({ day: 1, name: 'Payday', amount: halfPay, type: 'income' });
-        events.push({ day: 15, name: 'Payday', amount: halfPay, type: 'income' });
-    }
-    
-    // Sort by day
-    events.sort((a,b) => a.day - b.day);
-    
+
+    // Today's anchor — used to compute "next occurrence" date and paid status
+    const now = new Date();
+    const todayDom = now.getDate();
     const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-    
+
+    // Helper: was a debt/bill paid this month?
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59);
+    const isPaid = (matchName) => {
+        const needle = String(matchName||'').toLowerCase();
+        if (!needle) return false;
+        return (appState.transactions || []).some(t => {
+            if (!t || t.synthetic) return false;
+            const td = new Date(t.date);
+            if (isNaN(td) || td < monthStart || td > monthEnd) return false;
+            const merch = String(t.merchant||'').toLowerCase();
+            return merch.includes(needle) || needle.includes(merch);
+        });
+    };
+
+    const events = [];
+    // Debts
+    (appState.debts || []).forEach(d => {
+        const dom = parseInt(d.dueDate || d.dueDay) || 15;
+        let next = new Date(now.getFullYear(), now.getMonth(), dom);
+        if (next < new Date(now.getFullYear(), now.getMonth(), todayDom)) next.setMonth(next.getMonth()+1);
+        events.push({
+            date: next, name: d.name, amount: d.minPayment, type: 'debt', apr: d.apr,
+            paid: isPaid(d.name)
+        });
+    });
+    // Recurring (non-income)
+    (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome).forEach(r => {
+        let next = null;
+        if (r.nextDate) { const nd = new Date(r.nextDate); if (!isNaN(nd)) next = nd; }
+        if (!next && r.anchorDay) {
+            next = new Date(now.getFullYear(), now.getMonth(), parseInt(r.anchorDay));
+            if (next < new Date(now.getFullYear(), now.getMonth(), todayDom)) next.setMonth(next.getMonth()+1);
+        }
+        if (!next) return;
+        events.push({
+            date: next, name: r.name||r.description||'Recurring', amount: Math.abs(r.amount||0), type: 'recurring',
+            paid: isPaid(r.name||r.description||'')
+        });
+    });
+    // Income (recurring + legacy)
+    const incomeEntries = (appState.recurring || []).filter(r => r.category === 'income' || r.linkedIncome);
+    if (incomeEntries.length) {
+        incomeEntries.forEach(r => {
+            let next = null;
+            if (r.nextDate) { const nd = new Date(r.nextDate); if (!isNaN(nd)) next = nd; }
+            if (!next && r.anchorDay) {
+                next = new Date(now.getFullYear(), now.getMonth(), parseInt(r.anchorDay));
+                if (next < new Date(now.getFullYear(), now.getMonth(), todayDom)) next.setMonth(next.getMonth()+1);
+            }
+            if (!next) return;
+            events.push({ date: next, name: r.name||'Payday', amount: Math.abs(r.amount||0), type: 'income' });
+        });
+    } else {
+        const calIncome = (appState.balances && appState.balances.monthlyIncome) || (appState.budget && appState.budget.monthlyIncome) || 0;
+        if (calIncome > 0) {
+            const half = Math.round(calIncome / 2);
+            [1, 15].forEach(dom => {
+                let next = new Date(now.getFullYear(), now.getMonth(), dom);
+                if (next < new Date(now.getFullYear(), now.getMonth(), todayDom)) next.setMonth(next.getMonth()+1);
+                events.push({ date: next, name: 'Payday', amount: half, type: 'income' });
+            });
+        }
+    }
+
+    // Sort by absolute date
+    events.sort((a,b) => a.date - b.date);
+
     if (events.length === 0) {
         cont.innerHTML = `<div style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:11px;">
             <i class="ph ph-calendar-blank" style="font-size:28px; display:block; margin-bottom:8px; opacity:0.4;"></i>
             No upcoming payments. Add debts or income to populate your calendar.
         </div>`;
     } else {
-        cont.innerHTML = events.map(ev => `
-            <div style="display:flex; align-items:center; gap:16px; padding:12px; background:var(--bg); border-radius:12px; border:1px solid var(--border); position:relative; overflow:hidden;">
-                <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:${ev.type === 'income' ? 'var(--accent)' : 'var(--danger)'};"></div>
+        cont.innerHTML = events.map(ev => {
+            // Status badge: PAID (green), DUE (amber/red based on proximity), INCOME (green)
+            const daysOut = Math.ceil((ev.date - now) / 86400000);
+            let badgeBg, badgeColor, badgeLabel, stripe;
+            if (ev.type === 'income') {
+                badgeBg = 'rgba(102,126,234,0.10)'; badgeColor = '#667eea'; badgeLabel = 'INCOME'; stripe = '#667eea';
+            } else if (ev.paid) {
+                badgeBg = 'rgba(34,197,94,0.10)'; badgeColor = '#22c55e'; badgeLabel = 'PAID'; stripe = '#22c55e';
+            } else if (daysOut <= 0) {
+                badgeBg = 'rgba(239,68,68,0.12)'; badgeColor = '#ef4444'; badgeLabel = 'OVERDUE'; stripe = '#ef4444';
+            } else if (daysOut <= 5) {
+                badgeBg = 'rgba(239,68,68,0.10)'; badgeColor = '#ef4444'; badgeLabel = `DUE ${daysOut}d`; stripe = '#ef4444';
+            } else {
+                badgeBg = 'rgba(251,191,36,0.10)'; badgeColor = '#fbbf24'; badgeLabel = `IN ${daysOut}d`; stripe = '#fbbf24';
+            }
+            const monthShort = ev.date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+            const dom = ev.date.getDate();
+            return `<div style="display:flex; align-items:center; gap:16px; padding:12px; background:var(--bg); border-radius:12px; border:1px solid var(--border); position:relative; overflow:hidden;">
+                <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:${stripe};"></div>
                 <div style="text-align:center; min-width:36px;">
-                    <div style="font-size:9px; font-weight:800; color:var(--text-3); text-transform:uppercase;">${new Date(currentCalYear, currentCalMonth).toLocaleString('default', { month: 'short' }).toUpperCase()}</div>
-                    <div style="font-size:18px; font-weight:900; line-height:1; color:${ev.type === 'income' ? 'var(--accent)' : 'var(--text)'}">${ev.day < 10 ? '0' + ev.day : ev.day}</div>
+                    <div style="font-size:9px; font-weight:800; color:var(--text-3); text-transform:uppercase;">${monthShort}</div>
+                    <div style="font-size:18px; font-weight:900; line-height:1; color:${ev.type === 'income' ? '#667eea' : ev.paid ? '#22c55e' : 'var(--text)'};">${dom < 10 ? '0' + dom : dom}</div>
                 </div>
                 <div style="flex:1;">
                     <div style="font-size:13px; font-weight:800;">${ev.name}</div>
-                    <div style="font-size:10px; color:var(--text-3);">${fmt(ev.amount)} ${ev.apr ? '• ' + ev.apr + '% APR' : '• System Account'}</div>
+                    <div style="font-size:10px; color:var(--text-3);">${fmt(ev.amount)}${ev.apr ? ' • ' + ev.apr + '% APR' : ev.type === 'recurring' ? ' • Recurring' : ''}</div>
                 </div>
                 <div style="text-align:right;">
-                    <div class="badge" style="background:${ev.type === 'income' ? 'rgba(0,212,168,0.1)' : 'rgba(255,107,107,0.1)'}; color:${ev.type === 'income' ? 'var(--accent)' : 'var(--danger)'}; font-size:8px; padding:4px 8px;">${ev.type === 'income' ? 'INCOME' : 'DUE'}</div>
+                    <div class="badge" style="background:${badgeBg}; color:${badgeColor}; font-size:8px; padding:4px 8px; font-weight:800;">${badgeLabel}</div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
 
     // Update event count and daily limit
@@ -12380,6 +12488,84 @@ window.refreshLinkedAccounts = refreshLinkedAccounts;
 window.refreshFromBank = refreshFromBank;
 window.unlinkPlaidItem = unlinkPlaidItem;
 
+/**
+ * Render the mini Linked Accounts list inside the Settings page card.
+ * Pulls from /plaid-health (live) so it always reflects the actual state.
+ * Falls back to "no accounts linked yet" if no items exist.
+ */
+async function renderSettingsLinkedList() {
+    const host = document.getElementById('settings-linked-accounts-list');
+    if (!host) return;
+    const token = await getIdToken();
+    if (!token) {
+        host.innerHTML = `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center;color:var(--text-3);font-size:11px;">Sign in to see your linked banks.</div>`;
+        return;
+    }
+    try {
+        const r = await fetch('/.netlify/functions/plaid-health', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!r.ok) throw new Error('plaid-health ' + r.status);
+        const data = await r.json();
+        const items = data.items || [];
+        if (!items.length) {
+            host.innerHTML = `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px;text-align:center;color:var(--text-3);font-size:11px;">
+                <i class="ph ph-bank" style="font-size:22px;display:block;margin-bottom:6px;opacity:0.4;"></i>
+                No banks linked yet.<br>Click below to connect your first.
+            </div>`;
+            return;
+        }
+        // Flatten items → list of accounts with institution, mask, and balance
+        const rows = [];
+        items.forEach(item => {
+            const inst = item.institutionName || 'Bank';
+            const initial = inst.charAt(0).toUpperCase();
+            const itemHealthy = item.status === 'healthy';
+            if (item.accounts && item.accounts.length) {
+                item.accounts.forEach(a => {
+                    rows.push({
+                        institution: inst,
+                        initial,
+                        name: a.name || a.subtype || 'Account',
+                        mask: a.mask || '',
+                        type: a.subtype || a.type || '',
+                        balance: a.balance,
+                        healthy: itemHealthy
+                    });
+                });
+            } else {
+                rows.push({
+                    institution: inst,
+                    initial,
+                    name: inst,
+                    mask: '',
+                    type: '',
+                    balance: null,
+                    healthy: itemHealthy,
+                    error: item.errorCode
+                });
+            }
+        });
+        host.innerHTML = rows.map(r => {
+            const fmt = r.balance != null ? '$' + Number(r.balance).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}) : '';
+            const dot = r.healthy ? '#22c55e' : '#ef4444';
+            const isPiggy = /saving/i.test(r.type) || /saving/i.test(r.name);
+            return `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 12px;display:flex;align-items:center;gap:10px;">
+                <div style="background:rgba(102,126,234,0.10);width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#667eea;font-weight:900;font-size:12px;flex-shrink:0;">${r.initial}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}${r.mask?` ····${r.mask}`:''}</span>
+                        <span style="width:6px;height:6px;border-radius:50%;background:${dot};flex-shrink:0;" title="${r.healthy?'Healthy':'Error'}"></span>
+                    </div>
+                    <div style="font-size:9px;color:var(--text-3);">${r.institution} · ${r.type||'account'}${r.error?` · ⚠ ${r.error}`:''}</div>
+                </div>
+                ${fmt ? `<div style="font-size:11px;font-weight:800;color:var(--accent);">${fmt}</div>` : ''}
+            </div>`;
+        }).join('');
+    } catch (err) {
+        host.innerHTML = `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center;color:var(--text-3);font-size:11px;">Couldn't load: ${err.message||err}</div>`;
+    }
+}
+window.renderSettingsLinkedList = renderSettingsLinkedList;
+
 // Auto-refresh linked accounts once Firebase auth is ready + signed in.
 // The gate in index.html dispatches 'wjp-auth-ready' after authStateReady() resolves.
 (function wirePlaidAutoRefresh() {
@@ -12396,6 +12582,8 @@ window.unlinkPlaidItem = unlinkPlaidItem;
         } catch (_) {
             try { refreshLinkedAccounts(); } catch(_) {}
         }
+        // Hydrate the Settings → Linked Accounts mini-list with live data
+        try { if (typeof renderSettingsLinkedList === 'function') renderSettingsLinkedList(); } catch(_) {}
         // Recurring streams refresh — gated by RECURRING_REFRESH_MS (1h) so this
         // is cheap on every load. Picks up newly-detected autopay setups since
         // last visit. Independent of syncBankTransactions so a Plaid recurring
@@ -16130,11 +16318,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!body) return;
                 body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;"><i class="ph ph-spinner-gap spinning" style="font-size:24px;color:var(--accent);"></i> Probing Plaid…</div>`;
 
-                // Use the codebase's canonical token helper (covers both
-                // window.__wjpAuth / __wjpUser and Firebase fallback). Retry
-                // for up to ~3s if auth state hasn't resolved yet.
+                // Wait for the auth gate if it hasn't resolved yet.
+                // index.html dispatches 'wjp-auth-ready' once Firebase
+                // confirms the signed-in user — the body class is the
+                // synchronous version of the same signal.
+                if (!document.body.classList.contains('wjp-auth-ready')) {
+                    await new Promise(resolve => {
+                        const done = () => resolve();
+                        window.addEventListener('wjp-auth-ready', done, { once: true });
+                        // Hard timeout 5s in case the event never fires
+                        setTimeout(done, 5000);
+                    });
+                }
+                // Now retry token fetch — auth helpers should be live
                 let token = null;
-                for (let i = 0; i < 6; i++) {
+                for (let i = 0; i < 8; i++) {
                     if (typeof getIdToken === 'function') token = await getIdToken();
                     if (!token && window.firebase && firebase.auth) {
                         try {
@@ -16144,7 +16342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch(_) {}
                     }
                     if (token) break;
-                    await new Promise(r => setTimeout(r, 500));
+                    await new Promise(r => setTimeout(r, 400));
                 }
                 if (!token) {
                     body.innerHTML = `<div style="padding:16px;color:#ef4444;">Sign in required — please log in then re-open Bank Health.</div>`;

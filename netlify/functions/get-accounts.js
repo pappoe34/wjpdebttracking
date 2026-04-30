@@ -47,13 +47,16 @@ exports.handler = async (event) => {
       let liveItemError = null;
       let liveItemErrorMessage = null;
       try {
-        const bal = await plaid.accountsBalanceGet({ access_token });
+        // accountsGet (not accountsBalanceGet) — included with Transactions
+        // and Liabilities products. accountsBalanceGet requires the Balance
+        // product which we did not contract for.
+        const bal = await plaid.accountsGet({ access_token });
         accounts = bal.data.accounts || [];
       } catch (e) {
         const errData = e && e.response && e.response.data;
         liveItemError = (errData && errData.error_code) || null;
         liveItemErrorMessage = (errData && errData.error_message) || (e && e.message) || null;
-        console.error('accountsBalanceGet failed for item', itemId, errData || e.message);
+        console.error('accountsGet failed for item', itemId, errData || e.message);
       }
 
       let liabilities = null;

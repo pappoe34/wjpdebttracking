@@ -3126,31 +3126,14 @@
                 <div class="badge" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-3); font-size:8px;">LINKED ACCOUNTS</div>
               </div>
               
-              <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px; flex:1;">
-                <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; display:flex; align-items:center; gap:12px; transition:border 0.2s; cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                  <div style="background:rgba(0,212,168,0.1); width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--accent);">
-                    <i class="ph-fill ph-bank" style="font-size:14px;"></i>
-                  </div>
-                  <div style="flex:1;">
-                    <div style="font-size:11px; font-weight:700;">Chase Checking</div>
-                    <div style="font-size:9px; color:var(--text-3);">...0092</div>
-                  </div>
-                  <i class="ph ph-pencil-simple" style="color:var(--text-3); font-size:14px;"></i>
-                </div>
-
-                <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; display:flex; align-items:center; gap:12px; transition:border 0.2s; cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                  <div style="background:rgba(0,180,216,0.1); color:#00b4d8; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center;">
-                    <i class="ph-fill ph-piggy-bank" style="font-size:14px;"></i>
-                  </div>
-                  <div style="flex:1;">
-                    <div style="font-size:11px; font-weight:700;">Ally Savings</div>
-                    <div style="font-size:9px; color:var(--text-3);">...8412</div>
-                  </div>
-                  <i class="ph ph-pencil-simple" style="color:var(--text-3); font-size:14px;"></i>
+              <div id="settings-linked-accounts-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px; flex:1;">
+                <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; text-align:center; color:var(--text-3); font-size:11px;">
+                  <i class="ph ph-spinner-gap spinning" style="font-size:16px; display:block; margin-bottom:6px;"></i>
+                  Loading linked accounts…
                 </div>
               </div>
 
-              <button class="btn btn-primary sjc-btn" id="btn-settings-link-account" style="border:1px dashed var(--accent); background:rgba(0,212,168,0.1); color:var(--accent);"><i class="ph ph-plus"></i> LINK NEW ACCOUNT</button>
+              <button class="btn btn-primary sjc-btn" id="btn-settings-link-account" style="border:1px dashed var(--accent); background:rgba(0,212,168,0.1); color:var(--accent);"><i class="ph ph-plus"></i> MANAGE LINKED ACCOUNTS</button>
             </div>
 
             <!-- Card 6b: Household Mode (Tier 2.3) -->
@@ -4737,7 +4720,7 @@
 </div>
 
 
-  <script src="app.js?v=119-cal-linked-prov"></script>
+  <script src="app.js?v=120-balance-fix"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
