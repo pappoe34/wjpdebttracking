@@ -1009,12 +1009,11 @@ function renderMainCalendar() {
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     label.textContent = `${monthNames[currentCalMonth]} ${currentCalYear}`;
-    
     grid.innerHTML = '';
-    
+
     const firstDay = new Date(currentCalYear, currentCalMonth, 1).getDay();
     const daysInMonth = new Date(currentCalYear, currentCalMonth + 1, 0).getDate();
-    
+
     // Padding for previous month
     for (let i = 0; i < firstDay; i++) {
         const div = document.createElement('div');
@@ -1022,92 +1021,195 @@ function renderMainCalendar() {
         div.style.background = 'var(--bg)';
         grid.appendChild(div);
     }
-    
+
     const today = new Date();
+    const todayKey = today.toISOString().slice(0,10);
     const isCurrentMonth = today.getMonth() === currentCalMonth && today.getFullYear() === currentCalYear;
-    
-    // Events
-    const debtDays = appState.debts.reduce((acc, d) => {
-        const day = parseInt(d.dueDate) || 15;
-        if (!acc[day]) acc[day] = [];
-        acc[day].push({ name: d.name, amount: d.minPayment, type: 'debt', id: d.id });
-        return acc;
-    }, {});
-    
-    // Paydays from real income (show only if income is set)
-    const income = (appState.balances && appState.balances.monthlyIncome) || 0;
-    const paydayAmt = income > 0 ? Math.round(income / 2) : 0;
-    const paydayDays = income > 0
-        ? { 1: [{ name: 'Payday', amount: paydayAmt, type: 'income' }], 15: [{ name: 'Payday', amount: paydayAmt, type: 'income' }] }
-        : {};
-    
+
+    // === Build event map: day-of-month → [events] ===
+    // Includes debts, recurring bills, AND payday markers from income.
+    // Each event carries a 'paid' flag computed from real transactions in
+    // that month, so the calendar shows live paid/pending status.
+    const eventsByDay = {};
+    const addEvent = (day, ev) => {
+        if (!eventsByDay[day]) eventsByDay[day] = [];
+        eventsByDay[day].push(ev);
+    };
+
+    // Helper: was this debt/bill paid this month? Look for a real transaction
+    // matching the debt name or merchant within this calendar month.
+    const monthStart = new Date(currentCalYear, currentCalMonth, 1);
+    const monthEnd   = new Date(currentCalYear, currentCalMonth + 1, 0, 23, 59, 59);
+    const isPaid = (matchName) => {
+        const needle = String(matchName||'').toLowerCase();
+        if (!needle) return false;
+        return (appState.transactions || []).some(t => {
+            if (!t || t.synthetic) return false;
+            const td = new Date(t.date);
+            if (isNaN(td) || td < monthStart || td > monthEnd) return false;
+            const merch = String(t.merchant||'').toLowerCase();
+            return merch.includes(needle) || needle.includes(merch);
+        });
+    };
+
+    // Debts (from appState.debts, dueDate)
+    (appState.debts || []).forEach(d => {
+        const day = parseInt(d.dueDate || d.dueDay) || 15;
+        addEvent(day, {
+            name: d.name,
+            amount: d.minPayment || 0,
+            type: 'debt',
+            apr: d.apr,
+            paid: isPaid(d.name),
+            id: d.id
+        });
+    });
+
+    // Recurring bills (from appState.recurring, nextDate or anchor)
+    (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome).forEach(r => {
+        let day = null;
+        if (r.nextDate) {
+            const nd = new Date(r.nextDate);
+            if (!isNaN(nd)) day = nd.getDate();
+        }
+        if (day == null && r.anchorDay) day = parseInt(r.anchorDay);
+        if (day == null) return;
+        addEvent(day, {
+            name: r.name || r.description || 'Recurring',
+            amount: Math.abs(r.amount || 0),
+            type: 'recurring',
+            paid: isPaid(r.name || r.description || ''),
+            id: r.id
+        });
+    });
+
+    // Paydays from income recurring entries (or the legacy fallback)
+    const incomeEntries = (appState.recurring || []).filter(r => r.category === 'income' || r.linkedIncome);
+    if (incomeEntries.length) {
+        incomeEntries.forEach(r => {
+            let day = null;
+            if (r.nextDate) {
+                const nd = new Date(r.nextDate);
+                if (!isNaN(nd)) day = nd.getDate();
+            }
+            if (day == null && r.anchorDay) day = parseInt(r.anchorDay);
+            if (day == null) return;
+            addEvent(day, { name: r.name || 'Payday', amount: Math.abs(r.amount||0), type: 'income', paid: false });
+        });
+    } else {
+        // Legacy: bi-monthly payday from a flat monthly income figure
+        const income = (appState.balances && appState.balances.monthlyIncome) || (appState.budget && appState.budget.monthlyIncome) || 0;
+        if (income > 0) {
+            const half = Math.round(income / 2);
+            addEvent(1,  { name: 'Payday', amount: half, type: 'income', paid: false });
+            addEvent(15, { name: 'Payday', amount: half, type: 'income', paid: false });
+        }
+    }
+
+    // === Render day cells with rich data ===
     for (let day = 1; day <= daysInMonth; day++) {
         const div = document.createElement('div');
         div.className = 'cal-day-cell';
-        div.style.background = 'var(--card-1)';
-        div.style.padding = '8px';
-        div.style.minHeight = '100px';
-        div.style.display = 'flex';
-        div.style.flexDirection = 'column';
-        div.style.gap = '4px';
-        div.style.transition = 'all 0.2s';
-        
+        div.style.cssText = 'background:var(--card-1);padding:8px;min-height:104px;display:flex;flex-direction:column;gap:4px;transition:all 0.15s;cursor:default;border-radius:6px;border:1px solid transparent;';
+
+        const evs = eventsByDay[day] || [];
+        const isToday = isCurrentMonth && day === today.getDate();
+        const isPast  = isCurrentMonth && day < today.getDate();
+        const isFuture = !isPast && !isToday;
+
+        const headerRow = document.createElement('div');
+        headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;';
         const dayNum = document.createElement('div');
         dayNum.textContent = day;
-        dayNum.style.fontSize = '12px';
-        dayNum.style.fontWeight = '800';
-        dayNum.style.color = 'var(--text-3)';
-        dayNum.style.marginBottom = '4px';
-        
-        if (isCurrentMonth && day === today.getDate()) {
+        dayNum.style.cssText = 'font-size:12px;font-weight:800;color:' + (isToday ? 'var(--accent)' : 'var(--text-3)') + ';';
+        headerRow.appendChild(dayNum);
+
+        // Day total chip — sum of all bills due that day
+        const billTotal = evs.filter(e => e.type !== 'income').reduce((s,e) => s + (e.amount||0), 0);
+        if (billTotal > 0) {
+            const total = document.createElement('div');
+            total.style.cssText = 'font-size:9px;font-weight:700;color:var(--text-3);';
+            total.textContent = '$' + Math.round(billTotal).toLocaleString();
+            headerRow.appendChild(total);
+        }
+        div.appendChild(headerRow);
+
+        if (isToday) {
             div.style.background = 'var(--card-2)';
-            dayNum.style.color = 'var(--accent)';
-            div.style.border = '1px solid var(--accent-dim)';
+            div.style.borderColor = 'var(--accent)';
         }
-        
-        div.appendChild(dayNum);
-        
-        // Add income events
-        if (paydayDays[day]) {
-            paydayDays[day].forEach(ev => {
-                const badge = document.createElement('div');
-                badge.className = 'cal-event-badge income';
-                badge.style.background = 'rgba(0, 212, 168, 0.1)';
-                badge.style.color = 'var(--accent)';
-                badge.style.fontSize = '9px';
-                badge.style.fontWeight = '700';
-                badge.style.padding = '2px 6px';
-                badge.style.borderRadius = '4px';
-                badge.style.borderLeft = '2px solid var(--accent)';
-                badge.textContent = ev.name;
-                div.appendChild(badge);
-            });
+
+        // Render up to 3 events; collapse rest into a "+N more" pill
+        evs.slice(0, 3).forEach(ev => {
+            const badge = document.createElement('div');
+            const isOverdue = isPast && !ev.paid && ev.type !== 'income';
+            const palette = ev.type === 'income'
+                ? { bg:'rgba(34,197,94,0.10)', col:'#22c55e', stripe:'#22c55e' }
+                : ev.paid
+                    ? { bg:'rgba(34,197,94,0.10)', col:'#22c55e', stripe:'#22c55e' }
+                    : isOverdue
+                        ? { bg:'rgba(239,68,68,0.12)', col:'#ef4444', stripe:'#ef4444' }
+                        : { bg:'rgba(251,191,36,0.10)', col:'#fbbf24', stripe:'#fbbf24' };
+            badge.style.cssText = `background:${palette.bg};color:${palette.col};font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;border-left:2px solid ${palette.stripe};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;`;
+            const icon = ev.type === 'income' ? '💰' : ev.paid ? '✓' : isOverdue ? '⚠' : '○';
+            const shortName = ev.name && ev.name.length > 10 ? ev.name.substring(0,8) + '…' : (ev.name || '');
+            badge.textContent = `${icon} ${shortName}`;
+            badge.title = `${ev.name} · $${Math.round(ev.amount||0).toLocaleString()}${ev.paid?' · Paid':isOverdue?' · Overdue':''}`;
+            div.appendChild(badge);
+        });
+        if (evs.length > 3) {
+            const more = document.createElement('div');
+            more.style.cssText = 'font-size:9px;color:var(--text-3);font-weight:700;padding:0 4px;';
+            more.textContent = `+${evs.length - 3} more`;
+            div.appendChild(more);
         }
-        
-        // Add debt events
-        if (debtDays[day]) {
-            debtDays[day].forEach(ev => {
-                const badge = document.createElement('div');
-                badge.className = 'cal-event-badge debt';
-                badge.style.background = 'rgba(255, 77, 109, 0.1)';
-                badge.style.color = 'var(--danger)';
-                badge.style.fontSize = '9px';
-                badge.style.fontWeight = '700';
-                badge.style.padding = '2px 6px';
-                badge.style.borderRadius = '4px';
-                badge.style.borderLeft = '2px solid var(--danger)';
-                // Trim name if too long
-                const shortName = ev.name.length > 12 ? ev.name.substring(0, 10) + '...' : ev.name;
-                badge.textContent = shortName;
-                div.appendChild(badge);
-            });
-        }
-        
+
         grid.appendChild(div);
     }
-    
-    // Update Sidebar Detailed List
+
+    // Sidebar
     renderDetailedUpcoming();
+
+    // Inject a "this-month status" panel below the grid (paid vs pending vs overdue)
+    try { renderCalendarMonthStatus(eventsByDay, today, isCurrentMonth, daysInMonth); } catch(_){}
+}
+
+/** Render the per-month status panel below the calendar grid: tally of
+ *  paid / pending / overdue bills and dollar totals. Helps the user see
+ *  cash flow health at a glance without scanning the grid. */
+function renderCalendarMonthStatus(eventsByDay, today, isCurrentMonth, daysInMonth) {
+    let host = document.getElementById('cal-month-status');
+    if (!host) {
+        const grid = document.getElementById('main-calendar-grid');
+        if (!grid || !grid.parentElement) return;
+        host = document.createElement('div');
+        host.id = 'cal-month-status';
+        host.style.cssText = 'margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;';
+        grid.parentElement.appendChild(host);
+    }
+    let paidCount = 0, paidAmt = 0, pendingCount = 0, pendingAmt = 0, overdueCount = 0, overdueAmt = 0, incomeCount = 0, incomeAmt = 0;
+    Object.keys(eventsByDay).forEach(day => {
+        const dn = parseInt(day);
+        const isPast = isCurrentMonth && dn < today.getDate();
+        eventsByDay[day].forEach(ev => {
+            if (ev.type === 'income') { incomeCount++; incomeAmt += ev.amount||0; return; }
+            if (ev.paid) { paidCount++; paidAmt += ev.amount||0; return; }
+            if (isPast) { overdueCount++; overdueAmt += ev.amount||0; return; }
+            pendingCount++; pendingAmt += ev.amount||0;
+        });
+    });
+    const tile = (label, count, amt, color, icon) => `
+        <div style="background:var(--card-1);border:1px solid var(--border);border-left:3px solid ${color};border-radius:8px;padding:11px 13px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;">${icon} ${label}</div>
+            <div style="font-size:18px;font-weight:900;color:${color};margin-top:4px;">${count}<span style="font-size:11px;color:var(--text-3);font-weight:600;margin-left:6px;">${count===1?'bill':'bills'}</span></div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-2);">$${Math.round(amt).toLocaleString()}</div>
+        </div>`;
+    host.innerHTML = [
+        tile('Paid', paidCount, paidAmt, '#22c55e', '✓'),
+        tile('Pending', pendingCount, pendingAmt, '#fbbf24', '○'),
+        tile('Overdue', overdueCount, overdueAmt, '#ef4444', '⚠'),
+        tile('Income', incomeCount, incomeAmt, '#667eea', '💰')
+    ].join('');
 }
 
 function renderDetailedUpcoming() {
@@ -3394,7 +3496,10 @@ function initModal() {
                     category: cat,
                     amount: -Math.abs(amt),
                     method: document.getElementById('txn-method').value || 'Cash/Other',
-                    status: 'completed'
+                    status: 'completed',
+                    // Provenance: user typed it
+                    source: 'manual',
+                    enteredAt: Date.now()
                 };
 
                 if (cat === 'Debt Payment' && appState.debts.length > 0) {
@@ -7366,6 +7471,87 @@ function calculateDebtPayoff(strategyOverride = null, extraOverride = null) {
     return results;
 }
 
+/**
+ * Provenance system — classify each transaction's origin so the UI can
+ * render a clear visual badge. Returns { kind, label, icon, color, bg,
+ * tooltip, locked }. Four kinds:
+ *   - 'plaid'     synced from a bank via Plaid (institution name attached)
+ *   - 'recurring' auto-generated from a user-set recurring schedule
+ *   - 'system'    backfill from debt minimums or other internal logic
+ *   - 'manual'    user typed/edited it directly
+ */
+function getTxnSourceMeta(t) {
+    if (!t) return { kind: 'manual', label: 'Manual', icon: 'ph-pencil-simple', color: '#fbbf24', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.30)', tooltip: 'Manually entered', locked: false };
+    // Plaid-sourced: explicit source flag OR has Plaid-style transaction_id pattern
+    if (t.source === 'plaid' || t.plaidTransactionId) {
+        const inst = t.institutionName || 'Bank';
+        const initial = inst.charAt(0).toUpperCase();
+        return {
+            kind: 'plaid',
+            label: inst,
+            shortLabel: initial,
+            icon: 'ph-bank',
+            color: '#667eea',
+            bg: 'rgba(102,126,234,0.10)',
+            border: 'rgba(102,126,234,0.30)',
+            tooltip: `Synced from ${inst} via Plaid${t.syncedAt ? ' on ' + new Date(t.syncedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : ''}`,
+            locked: true
+        };
+    }
+    // Recurring: synthetic with a parent recurring schedule
+    if (t.synthetic && t.parentRecurringId) {
+        return {
+            kind: 'recurring',
+            label: 'Recurring',
+            shortLabel: 'R',
+            icon: 'ph-arrows-clockwise',
+            color: '#a855f7',
+            bg: 'rgba(168,85,247,0.10)',
+            border: 'rgba(168,85,247,0.30)',
+            tooltip: 'Auto-generated from a recurring schedule. Edit the parent to change all instances.',
+            locked: true
+        };
+    }
+    // Generic synthetic (debt minimums, system backfill)
+    if (t.synthetic) {
+        return {
+            kind: 'system',
+            label: 'System',
+            shortLabel: 'S',
+            icon: 'ph-cpu',
+            color: '#94a3b8',
+            bg: 'rgba(148,163,184,0.10)',
+            border: 'rgba(148,163,184,0.30)',
+            tooltip: 'Auto-generated by WJP (e.g. minimum payment backfill). Source-locked.',
+            locked: true
+        };
+    }
+    // Default — user entered it manually
+    return {
+        kind: 'manual',
+        label: 'Manual',
+        shortLabel: 'M',
+        icon: 'ph-pencil-simple',
+        color: '#fbbf24',
+        bg: 'rgba(251,191,36,0.10)',
+        border: 'rgba(251,191,36,0.30)',
+        tooltip: t.enteredAt ? 'Manually entered ' + new Date(t.enteredAt).toLocaleString('en-US',{month:'short',day:'numeric'}) : 'Manually entered',
+        locked: false
+    };
+}
+
+/** Renders the inline pill badge for a transaction's source. Compact (icon + 1-letter)
+ *  with a tooltip on hover and a click target that toggles a provenance row. */
+function renderTxnSourceBadge(t) {
+    const m = getTxnSourceMeta(t);
+    return `<div class="txn-src-badge" data-src-kind="${m.kind}" title="${m.tooltip}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:${m.bg};border:1px solid ${m.border};border-radius:5px;font-size:9px;font-weight:700;color:${m.color};white-space:nowrap;cursor:help;">
+        <i class="ph-fill ${m.icon}" style="font-size:11px;"></i>
+        <span>${m.shortLabel || m.label}</span>
+    </div>`;
+}
+window.getTxnSourceMeta = getTxnSourceMeta;
+window.renderTxnSourceBadge = renderTxnSourceBadge;
+
 function renderTransactions() {
     if (!appState || !appState.transactions) return;
 
@@ -7434,11 +7620,12 @@ function renderTransactions() {
             dashList.innerHTML = filtered.map(t => {
                 const colors = getColors(t.category || 'Other');
                 const isPos = (t.amount || 0) > 0;
+                const srcBadge = (typeof renderTxnSourceBadge === 'function') ? renderTxnSourceBadge(t) : '';
                 return `
                     <div class="transaction-item" style="animation: fadeIn 0.3s ease;">
                         <div class="txn-icon" style="background:${colors.bg}; color:${colors.clr}"><i class="${getIcon(t.category || 'other')}"></i></div>
                         <div>
-                            <div class="txn-name">${t.merchant || '(unnamed)'}</div>
+                            <div class="txn-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${t.merchant || '(unnamed)'} ${srcBadge}</div>
                             <div class="txn-cat">${t.category || 'Uncategorized'} · ${new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
                         </div>
                         <div class="txn-amount ${isPos ? '' : 'neg'}" style="color:${isPos ? '#22c55e' : 'var(--danger)'};">${isPos ? '+' : ''}${fmt(t.amount)}</div>
@@ -11871,12 +12058,43 @@ async function syncBankTransactions(opts) {
         let chargesSeen = 0;
         const fmt = (n) => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+        const nowMs = Date.now();
+        let txnsAdded = 0;
+        if (!Array.isArray(appState.transactions)) appState.transactions = [];
         for (const item of payload.items) {
             const inst = item.institutionName || 'Bank';
             for (const tx of (item.added || [])) {
                 if (!tx || !tx.transaction_id) continue;
                 if (processed.has(tx.transaction_id)) continue;
                 processed.add(tx.transaction_id);
+
+                // Push into appState.transactions so the row appears in the
+                // Detailed Transactions list with a Plaid source badge. Plaid's
+                // sign convention: positive=outflow, negative=inflow (we flip it
+                // for the app's convention where amount<0 means money out).
+                const plaidAmt = Number(tx.amount) || 0;
+                const appAmt = -plaidAmt;
+                const txnRecord = {
+                    id: 'plaid_' + tx.transaction_id,
+                    date: tx.date || tx.authorized_date || new Date().toISOString().slice(0,10),
+                    merchant: tx.merchant_name || tx.name || 'Unknown',
+                    category: (tx.personal_finance_category && tx.personal_finance_category.primary)
+                        || (Array.isArray(tx.category) ? tx.category[0] : null) || 'Other',
+                    amount: appAmt,
+                    method: 'Bank',
+                    status: tx.pending ? 'pending' : 'completed',
+                    // Provenance metadata
+                    source: 'plaid',
+                    plaidTransactionId: tx.transaction_id,
+                    plaidAccountId: tx.account_id,
+                    institutionName: inst,
+                    syncedAt: nowMs,
+                    locked: true
+                };
+                if (!appState.transactions.some(x => x.id === txnRecord.id)) {
+                    appState.transactions.unshift(txnRecord);
+                    txnsAdded++;
+                }
 
                 // Match transaction to a debt by Plaid account_id.
                 const debtId = 'plaid:' + tx.account_id;
@@ -13581,42 +13799,154 @@ function initAdvisorPageLogic() {
         }, 60);
     });
 
-    // ── 5. Link New Account ───────────────────────────────────
+    // ── 5. Linked Accounts — live management view ───────────────
     document.getElementById('btn-settings-link-account')?.addEventListener('click', () => {
         openSettingsDrawer({
             icon: 'ph-wallet',
             badge: 'LINKED ACCOUNTS',
-            title: 'Connect Account',
-            subtitle: 'Securely link a bank, credit union, or brokerage via 256-bit encrypted OAuth.',
+            title: 'Linked Bank Accounts',
+            subtitle: 'Manage your connected banks. Connections persist across sessions — you do not need to re-link.',
             body: `
               <div style="display:flex;flex-direction:column;gap:16px;">
                 <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px;">
-                  <i class="ph-fill ph-lock-key" style="color:var(--accent);font-size:18px;"></i>
-                  <div style="font-size:10px;color:var(--text-2);line-height:1.5;">Your credentials are never stored. We use read-only bank OAuth tokens via Plaid.</div>
+                  <i class="ph-fill ph-lock-key" style="color:var(--accent);font-size:18px;flex-shrink:0;"></i>
+                  <div style="font-size:10px;color:var(--text-2);line-height:1.5;">Connections use read-only OAuth tokens stored encrypted on our server. Your bank credentials are never seen by WJP.</div>
                 </div>
-                <div>
-                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:8px;">Popular Institutions</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    ${[
-                      {name:'Chase',icon:'ph-bank',color:'var(--accent)'},
-                      {name:'Bank of America',icon:'ph-bank',color:'#e31837'},
-                      {name:'Wells Fargo',icon:'ph-bank',color:'#d71e28'},
-                      {name:'Citibank',icon:'ph-bank',color:'#003b70'},
-                      {name:'Ally Bank',icon:'ph-piggy-bank',color:'#7b2d8b'},
-                      {name:'Capital One',icon:'ph-bank',color:'#d03027'},
-                    ].map(b=>`<div onclick="showToast('Redirecting to ${b.name} OAuth...')" style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                      <i class="ph-fill ${b.icon}" style="color:${b.color};font-size:18px;"></i>
-                      <span style="font-size:11px;font-weight:700;">${b.name}</span>
-                    </div>`).join('')}
+                <div id="la-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                  <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+                    <div id="la-stat-items" style="font-size:22px;font-weight:900;color:var(--accent);">—</div>
+                    <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-top:2px;">Banks</div>
+                  </div>
+                  <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+                    <div id="la-stat-accounts" style="font-size:22px;font-weight:900;color:#667eea;">—</div>
+                    <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-top:2px;">Accounts</div>
+                  </div>
+                  <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+                    <div id="la-stat-status" style="font-size:14px;font-weight:800;color:var(--accent);">—</div>
+                    <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-top:2px;">Health</div>
                   </div>
                 </div>
-                <div>
-                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Search Any Institution</div>
-                  <input type="text" placeholder="Type bank name..." style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                <div id="la-list" style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;color:var(--text-3);font-size:11px;"><i class="ph ph-spinner-gap spinning"></i> Loading linked accounts…</div>
                 </div>
-                <button class="btn btn-primary settings-drawer-save" data-toast="Redirecting to secure bank connection..." style="width:100%;padding:12px;">CONNECT VIA PLAID</button>
+                <button id="la-connect-new" class="btn btn-primary" style="width:100%;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                  <i class="ph-bold ph-plus"></i> CONNECT NEW BANK
+                </button>
+                <div style="font-size:10px;color:var(--text-3);text-align:center;font-style:italic;">Plaid environment: <strong style="color:var(--accent);text-transform:uppercase;" id="la-env-badge">production</strong></div>
               </div>`
         });
+
+        // Wire the live management UI after render
+        setTimeout(async () => {
+            // Connect new bank — uses the same Plaid Link flow as the header button
+            document.getElementById('la-connect-new')?.addEventListener('click', () => {
+                if (window.openPlaidLink) try { window.openPlaidLink(); return; } catch(_){}
+                document.getElementById('btn-sync-bank')?.click();
+            });
+
+            // Hydrate from /plaid-health (with auth-ready retry)
+            let token = null;
+            for (let i = 0; i < 6; i++) {
+                if (typeof getIdToken === 'function') token = await getIdToken();
+                if (token) break;
+                await new Promise(r => setTimeout(r, 500));
+            }
+            const list = document.getElementById('la-list');
+            if (!token) {
+                if (list) list.innerHTML = `<div style="padding:14px;color:#ef4444;font-size:11px;text-align:center;">Sign in required.</div>`;
+                return;
+            }
+            try {
+                const resp = await fetch('/.netlify/functions/plaid-health', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = resp.ok ? await resp.json() : null;
+                if (!data) throw new Error('plaid-health failed');
+
+                // Summary tiles
+                const s = data.summary || {};
+                const $ = id => document.getElementById(id);
+                if ($('la-stat-items'))    $('la-stat-items').textContent    = s.itemCount || 0;
+                if ($('la-stat-accounts')) $('la-stat-accounts').textContent = s.accountCount || 0;
+                if ($('la-stat-status')) {
+                    const allHealthy = (s.errorItems||0) === 0 && (s.itemCount||0) > 0;
+                    $('la-stat-status').textContent = (s.itemCount||0) === 0 ? 'No banks' : (allHealthy ? '✓ Healthy' : `⚠ ${s.errorItems} issue${s.errorItems===1?'':'s'}`);
+                    $('la-stat-status').style.color = (s.itemCount||0) === 0 ? 'var(--text-3)' : (allHealthy ? '#22c55e' : '#ef4444');
+                }
+                if ($('la-env-badge')) $('la-env-badge').textContent = data.env || 'unknown';
+
+                // Per-item cards
+                if (!data.items || !data.items.length) {
+                    list.innerHTML = `<div style="background:var(--card-2);padding:18px;border-radius:10px;text-align:center;font-size:11px;color:var(--text-3);">
+                        <i class="ph ph-bank" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.4;"></i>
+                        No banks linked yet. Click <strong>Connect New Bank</strong> below to get started.
+                    </div>`;
+                    return;
+                }
+                const fmt = ts => ts ? new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : 'never';
+                list.innerHTML = data.items.map(item => {
+                    const healthy = item.status === 'healthy';
+                    const statusBadge = healthy
+                        ? `<span style="font-size:9px;font-weight:800;color:#22c55e;background:rgba(34,197,94,0.10);padding:3px 8px;border-radius:5px;">✓ ACTIVE</span>`
+                        : `<span style="font-size:9px;font-weight:800;color:#ef4444;background:rgba(239,68,68,0.10);padding:3px 8px;border-radius:5px;">⚠ ${item.errorCode||'ERROR'}</span>`;
+                    const accountsHtml = (item.accounts||[]).map(a => `
+                        <div style="display:flex;justify-content:space-between;font-size:11px;padding:6px 0;border-top:1px solid rgba(255,255,255,0.04);">
+                            <span>${a.name||a.subtype||'Account'} ${a.mask?'····'+a.mask:''} <span style="color:var(--text-3);">· ${a.subtype||a.type}</span></span>
+                            <span style="font-weight:700;">${a.balance!=null?'$'+Number(a.balance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</span>
+                        </div>`).join('');
+                    return `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(102,126,234,0.15);display:flex;align-items:center;justify-content:center;color:#667eea;font-weight:900;font-size:14px;">${(item.institutionName||'?').charAt(0).toUpperCase()}</div>
+                                <div>
+                                    <div style="font-size:13px;font-weight:800;">${item.institutionName||'Bank'}</div>
+                                    <div style="font-size:9px;color:var(--text-3);">Last sync: ${fmt(item.lastSuccessfulUpdate)}</div>
+                                </div>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        ${accountsHtml}
+                        ${item.errorMessage ? `<div style="font-size:10px;color:#ef4444;margin-top:8px;padding:6px 8px;background:rgba(239,68,68,0.08);border-radius:5px;">${item.errorMessage}</div>` : ''}
+                        <div style="display:flex;gap:6px;margin-top:10px;">
+                            ${!healthy ? `<button data-la-action="reconnect" data-item-id="${item.itemId}" style="flex:1;padding:7px 10px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.30);border-radius:6px;color:#fbbf24;font-size:10px;font-weight:700;cursor:pointer;">⚡ Reconnect</button>` : ''}
+                            <button data-la-action="resync" data-item-id="${item.itemId}" style="flex:1;padding:7px 10px;background:rgba(0,212,168,0.10);border:1px solid rgba(0,212,168,0.25);border-radius:6px;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;">⟳ Re-sync</button>
+                            <button data-la-action="unlink" data-item-id="${item.itemId}" data-name="${item.institutionName||'Bank'}" style="flex:1;padding:7px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.25);border-radius:6px;color:#ef4444;font-size:10px;font-weight:700;cursor:pointer;">🗑 Unlink</button>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                // Wire action buttons
+                list.querySelectorAll('[data-la-action]').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const action = btn.dataset.laAction;
+                        const itemId = btn.dataset.itemId;
+                        if (action === 'unlink') {
+                            const name = btn.dataset.name || 'this bank';
+                            if (!confirm(`Disconnect ${name}? This stops Plaid syncing but keeps your historical transactions in WJP.`)) return;
+                            const tk = await getIdToken();
+                            try {
+                                const r = await fetch('/.netlify/functions/unlink-item', { method:'POST', headers:{'Authorization':`Bearer ${tk}`,'Content-Type':'application/json'}, body: JSON.stringify({ itemId }) });
+                                showToast(r.ok ? `${name} disconnected.` : 'Unlink failed');
+                                document.getElementById('btn-settings-link-account')?.click();
+                                document.getElementById('settings-drawer-overlay')?.remove();
+                            } catch (e) { showToast('Unlink failed: ' + e.message); }
+                        } else if (action === 'resync') {
+                            const tk = await getIdToken();
+                            btn.disabled = true; btn.textContent = '⏳ Syncing…';
+                            const r = await fetch('/.netlify/functions/sync-transactions', { method:'POST', headers:{'Authorization':`Bearer ${tk}`} });
+                            const j = await r.json().catch(()=>({}));
+                            showToast(r.ok ? `Synced. Added ${j.added||0}` : 'Sync failed');
+                            btn.disabled = false; btn.textContent = '⟳ Re-sync';
+                        } else if (action === 'reconnect') {
+                            // Open Plaid Link in update mode for this specific item
+                            if (typeof window.openPlaidLink === 'function') {
+                                try { window.openPlaidLink({ itemId }); } catch(e) { showToast('Could not open Plaid: ' + e.message); }
+                            }
+                        }
+                    });
+                });
+            } catch (err) {
+                if (list) list.innerHTML = `<div style="padding:14px;color:#ef4444;font-size:11px;text-align:center;">Failed to load: ${err.message||err}</div>`;
+            }
+        }, 80);
     });
 
     // ── 6. Enter Customizer ───────────────────────────────────
@@ -15799,12 +16129,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const body = document.getElementById('bh-body');
                 if (!body) return;
                 body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;"><i class="ph ph-spinner-gap spinning" style="font-size:24px;color:var(--accent);"></i> Probing Plaid…</div>`;
+
+                // Use the codebase's canonical token helper (covers both
+                // window.__wjpAuth / __wjpUser and Firebase fallback). Retry
+                // for up to ~3s if auth state hasn't resolved yet.
                 let token = null;
-                try {
-                    if (window.firebase && firebase.auth && firebase.auth().currentUser) {
-                        token = await firebase.auth().currentUser.getIdToken();
+                for (let i = 0; i < 6; i++) {
+                    if (typeof getIdToken === 'function') token = await getIdToken();
+                    if (!token && window.firebase && firebase.auth) {
+                        try {
+                            if (firebase.auth().authStateReady) await firebase.auth().authStateReady();
+                            const u = firebase.auth().currentUser;
+                            if (u) token = await u.getIdToken();
+                        } catch(_) {}
                     }
-                } catch (_) {}
+                    if (token) break;
+                    await new Promise(r => setTimeout(r, 500));
+                }
                 if (!token) {
                     body.innerHTML = `<div style="padding:16px;color:#ef4444;">Sign in required — please log in then re-open Bank Health.</div>`;
                     return;
@@ -15927,7 +16268,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!btn) return;
                 btn.disabled = true; btn.textContent = '⏳ Resyncing…';
                 try {
-                    const tk = await firebase.auth().currentUser.getIdToken();
+                    const tk = (typeof getIdToken === 'function') ? await getIdToken() : null;
+                    if (!tk) throw new Error('not signed in');
                     // Manual Force Re-sync — bypass the throttle entirely
                     const r = await fetch('/.netlify/functions/sync-transactions', { method:'POST', headers:{'Authorization':`Bearer ${tk}`} });
                     const j = await r.json().catch(()=>({}));
@@ -18263,6 +18605,7 @@ function initAllButtonHandlers() {
         category: '',
         dateRange: '',
         status: '',
+        source: '',     // '' | 'plaid' | 'manual' | 'recurring' | 'system'
         advMin: null,
         advMax: null,
         advMethod: ''
@@ -18298,6 +18641,7 @@ function initAllButtonHandlers() {
 
         // Category
         if (txnState.category) list = list.filter(t => (t.category||'') === txnState.category);
+        if (txnState.source)   list = list.filter(t => (typeof getTxnSourceMeta === 'function' ? getTxnSourceMeta(t).kind : 'manual') === txnState.source);
 
         // Status
         if (txnState.status) list = list.filter(t => (t.status||'completed').toLowerCase() === txnState.status.toLowerCase());
@@ -18365,7 +18709,7 @@ function initAllButtonHandlers() {
         const slice = filtered.slice(start, end);
 
         if (slice.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-3);">
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-3);">
                 <i class="ph ph-magnifying-glass" style="font-size:32px; display:block; margin-bottom:8px; opacity:0.4;"></i>
                 No transactions match your filters
             </td></tr>`;
@@ -18375,7 +18719,10 @@ function initAllButtonHandlers() {
                 const statusMap = { completed:'var(--accent)', pending:'var(--warning)', failed:'var(--danger)' };
                 const statusDot = statusMap[(t.status||'completed').toLowerCase()] || 'var(--accent)';
                 const statusLabel = (t.status||'completed').charAt(0).toUpperCase() + (t.status||'completed').slice(1);
-                return `<tr class="txn-row" data-txn-id="${t.id}" style="cursor:pointer;">
+                const srcMeta = (typeof getTxnSourceMeta === 'function') ? getTxnSourceMeta(t) : null;
+                const srcBadge = (typeof renderTxnSourceBadge === 'function') ? renderTxnSourceBadge(t) : '';
+                return `<tr class="txn-row" data-txn-id="${t.id}" data-src-kind="${srcMeta?srcMeta.kind:'manual'}" style="cursor:pointer;">
+                    <td>${srcBadge}</td>
                     <td class="txn-date">${txnDateFmt(t.date)}</td>
                     <td style="font-weight:600; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.merchant}</td>
                     <td><div class="badge" style="background:${cs.bg}; color:${cs.clr}; font-size:9px; white-space:nowrap;">${t.category}</div></td>
@@ -18716,6 +19063,29 @@ function initAllButtonHandlers() {
         const cs = txnCatStyle(t.category);
         const statusColors = { completed:'var(--accent)', pending:'var(--warning)', failed:'var(--danger)' };
         const sc = statusColors[(t.status||'completed').toLowerCase()] || 'var(--accent)';
+
+        // Build the provenance/lineage panel — shows where this transaction came from
+        const meta = (typeof getTxnSourceMeta === 'function') ? getTxnSourceMeta(t) : null;
+        const fmtTs = ms => ms ? new Date(ms).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+        const provenanceHtml = meta ? `
+            <div class="card" style="padding:14px; background:${meta.bg}; border:1px solid ${meta.border}; border-radius:10px; margin-top:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <i class="ph-fill ${meta.icon}" style="color:${meta.color};font-size:16px;"></i>
+                    <div style="font-size:11px;font-weight:800;color:${meta.color};text-transform:uppercase;letter-spacing:0.06em;">Provenance · ${meta.label}</div>
+                </div>
+                <div style="font-size:11px;color:var(--text-2);line-height:1.6;">${meta.tooltip}</div>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${meta.border};display:grid;grid-template-columns:max-content 1fr;gap:6px 12px;font-size:11px;">
+                    <span style="color:var(--text-3);">Source</span><span style="font-weight:600;">${meta.label}</span>
+                    ${t.institutionName ? `<span style="color:var(--text-3);">Institution</span><span style="font-weight:600;">${t.institutionName}</span>` : ''}
+                    ${t.plaidTransactionId ? `<span style="color:var(--text-3);">Plaid Tx ID</span><span style="font-family:monospace;font-size:10px;">${t.plaidTransactionId.slice(0,16)}…</span>` : ''}
+                    ${t.plaidAccountId ? `<span style="color:var(--text-3);">Account ID</span><span style="font-family:monospace;font-size:10px;">${t.plaidAccountId.slice(0,16)}…</span>` : ''}
+                    ${t.syncedAt ? `<span style="color:var(--text-3);">Synced</span><span style="font-weight:600;">${fmtTs(t.syncedAt)}</span>` : ''}
+                    ${t.enteredAt ? `<span style="color:var(--text-3);">Entered</span><span style="font-weight:600;">${fmtTs(t.enteredAt)}</span>` : ''}
+                    ${t.parentRecurringId ? `<span style="color:var(--text-3);">Schedule</span><span style="font-family:monospace;font-size:10px;">${t.parentRecurringId.slice(0,16)}…</span>` : ''}
+                    ${meta.locked ? `<span style="color:var(--text-3);">Editable</span><span style="font-weight:600;color:#fbbf24;">⚠ Source-locked</span>` : `<span style="color:var(--text-3);">Editable</span><span style="font-weight:600;color:#22c55e;">✓ Yes</span>`}
+                </div>
+            </div>` : '';
+
         content.innerHTML = `
             <div style="text-align:center; padding:20px 0 24px;">
                 <div style="width:60px;height:60px;border-radius:16px;background:${cs.bg};color:${cs.clr};display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px;">
@@ -18723,8 +19093,12 @@ function initAllButtonHandlers() {
                 </div>
                 <div style="font-size:20px; font-weight:900; color:var(--text);">${t.merchant}</div>
                 <div style="font-size:32px; font-weight:900; color:${t.amount < 0 ? 'var(--danger)' : 'var(--accent)'}; margin:8px 0;">${txnFmt(t.amount)}</div>
-                <div class="badge" style="background:${cs.bg};color:${cs.clr};font-size:9px;display:inline-block;">${t.category}</div>
+                <div style="display:flex;justify-content:center;gap:6px;align-items:center;">
+                    <div class="badge" style="background:${cs.bg};color:${cs.clr};font-size:9px;display:inline-block;">${t.category}</div>
+                    ${(typeof renderTxnSourceBadge === 'function') ? renderTxnSourceBadge(t) : ''}
+                </div>
             </div>
+            ${provenanceHtml}
             <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:12px; background:var(--card-2);">
                 <div style="display:flex; justify-content:space-between; font-size:12px;">
                     <span style="color:var(--text-3);">Date</span>
@@ -18833,7 +19207,8 @@ function initAllButtonHandlers() {
     }
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#txn-filter-category') && !e.target.closest('#txn-filter-date') &&
-            !e.target.closest('#txn-filter-status') && !e.target.closest('#txn-dd-float')) txnCloseDd();
+            !e.target.closest('#txn-filter-status') && !e.target.closest('#txn-filter-source') &&
+            !e.target.closest('#txn-dd-float')) txnCloseDd();
     });
 
     const filterCatBtn = document.getElementById('txn-filter-category');
@@ -18897,12 +19272,37 @@ function initAllButtonHandlers() {
         });
     }
 
+    const filterSourceBtn = document.getElementById('txn-filter-source');
+    if (filterSourceBtn) {
+        filterSourceBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (_txnDdEl) { txnCloseDd(); return; }
+            const sources = [
+                { value:'',          label:'All Sources' },
+                { value:'plaid',     label:'🏦 Bank (Plaid)' },
+                { value:'manual',    label:'✏️ Manual Entry' },
+                { value:'recurring', label:'🔄 Recurring (Auto)' },
+                { value:'system',    label:'⚙️ System Backfill' },
+            ];
+            txnMakeDropdown(filterSourceBtn, sources, val => {
+                txnState.source = val;
+                txnState.page = 0;
+                const lbl = sources.find(s => s.value === val)?.label || 'All';
+                filterSourceBtn.innerHTML = `Source: ${val ? lbl.replace(/^[^\s]+\s/, '') : 'All'} <i class="ph ph-caret-down"></i>`;
+                filterSourceBtn.classList.toggle('active', !!val);
+                txnRenderAll();
+            });
+        });
+    }
+
     // ── Clear Filters ─────────────────────────────────────
     const clearFiltersBtn = document.getElementById('txn-clear-filters');
     if (clearFiltersBtn) {
         clearFiltersBtn.onclick = () => {
-            txnState.search = ''; txnState.category = ''; txnState.dateRange = ''; txnState.status = '';
+            txnState.search = ''; txnState.category = ''; txnState.dateRange = ''; txnState.status = ''; txnState.source = '';
             txnState.advMin = null; txnState.advMax = null; txnState.advMethod = ''; txnState.page = 0;
+            const filterSrcBtn = document.getElementById('txn-filter-source');
+            if (filterSrcBtn) { filterSrcBtn.innerHTML = 'Source: All <i class="ph ph-caret-down"></i>'; filterSrcBtn.classList.remove('active'); }
             if (txnSearch) txnSearch.value = '';
             if (filterCatBtn) filterCatBtn.innerHTML = 'Category: All <i class="ph ph-caret-down"></i>';
             if (filterDateBtn) filterDateBtn.innerHTML = 'Date: All Time <i class="ph ph-caret-down"></i>';

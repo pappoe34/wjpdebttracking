@@ -1783,6 +1783,7 @@
               <div id="txn-filter-category" class="filter-pill" style="cursor:pointer; position:relative;">Category: All <i class="ph ph-caret-down"></i></div>
               <div id="txn-filter-date" class="filter-pill active" style="cursor:pointer; position:relative;">Date: All Time <i class="ph ph-caret-down"></i></div>
               <div id="txn-filter-status" class="filter-pill" style="cursor:pointer; position:relative;">Status: All <i class="ph ph-caret-down"></i></div>
+              <div id="txn-filter-source" class="filter-pill" style="cursor:pointer; position:relative;">Source: All <i class="ph ph-caret-down"></i></div>
               <div id="txn-filter-adv" class="filter-icon-btn" style="cursor:pointer;" title="Advanced filters"><i class="ph ph-sliders-horizontal"></i></div>
               <button id="txn-clear-filters" class="btn btn-ghost" style="font-size:10px; padding:4px 10px; display:none;">Clear Filters ✕</button>
               <!-- Dropdown floats at body level via JS -->
@@ -1825,6 +1826,7 @@
               <table class="data-table txn-full-table" id="full-transactions-table">
                 <thead>
                   <tr>
+                    <th style="width:80px;">Source</th>
                     <th data-sort="date" style="cursor:pointer; user-select:none;">Date <span id="sort-date" class="sort-indicator">↓</span></th>
                     <th data-sort="merchant" style="cursor:pointer; user-select:none;">Merchant <span id="sort-merchant" class="sort-indicator"></span></th>
                     <th>Category</th>
@@ -2454,7 +2456,7 @@
             <div class="card" style="padding:24px; min-height:650px; display:flex; flex-direction:column; overflow:hidden;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                 <div style="display:flex; align-items:center; gap:16px;">
-                  <h2 id="cal-month-year" style="font-size:24px; font-weight:900; margin:0; letter-spacing:-0.5px;">October 2023</h2>
+                  <h2 id="cal-month-year" style="font-size:24px; font-weight:900; margin:0; letter-spacing:-0.5px;">—</h2>
                   <div style="display:flex; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:4px;">
                     <button id="btn-cal-prev" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;"><i class="ph ph-caret-left"></i></button>
                     <button id="btn-cal-next" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;"><i class="ph ph-caret-right"></i></button>
@@ -4735,7 +4737,7 @@
 </div>
 
 
-  <script src="app.js?v=118-syncthrottle"></script>
+  <script src="app.js?v=119-cal-linked-prov"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

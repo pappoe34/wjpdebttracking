@@ -7908,3 +7908,23 @@ body.sidebar-collapsed .sidebar-user { justify-content: center; }
   z-index: 9100;
 }
 @media print { #ai-chat-fab, #ai-chat-panel { display: none !important; } }
+
+/* === Transaction provenance: left-edge accent stripe by source === */
+.txn-row[data-src-kind="plaid"]     { box-shadow: inset 3px 0 0 #667eea; }
+.txn-row[data-src-kind="manual"]    { box-shadow: inset 3px 0 0 #fbbf24; }
+.txn-row[data-src-kind="recurring"] { box-shadow: inset 3px 0 0 #a855f7; }
+.txn-row[data-src-kind="system"]    { box-shadow: inset 3px 0 0 #94a3b8; }
+.txn-src-badge { transition: transform 0.12s ease; }
+.txn-src-badge:hover { transform: translateY(-1px); }
+
+/* Provenance row that drops down when a transaction is clicked */
+.txn-provenance-row td {
+    background: rgba(102,126,234,0.04) !important;
+    border-top: 1px solid rgba(102,126,234,0.15) !important;
+    padding: 12px 14px !important;
+    font-size: 11px;
+    color: var(--text-3);
+}
+.txn-provenance-row[data-src-kind="manual"]    td { background: rgba(251,191,36,0.04) !important; border-top-color: rgba(251,191,36,0.15) !important; }
+.txn-provenance-row[data-src-kind="recurring"] td { background: rgba(168,85,247,0.04) !important; border-top-color: rgba(168,85,247,0.15) !important; }
+.txn-provenance-row[data-src-kind="system"]    td { background: rgba(148,163,184,0.04) !important; border-top-color: rgba(148,163,184,0.15) !important; }
