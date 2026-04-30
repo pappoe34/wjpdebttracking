@@ -12294,9 +12294,7 @@ function initAdvisorPageLogic() {
                       <div style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;color:#667eea;"><i class="ph-fill ph-cloud"></i> Cloud Mode <span style="font-size:8px;background:#667eea;color:#0b0f1a;padding:2px 6px;border-radius:4px;font-weight:900;">RECOMMENDED</span></div>
                       <div style="font-size:10px;color:var(--text-3);margin-top:3px;">Fast (sub-1s), powered by Llama 3.3 70B via Groq. Free for normal usage.</div>
                     </div>
-                    <div class="ai-behavior-toggle ${(appState.prefs && appState.prefs.cloudMode)?'on':''}" data-key="cloudMode" style="flex-shrink:0;">
-                      <div class="toggle-switch ${(appState.prefs && appState.prefs.cloudMode)?'on':''}"><div class="thumb"></div></div>
-                    </div>
+                    <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.cloudMode)?'on':''}" data-key="cloudMode" style="flex-shrink:0;"><div class="thumb"></div></div>
                   </div>
                   <div style="font-size:10px;color:var(--text-3);line-height:1.5;border-top:1px solid rgba(102,126,234,0.15);padding-top:10px;margin-top:6px;">
                     <strong>Privacy:</strong> Your account context is sent to Groq's API (server-side). Groq states they don't train on inputs or store conversations. Choose Deep Mode below for fully on-device alternative.
@@ -12462,6 +12460,15 @@ function initAdvisorPageLogic() {
             document.querySelectorAll('.ai-behavior-toggle, .privacy-toggle').forEach(t => {
                 t.addEventListener('click', () => {
                     t.classList.toggle('on');
+                    // Cloud Mode: persist immediately so chat picks it up without "Save"
+                    if (t.dataset.key === 'cloudMode') {
+                        if (!appState.prefs) appState.prefs = {};
+                        appState.prefs.cloudMode = t.classList.contains('on');
+                        if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = appState.prefs.cloudMode;
+                        try { saveState(); } catch(_){}
+                        try { updateFabDeepBadge && updateFabDeepBadge(); } catch(_){}
+                        showToast(appState.prefs.cloudMode ? 'Cloud Mode on — sub-1s answers via Groq.' : 'Cloud Mode off.');
+                    }
                     // Special handling for Deep Mode — start the model
                     // download immediately so the user sees progress.
                     if (t.dataset.key === 'deepMode' && t.classList.contains('on')) {
@@ -12521,6 +12528,11 @@ function initAdvisorPageLogic() {
                 appState.prefs.aiBehavior = appState.prefs.aiBehavior || {};
                 document.querySelectorAll('.ai-behavior-toggle').forEach(t => {
                     appState.prefs.aiBehavior[t.dataset.key] = t.classList.contains('on');
+                    // Top-level mirror for keys read directly elsewhere
+                    if (t.dataset.key === 'cloudMode') {
+                        appState.prefs.cloudMode = t.classList.contains('on');
+                        if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = appState.prefs.cloudMode;
+                    }
                 });
                 // Persist Data & Privacy toggles
                 appState.prefs.privacy = appState.prefs.privacy || {};
