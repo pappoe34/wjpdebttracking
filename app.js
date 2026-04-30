@@ -7630,13 +7630,21 @@ window.wjpDebugDeepAI = async function() {
  *  question will use Deep Mode or Standard. */
 function updateFabDeepBadge() {
     const fab = document.getElementById('ai-chat-fab');
-    const enabled = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
-    const ready = !!(window.WJP_DeepAI && window.WJP_DeepAI.engine);
+    // Re-sync runtime flags from prefs so badge reflects current state
+    try {
+        if (window.appState && appState.prefs) {
+            if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = !!appState.prefs.cloudMode;
+            if (window.WJP_DeepAI)  window.WJP_DeepAI.enabled  = !!appState.prefs.deepMode;
+        }
+    } catch(_){}
+    const cloudOn = !!(window.WJP_CloudAI && window.WJP_CloudAI.enabled);
+    const deepOn  = !!(window.WJP_DeepAI && window.WJP_DeepAI.enabled);
+    const deepReady = !!(window.WJP_DeepAI && window.WJP_DeepAI.engine);
 
-    // FAB dot
+    // FAB dot — Cloud takes precedence visually
     if (fab) {
         let dot = fab.querySelector('.fab-deep-dot');
-        if (!enabled) {
+        if (!cloudOn && !deepOn) {
             if (dot) dot.remove();
         } else {
             if (!dot) {
@@ -7645,8 +7653,13 @@ function updateFabDeepBadge() {
                 dot.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg, #0b0f1a);font-size:0;';
                 fab.appendChild(dot);
             }
-            dot.style.background = ready ? '#22c55e' : '#fbbf24';
-            dot.title = ready ? 'Deep Mode ready' : 'Deep Mode loading';
+            if (cloudOn) {
+                dot.style.background = '#667eea';
+                dot.title = 'Cloud Mode (Groq)';
+            } else {
+                dot.style.background = deepReady ? '#22c55e' : '#fbbf24';
+                dot.title = deepReady ? 'Deep Mode ready' : 'Deep Mode loading';
+            }
         }
     }
 
@@ -7654,12 +7667,12 @@ function updateFabDeepBadge() {
     const headerBadge = document.getElementById('ai-chat-mode-badge');
     const headerSub = document.getElementById('ai-chat-mode-sub');
     if (headerBadge) {
-        if (!enabled) {
-            headerBadge.textContent = 'Standard';
-            headerBadge.style.background = 'rgba(255,255,255,0.08)';
-            headerBadge.style.color = 'var(--text-3)';
-            if (headerSub) headerSub.textContent = 'Private · rule-based';
-        } else if (!ready) {
+        if (cloudOn) {
+            headerBadge.textContent = '☁ Cloud AI';
+            headerBadge.style.background = 'rgba(102,126,234,0.18)';
+            headerBadge.style.color = '#667eea';
+            if (headerSub) headerSub.textContent = 'Llama 3.3 70B via Groq · sub-1s';
+        } else if (deepOn && !deepReady) {
             headerBadge.textContent = '◆ Deep · loading';
             headerBadge.style.background = 'rgba(251,191,36,0.18)';
             headerBadge.style.color = '#fbbf24';
@@ -7667,11 +7680,16 @@ function updateFabDeepBadge() {
                 const pct = window.WJP_DeepAI ? Math.round(window.WJP_DeepAI.progress * 100) : 0;
                 headerSub.textContent = `Loading model · ${pct}%`;
             }
-        } else {
+        } else if (deepOn && deepReady) {
             headerBadge.textContent = '◆ Deep Mode';
             headerBadge.style.background = 'rgba(0,212,168,0.18)';
             headerBadge.style.color = 'var(--accent)';
             if (headerSub) headerSub.textContent = 'In-browser LLM · stays on device';
+        } else {
+            headerBadge.textContent = 'Standard';
+            headerBadge.style.background = 'rgba(255,255,255,0.08)';
+            headerBadge.style.color = 'var(--text-3)';
+            if (headerSub) headerSub.textContent = 'Private · rule-based';
         }
     }
 }
@@ -15278,69 +15296,9 @@ function initStrategyCardClicks() {
 // 11. NotebookLM Research Hub Interaction
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    const aiFab = document.getElementById('ai-chat-fab');
-    const aiPanel = document.getElementById('ai-chat-panel');
-    const aiClose = document.getElementById('ai-chat-close');
-    const aiSend = document.getElementById('chat-send');
-    const aiInput = document.getElementById('chat-input');
-    const aiMessages = document.getElementById('chat-messages');
-
-    if (aiFab && aiPanel && aiClose) {
-        aiFab.addEventListener('click', () => {
-            aiPanel.classList.add('active');
-            aiFab.classList.add('active');
-        });
-
-        aiClose.addEventListener('click', () => {
-            aiPanel.classList.remove('active');
-            aiFab.classList.remove('active');
-        });
-
-        // Chat functionality
-        function appendMessage(text, sender) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `chat-msg ${sender}`;
-            msgDiv.innerHTML = text;
-            aiMessages.appendChild(msgDiv);
-            aiMessages.scrollTop = aiMessages.scrollHeight;
-        }
-
-        function handleChatSend() {
-            const val = aiInput.value.trim();
-            if(!val) return;
-            
-            appendMessage(val, 'user');
-            aiInput.value = '';
-
-            setTimeout(() => {
-                appendMessage('<i class="ph ph-spinner-gap spinning"></i> Searching local documents...', 'ai margin-bottom-0');
-                
-                setTimeout(() => {
-                    const lastAi = aiMessages.querySelector('.chat-msg.ai:last-child');
-                    if (lastAi) lastAi.remove();
-
-                    if(val.toLowerCase().includes('bank') || val.toLowerCase().includes('plaid')) {
-                        appendMessage('I see you want to connect a bank account. I can help launch the Plaid initialization flow. Click "Sync Bank" in your dashboard header to securely connect your external institutions.', 'ai');
-                    } else {
-                        appendMessage('Based on my analysis of your imported Chase statement from last month, you are spending 18% of your income on dining. Redirecting half of that to your High-Yield Savings could increase your velocity score dramatically.', 'ai');
-                    }
-                }, 1500);
-            }, 500);
-        }
-
-        if (aiSend) aiSend.addEventListener('click', handleChatSend);
-        if (aiInput) aiInput.addEventListener('keydown', (e) => {
-            if(e.key === 'Enter') handleChatSend();
-        });
-
-        const prompts = document.querySelectorAll('.chat-prompt');
-        prompts.forEach(p => {
-            p.addEventListener('click', () => {
-                aiInput.value = p.textContent.replace('"', '').replace('"', '');
-                handleChatSend();
-            });
-        });
-    }
+    // Floating chat FAB & panel are wired by setupChatInstance() above
+    // (Cloud → Deep → Standard routing). Removed the legacy zombie handler
+    // that was overriding answers with hardcoded "Chase statement" demo text.
 
     // ==========================================
     // 12. Banking Sync Mockup
