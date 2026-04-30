@@ -4347,6 +4347,16 @@ function updateUI() {
     try { if (typeof renderExpenseLegend === 'function') renderExpenseLegend(); } catch(_){}
     try { if (typeof renderDetailedTransactionsBudget === 'function') renderDetailedTransactionsBudget(); } catch(_){}
     try { if (typeof renderAIBudgetInsights === 'function') renderAIBudgetInsights(); } catch(_){}
+    // Phase 0 — Debt Payoff Engine + Linked Assets cards
+    try { if (typeof renderDebtPayoffEngine === 'function') renderDebtPayoffEngine(); } catch(_){}
+    try { if (typeof renderLinkedAssets === 'function') renderLinkedAssets(); } catch(_){}
+    // Phase 0 — surface unpayable-debt notification after every simulation
+    try {
+        if (typeof simulateAllStrategies === 'function' && typeof notifyUnpayableDebts === 'function') {
+            const __sim = simulateAllStrategies();
+            if (__sim) notifyUnpayableDebts(__sim);
+        }
+    } catch(_){}
 
     // Enforce AI Intelligence toggles. proactive=false hides the AI advisor
     // dashboard card; otherwise it stays visible. Other toggles drive
@@ -7787,35 +7797,275 @@ function renderTransactions() {
     }
 }
 
+/* ============================================================
+   PHASE 0 — DEBT PAYOFF ENGINE
+   Single source of truth for the user's monthly debt extra payment.
+   - Stored at appState.budget.contribution
+   - Auto-suggests from real surplus (income − bills − debt minimums)
+   - Dispatches 'wjp-allocation-changed' so Strategy/AI/Calendar all re-render
+   ============================================================ */
+
+function getMonthlyAllocation() {
+    return Number((appState.budget && appState.budget.contribution) || 0);
+}
+
+function setMonthlyAllocation(amount, opts) {
+    opts = opts || {};
+    if (!appState.budget) appState.budget = {};
+    const v = Math.max(0, Math.round(Number(amount) || 0));
+    const prev = Number(appState.budget.contribution || 0);
+    if (v === prev) return v;
+    appState.budget.contribution = v;
+    try { saveState(); } catch(_){}
+    // Cascade — every consuming view re-renders
+    try { window.dispatchEvent(new CustomEvent('wjp-allocation-changed', { detail: { value: v, prev } })); } catch(_){}
+    if (!opts.silent && typeof showToast === 'function') {
+        showToast('Payoff allocation set to $' + v.toLocaleString() + '/mo. Updating projections…');
+    }
+    if (typeof logActivity === 'function') {
+        logActivity({
+            title: 'Allocation updated',
+            text: 'Monthly debt extra: $' + prev.toLocaleString() + ' → $' + v.toLocaleString(),
+            type: 'budget',
+            priority: 'normal'
+        });
+    }
+    return v;
+}
+window.getMonthlyAllocation = getMonthlyAllocation;
+window.setMonthlyAllocation = setMonthlyAllocation;
+
+/** Compute the user's available surplus this month from real data:
+ *  income (Plaid + manual) − recurring bills − debt minimums.
+ *  Returns { income, recurringBills, debtMinimums, surplus }.
+ */
+function computePayoffSurplus() {
+    const income = Number(
+        (appState.balances && appState.balances.monthlyIncome) ||
+        (appState.budget && appState.budget.monthlyIncome) ||
+        0
+    );
+    const recurringBills = (appState.recurring || [])
+        .filter(r => r && r.category !== 'income' && !r.linkedIncome)
+        .reduce((s, r) => s + Math.abs(r.amount || 0), 0);
+    const debtMinimums = (appState.debts || [])
+        .reduce((s, d) => s + (d.minPayment || 0), 0);
+    const surplus = income - recurringBills - debtMinimums;
+    return { income, recurringBills, debtMinimums, surplus };
+}
+window.computePayoffSurplus = computePayoffSurplus;
+
+/** Render the Debt Payoff Engine card on the dashboard. */
+function renderDebtPayoffEngine() {
+    const host = document.getElementById('payoff-engine-body');
+    if (!host) return;
+    const fmt = n => '$' + Math.round(Number(n)||0).toLocaleString();
+    const allocation = getMonthlyAllocation();
+    const surplus = computePayoffSurplus();
+    const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+    const debts = appState.debts || [];
+    const sorted = (typeof sortDebtsByStrategy === 'function') ? sortDebtsByStrategy(debts, strategy) : debts;
+    const target = sorted[0];
+    const stratLabel = strategy.charAt(0).toUpperCase() + strategy.slice(1);
+
+    // Suggestion logic
+    let suggestionHtml = '';
+    if (surplus.income > 0) {
+        if (surplus.surplus < 0) {
+            suggestionHtml = `<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:#ef4444;font-weight:600;">⚠ Spending exceeds income by ${fmt(Math.abs(surplus.surplus))}/mo. Cut bills first.</div>`;
+        } else if (surplus.surplus > allocation + 50) {
+            suggestionHtml = `<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div style="font-size:11px;color:var(--text-2);">💡 Surplus is <strong style="color:#22c55e;">${fmt(surplus.surplus)}</strong>. Bump allocation?</div>
+                <button id="pe-apply-surplus" style="background:#22c55e;color:#0b0f1a;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer;">Use ${fmt(surplus.surplus)}</button>
+            </div>`;
+        } else if (allocation > 0 && Math.abs(surplus.surplus - allocation) < 100) {
+            suggestionHtml = `<div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:var(--text-2);">✓ Allocation is right-sized for your current surplus.</div>`;
+        }
+    } else {
+        suggestionHtml = `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:10px;color:var(--text-3);">Add income under <strong>Budget Control</strong> to see your auto-computed surplus.</div>`;
+    }
+
+    host.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <span style="font-size:24px;font-weight:900;color:var(--text-3);">$</span>
+            <input type="number" id="pe-allocation-input" value="${allocation}" min="0" step="50"
+                style="flex:1;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--accent);font-size:24px;font-weight:900;outline:none;letter-spacing:-0.5px;"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            <span style="font-size:11px;color:var(--text-3);font-weight:700;">/mo</span>
+            <button id="pe-save-btn" class="btn btn-primary" style="padding:10px 16px;font-size:11px;font-weight:800;">SAVE</button>
+        </div>
+
+        ${surplus.income > 0 ? `
+        <div style="background:var(--card-2);border-radius:8px;padding:10px 12px;font-size:11px;">
+            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:6px;">Available Surplus</div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--text-3);">Income</span><span style="font-weight:600;">${fmt(surplus.income)}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--text-3);">Recurring bills</span><span style="font-weight:600;color:#ef4444;">−${fmt(surplus.recurringBills)}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--text-3);">Debt minimums</span><span style="font-weight:600;color:#ef4444;">−${fmt(surplus.debtMinimums)}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0 0;border-top:1px solid var(--border);margin-top:4px;"><span style="font-weight:700;">Surplus</span><span style="font-weight:900;color:${surplus.surplus<0?'#ef4444':'#22c55e'};">${fmt(surplus.surplus)}</span></div>
+        </div>` : ''}
+
+        ${suggestionHtml}
+
+        ${target ? `
+        <div style="margin-top:12px;padding:10px 12px;background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.25);border-radius:8px;font-size:11px;">
+            <div style="display:flex;align-items:center;gap:6px;color:var(--text-3);font-size:9px;text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">
+                <i class="ph-fill ph-target" style="color:var(--accent);"></i> Going to · ${stratLabel}
+            </div>
+            <div style="font-size:13px;font-weight:800;margin-top:3px;">${target.name}</div>
+            <div style="font-size:10px;color:var(--text-3);margin-top:2px;">${fmt(target.balance)} balance · ${(target.apr||0).toFixed(2)}% APR</div>
+        </div>` : ''}
+    `;
+
+    // Wire interactions
+    const input = document.getElementById('pe-allocation-input');
+    const saveBtn = document.getElementById('pe-save-btn');
+    const applyBtn = document.getElementById('pe-apply-surplus');
+    if (saveBtn && input) {
+        saveBtn.addEventListener('click', () => {
+            const v = parseFloat(input.value);
+            if (isNaN(v) || v < 0) return;
+            setMonthlyAllocation(v);
+        });
+    }
+    if (input) {
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveBtn?.click(); } });
+    }
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            setMonthlyAllocation(Math.max(0, Math.floor(surplus.surplus)));
+        });
+    }
+}
+window.renderDebtPayoffEngine = renderDebtPayoffEngine;
+
+/** Render the Linked Assets card on the dashboard — checking, savings,
+ *  investment accounts. Read-only, never enters payoff strategies. */
+function renderLinkedAssets() {
+    const host = document.getElementById('linked-assets-body');
+    if (!host) return;
+    const assets = appState.linkedAssets || [];
+    if (!assets.length) {
+        host.innerHTML = `<div style="text-align:center;color:var(--text-3);font-size:11px;padding:18px;">
+            <i class="ph ph-piggy-bank" style="font-size:22px;display:block;margin-bottom:6px;opacity:0.4;"></i>
+            No linked assets yet. Sync a checking or savings account.
+        </div>`;
+        return;
+    }
+    const fmt = n => '$' + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const total = assets.reduce((s, a) => s + (a.balance || 0), 0);
+    const byBank = {};
+    assets.forEach(a => {
+        const k = a.institutionName || 'Bank';
+        if (!byBank[k]) byBank[k] = [];
+        byBank[k].push(a);
+    });
+    const groupHtml = Object.entries(byBank).map(([bank, list]) => {
+        const initial = bank.charAt(0).toUpperCase();
+        return `<div style="margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">
+                <span style="width:18px;height:18px;border-radius:4px;background:rgba(102,126,234,0.15);display:inline-flex;align-items:center;justify-content:center;color:#667eea;font-weight:900;font-size:10px;">${initial}</span>
+                ${bank}
+            </div>
+            ${list.map(a => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--card-2);border-radius:6px;margin-bottom:4px;font-size:11px;">
+                <span><span style="font-weight:700;">${a.name}</span> ${a.mask?`<span style="color:var(--text-3);font-size:9px;">····${a.mask}</span>`:''}<span style="color:var(--text-3);font-size:9px;"> · ${a.subtype||a.type||'account'}</span></span>
+                <span style="font-weight:800;color:${a.balance<0?'#ef4444':'var(--accent)'};">${fmt(a.balance)}</span>
+            </div>`).join('')}
+        </div>`;
+    }).join('');
+    host.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">Total Liquid</div>
+            <div style="font-size:20px;font-weight:900;color:var(--accent);">${fmt(total)}</div>
+        </div>
+        ${groupHtml}
+    `;
+}
+window.renderLinkedAssets = renderLinkedAssets;
+
+// === Cascade: when allocation changes, every consuming view re-renders ===
+window.addEventListener('wjp-allocation-changed', () => {
+    try { renderDebtPayoffEngine(); } catch(_){}
+    try { drawCharts && drawCharts(); } catch(_){}
+    try { renderTransactions && renderTransactions(); } catch(_){}
+    try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+});
+
 function simulateAllStrategies() {
     if (!appState || !appState.debts.length) return null;
-    
+
     const strats = ['snowball', 'avalanche', 'hybrid'];
     const sim = {};
-    
+    const unpayableDebts = [];
+
     strats.forEach(s => {
         const res = calculateDebtPayoff(s);
         let maxMonths = 0;
         let totalInt = 0;
-        for(let k in res) {
+        let unpayableInThis = [];
+        for (let k in res) {
             if (res[k].months > maxMonths) maxMonths = res[k].months;
             totalInt += res[k].totalInterest;
+            // 360-month cap surface — anything that didn't clear within 30 years
+            // under the chosen strategy + extra is effectively unpayable at this
+            // rate. Same debt in the same shape under all strategies → only
+            // record once, on the avalanche pass (most generous).
+            if (res[k].months >= 600 && res[k].balance > 0) {
+                unpayableInThis.push(k);
+            }
         }
-        sim[s] = { months: maxMonths, interest: totalInt };
+        // Cap reported months at 360 so the UI doesn't show "600 Mo. / 50 Yr"
+        // — instead it shows an explicit "Won't clear at this rate" warning.
+        const capped = Math.min(maxMonths, 360);
+        sim[s] = { months: capped, interest: totalInt, unpayableIds: unpayableInThis, rawMaxMonths: maxMonths };
+        if (s === 'avalanche') unpayableDebts.push(...unpayableInThis);
     });
-    
+
     let best = null;
     let lowestInt = Infinity;
-    for(let s of strats) {
+    for (let s of strats) {
         if (sim[s].interest < lowestInt) {
             lowestInt = sim[s].interest;
             best = s;
-        } else if (Math.abs(sim[s].interest - lowestInt) < 1) { // Tiebreaker
+        } else if (Math.abs(sim[s].interest - lowestInt) < 1) {
              if (best && sim[s].months < sim[best].months) best = s;
         }
     }
-    
-    return { simulations: sim, best: best };
+
+    // Sanity: identical months across all 3 strategies = cascade bug. Surface
+    // a console warning so the bug never silently lives on.
+    const m1 = sim.snowball.months, m2 = sim.avalanche.months, m3 = sim.hybrid.months;
+    if (m1 === m2 && m2 === m3 && m1 > 0 && m1 < 360) {
+        console.warn('[wjp simulator] All 3 strategies produced identical months (' + m1 + ') — cascade may be dominating strategy choice. Inspect `calculateDebtPayoff()`.');
+    }
+
+    return { simulations: sim, best: best, unpayableDebtIds: unpayableDebts };
+}
+
+/** After every simulation, surface a high-priority notification for any debt
+ *  whose minimum payment can't outrun monthly interest. These debts grow
+ *  forever at minimum and need explicit user action. */
+function notifyUnpayableDebts(sim) {
+    if (!sim || !Array.isArray(sim.unpayableDebtIds) || !sim.unpayableDebtIds.length) return;
+    if (typeof pushNotification !== 'function') return;
+    if (!window.__wjpUnpayableNotified) window.__wjpUnpayableNotified = new Set();
+    sim.unpayableDebtIds.forEach(debtId => {
+        if (window.__wjpUnpayableNotified.has(debtId)) return;
+        const debt = (appState.debts || []).find(d => d.id === debtId);
+        if (!debt) return;
+        const monthlyInt = (debt.balance || 0) * (debt.apr || 0) / 100 / 12;
+        const monthlyMin = debt.minPayment || 0;
+        const growth = monthlyInt - monthlyMin;
+        window.__wjpUnpayableNotified.add(debtId);
+        try {
+            pushNotification({
+                title: '⚠ ' + debt.name + ' won\'t pay off at this rate',
+                text: 'Interest ($' + Math.round(monthlyInt) + '/mo) is growing faster than the $' + Math.round(monthlyMin) + '/mo minimum. This balance grows by $' + Math.round(growth) + '/month indefinitely. Increase payment, refinance, or route your accelerator here.',
+                priority: 'high',
+                type: 'debt-alert',
+                link: '#debts'
+            });
+        } catch(_){}
+    });
 }
 
 // Render Analysis Modal Details
@@ -11688,9 +11938,11 @@ async function refreshLinkedAccounts() {
 
     const now = Date.now();
     appState.debts = Array.isArray(appState.debts) ? appState.debts : [];
+    appState.linkedAssets = Array.isArray(appState.linkedAssets) ? appState.linkedAssets : [];
 
     // Track which Plaid-sourced IDs we see in this refresh so we can prune stale ones.
     const seenIds = new Set();
+    const seenAssetIds = new Set();
 
     payload.items.forEach(item => {
         const itemId = item.itemId;
@@ -11698,9 +11950,39 @@ async function refreshLinkedAccounts() {
         const liabilities = item.liabilities || null;
         (item.accounts || []).forEach(account => {
             const id = 'plaid:' + account.account_id;
-            seenIds.add(id);
             const subtype = String(account.subtype || '').toLowerCase();
             const type = String(account.type || '').toLowerCase();
+
+            // === ASSET / DEBT SPLIT ===
+            // Only credit cards and loans are "debts" — they accrue interest, have minimums,
+            // belong in payoff strategies. Checking/savings/brokerage/investment accounts are
+            // ASSETS — visible for net-worth context but never appear in strategies.
+            const isDebtAccount = (subtype === 'credit card' || type === 'credit' || type === 'loan');
+            if (!isDebtAccount) {
+                // Persist as a linked asset (not a debt). Used by Linked Assets card +
+                // income/spending tracker for available-cash math.
+                seenAssetIds.add(id);
+                const balances = account.balances || {};
+                const assetRecord = {
+                    id,
+                    name: account.name || account.official_name || institutionName,
+                    type: type || 'depository',
+                    subtype: subtype || 'unknown',
+                    balance: Number(balances.current) || 0,
+                    available: balances.available != null ? Number(balances.available) : null,
+                    mask: account.mask || null,
+                    itemId,
+                    institutionName,
+                    source: 'plaid',
+                    lastUpdated: now
+                };
+                const existingAsset = appState.linkedAssets.find(a => a.id === id);
+                if (existingAsset) Object.assign(existingAsset, assetRecord);
+                else appState.linkedAssets.push(assetRecord);
+                return; // do not enter the debt branch
+            }
+
+            seenIds.add(id);
             let mappedType = 'bank';
             if (subtype === 'credit card' || type === 'credit') mappedType = 'credit card';
             else if (type === 'loan') mappedType = 'loan';
@@ -11801,6 +12083,15 @@ async function refreshLinkedAccounts() {
 
     // Prune Plaid debts that no longer appear (e.g. removed at bank)
     appState.debts = appState.debts.filter(d => d.source !== 'plaid' || seenIds.has(d.id));
+    // Same for linked assets
+    appState.linkedAssets = appState.linkedAssets.filter(a => seenAssetIds.has(a.id));
+    // Migration: kill any prior Plaid records that were imported as 'bank' type
+    // before the asset/debt split shipped. They should NEVER be debts.
+    appState.debts = appState.debts.filter(d => {
+        if (d.source !== 'plaid') return true;
+        const t = String(d.type||'').toLowerCase();
+        return t === 'credit card' || t === 'loan';
+    });
 
     // Reauth nudge: any item with an itemError needs the user to reconnect.
     // Dedupe per session so we don't spam the activity log on every poll.
@@ -13376,7 +13667,13 @@ function initAdvisorPageLogic() {
             });
             document.getElementById('ai-settings-save-btn')?.addEventListener('click', () => {
                 const extra = parseFloat(document.getElementById('ai-extra-input')?.value) || 0;
-                appState.budget.contribution = extra;
+                // Route through the canonical setter so the Dashboard payoff
+                // engine + Strategy + AI Advisor + Calendar all re-render.
+                if (typeof setMonthlyAllocation === 'function') {
+                    setMonthlyAllocation(extra, { silent: true });
+                } else {
+                    appState.budget.contribution = extra;
+                }
                 if (!appState.prefs) appState.prefs = {};
                 // Persist AI Behaviour toggles
                 appState.prefs.aiBehavior = appState.prefs.aiBehavior || {};

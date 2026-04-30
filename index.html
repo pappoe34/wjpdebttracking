@@ -1024,6 +1024,34 @@
                 </div>
               </div>
 
+              <!-- Debt Payoff Engine — single source of truth for monthly extra allocation -->
+              <div class="card reveal reveal-2 reorderable" id="dash-payoff-engine-card" data-card-id="payoff-engine" style="position:relative;">
+                <button class="pin-card-btn" data-pin-id="dash-payoff-engine-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Payoff Engine"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
+                <div class="card-label" style="font-size:10px;display:flex;align-items:center;gap:6px;">
+                  <i class="ph-fill ph-rocket-launch" style="color:var(--accent);"></i> Monthly Debt Payoff Allocation
+                </div>
+                <div id="payoff-engine-body" style="margin-top:14px;">
+                  <div style="display:flex;align-items:center;gap:14px;color:var(--text-3);font-size:11px;justify-content:center;padding:24px;">
+                    <i class="ph ph-spinner-gap spinning" style="font-size:18px;"></i> Calculating allocation…
+                  </div>
+                </div>
+              </div>
+
+              <!-- Linked Assets — checking/savings/investment accounts (NOT debts) -->
+              <div class="card reveal reveal-2 reorderable" id="dash-linked-assets-card" data-card-id="linked-assets" style="position:relative;">
+                <button class="pin-card-btn" data-pin-id="dash-linked-assets-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Linked Assets"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
+                <div class="card-label" style="font-size:10px;display:flex;align-items:center;gap:6px;">
+                  <i class="ph-fill ph-piggy-bank" style="color:var(--accent);"></i> Linked Assets
+                  <span style="margin-left:auto;font-size:9px;color:var(--text-3);font-weight:500;">checking · savings · investments</span>
+                </div>
+                <div id="linked-assets-body" style="margin-top:14px;">
+                  <div style="text-align:center;color:var(--text-3);font-size:11px;padding:18px;">
+                    <i class="ph ph-piggy-bank" style="font-size:22px;display:block;margin-bottom:6px;opacity:0.4;"></i>
+                    No linked assets yet
+                  </div>
+                </div>
+              </div>
+
               <!-- Spending Card -->
               <div class="card reveal reveal-3 reorderable" id="dash-spending-card" data-card-id="spending" style="position:relative;">
                 <button class="pin-card-btn" data-pin-id="dash-spending-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Spending card"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
@@ -4720,7 +4748,7 @@
 </div>
 
 
-  <script src="app.js?v=120-balance-fix"></script>
+  <script src="app.js?v=121-phase0"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->
