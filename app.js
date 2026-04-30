@@ -11782,10 +11782,48 @@ async function unlinkPlaidItem(itemId) {
 
 const PLAID_TX_INFLIGHT = { running: false };
 
+/* Sync throttle: webhooks deliver fresh transactions automatically, so
+   the page-load poll is mostly redundant. We honor the user's chosen
+   interval (defaults to weekly) to keep Netlify function quota healthy.
+   Manual button clicks always bypass throttle (force: true). */
+const SYNC_INTERVAL_PRESETS = {
+    realtime: 0,                          // every load (legacy behavior)
+    daily:    24 * 3600 * 1000,           // once per 24h
+    weekly:   7  * 24 * 3600 * 1000,      // once per 7d (default)
+    monthly:  30 * 24 * 3600 * 1000       // once per 30d
+};
+
+function getSyncIntervalMs() {
+    const pref = (appState && appState.prefs && appState.prefs.syncInterval) || 'weekly';
+    return SYNC_INTERVAL_PRESETS[pref] != null ? SYNC_INTERVAL_PRESETS[pref] : SYNC_INTERVAL_PRESETS.weekly;
+}
+
+function getLastBankSyncAt() {
+    try {
+        const v = localStorage.getItem('wjp_last_bank_sync');
+        return v ? parseInt(v, 10) : 0;
+    } catch (_) { return 0; }
+}
+
+function setLastBankSyncAt(ts) {
+    try { localStorage.setItem('wjp_last_bank_sync', String(ts || Date.now())); } catch(_){}
+}
+
 async function syncBankTransactions(opts) {
     const options = opts || {};
     const silent = !!options.silent;
-    if (PLAID_TX_INFLIGHT.running) return { skipped: true };
+    const force  = !!options.force;
+    if (PLAID_TX_INFLIGHT.running) return { skipped: true, reason: 'inflight' };
+
+    // Throttle — skip if last sync is within the user's chosen interval
+    if (!force) {
+        const interval = getSyncIntervalMs();
+        const last = getLastBankSyncAt();
+        if (interval > 0 && last && (Date.now() - last) < interval) {
+            return { skipped: true, reason: 'throttled', nextEligibleAt: last + interval };
+        }
+    }
+
     PLAID_TX_INFLIGHT.running = true;
 
     try {
@@ -11898,12 +11936,18 @@ async function syncBankTransactions(opts) {
         // credit-card balance against the bank's source of truth.
         try { await refreshLinkedAccounts(); } catch(_) {}
 
+        // Stamp the throttle clock so the next page load won't re-poll
+        // until the user's chosen interval has elapsed.
+        setLastBankSyncAt(Date.now());
+
         return { paymentsApplied, totalPaid, chargesSeen };
     } finally {
         PLAID_TX_INFLIGHT.running = false;
     }
 }
 window.syncBankTransactions = syncBankTransactions;
+window.getLastBankSyncAt = getLastBankSyncAt;
+window.SYNC_INTERVAL_PRESETS = SYNC_INTERVAL_PRESETS;
 
 // --- Recurring autopay tagging ----------------------------------------------
 // Pulls recurring outflow streams from Plaid, identifies CC-payment streams
@@ -15730,7 +15774,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="bh-body" style="font-size:13px;color:var(--text-3);">
                         <div style="display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;"><i class="ph ph-spinner-gap spinning" style="font-size:24px;color:var(--accent);"></i> Probing Plaid…</div>
                     </div>
-                    <div style="margin-top:16px;display:flex;gap:8px;">
+                    <div id="bh-sync-pref" style="margin-top:16px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <div>
+                                <div style="font-size:11px;font-weight:700;">Auto-Sync Frequency</div>
+                                <div style="font-size:9px;color:var(--text-3);margin-top:2px;">Webhooks still deliver fresh data instantly. This only throttles the page-load poll.</div>
+                            </div>
+                        </div>
+                        <div id="bh-sync-picker" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;"></div>
+                        <div id="bh-last-sync" style="font-size:9px;color:var(--text-3);margin-top:6px;font-style:italic;text-align:center;"></div>
+                    </div>
+                    <div style="margin-top:12px;display:flex;gap:8px;">
                         <button id="bh-refresh" class="btn btn-secondary" style="flex:1;padding:10px;font-size:12px;">↻ Re-check</button>
                         <button id="bh-resync" class="btn btn-primary" style="flex:1;padding:10px;font-size:12px;">⟳ Force Re-sync All</button>
                     </div>
@@ -15832,6 +15886,41 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             await renderHealth();
+
+            // Sync-frequency picker — saves to appState.prefs.syncInterval
+            const renderSyncPicker = () => {
+                if (!appState.prefs) appState.prefs = {};
+                const cur = appState.prefs.syncInterval || 'weekly';
+                const picker = document.getElementById('bh-sync-picker');
+                if (picker) {
+                    picker.innerHTML = [
+                        {id:'realtime', label:'Every load', sub:'Highest cost'},
+                        {id:'daily',    label:'Daily',      sub:'1×/24h'},
+                        {id:'weekly',   label:'Weekly',     sub:'Recommended'},
+                        {id:'monthly',  label:'Monthly',    sub:'Lowest cost'}
+                    ].map(o => `<div data-sync="${o.id}" style="padding:7px 6px;border:2px solid ${cur===o.id?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer;background:${cur===o.id?'rgba(0,212,168,0.06)':'transparent'};text-align:center;">
+                        <div style="font-size:10px;font-weight:700;">${o.label}</div>
+                        <div style="font-size:8px;color:var(--text-3);margin-top:1px;">${o.sub}</div>
+                    </div>`).join('');
+                    picker.querySelectorAll('[data-sync]').forEach(el => {
+                        el.addEventListener('click', () => {
+                            appState.prefs.syncInterval = el.dataset.sync;
+                            saveState();
+                            renderSyncPicker();
+                            showToast(`Auto-sync: ${el.dataset.sync}. Webhooks still deliver fresh data instantly.`);
+                        });
+                    });
+                }
+                const lastEl = document.getElementById('bh-last-sync');
+                if (lastEl) {
+                    const last = (typeof getLastBankSyncAt === 'function') ? getLastBankSyncAt() : 0;
+                    lastEl.textContent = last
+                        ? `Last sync: ${new Date(last).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`
+                        : 'No sync recorded yet';
+                }
+            };
+            renderSyncPicker();
+
             document.getElementById('bh-refresh')?.addEventListener('click', renderHealth);
             document.getElementById('bh-resync')?.addEventListener('click', async () => {
                 const btn = document.getElementById('bh-resync');
@@ -15839,8 +15928,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.disabled = true; btn.textContent = '⏳ Resyncing…';
                 try {
                     const tk = await firebase.auth().currentUser.getIdToken();
+                    // Manual Force Re-sync — bypass the throttle entirely
                     const r = await fetch('/.netlify/functions/sync-transactions', { method:'POST', headers:{'Authorization':`Bearer ${tk}`} });
                     const j = await r.json().catch(()=>({}));
+                    if (typeof setLastBankSyncAt === 'function') setLastBankSyncAt(Date.now());
                     showToast(r.ok ? `Re-synced. Added: ${j.added||0}, Modified: ${j.modified||0}` : `Sync error: ${j.error||r.status}`);
                 } catch (err) {
                     showToast('Sync failed: ' + (err.message||err));
