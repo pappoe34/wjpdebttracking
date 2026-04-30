@@ -7704,12 +7704,128 @@ window.updateFabDeepBadge = updateFabDeepBadge;
 window.WJP_CloudAI = {
     enabled: !!(typeof appState !== 'undefined' && appState && appState.prefs && appState.prefs.cloudMode),
 
-    /** Build a sanitized account context — same shape as Deep Mode. */
+    /** Build a richer account context for Groq.
+     *  Tradeoff: 70B model handles ~6KB context fine, so we send more. */
     _buildContext() {
-        if (window.WJP_DeepAI && typeof window.WJP_DeepAI._buildContext === 'function') {
-            return window.WJP_DeepAI._buildContext();
+        const lines = [];
+        const now = new Date();
+        const today = now.toISOString().slice(0,10);
+        const dom = now.getDate();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+
+        // === Identity & timestamps ===
+        const p = (typeof appState !== 'undefined' && appState && appState.profile) || {};
+        const firstName = (p.fullName || '').split(/\s+/)[0] || 'the user';
+        lines.push(`Today: ${today} (day ${dom} of ${daysInMonth})`);
+        lines.push(`User first name: ${firstName}`);
+
+        // === Income & cashflow ===
+        const income = (appState.budget && appState.budget.monthlyIncome) || (appState.balances && appState.balances.monthlyIncome) || 0;
+        if (income) lines.push(`Monthly income: $${income.toLocaleString()}`);
+        const cashOnHand = (appState.balances && appState.balances.cash) || 0;
+        if (cashOnHand) lines.push(`Cash on hand: $${cashOnHand.toLocaleString()}`);
+        const ef = (appState.savingsGoals || []).find(g => /emergency/i.test(g.name||''));
+        if (ef) lines.push(`Emergency fund: $${(ef.current||0).toLocaleString()} of $${(ef.target||0).toLocaleString()} target`);
+
+        // === Debts with computed days-until-due + utilization ===
+        const debts = appState.debts || [];
+        if (debts.length) {
+            lines.push(`\nDebts (${debts.length}):`);
+            debts.forEach(d => {
+                const dueDom = d.dueDate || d.dueDay;
+                let daysUntil = '';
+                if (dueDom) {
+                    let due = new Date(now.getFullYear(), now.getMonth(), dueDom);
+                    if (due < now) due = new Date(now.getFullYear(), now.getMonth()+1, dueDom);
+                    daysUntil = Math.ceil((due - now) / 86400000);
+                }
+                const monthlyInt = ((d.balance || 0) * (d.apr || 0) / 100 / 12).toFixed(2);
+                const util = (d.creditLimit && d.balance) ? Math.round(d.balance / d.creditLimit * 100) : null;
+                lines.push(
+                    `- ${d.name}: $${(d.balance||0).toLocaleString()} balance, ${d.apr||0}% APR, ` +
+                    `$${(d.minPayment||0)}/mo min, ` +
+                    (dueDom ? `due ${dueDom}${daysUntil!=='' ? ` (in ${daysUntil}d)` : ''}, ` : '') +
+                    `interest cost $${monthlyInt}/mo` +
+                    (d.creditLimit ? `, limit $${d.creditLimit.toLocaleString()}` : '') +
+                    (util !== null ? `, utilization ${util}%` : '') +
+                    (d.type ? `, type ${d.type}` : '')
+                );
+            });
+            const totalDebt = debts.reduce((s,d)=>s+(d.balance||0),0);
+            const totalMin  = debts.reduce((s,d)=>s+(d.minPayment||0),0);
+            const totalInt  = debts.reduce((s,d)=>s+((d.balance||0)*(d.apr||0)/100/12),0);
+            const avgApr    = debts.reduce((s,d)=>s+(d.apr||0),0) / debts.length;
+            const ccs = debts.filter(d => d.creditLimit > 0);
+            const ccUtil = ccs.length
+                ? Math.round(ccs.reduce((s,d)=>s+(d.balance||0),0) / ccs.reduce((s,d)=>s+(d.creditLimit||0),0) * 100)
+                : null;
+            lines.push(`Totals: $${totalDebt.toLocaleString()} debt, $${totalMin.toLocaleString()}/mo min, $${totalInt.toFixed(0)}/mo interest, avg ${avgApr.toFixed(1)}% APR`);
+            if (ccUtil !== null) lines.push(`Aggregate credit utilization: ${ccUtil}%`);
+            if (income) lines.push(`Debt-to-income (DTI): ${Math.round(totalMin/income*100)}%`);
         }
-        return '';
+
+        // === Strategy + engine's own recommendation (so Groq doesn't recompute) ===
+        const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
+        const extra = (appState.budget && appState.budget.contribution) || 0;
+        lines.push(`\nStrategy: ${strategy}${extra ? `, extra $${extra}/mo beyond minimums` : ''}`);
+        try {
+            if (typeof getProjection === 'function') {
+                const proj = getProjection(strategy);
+                if (proj && proj.months) lines.push(`Engine projection: debt-free in ${proj.months} months${proj.totalInterest ? `, $${Math.round(proj.totalInterest).toLocaleString()} total interest` : ''}`);
+            }
+            if (typeof getStrategyOrder === 'function') {
+                const order = getStrategyOrder(strategy);
+                if (order && order.length) {
+                    const top3 = order.slice(0,3).map(d => d.name).join(' → ');
+                    lines.push(`Engine target order: ${top3}`);
+                }
+            }
+        } catch(_){}
+
+        // === Recurring bills ===
+        const recurring = (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome);
+        if (recurring.length) {
+            const totalRec = recurring.reduce((s,r)=>s+Math.abs(r.amount||0),0);
+            lines.push(`\nRecurring bills (${recurring.length}, $${totalRec.toFixed(0)}/mo total):`);
+            recurring.slice(0, 12).forEach(r => {
+                let nextDate = r.nextDate || '';
+                let daysUntil = '';
+                if (nextDate) {
+                    const nd = new Date(nextDate);
+                    if (!isNaN(nd)) daysUntil = Math.ceil((nd - now) / 86400000);
+                }
+                lines.push(`- ${r.name||r.description||'?'}: $${Math.abs(r.amount||0)}/${r.frequency||'mo'}${daysUntil!=='' ? ` (next in ${daysUntil}d)` : ''}${r.category?` · ${r.category}`:''}`);
+            });
+        }
+
+        // === Savings goals ===
+        const goals = (appState.savingsGoals || []).filter(g => !/emergency/i.test(g.name||''));
+        if (goals.length) {
+            lines.push(`\nOther savings goals:`);
+            goals.forEach(g => {
+                const pct = g.target ? Math.round((g.current||0)/g.target*100) : 0;
+                lines.push(`- ${g.name}: $${(g.current||0).toLocaleString()} of $${(g.target||0).toLocaleString()} (${pct}%)`);
+            });
+        }
+
+        // === Spending: rolling last 30 days, top 8 categories ===
+        const txns = appState.transactions || [];
+        const cutoff = new Date(now.getTime() - 30*86400000);
+        const realSpend = txns.filter(t => !t.synthetic && t.amount < 0 && new Date(t.date) >= cutoff);
+        if (realSpend.length) {
+            const byCat = {};
+            realSpend.forEach(t => { const c = t.category || 'Other'; byCat[c] = (byCat[c]||0) + Math.abs(t.amount); });
+            const top = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,8);
+            const total = top.reduce((s,[,v])=>s+v,0);
+            lines.push(`\nLast 30d spending (real): $${Math.round(total).toLocaleString()} across ${realSpend.length} txns`);
+            top.forEach(([c,v]) => lines.push(`- ${c}: $${Math.round(v).toLocaleString()}`));
+        }
+
+        // === Credit profile ===
+        const cp = appState.creditProfile || {};
+        if (cp.score) lines.push(`\nCredit score: ${cp.score}${cp.bureau?` (${cp.bureau})`:''}`);
+
+        return lines.join('\n');
     },
 
     /** POST to /ai-cloud, returns the full answer string. */

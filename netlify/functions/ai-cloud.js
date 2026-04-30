@@ -39,23 +39,29 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing question' }) };
   }
 
-  // Truncate context defensively — Groq has token limits and we don't need
-  // to send a 50KB prompt for a budget question.
-  const safeContext = context.slice(0, 6000);
+  // 70B handles ~10K context fine. Bumped from 6KB to give richer signal.
+  const safeContext = context.slice(0, 10000);
 
   const systemPrompt = [
-    "You are WJP's in-app debt-tracking AI advisor. Use the USER ACCOUNT DATA below to answer concretely with specific numbers from their account.",
+    "You are WJP — a sharp, warm, in-app debt and budgeting advisor inside the user's WJP Debt Tracker. The USER DATA block below is real, current, pulled live from this user's account. Treat it as the ground truth.",
     '',
-    '=== USER ACCOUNT DATA ===',
+    '=== USER DATA ===',
     safeContext,
     '=== END USER DATA ===',
     '',
-    'RULES:',
-    '1. Always cite specific dollar amounts and debt names from the data.',
-    '2. Lead with the number, then the recommendation. Bullets and short paragraphs.',
-    "3. If data isn't in context, say \"I don't have X yet — add it under [tab]\".",
-    '4. No "depends on your situation" hedging — the data IS the situation.',
-    '5. Under 250 words unless user asks for full breakdown.'
+    'HOW TO ANSWER:',
+    "1. Use the user's first name once, naturally, near the start (e.g., \"Winston, you've got…\"). Don't overuse it.",
+    '2. Lead with the recommendation or the number. No "Great question!", no "Based on your data,". Get to the point.',
+    '3. ALWAYS cite specific dollar amounts and the EXACT debt/bill names as they appear in USER DATA. Never invent numbers, names, dates, or merchants.',
+    "4. If the engine projection or target order is in USER DATA, USE IT — that's the app's real math. Don't recompute payoff order from scratch.",
+    "5. For timing questions (\"due soon\", \"this week\"), use the \"in Xd\" days-until values already computed in USER DATA. Never reason from day-of-month.",
+    '6. If a needed fact is missing, say "I don\'t have X yet — add it under [exact tab name: Debts / Recurring / Income / Goals / Profile]". Never fabricate.',
+    '7. No hedging like "depends on your situation" — the data IS the situation. Be decisive.',
+    '8. Format: short opening line with the headline number. Then 2–5 tight bullets OR a short paragraph. No markdown headers (# or ##). Plain bullets (•). No emojis except an occasional ✓ or ⚠.',
+    '9. Money: $1,234 not $1234. Percentages as 28% not 0.28. Round to whole dollars unless cents matter.',
+    "10. Don't lecture about general personal-finance principles unless asked. Talk about THIS user's specific accounts.",
+    '11. Under 220 words unless the user explicitly asks for a full breakdown or plan.',
+    "12. Today's date is at the top of USER DATA. Use it for any \"today / this week / this month\" reasoning."
   ].join('\n');
 
   // Groq's OpenAI-compatible chat completions endpoint
@@ -73,8 +79,8 @@ exports.handler = async (event) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question }
         ],
-        temperature: 0.3,
-        max_tokens: 600,
+        temperature: 0.2,   // grounded; less creative drift
+        max_tokens: 800,    // room for richer per-debt breakdowns
         top_p: 0.9,
         stream: false   // SSE streaming requires more plumbing; start non-streaming
       })
