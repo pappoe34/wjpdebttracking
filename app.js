@@ -4354,6 +4354,8 @@ function updateUI() {
     // Phase 0 — Debt Payoff Engine + Linked Assets cards
     try { if (typeof renderDebtPayoffEngine === 'function') renderDebtPayoffEngine(); } catch(_){}
     try { if (typeof renderLinkedAssets === 'function') renderLinkedAssets(); } catch(_){}
+    // Phase 2 — Money-Left widget (real income vs spending)
+    try { if (typeof renderMoneyLeftWidget === 'function') renderMoneyLeftWidget(); } catch(_){}
     // Phase 0 — surface unpayable-debt notification after every simulation
     try {
         if (typeof simulateAllStrategies === 'function' && typeof notifyUnpayableDebts === 'function') {
@@ -7975,6 +7977,273 @@ function renderTransactions() {
 }
 
 /* ============================================================
+   PHASE 2 — REAL INCOME & SPENDING TRACKER
+   - Detects recurring deposits from Plaid → auto-tags as income
+     (a single source recurring 2+ times with similar amount = trusted)
+   - Computes real income/spending this month from live transaction data
+   - Money-Left widget on Dashboard with daily burn forecast
+   - Feeds the Debt Payoff Engine's surplus calculation
+   ============================================================ */
+
+/** Scan Plaid transactions for recurring deposits and return income candidates.
+ *  Returns [{ payer, avgAmount, count, frequency, lastDate, firstDate }]. */
+function detectIncomeCandidates() {
+    const txns = (appState.transactions || []).filter(t =>
+        t && t.source === 'plaid' && (Number(t.amount) || 0) > 0 && !t.synthetic
+    );
+    if (!txns.length) return [];
+
+    // Group by normalized merchant/payer name
+    const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+    const groups = {};
+    txns.forEach(t => {
+        const key = norm(t.merchant || t.name || 'unknown');
+        if (!key) return;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(t);
+    });
+
+    const candidates = [];
+    Object.entries(groups).forEach(([key, list]) => {
+        if (list.length < 2) return; // need 2+ to confirm "recurring"
+        // Check amount similarity — within 10%
+        const amounts = list.map(t => Number(t.amount) || 0);
+        const avgAmt = amounts.reduce((s,n)=>s+n,0) / amounts.length;
+        const maxDelta = Math.max(...amounts.map(a => Math.abs(a - avgAmt)));
+        if (avgAmt < 50) return; // ignore micro-deposits
+        if (maxDelta / avgAmt > 0.15) return; // amounts too inconsistent
+
+        // Compute frequency — average days between deposits
+        const dates = list.map(t => new Date(t.date)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
+        if (dates.length < 2) return;
+        const intervals = [];
+        for (let i = 1; i < dates.length; i++) intervals.push((dates[i] - dates[i-1]) / 86400000);
+        const avgInterval = intervals.reduce((s,n)=>s+n,0) / intervals.length;
+
+        let frequency = 'monthly';
+        if (avgInterval >= 6 && avgInterval <= 8) frequency = 'weekly';
+        else if (avgInterval >= 13 && avgInterval <= 16) frequency = 'biweekly';
+        else if (avgInterval >= 28 && avgInterval <= 32) frequency = 'monthly';
+        else if (avgInterval >= 13 && avgInterval <= 17) frequency = 'biweekly'; // looser bound
+        else return; // not on a clean recurring schedule
+
+        candidates.push({
+            payer: list[0].merchant || list[0].name || 'Income',
+            payerKey: key,
+            avgAmount: Math.round(avgAmt * 100) / 100,
+            count: list.length,
+            frequency,
+            firstDate: dates[0].toISOString().slice(0,10),
+            lastDate: dates[dates.length-1].toISOString().slice(0,10),
+            transactionIds: list.map(t => t.id)
+        });
+    });
+    return candidates;
+}
+window.detectIncomeCandidates = detectIncomeCandidates;
+
+/** Auto-add detected income sources as recurring entries. Idempotent —
+ *  runs after every Plaid sync; uses `payerKey` as a stable identifier
+ *  so we never duplicate. User can edit/override later. */
+function applyDetectedIncome() {
+    const candidates = detectIncomeCandidates();
+    if (!candidates.length) return;
+    if (!Array.isArray(appState.recurring)) appState.recurring = [];
+
+    let added = 0;
+    candidates.forEach(c => {
+        const existingId = 'auto-income:' + c.payerKey;
+        const existing = appState.recurring.find(r => r.id === existingId);
+        if (existing) {
+            // Update with latest detected values
+            existing.amount = c.avgAmount;
+            existing.frequency = c.frequency;
+            existing.lastDetected = Date.now();
+            existing.detectionCount = c.count;
+            return;
+        }
+        // Compute next-occurrence date based on frequency + lastDate
+        const lastDate = new Date(c.lastDate);
+        let nextDate = new Date(lastDate);
+        const stepDays = c.frequency === 'weekly' ? 7 : c.frequency === 'biweekly' ? 14 : 30;
+        nextDate.setDate(nextDate.getDate() + stepDays);
+        // Roll forward to today if the next date is in the past
+        while (nextDate < new Date()) nextDate.setDate(nextDate.getDate() + stepDays);
+        appState.recurring.push({
+            id: existingId,
+            name: c.payer,
+            description: c.payer + ' (auto-detected)',
+            amount: c.avgAmount,
+            frequency: c.frequency,
+            category: 'income',
+            linkedIncome: true,
+            nextDate: nextDate.toISOString().slice(0,10),
+            source: 'plaid-auto',
+            detectionCount: c.count,
+            lastDetected: Date.now(),
+            createdAt: Date.now()
+        });
+        added++;
+    });
+
+    if (added > 0) {
+        try { saveState(); } catch(_){}
+        if (typeof showToast === 'function') showToast('Detected ' + added + ' new income source' + (added===1?'':'s') + ' from your bank.');
+        if (typeof logActivity === 'function') {
+            logActivity({
+                title: 'Income auto-detected',
+                text: added + ' recurring deposit' + (added===1?'':'s') + ' classified as income from Plaid sync.',
+                type: 'budget',
+                priority: 'normal'
+            });
+        }
+    }
+}
+window.applyDetectedIncome = applyDetectedIncome;
+
+/** Compute REAL income this month from Plaid deposits + auto-detected
+ *  recurring income + manual income entries. This is the canonical
+ *  value used by the Debt Payoff Engine and Money-Left widget. */
+function computeRealMonthlyIncome() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 1. Plaid deposits this month (true real money received)
+    const plaidIncome = (appState.transactions || [])
+        .filter(t => t && t.source === 'plaid' && (Number(t.amount) || 0) > 0 && new Date(t.date) >= monthStart)
+        .reduce((s, t) => s + Number(t.amount), 0);
+    if (plaidIncome > 0) return plaidIncome;
+
+    // 2. Auto-detected recurring income (averaged forward)
+    const autoIncome = (appState.recurring || [])
+        .filter(r => r && r.category === 'income' && r.source === 'plaid-auto')
+        .reduce((s, r) => {
+            const amt = Math.abs(Number(r.amount) || 0);
+            // Project to monthly equivalent based on frequency
+            if (r.frequency === 'weekly') return s + amt * 4.33;
+            if (r.frequency === 'biweekly') return s + amt * 2.17;
+            return s + amt; // monthly default
+        }, 0);
+    if (autoIncome > 0) return Math.round(autoIncome);
+
+    // 3. Manual income recurring entries
+    const manualRecurringIncome = (appState.recurring || [])
+        .filter(r => r && (r.category === 'income' || r.linkedIncome) && r.source !== 'plaid-auto')
+        .reduce((s, r) => s + Math.abs(Number(r.amount) || 0), 0);
+    if (manualRecurringIncome > 0) return manualRecurringIncome;
+
+    // 4. Fallback to user-typed manual income
+    return Number((appState.balances && appState.balances.monthlyIncome) || (appState.budget && appState.budget.monthlyIncome) || 0);
+}
+window.computeRealMonthlyIncome = computeRealMonthlyIncome;
+
+/** Compute the Money-Left snapshot for the current calendar month.
+ *  Returns { incomeMo, spentMo, leftMo, dailyBurn, forecastEnd, daysRemaining }.
+ */
+function computeMoneyLeft() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0);
+    const totalDays = monthEnd.getDate();
+    const dayOfMonth = now.getDate();
+    const daysRemaining = Math.max(1, totalDays - dayOfMonth);
+
+    const incomeMo = computeRealMonthlyIncome();
+
+    // Real spending this month: ALL non-synthetic outflows (Plaid + manual)
+    const spentMo = (appState.transactions || [])
+        .filter(t => t && !t.synthetic && (Number(t.amount) || 0) < 0 && new Date(t.date) >= monthStart)
+        .reduce((s, t) => s + Math.abs(Number(t.amount) || 0), 0);
+
+    const leftMo = incomeMo - spentMo;
+    const dailyBurn = dayOfMonth > 0 ? spentMo / dayOfMonth : 0;
+    const projectedRemaining = dailyBurn * daysRemaining;
+    const forecastEnd = leftMo - projectedRemaining;
+
+    return { incomeMo, spentMo, leftMo, dailyBurn, forecastEnd, daysRemaining, dayOfMonth, totalDays };
+}
+window.computeMoneyLeft = computeMoneyLeft;
+
+/** Variance alert — flags when 30-day spending outpaces 90-day average. */
+function detectSpendingVariance() {
+    const now = new Date();
+    const txns = (appState.transactions || []).filter(t => t && !t.synthetic && (Number(t.amount) || 0) < 0);
+    const cutoff30 = new Date(now.getTime() - 30 * 86400000);
+    const cutoff90 = new Date(now.getTime() - 90 * 86400000);
+    const spend30 = txns.filter(t => new Date(t.date) >= cutoff30).reduce((s,t)=>s+Math.abs(t.amount),0);
+    const spend90 = txns.filter(t => new Date(t.date) >= cutoff90 && new Date(t.date) < cutoff30).reduce((s,t)=>s+Math.abs(t.amount),0);
+    const baseline30avg = spend90 / 2; // 60 days of trailing data → 30d-equivalent average
+    if (baseline30avg < 100 || spend30 < 100) return null;
+    const ratio = spend30 / baseline30avg;
+    if (ratio > 1.20) {
+        return {
+            severity: ratio > 1.5 ? 'high' : 'medium',
+            ratio: Math.round(ratio * 100),
+            spend30: Math.round(spend30),
+            baseline: Math.round(baseline30avg),
+            delta: Math.round(spend30 - baseline30avg)
+        };
+    }
+    return null;
+}
+window.detectSpendingVariance = detectSpendingVariance;
+
+/** Render the Money-Left dashboard widget. */
+function renderMoneyLeftWidget() {
+    const host = document.getElementById('money-left-body');
+    if (!host) return;
+    const data = computeMoneyLeft();
+    const variance = detectSpendingVariance();
+    const fmt = n => '$' + Math.round(Math.abs(Number(n)||0)).toLocaleString();
+    const sign = n => (n < 0 ? '−' : '');
+    const leftColor = data.leftMo < 0 ? '#ef4444' : data.leftMo < (data.dailyBurn * data.daysRemaining) ? '#fbbf24' : '#22c55e';
+    const forecastColor = data.forecastEnd < 0 ? '#ef4444' : data.forecastEnd < 200 ? '#fbbf24' : '#22c55e';
+
+    const pct = data.incomeMo > 0 ? Math.min(100, Math.round((data.spentMo / data.incomeMo) * 100)) : 0;
+    const pctColor = pct < 60 ? '#22c55e' : pct < 90 ? '#fbbf24' : '#ef4444';
+
+    const monthName = new Date().toLocaleString('en-US', { month: 'long' });
+
+    host.innerHTML = `
+        <div style="text-align:center;padding:8px 0 12px;">
+            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Money Left · ${monthName}</div>
+            <div style="font-size:34px;font-weight:900;color:${leftColor};margin-top:4px;letter-spacing:-1px;">${sign(data.leftMo)}${fmt(data.leftMo)}</div>
+            <div style="font-size:10px;color:var(--text-3);margin-top:2px;">Day ${data.dayOfMonth} of ${data.totalDays} · ${data.daysRemaining} day${data.daysRemaining===1?'':'s'} left</div>
+        </div>
+
+        <div style="background:var(--card-2);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:10px;color:var(--text-3);font-weight:700;">Spent ${fmt(data.spentMo)} of ${fmt(data.incomeMo)}</span>
+                <span style="font-size:11px;font-weight:800;color:${pctColor};">${pct}%</span>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                <div style="height:6px;width:${pct}%;background:${pctColor};transition:width 0.3s;"></div>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="background:var(--card-2);border-radius:8px;padding:10px;">
+                <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.05em;">Daily Burn</div>
+                <div style="font-size:14px;font-weight:800;margin-top:4px;">${fmt(data.dailyBurn)}<span style="font-size:9px;color:var(--text-3);font-weight:600;">/day</span></div>
+            </div>
+            <div style="background:var(--card-2);border-radius:8px;padding:10px;">
+                <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.05em;">Forecast End-of-Mo</div>
+                <div style="font-size:14px;font-weight:800;color:${forecastColor};margin-top:4px;">${sign(data.forecastEnd)}${fmt(data.forecastEnd)}</div>
+            </div>
+        </div>
+
+        ${variance ? `<div style="margin-top:10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.30);border-radius:8px;padding:9px 12px;font-size:10px;color:#ef4444;font-weight:600;">
+            ⚠ Spending up ${variance.ratio - 100}% vs your 60-day baseline. ${fmt(variance.delta)} over normal.
+        </div>` : ''}
+
+        ${data.incomeMo === 0 ? `<div style="margin-top:10px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:10px;color:var(--text-3);">
+            💡 No income detected yet this month. Once your paycheck hits, this card will populate automatically.
+        </div>` : ''}
+    `;
+}
+window.renderMoneyLeftWidget = renderMoneyLeftWidget;
+
+/* ============================================================
    PHASE 0 — DEBT PAYOFF ENGINE
    Single source of truth for the user's monthly debt extra payment.
    - Stored at appState.budget.contribution
@@ -8017,11 +8286,10 @@ window.setMonthlyAllocation = setMonthlyAllocation;
  *  Returns { income, recurringBills, debtMinimums, surplus }.
  */
 function computePayoffSurplus() {
-    const income = Number(
-        (appState.balances && appState.balances.monthlyIncome) ||
-        (appState.budget && appState.budget.monthlyIncome) ||
-        0
-    );
+    // Phase 2 — prefer real Plaid-detected income over manual estimate
+    const income = (typeof computeRealMonthlyIncome === 'function')
+        ? computeRealMonthlyIncome()
+        : Number((appState.balances && appState.balances.monthlyIncome) || (appState.budget && appState.budget.monthlyIncome) || 0);
     const recurringBills = (appState.recurring || [])
         .filter(r => r && r.category !== 'income' && !r.linkedIncome)
         .reduce((s, r) => s + Math.abs(r.amount || 0), 0);
@@ -8162,6 +8430,7 @@ window.renderLinkedAssets = renderLinkedAssets;
 // === Cascade: when allocation changes, every consuming view re-renders ===
 window.addEventListener('wjp-allocation-changed', () => {
     try { renderDebtPayoffEngine(); } catch(_){}
+    try { renderMoneyLeftWidget && renderMoneyLeftWidget(); } catch(_){}
     try { drawCharts && drawCharts(); } catch(_){}
     try { renderTransactions && renderTransactions(); } catch(_){}
     try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
@@ -12761,6 +13030,9 @@ async function syncBankTransactions(opts) {
         // Phase 1 — Run the dedup detector after every successful sync.
         // Adds new pairs to appState.txnReviewQueue (never auto-merges).
         try { if (typeof detectTransactionDuplicates === 'function') detectTransactionDuplicates(); } catch(_){}
+        // Phase 2 — Auto-detect recurring income deposits and add them as
+        // recurring entries (idempotent — safe to call after every sync).
+        try { if (typeof applyDetectedIncome === 'function') applyDetectedIncome(); } catch(_){}
 
         return { paymentsApplied, totalPaid, chargesSeen };
     } finally {
