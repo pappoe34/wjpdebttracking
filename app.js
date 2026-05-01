@@ -1799,7 +1799,19 @@ function drawCharts() {
     function drawEliminationChart(canvasId) {
         const c = document.getElementById(canvasId);
         if (!c) return;
-        
+        // PHASE 3.5.1 hot-fix: same Chart-loading guard + canvas-reuse safety as drawDonut/drawWeeklyBars
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawEliminationChart(canvasId); } catch(_){} });
+            }
+            return;
+        }
+        try {
+            if (typeof Chart.getChart === 'function') {
+                const _existing = Chart.getChart(c);
+                if (_existing) _existing.destroy();
+            }
+        } catch(_) {}
         if (chartInstances[canvasId]) {
             chartInstances[canvasId].destroy();
         }
