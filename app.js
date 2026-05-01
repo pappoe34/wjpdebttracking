@@ -8528,9 +8528,11 @@ window.addEventListener('wjp-allocation-changed', () => {
 // === Phase 4 — payment-applied event for live Calendar repaint ===
 // Fired by syncBankTransactions whenever a Plaid payment is matched to a debt.
 // Listened by Calendar to immediately repaint that day cell as ✓ paid.
+// Phase 5 — also re-runs the milestone scan so paid-off / threshold alerts fire.
 window.addEventListener('wjp-payment-applied', () => {
     try { if (typeof renderMainCalendar === 'function') renderMainCalendar(); } catch(_){}
     try { if (typeof renderMoneyLeftWidget === 'function') renderMoneyLeftWidget(); } catch(_){}
+    try { if (typeof scheduleMilestoneScan === 'function') scheduleMilestoneScan(); } catch(_){}
 });
 
 function simulateAllStrategies() {
@@ -9602,12 +9604,106 @@ function generateAiResponse(input) {
 }
 
 /* ---------- NOTIFICATION ENGINE ---------- */
+/**
+ * Phase 5 — Payment-due scanner.
+ * Surfaces a high-priority notification for every debt due within 3 days,
+ * once per debt per due-date. Respects user prefs via canNotify().
+ */
+function schedulePaymentDueScans() {
+    if (!appState.debts || !appState.debts.length) return;
+    if (!appState.notifSent) appState.notifSent = {};
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    appState.debts.forEach(d => {
+        const dom = parseInt(d.dueDate || d.dueDay);
+        if (!dom) return;
+        let dueDate = new Date(today.getFullYear(), today.getMonth(), dom);
+        if (dueDate < todayStart) dueDate = new Date(today.getFullYear(), today.getMonth() + 1, dom);
+        const daysUntil = Math.ceil((dueDate - todayStart) / 86400000);
+        if (daysUntil < 0 || daysUntil > 3) return;
+        const cycleKey = `paymentDue:${d.id}:${dueDate.toISOString().slice(0,10)}`;
+        if (appState.notifSent[cycleKey]) return;
+        appState.notifSent[cycleKey] = Date.now();
+        const fmtMoney = n => '$' + Math.round(n||0).toLocaleString();
+        const whenStr = daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
+        pushNotification({
+            id: 'pd_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+            type: 'paymentDue',
+            priority: daysUntil <= 1 ? 'high' : 'normal',
+            title: `${d.name} due ${whenStr}`,
+            text: `Minimum payment ${fmtMoney(d.minPayment)} · ${d.apr || 0}% APR. Make sure funds are available.`,
+            link: '#debts',
+            timestamp: Date.now(),
+            cleared: false,
+            read: false
+        }, 'paymentDue');
+    });
+    try { saveState(); } catch(_){}
+}
+window.schedulePaymentDueScans = schedulePaymentDueScans;
+
+/**
+ * Phase 5 — Milestone scanner.
+ * Fires when a debt clears (balance drops to 0) or hits a 50%/75% threshold
+ * versus its peak balance. Idempotent via notifSent keys.
+ */
+function scheduleMilestoneScan() {
+    if (!appState.debts || !appState.debts.length) return;
+    if (!appState.notifSent) appState.notifSent = {};
+    if (!appState.debtPeaks) appState.debtPeaks = {};
+    appState.debts.forEach(d => {
+        const id = d.id;
+        const cur = Number(d.balance) || 0;
+        // Track peak balance — used for percentage milestones
+        if (!appState.debtPeaks[id] || cur > appState.debtPeaks[id]) {
+            appState.debtPeaks[id] = cur;
+        }
+        const peak = appState.debtPeaks[id] || cur;
+        if (peak <= 0) return;
+        const paidPct = 1 - cur / peak;
+        const fire = (threshold, label) => {
+            const key = `milestone:${id}:${label}`;
+            if (appState.notifSent[key]) return;
+            if (paidPct < threshold - 0.01) return;
+            appState.notifSent[key] = Date.now();
+            pushNotification({
+                id: 'ms_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+                type: 'milestone',
+                priority: threshold === 1 ? 'high' : 'normal',
+                title: threshold === 1 ? `🎉 ${d.name} paid off!` : `${d.name} ${label} milestone`,
+                text: threshold === 1
+                    ? `${d.name} balance hit zero. The minimum + your accelerator now cascade to your next priority debt.`
+                    : `You've paid ${Math.round(paidPct*100)}% of ${d.name}. Keep going.`,
+                link: '#debts',
+                timestamp: Date.now(),
+                cleared: false,
+                read: false
+            }, 'milestone');
+        };
+        fire(0.5, '50%');
+        fire(0.75, '75%');
+        fire(1.0, 'paid-off');
+    });
+    try { saveState(); } catch(_){}
+}
+window.scheduleMilestoneScan = scheduleMilestoneScan;
+
 function initNotifications() {
     if (!appState.notifications) {
         appState.notifications = [];
         saveState();
     }
-    
+
+    // Phase 5 — Real payment-due scanner. Runs once per page load.
+    // For each debt with a due date within the next 3 days, fires a
+    // 'paymentDue' notification through pushNotification (which respects
+    // Communication Hub channel/type toggles + Quiet Hours). Idempotent
+    // per debt per due-date via a key stored in appState.
+    try { schedulePaymentDueScans(); } catch(_){}
+    try { scheduleMilestoneScan(); } catch(_){}
+
+
     // NotebookLM Algorithmic Scan Simulation (Proposal B)
     if (!window.sessionNotebookLMRun && appState.debts && appState.debts.length > 0) {
         window.sessionNotebookLMRun = true;
@@ -15331,22 +15427,27 @@ function initAdvisorPageLogic() {
         // Real, in-product help. Each article expands an answer pulled from
         // the actual app behavior — no external doc site to maintain, no
         // fake links. The 'Email us' button is wired to mailto.
+        // Help articles. Each carries a `reviewed` ISO date so users know when
+        // the answer was last verified against the live product.
+        const REVIEW_DATE = '2026-04-30'; // Phase 5 review pass
         const articles = [
-            { title: 'Getting started with debt payoff strategies', tag: 'Strategy', body:
+            { title: 'Getting started with debt payoff strategies', tag: 'Strategy', reviewed: REVIEW_DATE, body:
                 'Pick a strategy on the dashboard. <strong>Avalanche</strong> targets the highest APR first — math-optimal for total interest. <strong>Snowball</strong> targets the smallest balance — best for momentum/psychology. <strong>Hybrid</strong> blends both. Tap any of them on the Top-3 strategy bar to switch.' },
-            { title: 'How to add and manage your debts', tag: 'Debts', body:
+            { title: 'How to add and manage your debts', tag: 'Debts', reviewed: REVIEW_DATE, body:
                 'Click <strong>+ Add</strong> in the top-right. Pick Loan or Credit Card. Required fields: name, balance, APR, minimum payment, due date. You can also drag a statement PDF to auto-fill via OCR.' },
-            { title: 'Understanding Avalanche vs Snowball', tag: 'Education', body:
+            { title: 'Understanding Avalanche vs Snowball', tag: 'Education', reviewed: REVIEW_DATE, body:
                 'Both pay minimums on every debt every month. The difference is where the EXTRA goes. Avalanche → highest APR (saves the most interest). Snowball → smallest balance (knocks debts out fast). Hybrid scores both and balances.' },
-            { title: 'Linking your bank account', tag: 'Accounts', body:
-                'Open Settings → Linked Accounts → Connect via Plaid. Plaid uses OAuth + bank-level encryption — WJP never sees your password. Sandbox mode is free; live banks unlock with Pro.' },
-            { title: 'Setting up payment reminders & push', tag: 'Notifications', body:
-                'Settings → Communication Hub. Toggle Email / Push / SMS, pick which alert types fire (Payment Due, Milestone, Strategy Change, etc.), set Quiet Hours. Click "Enable browser push" to get desktop notifications.' },
-            { title: 'Exporting your data', tag: 'Data', body:
-                'Transactions tab → Export button. Outputs CSV. For full state, your data lives in localStorage scoped per-account; we never upload it to a server unless you opt-in.' },
-            { title: 'Resolve duplicate recurring entries', tag: 'Recurring', body:
-                'Recurring Payments tab → if a yellow banner appears, click "Review duplicates". Pick which entry to keep in each group.' },
-            { title: 'Customize your dashboard', tag: 'UI', body:
+            { title: 'Linking your bank account', tag: 'Accounts', reviewed: REVIEW_DATE, body:
+                'Open Settings → Linked Accounts → Connect New Bank. Plaid Production uses OAuth + bank-level encryption — WJP never sees your password. The Bank Health button at the top shows the live sync status of every connected institution.' },
+            { title: 'Setting up payment reminders & push', tag: 'Notifications', reviewed: REVIEW_DATE, body:
+                'Settings → Communication Hub. Toggle Email / Push / SMS, pick which alert types fire (Payment Due, Milestone, Strategy Change, etc.), set Quiet Hours. Click "Enable browser push" to get desktop notifications. Muted types still appear in the Activity Log audit trail.' },
+            { title: 'Exporting your data', tag: 'Data', reviewed: REVIEW_DATE, body:
+                'Transactions tab → Export button. Outputs CSV. Plaid-synced transactions live encrypted in Firestore (per-user scope); manual entries stay in localStorage. Use <strong>Settings → Linked Accounts → Unlink</strong> to revoke any bank connection.' },
+            { title: 'Resolve duplicate transactions (Plaid + manual)', tag: 'Recurring', reviewed: REVIEW_DATE, body:
+                'When Plaid syncs a transaction that overlaps with one you entered manually, the pair shows up in the <strong>Review</strong> tab on Detailed Transactions. Pick Merge / Not a Duplicate / Delete Plaid per pair. We never auto-merge — you always approve.' },
+            { title: 'Household Mode setup', tag: 'Household', reviewed: REVIEW_DATE, body:
+                'Settings → Household Mode (Pro Plus only). Owner invites by email → invitee accepts via the link in their email → owner can request data access (member must approve separately). Pricing: $14.99/mo base + $3 per extra member.' },
+            { title: 'Customize your dashboard', tag: 'UI', reviewed: REVIEW_DATE, body:
                 'Dashboard → Customize layout. Drag any card anywhere. Use S/M/L/Full size buttons. Toggle Auto-fit to snap cards together. Press <kbd>?</kbd> for keyboard shortcuts.' },
         ];
         openSettingsDrawer({
@@ -15366,7 +15467,7 @@ function initAdvisorPageLogic() {
                         <i class="ph ph-caret-down help-caret" style="color:var(--text-3);font-size:12px;transition:transform 0.2s;"></i>
                       </div>
                     </div>
-                    <div class="help-article-body" style="display:none;padding:0 12px 12px;font-size:11px;color:var(--text-2);line-height:1.6;">${a.body}</div>
+                    <div class="help-article-body" style="display:none;padding:0 12px 12px;font-size:11px;color:var(--text-2);line-height:1.6;">${a.body}<div style="font-size:9px;color:var(--text-3);margin-top:8px;font-style:italic;">Last reviewed: ${a.reviewed || REVIEW_DATE}</div></div>
                   </div>`).join('')}
                 </div>
                 <button id="help-email-btn" class="btn btn-primary" style="width:100%;padding:11px;font-size:11px;margin-top:6px;"><i class="ph ph-envelope-simple"></i> Can't find it? Email support</button>
