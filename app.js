@@ -2736,11 +2736,20 @@ function drawCharts() {
                         <div><div class="card-label" style="margin-bottom:4px;">AI Projected Freedom Date</div><div style="font-size:16px; font-weight:800; color:var(--text-3);">—</div></div>
                         <div style="text-align:right;"><div class="card-label" style="margin-bottom:4px;">Velocity Trend</div><div style="font-size:16px; font-weight:800; color:var(--text-3);">—</div></div>`;
                 } else {
-                    const monthsLeft = totalMin > 0 ? Math.ceil(totalDebt / totalMin) : 999;
+                    // Phase 2: route through simulateAllStrategies() so this matches every other date display.
+                    // Was naive Math.ceil(totalDebt/totalMin) which ignored interest entirely.
+                    const _sim = (typeof simulateAllStrategies === 'function') ? simulateAllStrategies() : null;
+                    const _strat = (appState.settings && appState.settings.strategy) || 'avalanche';
+                    const monthsLeft = (_sim && _sim.simulations[_strat] && _sim.simulations[_strat].months > 0)
+                        ? _sim.simulations[_strat].months
+                        : (totalMin > 0 ? Math.ceil(totalDebt / totalMin) : 999);
                     const freedomDate = new Date(); freedomDate.setMonth(freedomDate.getMonth() + monthsLeft);
                     const dateStr = freedomDate.toLocaleDateString('en-US', { month:'short', year:'numeric' }).toUpperCase();
+                    // Phase 2: include scenario subtitle so users know which strategy + extra produced this date
+                    let _scenLbl = '';
+                    try { _scenLbl = (typeof getDateScenarioLabel === 'function') ? getDateScenarioLabel() : ''; } catch(_) {}
                     bottomGrid.innerHTML = `
-                        <div><div class="card-label" style="margin-bottom:4px;">AI Projected Freedom Date</div><div style="font-size:16px; font-weight:800; color:var(--accent);">${dateStr}</div></div>
+                        <div><div class="card-label" style="margin-bottom:4px;">AI Projected Freedom Date</div><div style="font-size:16px; font-weight:800; color:var(--accent);">${dateStr}</div>${_scenLbl ? `<div style="font-size:9px;color:var(--text-3);margin-top:3px;">${_scenLbl}</div>` : ''}</div>
                         <div style="text-align:right;"><div class="card-label" style="margin-bottom:4px;">Velocity Trend</div><div style="font-size:16px; font-weight:800; color:var(--accent); display:flex; align-items:center; justify-content:flex-end; gap:6px;"><i class="ph ph-trend-up"></i> Active</div></div>`;
                 }
             }
@@ -4718,7 +4727,14 @@ function updateUI() {
              future.setMonth(future.getMonth() + activeSim.months);
              
              if(elEstCompletion) elEstCompletion.innerHTML = `${future.toLocaleString('default', { month: 'long' })} <span style="font-size:18px; color:var(--accent)">${future.getFullYear()}</span>`;
-             if(elEstMonths) elEstMonths.innerHTML = `<i class="ph ph-calendar"></i> ${activeSim.months} Months`;
+             // Phase 2: scenario subtitle so this date is self-documenting
+             try {
+                 const _scen = (typeof getDateScenarioLabel === 'function') ? getDateScenarioLabel() : '';
+                 if (elEstMonths && _scen) elEstMonths.innerHTML = `<i class="ph ph-calendar"></i> ${activeSim.months} Months · ${_scen}`;
+                 else if (elEstMonths) elEstMonths.innerHTML = `<i class="ph ph-calendar"></i> ${activeSim.months} Months`;
+             } catch(_) {
+                 if (elEstMonths) elEstMonths.innerHTML = `<i class="ph ph-calendar"></i> ${activeSim.months} Months`;
+             }
              if(elEstInterest) elEstInterest.textContent = fmt(activeSim.interest);
              
              if (strategy !== bestStrat && activeSim.interest > simData.simulations[bestStrat].interest) {
@@ -5054,6 +5070,12 @@ function updateUI() {
                         const mStr = freedomDate.toLocaleString('default', { month: 'short' });
                         const yStr = freedomDate.getFullYear();
                         if (elFreedom) elFreedom.textContent = `${mStr} ${yStr}`;
+                        // Phase 2: replace 'ADD DEBTS TO PROJECT' sublabel with scenario context
+                        try {
+                            const _scen = (typeof getDateScenarioLabel === 'function') ? getDateScenarioLabel() : '';
+                            const _sub = elFreedom && elFreedom.parentElement && elFreedom.parentElement.querySelector('.card-sub');
+                            if (_sub && _scen) _sub.textContent = _scen;
+                        } catch(_) {}
                     } else if (elFreedom) {
                         elFreedom.textContent = '—';
                     }
@@ -5084,12 +5106,16 @@ function renderUpcomingList() {
     const listView = document.getElementById('upcoming-list-view');
     if (!listView) return;
 
-    if (appState.debts.length === 0) {
+    // Phase 2: empty when BOTH debts AND active recurring are empty
+    const _hasDebts = (appState.debts || []).length > 0;
+    const _activeRec = (appState.recurringPayments || [])
+        .filter(r => !r.status || (r.status !== 'cancelled' && r.status !== 'paused')).length;
+    if (!_hasDebts && _activeRec === 0) {
         listView.innerHTML = `
             <div style="text-align:center; padding:40px 16px;">
                 <i class="ph ph-calendar-x" style="font-size:36px; color:rgba(255,255,255,0.2); display:block; margin-bottom:12px;"></i>
                 <div style="font-size:13px; font-weight:600; color:rgba(255,255,255,0.4); margin-bottom:4px;">No upcoming payments</div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.25); line-height:1.5;">Add your debts to see your<br>payment schedule here</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.25); line-height:1.5;">Add your debts or recurring bills<br>to see your schedule here</div>
             </div>`;
         return;
     }
@@ -5100,7 +5126,22 @@ function renderUpcomingList() {
     const bgMap  = { 'ph-house': 'rgba(255,77,109,0.12)', 'ph-student': 'var(--accent-dim)', 'ph-car': 'rgba(102,126,234,0.12)', 'ph-credit-card': 'rgba(255,171,64,0.12)', 'ph-currency-dollar': 'rgba(255,255,255,0.05)' };
     const clrMap = { 'ph-house': 'var(--danger)', 'ph-student': 'var(--accent)', 'ph-car': '#667eea', 'ph-credit-card': '#ffab40', 'ph-currency-dollar': 'var(--text-2)' };
 
-    const sorted = [...appState.debts].map(d => {
+    // Phase 2: include user-managed recurring payments so this list matches the
+    // Recurring Payments page count. Was: only debts. Now: debts + active recurring.
+    const debtItems = (appState.debts || []).map(d => ({
+        name: d.name, minPayment: d.minPayment, apr: d.apr,
+        dueDate: parseInt(d.dueDate) || 15, _kind: 'debt'
+    }));
+    const recItems = (appState.recurringPayments || [])
+        .filter(r => !r.status || (r.status !== 'cancelled' && r.status !== 'paused'))
+        .map(r => ({
+            name: r.name || r.description || 'Recurring',
+            minPayment: Math.abs(r.amount || 0),
+            apr: 0,
+            dueDate: parseInt(r.anchorDay || r.nextDay || r.dueDate) || 15,
+            _kind: 'recurring'
+        }));
+    const sorted = [...debtItems, ...recItems].map(d => {
         const day = parseInt(d.dueDate) || 15;
         const daysUntil = day >= today ? day - today : (30 - today + day);
         return { ...d, daysUntil, day };
@@ -8250,6 +8291,48 @@ function computeMoneyLeft() {
     return { incomeMo, spentMo, leftMo, dailyBurn, forecastEnd, daysRemaining, dayOfMonth, totalDays };
 }
 window.computeMoneyLeft = computeMoneyLeft;
+
+/* PHASE 2: Single source for "(Avalanche · with $X/mo extra)" subtitle on every date display.
+ * Reused by hero, dashboard tile, Debts Overview, and Analysis tab so they all show the same scenario. */
+function getDateScenarioLabel() {
+    const strat = (appState.settings && appState.settings.strategy) || 'avalanche';
+    const stratName = strat.charAt(0).toUpperCase() + strat.slice(1);
+    let extraInfo = { extra: 0, source: 'auto' };
+    try { extraInfo = (typeof getEffectiveExtraContribution === 'function' ? getEffectiveExtraContribution() : null) || extraInfo; } catch(_) {}
+    const extra = Number(extraInfo.extra) || 0;
+    if (extra > 0) {
+        const fmt = '$' + Math.round(extra).toLocaleString();
+        return stratName + ' · with ' + fmt + '/mo extra';
+    }
+    return stratName + ' · minimums only';
+}
+window.getDateScenarioLabel = getDateScenarioLabel;
+
+/* PHASE 2: Single source of truth for the resilience health verdict.
+ * Both Resilience tab AND Budgets > Wellness Tier now read from this so they always agree. */
+function computeResilienceSnapshot() {
+    const income = (appState.balances && appState.balances.monthlyIncome) || 0;
+    const debts = appState.debts || [];
+    const totalDebt = debts.reduce(function(s, d) { return s + (d.balance || 0); }, 0);
+    const totalMinPay = debts.reduce(function(s, d) { return s + (d.minPayment || 0); }, 0);
+    const monthlyExp = (appState.budget && appState.budget.expenses)
+        ? Object.values(appState.budget.expenses).reduce(function(s, v) { return s + (Number(v) || 0); }, 0)
+        : 0;
+    const emergencyFund = (appState.budget && Number(appState.budget.emergencyFund)) || 0;
+    const cashflowBuffer = income - totalMinPay - monthlyExp;
+    const dtiRatio = income > 0 ? ((totalMinPay / income) * 100) : 0;
+    const liquidAssets = emergencyFund + (cashflowBuffer > 0 ? cashflowBuffer * 3 : 0);
+    const dtaRatio = totalDebt > 0 ? (liquidAssets / totalDebt) : Infinity;
+    const efScore = income > 0 ? Math.min(30, (emergencyFund / (income * 3)) * 30) : 0;
+    const dtiScore = Math.max(0, 30 - (dtiRatio / 2));
+    const cfScore = income > 0 && cashflowBuffer > 0 ? Math.min(20, (cashflowBuffer / income) * 40) : 0;
+    const dtaScore = Math.min(20, (dtaRatio === Infinity ? 20 : dtaRatio) * 10);
+    const totalScore = income === 0 ? 0 : Math.round(efScore + dtiScore + cfScore + dtaScore);
+    const label = totalScore >= 80 ? 'Strong' : totalScore >= 60 ? 'Moderate' : 'At Risk';
+    const color = totalScore >= 80 ? '#22c55e' : totalScore >= 60 ? '#fbbf24' : '#ff4d6d';
+    return { totalScore: totalScore, label: label, color: color };
+}
+window.computeResilienceSnapshot = computeResilienceSnapshot;
 
 /** Variance alert — flags when 30-day spending outpaces 90-day average. */
 function detectSpendingVariance() {
@@ -12750,6 +12833,19 @@ async function refreshLinkedAccounts() {
         if (d.source !== 'plaid') return true;
         const t = String(d.type||'').toLowerCase();
         return t === 'credit card' || t === 'loan';
+    });
+
+    // Phase 2: same protection for non-Plaid (CSV / manual / legacy) imports.
+    // Bank/checking/savings/deposit account types should NEVER be in appState.debts.
+    appState.debts = appState.debts.filter(d => {
+        const t = String((d && (d.type || d.accountType || d.account_type)) || '').toLowerCase();
+        if (!t) return true; // no type = leave alone, don't break legacy data
+        if (t.indexOf('check') >= 0 || t.indexOf('saving') >= 0 ||
+            t.indexOf('deposit') >= 0 || t.indexOf('money market') >= 0 ||
+            t === 'bank' || t === 'asset' || t === 'cash') {
+            return false;
+        }
+        return true;
     });
 
     // Reauth nudge: any item with an itemError needs the user to reconnect.
@@ -17995,10 +18091,13 @@ window.renderExpenseDistribution = renderExpenseDistribution;
 function renderDetailedTransactionsBudget() {
     const tbody = document.getElementById('dbg-detailed-txn-body');
     if (!tbody) return;
+    // Phase 2: show ALL real (non-synthetic) transactions, not just outflows.
+    // Was filter(t => t.amount < 0) which left this empty whenever the user had
+    // income-only or amounts stored as positive numbers. Now: 25 most recent.
     const txns = (appState.transactions || [])
-        .filter(t => t.amount < 0)
+        .filter(t => t && !t.synthetic)
         .sort((a,b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 10);
+        .slice(0, 25);
     if (!txns.length) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px;">
             <i class="ph ph-receipt" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>
@@ -18008,11 +18107,15 @@ function renderDetailedTransactionsBudget() {
     }
     tbody.innerHTML = txns.map(t => {
         const d = new Date(t.date);
+        const amt = Number(t.amount) || 0;
+        const isOut = amt < 0;
+        const sign = isOut ? '−' : '+';
+        const colour = isOut ? 'var(--danger)' : 'var(--accent)';
         return `<tr>
             <td class="txn-date">${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
-            <td style="font-weight:600;">${t.merchant || '(unnamed)'}</td>
+            <td style="font-weight:600;">${t.merchant || t.name || '(unnamed)'}</td>
             <td><span class="badge" style="background:rgba(0,0,0,0.3); font-size:9px;">${t.category || 'Other'}</span></td>
-            <td style="font-weight:700; color:var(--danger);">−$${Math.abs(t.amount).toFixed(2)}</td>
+            <td style="font-weight:700; color:${colour};">${sign}$${Math.abs(amt).toFixed(2)}</td>
         </tr>`;
     }).join('');
 }
@@ -18040,12 +18143,14 @@ function renderAIBudgetInsights() {
     const dti = income > 0 ? Math.round((totalMin / income) * 100) : 0;
     const savingsRate = income > 0 ? Math.round(((income - totalMin - realSpend) / income) * 100) : 0;
 
-    // Wellness tier
-    const wellnessTier = dti < 20 && savingsRate > 20 ? 'Excellent'
-        : dti < 36 && savingsRate > 10 ? 'Healthy'
-        : dti < 50 ? 'Moderate'
-        : 'Stretched';
-    const wellnessColor = wellnessTier === 'Excellent' ? '#00d4a8' : wellnessTier === 'Healthy' ? '#22c55e' : wellnessTier === 'Moderate' ? '#fbbf24' : '#ff4d6d';
+    // Phase 2: route Wellness Tier through the SAME source as the Resilience tab
+    // so they always agree. Was a separate DTI+savings formula that produced
+    // "Healthy" while Resilience said "At Risk" for the same financial state.
+    const _resSnap = (typeof computeResilienceSnapshot === 'function')
+        ? computeResilienceSnapshot()
+        : { totalScore: 0, label: '—', color: 'var(--text-3)' };
+    const wellnessTier = _resSnap.label;
+    const wellnessColor = _resSnap.color;
 
     // Replace the body inside this card after the header
     const summary = target.querySelector('p');
