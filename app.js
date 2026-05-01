@@ -3811,16 +3811,27 @@ function initModal() {
         formAsset.addEventListener('submit', (e) => {
             e.preventDefault();
             handleSuccessState(formAsset, () => {
+                // PHASE 3.5 fix: push to appState.linkedAssets (not .assets)
+                // with the shape renderLinkedAssets expects (balance, institutionName).
+                const _assetVal = parseFloat(document.getElementById('asset-value')?.value) || 0;
+                const _assetType = document.getElementById('asset-type')?.value || 'Investment';
                 const newAsset = {
-                    id: 'a' + Date.now(),
+                    id: 'manual:' + Date.now(),
                     name: document.getElementById('asset-name')?.value || 'New Asset',
-                    value: parseFloat(document.getElementById('asset-value')?.value) || 0,
-                    type: document.getElementById('asset-type')?.value || 'Investment',
-                    growth: parseFloat(document.getElementById('asset-growth')?.value) || 0
+                    balance: _assetVal,
+                    available: _assetVal,
+                    type: 'depository',
+                    subtype: String(_assetType).toLowerCase(),
+                    institutionName: 'Manual',
+                    source: 'manual',
+                    growth: parseFloat(document.getElementById('asset-growth')?.value) || 0,
+                    lastUpdated: Date.now()
                 };
 
+                if (!Array.isArray(appState.linkedAssets)) appState.linkedAssets = [];
+                appState.linkedAssets.push(newAsset);
                 if (!appState.assets) appState.assets = [];
-                appState.assets.push(newAsset);
+                appState.assets.push(Object.assign({ value: _assetVal }, newAsset));
 
                 appState.transactions.unshift({
                     id: 't' + Date.now(),
@@ -3988,6 +3999,33 @@ function renderMathBreakdown() {
         }
     } catch(_){}
     set('math-payoff', payoffStr);
+
+    // PHASE 3.5: also populate strategy + interest-saved rows so the
+    // Math Breakdown is fully self-contained (always visible now).
+    try {
+        const strat = (appState.settings && appState.settings.strategy) || 'avalanche';
+        const stratLabel = strat.charAt(0).toUpperCase() + strat.slice(1);
+        const stratExtra = surplus > 0 ? ' \u00b7 +' + fmtUsd(surplus) + '/mo extra' : ' \u00b7 minimums only';
+        set('math-strategy', stratLabel + stratExtra);
+        let savedTxt = '\u2014';
+        try {
+            const withExtra = calcSimTotals(strat, surplus, 0, 0);
+            const minOnly = calcSimTotals(strat, 0, 0, 0);
+            if (withExtra && minOnly && withExtra.totalInterest != null && minOnly.totalInterest != null) {
+                const saved = Math.max(0, minOnly.totalInterest - withExtra.totalInterest);
+                savedTxt = saved > 0 ? fmtUsd(saved) : '\u2014';
+            }
+        } catch(_){}
+        set('math-interest-saved', savedTxt);
+    } catch(_){}
+
+    // PHASE 3.5: force body visible on every render (toggle is now hidden)
+    try {
+        const _body = document.getElementById('math-breakdown-body');
+        if (_body) { _body.hidden = false; _body.removeAttribute('hidden'); }
+        const _tog = document.getElementById('math-breakdown-toggle');
+        if (_tog) _tog.style.display = 'none';
+    } catch(_){}
 
     // Sanity warnings
     const warnEl = document.getElementById('math-warning');
@@ -8332,8 +8370,10 @@ function computeRealMonthlyIncome() {
         .reduce((s, r) => s + Math.abs(Number(r.amount) || 0), 0);
     if (manualRecurringIncome > 0) return manualRecurringIncome;
 
-    // 4. Fallback to user-typed manual income
-    return Number((appState.balances && appState.balances.monthlyIncome) || (appState.budget && appState.budget.monthlyIncome) || 0);
+    // PHASE 3.5: do NOT fall back to manual budget.monthlyIncome - it is
+    // an onboarding-default that misleads Money Left and Allocation surplus.
+    // Return 0 so empty-state copy fires. (Sentinel: P35_REAL_INCOME)
+    return 0;
 }
 window.computeRealMonthlyIncome = computeRealMonthlyIncome;
 
@@ -8634,10 +8674,31 @@ function renderLinkedAssets() {
     if (!host) return;
     const assets = appState.linkedAssets || [];
     if (!assets.length) {
-        host.innerHTML = `<div style="text-align:center;color:var(--text-3);font-size:11px;padding:18px;">
-            <i class="ph ph-piggy-bank" style="font-size:22px;display:block;margin-bottom:6px;opacity:0.4;"></i>
-            No linked assets yet. Sync a checking or savings account.
+        // PHASE 3.5: actionable empty state - Connect bank (Plaid) + Add manually
+        host.innerHTML = `<div style="text-align:center;color:var(--text-3);font-size:11px;padding:18px 14px;">
+            <i class="ph ph-piggy-bank" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.5;"></i>
+            <div style="font-size:11px;color:var(--text-2);font-weight:600;margin-bottom:4px;">No linked assets yet</div>
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:12px;line-height:1.5;">Connect a checking, savings, or investment account to see your liquid net-worth alongside debt.</div>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                <button id="linked-assets-cta-bank" class="btn btn-primary" style="padding:8px 14px;font-size:10px;font-weight:800;"><i class="ph ph-bank" style="margin-right:4px;"></i> Connect bank</button>
+                <button id="linked-assets-cta-manual" class="btn btn-ghost" style="padding:8px 14px;font-size:10px;font-weight:700;"><i class="ph ph-plus" style="margin-right:4px;"></i> Add manually</button>
+            </div>
         </div>`;
+        try {
+            const bankBtn = document.getElementById('linked-assets-cta-bank');
+            if (bankBtn) bankBtn.onclick = () => {
+                if (typeof openPlaid === 'function') openPlaid();
+                else if (typeof launchPlaid === 'function') launchPlaid();
+                else if (typeof navTo === 'function') navTo('settings');
+            };
+            const manBtn = document.getElementById('linked-assets-cta-manual');
+            if (manBtn) manBtn.onclick = () => {
+                const m = document.getElementById('add-asset-modal') || document.getElementById('new-asset-modal');
+                if (m && typeof openModal === 'function') openModal(m);
+                else if (m) m.style.display = 'flex';
+                else if (typeof navTo === 'function') navTo('budgets');
+            };
+        } catch(_){}
         return;
     }
     const fmt = n => '$' + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -16921,6 +16982,21 @@ function initDashboardInteractivity() {
                 const months = pd.months || '—';
                 const intr = pd.interest != null ? fmt(pd.interest) : '—';
                 const rankColor = idx === 0 ? 'var(--accent)' : idx === 1 ? '#a855f7' : idx === 2 ? '#60a5fa' : 'var(--text-3)';
+                // PHASE 3.5: per-debt benefit explanation
+                const apr = (d.apr || 0);
+                const bal = (d.balance || 0);
+                const minP = (d.minPayment || 0);
+                const yrInterest = bal * (apr / 100);
+                let why = '';
+                if (idx === 0) {
+                    why = `<strong>Focus here first.</strong> At ${apr.toFixed(2)}% APR on a ${fmt(bal)} balance, this debt is generating roughly ${fmt(yrInterest)} in interest per year if you only pay the minimum. Every extra dollar paid here cancels future interest at ${apr.toFixed(2)}% \u2014 the highest return on a dollar in your portfolio. Once cleared, the ${fmt(minP)}/mo minimum frees up and rolls into the next debt.`;
+                } else if (idx === 1) {
+                    why = `<strong>Up next.</strong> You don't add extra here yet \u2014 keep paying the ${fmt(minP)} minimum so it doesn't grow. The moment debt #1 is cleared, the entire allocation cascades down to this one and accelerates the payoff.`;
+                } else if (idx === 2) {
+                    why = `Pay the minimum ${fmt(minP)} to keep it current. By the time the cascade reaches this debt, the rolled-up payment will be ${fmt(minP * 2)}+/mo \u2014 fast clear.`;
+                } else {
+                    why = `Hold at minimum (${fmt(minP)}/mo). Cascade reaches this debt later in the plan.`;
+                }
                 return `
                     <tr>
                         <td><span class="ai-rev-rank" style="background:${rankColor};">${idx + 1}</span> ${d.name || 'Unnamed'}</td>
@@ -16929,7 +17005,8 @@ function initDashboardInteractivity() {
                         <td>${fmt(d.minPayment)}</td>
                         <td>${months}${typeof months === 'number' ? ' mo' : ''}</td>
                         <td style="color:var(--accent);">${intr}</td>
-                    </tr>`;
+                    </tr>
+                    <tr class="ai-rev-debt-why"><td colspan="6" style="font-size:10.5px;color:var(--text-3);padding:6px 12px 12px;line-height:1.55;">${why}</td></tr>`;
             }).join('');
 
             // Strategy comparison: snowball / hybrid / avalanche side-by-side
@@ -16983,6 +17060,15 @@ function initDashboardInteractivity() {
                 </div>
 
                 <p class="ai-rev-intro">You're running the <strong>${stratLabel}</strong> method. Below is a per-debt projection plus how Snowball, Hybrid, and Avalanche compare under your current cash flow (${fmt(userExtra)}/mo extra).</p>
+
+                <div class="ai-rev-section">
+                    <div class="ai-rev-section-label">Why ${stratLabel}?</div>
+                    <div class="ai-rev-explainer" style="font-size:11.5px;color:var(--text-2);line-height:1.55;">${(function(){
+                        if (strategy === 'avalanche') return `<p style="margin:0 0 8px;"><strong>Avalanche</strong> targets the <strong>highest-APR debt first</strong>, regardless of balance size. Every extra dollar you throw at that debt is a dollar that <em>stops earning interest at the highest rate in your portfolio</em>. This clears all debt for the lowest total interest cost - the math-optimal path.</p><p style="margin:0;">Trade-off: if your highest-APR debt also has the largest balance, your first win can feel slow. If you need momentum, switch to Snowball.</p>`;
+                        if (strategy === 'snowball') return `<p style="margin:0 0 8px;"><strong>Snowball</strong> targets the <strong>smallest balance first</strong> regardless of APR. You eliminate accounts quickly, which builds psychological momentum and frees up the minimum payment to roll into the next debt.</p><p style="margin:0;">Trade-off: you pay slightly more total interest than Avalanche. Worth it if the wins keep you on the plan.</p>`;
+                        return `<p style="margin:0 0 8px;"><strong>Hybrid</strong> blends balance + APR - it ranks debts by an internal score so you get a few quick wins (Snowball-style) on small accounts, then switches to Avalanche-style attack on the highest-APR debts.</p><p style="margin:0;">Trade-off: not always math-optimal vs Avalanche, but usually within $50-$200 in total interest.</p>`;
+                    })()}</div>
+                </div>
 
                 <div class="ai-rev-section">
                     <div class="ai-rev-section-label">Per-debt elimination order</div>

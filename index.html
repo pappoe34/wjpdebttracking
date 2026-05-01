@@ -883,12 +883,12 @@
                 <div class="math-breakdown-eyebrow"><i class="ph-fill ph-calculator"></i> Math Breakdown</div>
                 <h3 class="math-breakdown-title">How your debt-free date is calculated</h3>
               </div>
-              <button type="button" class="math-breakdown-toggle" id="math-breakdown-toggle" aria-expanded="false" aria-controls="math-breakdown-body">
-                <span class="math-breakdown-toggle-label">Show details</span>
-                <i class="ph ph-caret-down"></i>
+              <button type="button" class="math-breakdown-toggle" id="math-breakdown-toggle" aria-expanded="true" aria-controls="math-breakdown-body" style="display:none;">
+                <span class="math-breakdown-toggle-label">Hide details</span>
+                <i class="ph ph-caret-up"></i>
               </button>
             </div>
-            <div class="math-breakdown-body" id="math-breakdown-body" hidden>
+            <div class="math-breakdown-body" id="math-breakdown-body">
               <div class="math-row">
                 <div class="math-row-label">Monthly Income</div>
                 <div class="math-row-val math-row-val-pos" id="math-income">$0</div>
@@ -922,6 +922,14 @@
               <div class="math-row math-row-summary">
                 <div class="math-row-label">Estimated Payoff</div>
                 <div class="math-row-val" id="math-payoff">—</div>
+              </div>
+              <div class="math-row math-row-summary">
+                <div class="math-row-label">Strategy</div>
+                <div class="math-row-val" id="math-strategy">—</div>
+              </div>
+              <div class="math-row math-row-summary">
+                <div class="math-row-label">Total Interest Saved vs Minimums</div>
+                <div class="math-row-val" id="math-interest-saved">—</div>
               </div>
               <div class="math-warning" id="math-warning" style="display:none;"></div>
               <div class="math-actions">
