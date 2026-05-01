@@ -1737,6 +1737,13 @@ function drawCharts() {
 
     /** Helper: Draw weekly spending bars (stacked style matching template) using Chart.js */
     function drawWeeklyBars(canvasId, weeklyData) {
+        // Phase 3.2: defer if Chart.js hasn't loaded yet
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawWeeklyBars(canvasId, weeklyData); } catch(_){} });
+            }
+            return;
+        }
         const c = document.getElementById(canvasId);
         if (!c) return;
 
@@ -2817,11 +2824,27 @@ function drawCharts() {
 
     /** Helper: Draw Budget Breakdown Donut using Chart.js */
     function drawBudgetDonut(canvasId, segments) {
+        // Phase 3.2: defer if Chart.js hasn't loaded yet
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawBudgetDonut(canvasId, segments); } catch(_){} });
+            }
+            return;
+        }
         const c = document.getElementById(canvasId);
         if (!c) return;
 
+        // Phase 3.2: destroy any Chart.js instance attached to this canvas, not just
+        // ones we tracked locally. Prevents 'Canvas is already in use' when an earlier
+        // render path created a chart without storing it in chartInstances.
+        try {
+            if (typeof Chart.getChart === 'function') {
+                const _existing = Chart.getChart(c);
+                if (_existing) _existing.destroy();
+            }
+        } catch(_) {}
         if (chartInstances[canvasId]) {
-            chartInstances[canvasId].destroy();
+            try { chartInstances[canvasId].destroy(); } catch(_) {}
         }
 
         const data = segments.map(s => s.pct);
