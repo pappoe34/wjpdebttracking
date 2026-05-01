@@ -1614,7 +1614,20 @@ function drawCharts() {
     function drawDualLineChart(canvasId) {
         const c = document.getElementById(canvasId);
         if (!c) return;
-        
+        // PHASE 3.5.2: Chart-loading guard + canvas-reuse safety
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawDualLineChart(canvasId); } catch(_){} });
+            }
+            return;
+        }
+        try {
+            if (typeof Chart.getChart === 'function') {
+                const _existing = Chart.getChart(c);
+                if (_existing) _existing.destroy();
+            }
+        } catch(_) {}
+
         if (chartInstances[canvasId]) {
             chartInstances[canvasId].destroy();
         }
@@ -2086,7 +2099,13 @@ function drawCharts() {
             try { chartInstances[canvasId].destroy(); } catch(_){}
             chartInstances[canvasId] = null;
         }
-        if (typeof Chart === 'undefined') return; // chart.js not loaded yet
+        // PHASE 3.5.2: retry once Chart.js loads (was: silent bail)
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawSpendingChart(canvasId); } catch(_){} });
+            }
+            return;
+        }
 
         // Make sure synthetic recurring/debt transactions exist for the
         // current window before we read appState.transactions. This keeps the
@@ -2302,7 +2321,13 @@ function drawCharts() {
             try { chartInstances[canvasId].destroy(); } catch(_){}
             chartInstances[canvasId] = null;
         }
-        if (typeof Chart === 'undefined') return;
+        // PHASE 3.5.2: retry once Chart.js loads
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawDashProjection(canvasId); } catch(_){} });
+            }
+            return;
+        }
 
         const style = (appState.settings && appState.settings.activeChartStyle) || 'line';
         const strategy = (appState.settings && appState.settings.strategy) || 'avalanche';
@@ -2645,6 +2670,19 @@ function drawCharts() {
     function drawSimChart(canvasId) {
         const c = document.getElementById(canvasId);
         if (!c) return;
+        // PHASE 3.5.2: Chart-loading guard + canvas-reuse safety
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawSimChart(canvasId); } catch(_){} });
+            }
+            return;
+        }
+        try {
+            if (typeof Chart.getChart === 'function') {
+                const _existing = Chart.getChart(c);
+                if (_existing) _existing.destroy();
+            }
+        } catch(_) {}
 
         if (chartInstances[canvasId]) {
             chartInstances[canvasId].destroy();
@@ -2696,6 +2734,19 @@ function drawCharts() {
     function drawAnalysisDTI(canvasId) {
         const c = document.getElementById(canvasId);
         if (!c) return;
+        // PHASE 3.5.2: Chart-loading guard + canvas-reuse safety
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawAnalysisDTI(canvasId); } catch(_){} });
+            }
+            return;
+        }
+        try {
+            if (typeof Chart.getChart === 'function') {
+                const _existing = Chart.getChart(c);
+                if (_existing) _existing.destroy();
+            }
+        } catch(_) {}
 
         if (chartInstances[canvasId]) {
             chartInstances[canvasId].destroy();
@@ -2760,6 +2811,19 @@ function drawCharts() {
     function drawAnalysisVelocity(canvasId) {
         const c = document.getElementById(canvasId);
         if (!c) return;
+        // PHASE 3.5.2: Chart-loading guard + canvas-reuse safety
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawAnalysisVelocity(canvasId); } catch(_){} });
+            }
+            return;
+        }
+        try {
+            if (typeof Chart.getChart === 'function') {
+                const _existing = Chart.getChart(c);
+                if (_existing) _existing.destroy();
+            }
+        } catch(_) {}
 
         if (chartInstances[canvasId]) {
             chartInstances[canvasId].destroy();
