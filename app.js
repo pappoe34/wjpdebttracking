@@ -1296,8 +1296,27 @@ function renderDetailedUpcoming() {
             paid: isPaid(d.name)
         });
     });
-    // Recurring (non-income)
-    (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome).forEach(r => {
+    // Recurring (non-income) -- Phase 2.1: pull from BOTH appState.recurring (Plaid auto-detect)
+    // AND appState.recurringPayments (user-managed list shown on Recurring Payments page).
+    // Was: only appState.recurring, which excluded user-added bills and made the Coming Up
+    // count diverge from the Recurring Payments page Active count.
+    const _recAuto = (appState.recurring || []).filter(r => r.category !== 'income' && !r.linkedIncome);
+    const _recUser = (appState.recurringPayments || []).filter(r => !r.status || (r.status !== 'cancelled' && r.status !== 'paused'))
+        .map(r => ({
+            id: r.id,
+            name: r.name || r.description,
+            description: r.description,
+            amount: r.amount,
+            category: r.category,
+            anchorDay: r.anchorDay || r.nextDay || r.dueDate,
+            nextDate: r.nextDate,
+            linkedIncome: !!r.linkedIncome
+        }))
+        .filter(r => r.category !== 'income' && !r.linkedIncome);
+    // De-dupe by name (case-insensitive) -- auto-detected entries shouldn't double up with user entries
+    const _seenRecNames = new Set(_recAuto.map(r => String(r.name || r.description || '').toLowerCase()).filter(Boolean));
+    const _allRec = [..._recAuto, ..._recUser.filter(r => !_seenRecNames.has(String(r.name || r.description || '').toLowerCase()))];
+    _allRec.forEach(r => {
         let next = null;
         if (r.nextDate) { const nd = new Date(r.nextDate); if (!isNaN(nd)) next = nd; }
         if (!next && r.anchorDay) {
@@ -4370,6 +4389,7 @@ function updateUI() {
     try { if (typeof renderBudgetStatsRow === 'function') renderBudgetStatsRow(); } catch(_){}
     try { if (typeof renderExpenseLegend === 'function') renderExpenseLegend(); } catch(_){}
     try { if (typeof renderDetailedTransactionsBudget === 'function') renderDetailedTransactionsBudget(); } catch(_){}
+    try { if (typeof renderBudgetsTopNavTxns === 'function') renderBudgetsTopNavTxns(); } catch(_){}
     try { if (typeof renderAIBudgetInsights === 'function') renderAIBudgetInsights(); } catch(_){}
     // Phase 0 — Debt Payoff Engine + Linked Assets cards
     try { if (typeof renderDebtPayoffEngine === 'function') renderDebtPayoffEngine(); } catch(_){}
@@ -18120,6 +18140,40 @@ function renderDetailedTransactionsBudget() {
     }).join('');
 }
 window.renderDetailedTransactionsBudget = renderDetailedTransactionsBudget;
+
+/* PHASE 2.1: Renderer for the SECOND Detailed Transactions table (id 'budget-txn-tbody')
+ * on the Budgets top-nav page. The other renderer targets dbg-detailed-txn-body which is on
+ * the Debts > Budget sub-tab. They're different tables with different IDs. */
+function renderBudgetsTopNavTxns() {
+    const tbody = document.getElementById('budget-txn-tbody');
+    if (!tbody) return;
+    const txns = (appState.transactions || [])
+        .filter(t => t && !t.synthetic)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 25);
+    if (txns.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:32px 16px; color:var(--text-3); font-size:12px;"><i class="ph ph-receipt" style="font-size:28px; opacity:0.4; display:block; margin-bottom:8px;"></i>No transactions yet. Connect a bank or add one manually to get started.</td></tr>';
+        return;
+    }
+    const escapeHtml = function(s) { return String(s||'').replace(/[&<>"']/g, function(c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+    tbody.innerHTML = txns.map(function(t) {
+        const d = new Date(t.date);
+        const dateStr = isNaN(d) ? '—' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const amt = Number(t.amount) || 0;
+        const isOut = amt < 0;
+        const sign = isOut ? '−' : '+';
+        const colour = isOut ? 'var(--danger)' : 'var(--accent)';
+        const status = t.pending ? 'Pending' : (t.synced ? 'Synced' : 'Posted');
+        return '<tr>'
+            + '<td class="txn-date">' + dateStr + '</td>'
+            + '<td style="font-weight:600;">' + escapeHtml(t.merchant || t.name || '(unnamed)') + '</td>'
+            + '<td><span class="badge" style="background:rgba(0,0,0,0.3); font-size:9px;">' + escapeHtml(t.category || 'Other') + '</span></td>'
+            + '<td style="font-size:10px; color:var(--text-3);">' + status + '</td>'
+            + '<td style="font-weight:700; color:' + colour + ';">' + sign + '$' + Math.abs(amt).toFixed(2) + '</td>'
+            + '</tr>';
+    }).join('');
+}
+window.renderBudgetsTopNavTxns = renderBudgetsTopNavTxns;
 
 /** AI Budget Insights — well-documented summary of the user's account. */
 function renderAIBudgetInsights() {
