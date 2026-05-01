@@ -4556,9 +4556,19 @@ function updateUI() {
                 // produced a 1-month drift vs the rest of the app.
                 let _phase3Sim = null;
                 try { _phase3Sim = (typeof simulateAllStrategies === 'function') ? simulateAllStrategies() : null; } catch(_){}
-                const stats = (_phase3Sim && _phase3Sim.simulations && _phase3Sim.simulations[strategy])
-                    ? _phase3Sim.simulations[strategy]
-                    : calcSimTotals(strategy, extraMonthly, 0, 0);
+                let stats;
+                if (_phase3Sim && _phase3Sim.simulations && _phase3Sim.simulations[strategy]) {
+                    const _src = _phase3Sim.simulations[strategy];
+                    // Phase 3.1: simulateAllStrategies returns 'interest', calcSimTotals returns 'totalInterest'.
+                    // Normalize so downstream code (which reads stats.totalInterest) keeps working.
+                    stats = {
+                        months: _src.months || 0,
+                        totalInterest: (_src.totalInterest != null ? _src.totalInterest : _src.interest) || 0,
+                        totalPaid: _src.totalPaid || 0
+                    };
+                } else {
+                    stats = calcSimTotals(strategy, extraMonthly, 0, 0);
+                }
                 if (stats && stats.months > 0 && stats.months < 600) {
                     const payoff = new Date();
                     payoff.setMonth(payoff.getMonth() + stats.months);
