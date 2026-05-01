@@ -15529,57 +15529,69 @@ function initAdvisorPageLogic() {
         setTimeout(() => navigateSPA('dashboard'), 800);
     });
 
-    // ── Household Mode toggle (Plus-tier feature) ─────────────
-    // Plus subscribers get a Household drawer to invite a partner, set the
-    // shared scope (debts, income, spending), and view a joint debt summary.
-    // Free Trial / Pro Monthly users see an upgrade prompt instead.
+    // ── Household Mode toggle (Pro Plus / Admin only) ─────────────
+    // Pro Plus subscribers + admins get a real household drawer with backend-
+    // backed invites, role assignments, and data-access permission requests.
     (function wireHouseholdModeToggle() {
         const toggle = document.getElementById('toggle-household-mode');
         const status = document.getElementById('household-mode-status');
         if (!toggle) return;
-        function isPlus() {
+        function isUnlocked() {
             const sub = appState.subscription || {};
-            return sub.plan === 'plus';
+            return !!(window.WJP_IS_ADMIN || sub.isAdmin || sub.tier === 'pro-plus');
         }
         function sync() {
-            const on = !!(appState.prefs && appState.prefs.householdMode);
+            const on = !!(appState.household && appState.household.inHousehold);
             toggle.classList.toggle('on', on);
             toggle.setAttribute('aria-checked', on ? 'true' : 'false');
-            if (status) status.textContent = on ? 'ON' : 'OFF';
+            if (status) status.textContent = on ? `ON · ${(appState.household.role || 'member').toUpperCase()}` : 'OFF';
         }
         function flip() {
-            // Gate behind Plus tier
-            if (!isPlus()) {
+            if (!isUnlocked()) {
                 if (typeof openHouseholdUpgradePrompt === 'function') openHouseholdUpgradePrompt();
                 return;
             }
-            if (!appState.prefs) appState.prefs = {};
-            // First time turning on: open the configuration drawer
-            const turningOn = !appState.prefs.householdMode;
-            appState.prefs.householdMode = !appState.prefs.householdMode;
-            saveState();
-            sync();
-            applyHouseholdModeLabel();
-            if (turningOn && typeof openHouseholdConfigDrawer === 'function') {
-                setTimeout(openHouseholdConfigDrawer, 200);
-            } else {
-                showToast(appState.prefs.householdMode ? 'Household Mode on.' : 'Household Mode off.');
-            }
+            // Always open the live drawer — toggle on/off is implicit (active when in a household)
+            if (typeof openHouseholdConfigDrawer === 'function') openHouseholdConfigDrawer();
         }
         toggle.addEventListener('click', flip);
         toggle.addEventListener('keydown', (e) => {
             if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
         });
-        sync();
+        // Hydrate from backend on auth-ready
+        try { fetchHouseholdStatus().then(sync); } catch(_){}
+        window.__wjpHouseholdSync = sync;
+        window.addEventListener('wjp-household-changed', sync);
     })();
 
-    /** Upgrade nudge for non-Plus users who try to enable Household Mode. */
+    // === Household state fetcher (single source of truth) ===
+    window.fetchHouseholdStatus = async function() {
+        try {
+            const token = await getIdToken();
+            if (!token) return null;
+            const r = await fetch('/.netlify/functions/household-status', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!r.ok) return null;
+            const data = await r.json();
+            appState.household = data;
+            try { saveState(); } catch(_){}
+            try { window.dispatchEvent(new CustomEvent('wjp-household-changed', { detail: data })); } catch(_){}
+            return data;
+        } catch (_) { return null; }
+    };
+    // Auto-fetch household status on auth-ready
+    window.addEventListener('wjp-auth-ready', () => {
+        setTimeout(() => fetchHouseholdStatus(), 200);
+    });
+
+    /** Upgrade nudge for non-Pro-Plus users who try to enable Household Mode. */
     window.openHouseholdUpgradePrompt = function() {
         openSettingsDrawer({
             icon: 'ph-house-line',
-            badge: 'PLUS FEATURE',
+            badge: 'PRO PLUS FEATURE',
             title: 'Household Mode',
-            subtitle: 'Co-track debts, income, and spending with a partner. Available on Pro Plus ($79/yr).',
+            subtitle: 'Co-track debts, income, and spending with up to 5 family members. Pro Plus only — $14.99/mo, +$3/extra member.',
             body: `
               <div style="display:flex;flex-direction:column;gap:14px;">
                 <div style="background:rgba(0,212,168,0.06);border:1px solid rgba(0,212,168,0.25);border-radius:10px;padding:14px;">
@@ -15616,99 +15628,255 @@ function initAdvisorPageLogic() {
     /** Configuration drawer for active Household Mode users. Captures partner
      *  name, partner email, and per-category share scope. Persists to
      *  appState.prefs.household. */
-    window.openHouseholdConfigDrawer = function() {
-        if (!appState.prefs) appState.prefs = {};
-        if (!appState.prefs.household) {
-            appState.prefs.household = {
-                partnerName: '', partnerEmail: '',
-                shareDebts: true, shareIncome: true, shareSpending: false, shareGoals: true
-            };
-        }
-        const h = appState.prefs.household;
-        const esc = s => String(s||'').replace(/"/g,'&quot;');
+    /** Real household drawer — backed by /household-status + /household-manage.
+     *  Owners see invite form + member roster + data-access controls.
+     *  Members see their role + leave button.
+     *  All invites require email confirmation (recipient clicks link).
+     *  Data access requires explicit approval by the member. */
+    window.openHouseholdConfigDrawer = async function() {
+        const fmt = n => '$' + Math.round(n||0).toLocaleString();
+        const data = await fetchHouseholdStatus();
+        const inHousehold = !!(data && data.inHousehold);
+        const role = data && data.role;
+        const isOwner = role === 'owner';
+        const household = data && data.household;
+        const members = (household && household.members) || [];
+        const activeMembers = members.filter(m => m.status === 'active');
+        const memberCount = activeMembers.length;
+        // Pricing readout: $14.99 base + $3 per extra
+        const monthlyPrice = 14.99 + Math.max(0, memberCount - 1) * 3;
+        const isAdmin = !!(window.WJP_IS_ADMIN);
+
+        // Pending invites for this user (received from other households)
+        const pendingInvites = (data && data.pendingInvites) || [];
+        // Data-access requests targeting this user
+        const dataRequests = (data && data.dataRequests) || [];
+
+        const inviteRows = inHousehold && isOwner ? activeMembers.map(m => {
+            const roleColor = m.role === 'owner' ? '#a855f7' : m.role === 'viewer' ? '#94a3b8' : '#16a34a';
+            const isCaller = m.uid === (data.uid);
+            return `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <div>
+                        <div style="font-size:12px;font-weight:800;">${m.email}${isCaller ? ' <span style="font-size:9px;color:var(--accent);">(you)</span>' : ''}</div>
+                        <div style="font-size:9px;color:var(--text-3);">Joined ${m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : '—'}</div>
+                    </div>
+                    <span style="font-size:9px;font-weight:800;color:${roleColor};text-transform:uppercase;letter-spacing:0.06em;">${m.role}</span>
+                </div>
+                ${!isCaller ? `<div style="display:flex;gap:6px;font-size:10px;">
+                    ${m.dataAccessGranted
+                        ? `<span style="color:#22c55e;font-weight:700;">✓ Data access granted</span>`
+                        : `<button class="hh-req-data" data-uid="${m.uid}" style="background:rgba(102,126,234,0.10);border:1px solid rgba(102,126,234,0.30);border-radius:6px;color:#667eea;font-size:10px;font-weight:700;padding:5px 10px;cursor:pointer;">Request data access</button>`
+                    }
+                    <button class="hh-remove" data-uid="${m.uid}" data-email="${m.email}" style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:6px;color:#ef4444;font-size:10px;font-weight:700;padding:5px 10px;cursor:pointer;margin-left:auto;">Remove</button>
+                </div>` : ''}
+            </div>`;
+        }).join('') : '';
+
+        const incomingInvitesHtml = pendingInvites.length ? `<div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:12px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:800;color:#fbbf24;margin-bottom:8px;">⚠ ${pendingInvites.length} pending invite${pendingInvites.length===1?'':'s'} for you</div>
+            ${pendingInvites.map(inv => `<div style="background:var(--card);border-radius:8px;padding:10px;margin-bottom:6px;">
+                <div style="font-size:11px;font-weight:700;">${inv.householdName || 'Household'}</div>
+                <div style="font-size:10px;color:var(--text-3);">From ${inv.inviterEmail} · role: ${inv.role}</div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                    <button class="hh-accept-invite" data-token="${inv.token}" style="flex:1;background:#16a34a;color:#fff;border:0;border-radius:6px;padding:7px;font-size:10px;font-weight:800;cursor:pointer;">Accept</button>
+                    <button class="hh-decline-invite" data-token="${inv.token}" style="flex:1;background:transparent;color:#ef4444;border:1px solid rgba(239,68,68,0.40);border-radius:6px;padding:7px;font-size:10px;font-weight:800;cursor:pointer;">Decline</button>
+                </div>
+            </div>`).join('')}
+        </div>` : '';
+
+        const dataReqHtml = dataRequests.length ? `<div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:10px;padding:12px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:800;color:#667eea;margin-bottom:8px;">🔓 ${dataRequests.length} data access request${dataRequests.length===1?'':'s'}</div>
+            ${dataRequests.map(req => `<div style="background:var(--card);border-radius:8px;padding:10px;margin-bottom:6px;">
+                <div style="font-size:11px;font-weight:700;">${req.ownerEmail}</div>
+                <div style="font-size:10px;color:var(--text-3);">wants to view your aggregated debt + budget data</div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                    <button class="hh-approve-data" data-id="${req.id}" style="flex:1;background:#16a34a;color:#fff;border:0;border-radius:6px;padding:7px;font-size:10px;font-weight:800;cursor:pointer;">Approve</button>
+                    <button class="hh-deny-data" data-id="${req.id}" style="flex:1;background:transparent;color:#ef4444;border:1px solid rgba(239,68,68,0.40);border-radius:6px;padding:7px;font-size:10px;font-weight:800;cursor:pointer;">Deny</button>
+                </div>
+            </div>`).join('')}
+        </div>` : '';
+
+        const subtitle = inHousehold
+            ? `Active household · ${memberCount} member${memberCount===1?'':'s'} · ${isAdmin ? 'Admin (no billing)' : '$' + monthlyPrice.toFixed(2) + '/mo'}`
+            : isAdmin
+                ? 'Admin account — Household Mode unlocked at no cost.'
+                : 'Pro Plus exclusive · co-track with up to 5 family members';
+
         openSettingsDrawer({
             icon: 'ph-house-line',
             badge: 'HOUSEHOLD MODE',
             title: 'Household Mode',
-            subtitle: 'Invite your partner and choose what you share. Each person keeps their own account — only the categories you enable are linked.',
+            subtitle,
             body: `
               <div style="display:flex;flex-direction:column;gap:14px;">
-                <div>
-                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Partner Name</div>
-                  <input id="hh-partner-name" type="text" value="${esc(h.partnerName)}" placeholder="e.g. Alex" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
-                </div>
-                <div>
-                  <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.07em;margin-bottom:6px;">Partner Email</div>
-                  <input id="hh-partner-email" type="email" value="${esc(h.partnerEmail)}" placeholder="alex@example.com" style="width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">
-                </div>
-                <div>
-                  <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Share Scope</div>
-                  ${[
-                    {key:'shareDebts',    label:'Debts',     desc:"Both partners' debts roll into one strategy"},
-                    {key:'shareIncome',   label:'Income',    desc:'Joint income drives the debt-free date'},
-                    {key:'shareSpending', label:'Spending',  desc:'Combined spending tracker'},
-                    {key:'shareGoals',    label:'Goals',     desc:'Shared milestones + emergency fund'}
-                  ].map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-                    <div>
-                      <div style="font-size:11px;font-weight:600;">${s.label}</div>
-                      <div style="font-size:9px;color:var(--text-3);">${s.desc}</div>
+                ${incomingInvitesHtml}
+                ${dataReqHtml}
+
+                ${inHousehold ? `
+                <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                        <div style="font-size:13px;font-weight:800;">${household.name || 'Household'}</div>
+                        <span style="font-size:9px;font-weight:800;color:${role==='owner'?'#a855f7':'#16a34a'};text-transform:uppercase;">${role}</span>
                     </div>
-                    <div class="toggle-switch hh-share-toggle ${h[s.key]?'on':''}" data-key="${s.key}" style="flex-shrink:0;"><div class="thumb"></div></div>
-                  </div>`).join('')}
+                    <div style="font-size:10px;color:var(--text-3);">${memberCount} member${memberCount===1?'':'s'} · ${isAdmin ? 'admin override' : 'billed at $' + monthlyPrice.toFixed(2) + '/mo'}</div>
                 </div>
-                <div style="display:flex;gap:10px;">
-                  <button id="hh-invite-btn" class="btn btn-ghost" style="flex:1;padding:10px;font-size:11px;border:1px solid var(--border);"><i class="ph ph-paper-plane-tilt"></i> Send invite email</button>
-                  <button id="hh-save-btn" class="btn btn-primary" style="flex:1;padding:10px;">Save household settings</button>
+
+                <div>
+                    <div style="font-size:11px;font-weight:700;margin-bottom:10px;">Members</div>
+                    ${inviteRows || '<div style="font-size:11px;color:var(--text-3);text-align:center;padding:12px;">Just you so far. Invite a member below.</div>'}
                 </div>
-                <button id="hh-disable-btn" class="btn btn-ghost" style="width:100%;padding:9px;font-size:10px;color:#ff4d6d;border:1px solid rgba(255,77,109,0.25);">Turn Household Mode off</button>
+                ` : ''}
+
+                ${(isOwner || !inHousehold) ? `
+                <div style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;margin-bottom:8px;">${inHousehold ? 'Invite a new member' : 'Start a household'}</div>
+                    ${!inHousehold ? `<input id="hh-name-input" type="text" placeholder="Household name (optional)" value="My Household" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;margin-bottom:8px;">` : ''}
+                    <div style="display:flex;gap:6px;">
+                        <input id="hh-invite-email" type="email" placeholder="member@example.com" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:12px;outline:none;">
+                        <select id="hh-invite-role" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--text);font-size:12px;">
+                            <option value="member">Member</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                        <button id="hh-send-invite" class="btn btn-primary" style="padding:9px 14px;font-size:11px;font-weight:800;">SEND</button>
+                    </div>
+                    <div id="hh-invite-status" style="font-size:11px;margin-top:8px;"></div>
+                </div>` : ''}
+
+                ${inHousehold ? `
+                <div style="display:flex;gap:8px;margin-top:6px;">
+                    ${isOwner ? `<button id="hh-disband" class="btn btn-ghost" style="flex:1;padding:9px;font-size:10px;color:#ef4444;border:1px solid rgba(239,68,68,0.30);">Disband household</button>`
+                              : `<button id="hh-leave" class="btn btn-ghost" style="flex:1;padding:9px;font-size:10px;color:#ef4444;border:1px solid rgba(239,68,68,0.30);">Leave household</button>`}
+                </div>` : ''}
               </div>`
         });
+
+        // === Wire actions after render ===
         setTimeout(() => {
-            document.querySelectorAll('.hh-share-toggle').forEach(t => {
-                t.addEventListener('click', () => t.classList.toggle('on'));
+            const tk = async () => await getIdToken();
+
+            const sendInviteBtn = document.getElementById('hh-send-invite');
+            if (sendInviteBtn) sendInviteBtn.addEventListener('click', async () => {
+                const email = document.getElementById('hh-invite-email').value.trim().toLowerCase();
+                const role = document.getElementById('hh-invite-role').value;
+                const status = document.getElementById('hh-invite-status');
+                if (!email) { status.innerHTML = '<span style="color:#ef4444;">Email required</span>'; return; }
+                status.innerHTML = '<span style="color:var(--text-3);">Sending invite…</span>';
+                try {
+                    const t = await tk();
+                    if (!inHousehold) {
+                        // Step 1: create the household first
+                        const name = (document.getElementById('hh-name-input')?.value || 'My Household').trim();
+                        await fetch('/.netlify/functions/household-manage', {
+                            method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                            body: JSON.stringify({ action:'create', name })
+                        });
+                    }
+                    const r = await fetch('/.netlify/functions/household-manage', {
+                        method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                        body: JSON.stringify({ action:'invite', email, role })
+                    });
+                    const j = await r.json();
+                    if (!r.ok) throw new Error(j.error || r.status);
+                    // Open mail client with pre-filled invite
+                    const subj = encodeURIComponent("You're invited to my household on WJP");
+                    const body = encodeURIComponent(
+                        `Hi,\n\nI've invited you to join my household on WJP Debt Tracker. ` +
+                        `Household members can co-track debts, budgets, and progress toward our shared debt-free date.\n\n` +
+                        `Click here to accept (you'll need to sign in or sign up first):\n${j.acceptUrl}\n\n` +
+                        `This invite expires in 7 days.\n\n— WJP Debt Tracker`
+                    );
+                    status.innerHTML = `<span style="color:#22c55e;">✓ Invite created. Opening your email client to send to ${email}…</span>`;
+                    setTimeout(() => { window.location.href = `mailto:${email}?subject=${subj}&body=${body}`; }, 800);
+                    setTimeout(() => { document.getElementById('settings-drawer-overlay')?.remove(); document.getElementById('btn-settings-household')?.click(); }, 2000);
+                } catch (e) {
+                    status.innerHTML = '<span style="color:#ef4444;">✗ ' + (e.message||e) + '</span>';
+                }
             });
-            document.getElementById('hh-save-btn').onclick = () => {
-                const data = appState.prefs.household;
-                data.partnerName  = document.getElementById('hh-partner-name').value.trim();
-                data.partnerEmail = document.getElementById('hh-partner-email').value.trim();
-                document.querySelectorAll('.hh-share-toggle').forEach(t => {
-                    data[t.dataset.key] = t.classList.contains('on');
+
+            // Accept / Decline incoming invites
+            document.querySelectorAll('.hh-accept-invite').forEach(btn => btn.addEventListener('click', async () => {
+                const t = await tk();
+                btn.disabled = true; btn.textContent = '…';
+                const r = await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'accept-invite', token: btn.dataset.token })
                 });
-                saveState();
-                showToast('Household settings saved.');
+                const j = await r.json().catch(()=>({}));
+                showToast(r.ok ? '✓ Joined household' : ('Failed: ' + (j.error||r.status)));
                 document.getElementById('settings-drawer-overlay')?.remove();
-            };
-            document.getElementById('hh-invite-btn').onclick = () => {
-                const partnerEmail = document.getElementById('hh-partner-email').value.trim();
-                if (!partnerEmail) { showToast('Add a partner email first.'); return; }
-                const myEmail = (appState.profile && appState.profile.email) || '';
-                const subj = encodeURIComponent("You're invited to Household Mode on WJP");
-                const body = encodeURIComponent(
-                    `Hi,\n\n` +
-                    `${(appState.profile && appState.profile.fullName) || 'Your partner'} invited you to share their WJP debt-tracking account in Household Mode.\n\n` +
-                    `WJP Debt Tracker helps couples co-track debts, income, and spending toward a shared debt-free date.\n\n` +
-                    `Sign up here: https://wjpdebttracking.com/signin.html\n\n` +
-                    `Once you're signed in, we'll link your account so you can see joint debts and the combined strategy.\n\n` +
-                    `From: ${myEmail || '(my signed-in email)'}\n` +
-                    `Sent via WJP Debt Tracker`
-                );
-                window.location.href = `mailto:${partnerEmail}?subject=${subj}&body=${body}`;
-                showToast('Opening invite email…');
-            };
-            document.getElementById('hh-disable-btn').onclick = () => {
-                if (!confirm('Turn Household Mode off? Your partner data is preserved but joint views will hide.')) return;
-                appState.prefs.householdMode = false;
-                saveState();
-                if (typeof applyHouseholdModeLabel === 'function') applyHouseholdModeLabel();
-                showToast('Household Mode off.');
+                if (r.ok) setTimeout(() => openHouseholdConfigDrawer(), 200);
+            }));
+            document.querySelectorAll('.hh-decline-invite').forEach(btn => btn.addEventListener('click', async () => {
+                const t = await tk();
+                await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'decline-invite', token: btn.dataset.token })
+                });
                 document.getElementById('settings-drawer-overlay')?.remove();
-                // Re-sync the toggle in the Settings page
-                const t = document.getElementById('toggle-household-mode');
-                if (t) { t.classList.remove('on'); t.setAttribute('aria-checked','false'); }
-                const s = document.getElementById('household-mode-status');
-                if (s) s.textContent = 'OFF';
-            };
-        }, 60);
+                openHouseholdConfigDrawer();
+            }));
+
+            // Approve / deny data access
+            document.querySelectorAll('.hh-approve-data, .hh-deny-data').forEach(btn => btn.addEventListener('click', async () => {
+                const action = btn.classList.contains('hh-approve-data') ? 'approve-data-access' : 'deny-data-access';
+                const t = await tk();
+                btn.disabled = true; btn.textContent = '…';
+                await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action, requestId: btn.dataset.id })
+                });
+                document.getElementById('settings-drawer-overlay')?.remove();
+                openHouseholdConfigDrawer();
+            }));
+
+            // Owner: request data, remove member
+            document.querySelectorAll('.hh-req-data').forEach(btn => btn.addEventListener('click', async () => {
+                const t = await tk();
+                btn.disabled = true; btn.textContent = 'Requesting…';
+                const r = await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'request-data-access', memberUid: btn.dataset.uid })
+                });
+                const j = await r.json();
+                showToast(r.ok ? 'Data access requested. Member must approve.' : ('Failed: ' + (j.error||r.status)));
+                btn.disabled = false; btn.textContent = 'Request data access';
+            }));
+            document.querySelectorAll('.hh-remove').forEach(btn => btn.addEventListener('click', async () => {
+                if (!confirm('Remove ' + btn.dataset.email + ' from the household?')) return;
+                const t = await tk();
+                await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'remove-member', memberUid: btn.dataset.uid })
+                });
+                document.getElementById('settings-drawer-overlay')?.remove();
+                openHouseholdConfigDrawer();
+            }));
+
+            // Leave / disband
+            document.getElementById('hh-leave')?.addEventListener('click', async () => {
+                if (!confirm('Leave this household? You can be re-invited later.')) return;
+                const t = await tk();
+                await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'leave' })
+                });
+                showToast('Left household.');
+                document.getElementById('settings-drawer-overlay')?.remove();
+                fetchHouseholdStatus();
+            });
+            document.getElementById('hh-disband')?.addEventListener('click', async () => {
+                if (!confirm('Disband this household? All members will be removed. This cannot be undone.')) return;
+                const t = await tk();
+                await fetch('/.netlify/functions/household-manage', {
+                    method:'POST', headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'disband' })
+                });
+                showToast('Household disbanded.');
+                document.getElementById('settings-drawer-overlay')?.remove();
+                fetchHouseholdStatus();
+            });
+        }, 80);
     };
 
     // ── Dashboard pin buttons (Tier 2.6) ─────────────────────

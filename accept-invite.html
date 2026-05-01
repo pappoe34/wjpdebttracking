@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accept Household Invite · WJP</title>
+  <link rel="icon" href="/assets/wjp-favicon.png">
+  <style>
+    body { margin:0; font-family: 'Inter', system-ui, sans-serif; background:#0b0f1a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { background:#111827; border:1px solid #1e293b; border-radius:16px; padding:32px; max-width:500px; width:100%; box-shadow:0 16px 60px rgba(0,0,0,0.5); }
+    .header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+    .logo { width:42px; height:42px; border-radius:10px; background:linear-gradient(135deg,#16a34a,#059669); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; color:#fff; }
+    h1 { font-size:22px; font-weight:900; margin:0; letter-spacing:-0.5px; }
+    .sub { font-size:12px; color:#94a3b8; margin-top:2px; }
+    .invite-box { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:18px; margin:18px 0; }
+    .invite-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:13px; }
+    .invite-row .label { color:#94a3b8; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; }
+    .invite-row .val { color:#e2e8f0; font-weight:700; }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+    button { padding:12px 16px; border-radius:8px; border:0; font-weight:800; font-size:13px; cursor:pointer; transition:transform 0.1s; }
+    button:hover { transform:translateY(-1px); }
+    .btn-accept { background:#16a34a; color:#fff; }
+    .btn-decline { background:transparent; color:#ef4444; border:1px solid rgba(239,68,68,0.4); }
+    .status { padding:14px; border-radius:10px; font-size:13px; line-height:1.5; }
+    .status.error { background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.30); color:#fca5a5; }
+    .status.success { background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30); color:#86efac; }
+    .status.info { background:rgba(102,126,234,0.10); border:1px solid rgba(102,126,234,0.30); color:#a5b4fc; }
+    a { color:#16a34a; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .signin-link { display:inline-block; margin-top:14px; padding:10px 18px; background:#1e293b; border-radius:8px; color:#e2e8f0; font-weight:700; font-size:12px; text-decoration:none; }
+    .spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(102,126,234,0.3); border-top-color:#667eea; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo">W</div>
+      <div>
+        <h1>Household Invite</h1>
+        <div class="sub">WJP Debt Tracking</div>
+      </div>
+    </div>
+
+    <div id="content">
+      <div class="status info"><span class="spinner"></span> Loading invite…</div>
+    </div>
+
+    <div style="font-size:10px;color:#64748b;text-align:center;margin-top:24px;">Powered by WJP Debt Tracking · <a href="/">Back to app</a></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBFsJ7YlPNcj9d9CFIvhRAKrXtcAyzu_Co",
+      authDomain: "wjp-debt-tracking.firebaseapp.com",
+      projectId: "wjp-debt-tracking"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    const $ = id => document.getElementById(id);
+
+    function showStatus(html, kind) {
+      $('content').innerHTML = `<div class="status ${kind}">${html}</div>`;
+    }
+
+    if (!token) {
+      showStatus('No invite token in URL. <a href="/">Return to app</a>', 'error');
+    } else {
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          showStatus(`You need to sign in (or sign up) to accept this invite.<br><br>
+            <a href="/signin.html?next=${encodeURIComponent(location.href)}" class="signin-link">SIGN IN TO ACCEPT</a>
+            <a href="/signup.html?next=${encodeURIComponent(location.href)}" class="signin-link" style="margin-left:8px;">SIGN UP</a>
+          `, 'info');
+          return;
+        }
+        await loadInvite(user);
+      });
+    }
+
+    async function loadInvite(user) {
+      try {
+        const idToken = await user.getIdToken();
+        const r = await fetch('/.netlify/functions/household-status', {
+          headers: { 'Authorization': 'Bearer ' + idToken }
+        });
+        const data = await r.json();
+        const matchingInvite = (data.pendingInvites || []).find(i => i.token === token);
+        if (!matchingInvite) {
+          // Maybe invite isn't for this email
+          showStatus(`This invite isn't for your account. You're signed in as <strong>${data.email || user.email}</strong>.<br><br>If the invite was sent to a different email, please sign in with that account.`, 'error');
+          return;
+        }
+        renderInvite(matchingInvite, user, idToken);
+      } catch (e) {
+        showStatus('Could not load invite: ' + (e.message || e), 'error');
+      }
+    }
+
+    function renderInvite(invite, user, idToken) {
+      const expiresIn = Math.max(0, Math.ceil((invite.expiresAt - Date.now()) / 86400000));
+      $('content').innerHTML = `
+        <div class="invite-box">
+          <div class="invite-row"><span class="label">From</span><span class="val">${invite.inviterEmail}</span></div>
+          <div class="invite-row"><span class="label">Household</span><span class="val">${invite.householdName || 'Household'}</span></div>
+          <div class="invite-row"><span class="label">Your role</span><span class="val">${invite.role}</span></div>
+          <div class="invite-row"><span class="label">Expires</span><span class="val">in ${expiresIn} day${expiresIn===1?'':'s'}</span></div>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;line-height:1.5;">
+          By accepting, you'll join this household on WJP. The owner can request access to your aggregated debt and budget data — you'll always have to approve those requests separately. You can leave the household at any time.
+        </div>
+        <div class="actions">
+          <button class="btn-decline" id="btn-decline">Decline</button>
+          <button class="btn-accept" id="btn-accept">Accept Invite</button>
+        </div>
+      `;
+
+      $('btn-accept').addEventListener('click', async () => {
+        $('btn-accept').disabled = true;
+        $('btn-accept').textContent = 'Joining…';
+        try {
+          const r = await fetch('/.netlify/functions/household-manage', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + idToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'accept-invite', token })
+          });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error || r.status);
+          showStatus(`✓ You've joined the household! Returning to the app…`, 'success');
+          setTimeout(() => { location.href = '/'; }, 2000);
+        } catch (e) {
+          showStatus('Failed to accept: ' + (e.message || e), 'error');
+        }
+      });
+
+      $('btn-decline').addEventListener('click', async () => {
+        if (!confirm('Decline this invite?')) return;
+        try {
+          const r = await fetch('/.netlify/functions/household-manage', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + idToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'decline-invite', token })
+          });
+          if (!r.ok) {
+            const j = await r.json();
+            throw new Error(j.error || r.status);
+          }
+          showStatus('Invite declined. <a href="/">Back to app</a>', 'info');
+        } catch (e) {
+          showStatus('Failed to decline: ' + (e.message || e), 'error');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
