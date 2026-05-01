@@ -515,7 +515,7 @@ const titles = {
     'dashboard': 'Your Dashboard',
     'debts': 'Your Debts',
     'recurring': 'Calendar',
-    'advisor': 'AI Advisor',
+    'advisor': 'AI Coach',
     'activity': 'Activity',
     'budgets': 'Budget',
     'settings': 'Settings'
@@ -808,7 +808,7 @@ function initTheme() {
             <div class="ks-row"><span>Go to Dashboard</span><span><kbd>g</kbd> <kbd>d</kbd></span></div>
             <div class="ks-row"><span>Go to Budgets</span><span><kbd>g</kbd> <kbd>b</kbd></span></div>
             <div class="ks-row"><span>Go to Strategy / Debts</span><span><kbd>g</kbd> <kbd>s</kbd></span></div>
-            <div class="ks-row"><span>Go to AI Advisor</span><span><kbd>g</kbd> <kbd>a</kbd></span></div>
+            <div class="ks-row"><span>Go to AI Coach</span><span><kbd>g</kbd> <kbd>a</kbd></span></div>
             <div class="ks-row"><span>Go to Calendar</span><span><kbd>g</kbd> <kbd>c</kbd></span></div>
             <div class="ks-row"><span>Go to Settings</span><span><kbd>g</kbd> <kbd>t</kbd></span></div>
             <div class="ks-row"><span>Close any modal</span><span><kbd>Esc</kbd></span></div>
@@ -5035,7 +5035,7 @@ function updateUI() {
                     const bestInt = (sim.simulations[sim.best] && sim.simulations[sim.best].interest) || 0;
                     const savings = Math.max(0, naiveInt - bestInt);
                     const displaySavings = savings > 10 ? fmt(savings) : fmt(totalDebt * 0.04);
-                    if (elInt) elInt.innerHTML = `${displaySavings} <span class="stat-pill up">+12%</span>`;
+                    if (elInt) elInt.innerHTML = `${displaySavings}`;
 
                     // 2. DTI
                     const income = (appState.balances && appState.balances.monthlyIncome) || 0;
@@ -7045,7 +7045,7 @@ function showHiddenCardChips() {
 
     const labelMap = {
         'top3-strategy': 'Top 3 to Attack',
-        'ai-advisor': 'AI Advisor',
+        'ai-advisor': 'AI Coach',
         'spending': 'Spending Tracker',
         'resilience': 'Financial Resilience',
         'upcoming': 'Upcoming Payments',
@@ -8315,7 +8315,7 @@ function renderMoneyLeftWidget() {
             </div>
             <div style="background:var(--card-2);border-radius:8px;padding:10px;">
                 <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;font-weight:700;letter-spacing:0.05em;">Forecast End-of-Mo</div>
-                <div style="font-size:14px;font-weight:800;color:${forecastColor};margin-top:4px;">${sign(data.forecastEnd)}${fmt(data.forecastEnd)}</div>
+                <div style="font-size:14px;font-weight:800;color:${forecastColor};margin-top:4px;">${data.dayOfMonth < 4 ? "—" : sign(data.forecastEnd) + fmt(data.forecastEnd)}</div>
             </div>
         </div>
 
@@ -10324,7 +10324,7 @@ function renderSimulationsTab() {
                     <i class="ph-fill ph-brain" style="font-size:24px; color:#0b0f1a;"></i>
                 </div>
                 <div style="flex:1;">
-                    <div style="font-size:10px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Evergreen AI · Simulation Insight</div>
+                    <div style="font-size:10px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">WJP AI · Simulation Insight</div>
                     <div id="sim-ai-text" style="font-size:13px; color:var(--text-3); line-height:1.8;">${aiInsight}</div>
                 </div>
                 <button id="sim-apply-btn" style="background:var(--accent); color:#0b0f1a; border:none; border-radius:8px; padding:10px 18px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; flex-shrink:0;">
@@ -11017,7 +11017,7 @@ function renderResilienceTab() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <div>
                     <div style="font-size:10px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">
-                        <i class="ph-fill ph-lightning"></i> &nbsp;Evergreen AI
+                        <i class="ph-fill ph-lightning"></i> &nbsp;WJP AI
                     </div>
                     <h3 style="font-size:15px; font-weight:700;">Resilience Analysis</h3>
                 </div>
@@ -11465,7 +11465,7 @@ function renderCreditScoreTab() {
         </div>
         <h3 style="font-size:18px; font-weight:800; margin-bottom:6px;">Tell the engine about your credit file</h3>
         <p style="font-size:12px; color:var(--text-2); line-height:1.6; margin-bottom:18px; max-width:560px;">
-          The plan is generated from your live debt data plus these five inputs. All inputs are stored locally on this device — nothing is sent to a server.
+          The plan is generated from your live debt data plus these five inputs. Your inputs stay private — nothing is sent to a server.
         </p>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
           <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em;">
@@ -11561,7 +11561,7 @@ function renderCreditScoreTab() {
             <p style="font-size:12px; color:var(--text-2); line-height:1.6; max-width:520px;">
               ${bureau.provider
                 ? bureauStatus() + '. Click Sync to refresh your score from the provider.'
-                : 'Pull live score + factor data directly from Array, Plaid, a bureau API, or sync manually from Credit Karma / myFICO. Credentials are stored locally on this device only.'}
+                : 'Pull live score + factor data directly from Array, Plaid, a bureau API, or sync manually from Credit Karma / myFICO. Credentials stay private — never shared with us.'}
             </p>
             ${bureau.provider === 'array' && bureau.appKey && bureau.userId ? `
               <div id="cs-array-widget-mount" style="margin-top:14px; padding:18px; background:var(--card-2); border:1px solid var(--border); border-radius:10px; min-height:120px;">
@@ -11704,7 +11704,7 @@ function renderCreditScoreTab() {
           <div class="badge" style="background:transparent; border:1px solid var(--accent); color:var(--accent); font-size:8px;">AI CREDIT ADVISOR</div>
         </div>
         <h3 style="font-size:18px; font-weight:800; margin-bottom:6px;">Ask anything about your score</h3>
-        <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin-bottom:14px;">Questions are answered using your live debt data, credit inputs, and FICO factor model. Conversation stays on this device.</p>
+        <p style="font-size:11px; color:var(--text-2); line-height:1.6; margin-bottom:14px;">Questions are answered using your live debt data, credit inputs, and FICO factor model. Your conversation stays private.</p>
 
         <div id="cs-chat-suggestions" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
           ${[
@@ -12053,7 +12053,7 @@ function renderCreditScoreTab() {
               <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;">${providerOptions}</div>
               <div id="cs-bureau-fields" style="display:flex; flex-direction:column; gap:10px;"></div>
               <div style="font-size:10px; color:var(--text-3); line-height:1.6; margin-top:14px; padding:10px 12px; background:var(--card-2); border:1px solid var(--border); border-radius:8px;">
-                <i class="ph-fill ph-shield"></i> Credentials stay on this device (localStorage). Bureau APIs marked "api" require a backend proxy for FCRA compliance — this app stores your reference credentials and lets you paste the score the backend returns.
+                <i class="ph-fill ph-shield"></i> Credentials stay private to your account. Bureau APIs marked "api" require a backend proxy for FCRA compliance — this app stores your reference credentials and lets you paste the score the backend returns.
               </div>
             </div>
             <div style="padding:18px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
@@ -12093,7 +12093,7 @@ function renderCreditScoreTab() {
                     <input id="cs-f-score" type="number" min="300" max="850" value="${bureau.lastScore||''}" placeholder="paste the score your backend returned" style="${inputStyle}">
                   </label>
                   <div style="font-size:10px; color:#d97706; line-height:1.5; padding:8px 10px; background:rgba(217,119,6,0.08); border:1px solid rgba(217,119,6,0.25); border-radius:6px;">
-                    <i class="ph-fill ph-warning"></i> Direct ${m.label} pulls require a backend proxy + FCRA-compliant consent. Your credentials and score are stored locally only; no pull happens from this browser.
+                    <i class="ph-fill ph-warning"></i> Direct ${m.label} pulls require a backend proxy + FCRA-compliant consent. Your credentials and score stay private; no pull happens from this browser.
                   </div>`;
             } else {
                 fieldsEl.innerHTML = `
@@ -12912,7 +12912,7 @@ function showFirstLinkPrompt() {
                     Connect your bank <i class="ph ph-arrow-right"></i>
                 </button>
                 <button type="button" class="flm-skip" id="flm-skip">I&rsquo;ll do this later</button>
-                <div class="flm-fine">Powered by Plaid · 256-bit encryption</div>
+                <div class="flm-fine">Powered by Plaid · Bank-grade encryption</div>
             </div>
         </div>
     `;
@@ -13979,9 +13979,8 @@ function initAdvisorPageLogic() {
 
         openSettingsDrawer({
             icon: 'ph-brain',
-            badge: 'STEP 03',
             title: 'AI Intelligence',
-            subtitle: 'Configure how the AI Advisor thinks, learns, and communicates.',
+            subtitle: 'Configure how the AI Coach thinks, learns, and communicates.',
             body: `
               <div style="display:flex;flex-direction:column;gap:22px;">
 
@@ -14100,7 +14099,7 @@ function initAdvisorPageLogic() {
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
                       <div>
                         <div style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;"><i class="ph-fill ph-sparkle" style="color:var(--accent);"></i> Deep Mode <span style="font-size:8px;background:var(--accent);color:#0b0f1a;padding:2px 5px;border-radius:3px;font-weight:900;">100% PRIVATE</span></div>
-                        <div style="font-size:9px;color:var(--text-3);margin-top:3px;">In-browser LLM. Stays on your device. Slow on consumer GPUs (~30s–2m per answer).</div>
+                        <div style="font-size:9px;color:var(--text-3);margin-top:3px;">In-browser LLM. Private to your account. Slow on consumer GPUs (~30s–2m per answer).</div>
                       </div>
                       <div class="toggle-switch ai-behavior-toggle ${(appState.prefs && appState.prefs.deepMode)?'on':''}" data-key="deepMode" style="flex-shrink:0;"><div class="thumb"></div></div>
                     </div>
@@ -14404,9 +14403,8 @@ function initAdvisorPageLogic() {
         const initials = (p.fullName || '?').split(/\s+/).map(s => s[0]).filter(Boolean).slice(0,2).join('').toUpperCase() || '?';
         openSettingsDrawer({
             icon: 'ph-user',
-            badge: 'STEP 01',
             title: 'Your Identity',
-            subtitle: 'Keep your profile accurate for personalized reports and communications. Stays on your device — we never share it.',
+            subtitle: 'Keep your profile accurate for personalized reports and communications. Stays private — we never share it.',
             body: `
               <div style="display:flex;flex-direction:column;gap:16px;">
                 <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
@@ -14443,7 +14441,7 @@ function initAdvisorPageLogic() {
                   </select>
                 </div>
                 <div style="font-size:10px;color:var(--text-3);background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;line-height:1.5;">
-                  <i class="ph-fill ph-shield-check" style="color:var(--accent);"></i> <strong>Privacy:</strong> This profile is stored only on this device, scoped to your signed-in account. Each user's info is private — admins only see basic legally-required fields (email, account creation date), never your financial data.
+                  <i class="ph-fill ph-shield-check" style="color:var(--accent);"></i> <strong>Privacy:</strong> This profile is private to your account. Admins only see basic legally-required fields (email, account creation date), never your financial data.
                 </div>
                 <div style="margin-top:8px;">
                   <button id="profile-save-btn" class="btn btn-primary" style="width:100%;padding:12px;">SAVE CHANGES</button>
@@ -14495,7 +14493,6 @@ function initAdvisorPageLogic() {
 
         openSettingsDrawer({
             icon: 'ph-lock-key',
-            badge: 'STEP 02',
             title: 'Security & Access',
             subtitle: 'Real account info + working password change. Anything you change here actually persists.',
             body: `
@@ -14681,7 +14678,6 @@ function initAdvisorPageLogic() {
             }).join('');
         openSettingsDrawer({
             icon: 'ph-bell-ringing',
-            badge: 'STEP 04',
             title: 'Communication Hub',
             subtitle: 'Inbox + control over how WJP contacts you.',
             body: `
@@ -15607,7 +15603,7 @@ function initAdvisorPageLogic() {
                 <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(0,212,168,0.07);border:1px solid rgba(0,212,168,0.25);border-radius:10px;">
                   <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0;"></div>
                   <div style="font-size:11px;font-weight:700;">AI Support is online</div>
-                  <div style="font-size:9px;color:var(--text-3);margin-left:auto;">Reads your account data only · stays on your device</div>
+                  <div style="font-size:9px;color:var(--text-3);margin-left:auto;">Reads your account data only · stays private</div>
                 </div>
                 <!-- Conversation log -->
                 <div id="lvs-log" style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:14px;min-height:280px;max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
@@ -16376,7 +16372,7 @@ function initAdvisorPageLogic() {
     const footerContent = {
         'btn-footer-terms': {
             title: 'Terms of Service',
-            body: 'By using WJP Debt Calculator, you agree to our terms. This platform is for personal financial planning only. Not financial advice. Data is processed under AES-256 encryption. Last updated: Jan 2026.'
+            body: 'By using WJP Budgeting, you agree to our terms. This platform is for personal financial planning only. Not financial advice. Data is encrypted in transit (TLS 1.3) and your account stays private. Last updated: May 2026.'
         },
         'btn-footer-privacy': {
             title: 'Privacy Policy',
@@ -16384,7 +16380,7 @@ function initAdvisorPageLogic() {
         },
         'btn-footer-data': {
             title: 'Data Policy',
-            body: 'Your debt, income, and transaction data is stored locally and encrypted in transit. Bank credentials use OAuth tokens — we never store passwords. You can export or delete all data from Settings. Retention period: 7 years (IRS standard), or until account deletion request.'
+            body: 'Your debt, income, and transaction data is private and encrypted in transit. Bank credentials use OAuth tokens — we never store passwords. You can export or delete all data from Settings. Retention period: 7 years (IRS standard), or until account deletion request.'
         }
     };
     Object.entries(footerContent).forEach(([id, {title, body}]) => {
@@ -21794,7 +21790,7 @@ function initAllButtonHandlers() {
                         { step: '2', title: 'Strategy Selection', desc: `${stratName} mode: ${strat==='avalanche'?'highest APR debts targeted first to minimize total interest':'lowest balance debts targeted first to build momentum with quick wins'}.` },
                         { step: '3', title: 'Cash Flow Analysis', desc: `Monthly income: ${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(appState.balances?.monthlyIncome||8500)}. Extra payment allocation: ${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(appState.budget?.contribution||0)}/mo.` },
                         { step: '4', title: 'Payoff Projection', desc: 'Rolling interest accrual computed month-by-month with minimum payment floors. Surplus routed to target debt.' },
-                        { step: '5', title: 'AI Optimization', desc: 'Evergreen AI monitors rate changes, income shifts, and lump-sum opportunities to refine the strategy in real time.' }
+                        { step: '5', title: 'AI Optimization', desc: 'WJP AI monitors rate changes, income shifts, and lump-sum opportunities to refine the strategy in real time.' }
                     ].map(s => `<div style="display:flex; gap:16px; align-items:flex-start;">
                         <div style="background:var(--accent); color:#0b0f1a; font-weight:900; font-size:13px; min-width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;">${s.step}</div>
                         <div><div style="font-size:13px; font-weight:800; margin-bottom:4px;">${s.title}</div><div style="font-size:12px; color:var(--text-3); line-height:1.6;">${s.desc}</div></div>
