@@ -3008,54 +3008,6 @@
           
         </div>
 
-<!-- PAGE: ACTIVITY -->
-        <div class="page" id="page-activity">
-          <div class="dash-header reveal">
-            <div>
-              <div class="section-label">Activity log</div>
-              <h1 class="section-title">Activity log</h1>
-            </div>
-          </div>
-          <div class="reveal reveal-1" style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px;">
-             <table class="data-table" id="activity-log-table" style="width:100%; text-align:left;">
-                <thead>
-                   <tr>
-                      <th>Timestamp (Local)</th>
-                      <th>System Event</th>
-                      <th>Source</th>
-                      <th>Status</th>
-                   </tr>
-                </thead>
-                <tbody id="activity-log-body">
-                   <tr>
-                      <td>Just now</td>
-                      <td><div style="font-weight:700;">NotebookLM Optimizations Applied</div></td>
-                      <td>Local Engine</td>
-                      <td><div class="badge badge-primary">Success</div></td>
-                   </tr>
-                   <tr>
-                      <td>2 Hrs Ago</td>
-                      <td><div style="font-weight:700;">Service Worker Upgrade (V2)</div></td>
-                      <td>PWA Cache</td>
-                      <td><div class="badge badge-primary">Success</div></td>
-                   </tr>
-                   <tr>
-                      <td>Yesterday</td>
-                      <td><div style="font-weight:700;">AES-256 Key Exchange</div></td>
-                      <td>Security Mainframe</td>
-                      <td><div class="badge badge-primary">VERIFIED</div></td>
-                   </tr>
-                   <tr>
-                      <td>3 Days Ago</td>
-                      <td><div style="font-weight:700;">System Offline Initialization</div></td>
-                      <td>Boot Node 4</td>
-                      <td><div class="badge badge-primary" style="background:rgba(255,171,64,0.1); color:var(--warning);">WARNING</div></td>
-                   </tr>
-                </tbody>
-             </table>
-          </div>
-        </div>
-
         <!-- PAGE: SETTINGS -->
         <div class="page" id="page-settings">
           <div style="margin-bottom:32px;" class="reveal">
@@ -3728,146 +3680,6 @@
     </div>
   </div>
 
-  <!-- PLAID MOCKUP MODAL -->
-  <div class="modal" id="plaid-modal">
-    <div class="modal-content" style="max-width:400px; text-align:center; position:relative;">
-      <div style="margin-bottom:20px;">
-        <i class="ph-fill ph-bank" style="font-size:48px; color:var(--accent);"></i>
-      </div>
-      <h2 style="font-size:24px; font-weight:800; margin-bottom:8px;">Connect Your Bank</h2>
-      <p style="font-size:13px; color:var(--text-3); margin-bottom:24px; line-height:1.5;">
-        Securely link your accounts to automatically import transactions, analyze spending, and optimize your payoff strategy in real-time.
-      </p>
-      
-      <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; margin-bottom:24px; text-align:left;">
-        <div style="font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">Supported Institutions Mockup</div>
-        
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-          <div style="width:32px; height:32px; border-radius:50%; background:var(--card); display:flex; align-items:center; justify-content:center; color:#0e76bc;"><i class="ph-fill ph-briefcase" style="margin:auto; font-size:18px;"></i></div>
-          <div>
-            <div style="font-size:14px; font-weight:700;">Chase Bank</div>
-            <div style="font-size:11px; color:var(--text-3);">Checking & Savings</div>
-          </div>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div style="width:32px; height:32px; border-radius:50%; background:var(--card); display:flex; align-items:center; justify-content:center; color:#006fcf;"><i class="ph-fill ph-credit-card" style="margin:auto; font-size:18px;"></i></div>
-          <div>
-            <div style="font-size:14px; font-weight:700;">American Express</div>
-            <div style="font-size:11px; color:var(--text-3);">Gold Card</div>
-          </div>
-        </div>
-      </div>
-
-      <button id="btn-plaid-continue" class="btn btn-primary" style="width:100%; margin-bottom:12px; padding:16px; font-size:14px; border-radius:var(--radius);">
-        Continue to Plaid
-      </button>
-      <div style="font-size:10px; color:var(--text-3);">
-        <i class="ph-fill ph-lock-key"></i> By continuing, you agree to the Plaid End User Privacy Policy.
-      </div>
-      <div class="modal-close" id="plaid-close" style="position:absolute; top:24px; right:24px;"><i class="ph ph-x"></i></div>
-    </div>
-  </div>
-
-  <!-- PLAID LINK IMMERSIVE MOCKUP OVERLAY -->
-  <style>
-    .plaid-link-wrapper {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
-      z-index: 10000; display: none; align-items: center; justify-content: center;
-      transition: opacity 0.3s; opacity: 0;
-    }
-    .plaid-window {
-      background: #ffffff; color: #111; width: 360px; height: 580px;
-      border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-      position: relative; overflow: hidden; display: flex; flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .plaid-link-wrapper.active { display: flex; opacity: 1; }
-    .plaid-link-wrapper.active .plaid-window { transform: scale(1); }
-    .plaid-header { padding: 24px 24px 12px 24px; text-align: center; }
-    .plaid-logo { font-weight: 800; font-size: 20px; letter-spacing: -0.5px; margin-bottom: 24px; }
-    .plaid-screen { flex: 1; padding: 0 24px 24px; display: none; flex-direction: column; }
-    .plaid-screen.active { display: flex; }
-    .plaid-bank-item { 
-      display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #e2e8f0; 
-      border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s;
-    }
-    .plaid-bank-item:hover { background: #f8fafc; }
-    .plaid-bank-icon { width: 36px; height: 36px; border-radius: 8px; background: #f1f5f9; display:flex; align-items:center; justify-content:center; }
-    .plaid-input {
-      width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px; margin-bottom: 16px;
-      font-size: 16px; color: #1e293b; box-sizing: border-box; background: #fff; outline:none;
-    }
-    .plaid-input:focus { border-color: #0f172a; border-width: 2px; padding: 13px; }
-    .plaid-btn {
-      background: #0f172a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
-      padding: 16px; width: 100%; cursor: pointer; transition: background 0.2s; margin-top: auto;
-    }
-    .plaid-btn:hover { background: #1e293b; }
-    .plaid-spinner { border: 3px solid #e2e8f0; border-top: 3px solid #0f172a; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 40px auto; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  </style>
-  <div class="plaid-link-wrapper" id="plaid-link-ui">
-    <div class="plaid-window">
-      <div style="position:absolute; top:20px; right:20px; cursor:pointer; color:#64748b; font-size:24px;" onclick="document.getElementById('plaid-link-ui').classList.remove('active')">×</div>
-      <div class="plaid-header">
-        <div class="plaid-logo">PLAID</div>
-      </div>
-      
-      <!-- Screen 1: Select Bank -->
-      <div id="plaid-screen-banks" class="plaid-screen active">
-        <h2 style="font-size:20px; font-weight:700; margin-bottom:8px; line-height:1.2;">Select your institution</h2>
-        <p style="font-size:14px; color:#64748b; margin-bottom:24px;">WJP Debt Calculator uses Plaid to securely link your bank.</p>
-        <div style="overflow-y:auto; flex:1; margin-bottom:16px;">
-          <div class="plaid-bank-item" onclick="showPlaidLogin('Chase')">
-            <div class="plaid-bank-icon" style="color:#0e76bc;"><i class="ph-fill ph-bank" style="font-size:20px;"></i></div>
-            <div style="font-weight:600;">Chase</div>
-          </div>
-          <div class="plaid-bank-item" onclick="showPlaidLogin('Bank of America')">
-            <div class="plaid-bank-icon" style="color:#e31837;"><i class="ph-fill ph-bank" style="font-size:20px;"></i></div>
-            <div style="font-weight:600;">Bank of America</div>
-          </div>
-          <div class="plaid-bank-item" onclick="showPlaidLogin('Wells Fargo')">
-            <div class="plaid-bank-icon" style="color:#d71e28;"><i class="ph-fill ph-bank" style="font-size:20px;"></i></div>
-            <div style="font-weight:600;">Wells Fargo</div>
-          </div>
-          <div class="plaid-bank-item" onclick="showPlaidLogin('Capital One')">
-            <div class="plaid-bank-icon" style="color:#004879;"><i class="ph-fill ph-bank" style="font-size:20px;"></i></div>
-            <div style="font-weight:600;">Capital One</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Screen 2: Login -->
-      <div id="plaid-screen-login" class="plaid-screen">
-        <h2 style="font-size:20px; font-weight:700; margin-bottom:8px; line-height:1.2;">Enter your credentials</h2>
-        <p style="font-size:14px; color:#64748b; margin-bottom:24px;">Sign in to <span id="plaid-bank-name" style="font-weight:700;">Bank</span> to link your accounts.</p>
-        <input type="text" class="plaid-input" placeholder="User ID" value="demouser" />
-        <input type="password" class="plaid-input" placeholder="Password" value="password" />
-        <p style="font-size:12px; color:#94a3b8; text-align:center; margin-bottom:32px;"><i class="ph-fill ph-lock-key"></i> Credentials are encrypted</p>
-        <button class="plaid-btn" onclick="submitPlaidLogin()">Submit</button>
-      </div>
-
-      <!-- Screen 3: Loading -->
-      <div id="plaid-screen-loading" class="plaid-screen" style="justify-content:center; text-align:center;">
-        <div class="plaid-spinner"></div>
-        <h2 id="plaid-loading-text" style="font-size:18px; font-weight:600; margin-bottom:8px;">Authenticating...</h2>
-        <p style="font-size:14px; color:#64748b;">Secure connection via Plaid</p>
-      </div>
-
-      <!-- Screen 4: Success -->
-      <div id="plaid-screen-success" class="plaid-screen" style="justify-content:center; text-align:center;">
-        <div style="width:64px; height:64px; border-radius:50%; background:#10b981; color:white; display:flex; align-items:center; justify-content:center; margin:0 auto 24px;">
-          <i class="ph ph-check" style="font-size:32px; font-weight:bold;"></i>
-        </div>
-        <h2 style="font-size:24px; font-weight:700; margin-bottom:8px;">Success!</h2>
-        <p style="font-size:14px; color:#64748b; margin-bottom:32px;">Your accounts have been successfully linked to WJP Debt Calculator.</p>
-        <button class="plaid-btn" onclick="closePlaidLink()">Continue</button>
-      </div>
-
-    </div>
-  </div>
 
   <!-- ANALYSIS MODAL -->
   <div class="modal" id="analysis-modal">
@@ -4567,32 +4379,6 @@
   </div>
 
 
-  <!-- Google Sign-In demo overlay (used when real Google Client ID is not configured) -->
-  <div id="google-demo-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(6px);">
-    <div style="background:#0d1526; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:36px; max-width:380px; width:calc(100% - 32px); box-shadow:0 40px 80px rgba(0,0,0,0.6);">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:24px;">
-        <svg width="24" height="24" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        <div>
-          <div style="font-size:15px; font-weight:700; color:#f0f4ff;">Sign in with Google</div>
-          <div style="font-size:11px; color:rgba(255,255,255,0.4);">Enter your Google account details</div>
-        </div>
-      </div>
-      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
-        <div>
-          <label style="display:block; font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:0.5px; margin-bottom:7px; text-transform:uppercase;">Full Name</label>
-          <input id="gdemo-name" type="text" placeholder="Your Google display name" style="width:100%; padding:13px 15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:11px; color:#f0f4ff; font-size:14px; outline:none; font-family:inherit; box-sizing:border-box;" onfocus="this.style.borderColor='rgba(0,212,168,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
-        </div>
-        <div>
-          <label style="display:block; font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:0.5px; margin-bottom:7px; text-transform:uppercase;">Gmail Address</label>
-          <input id="gdemo-email" type="email" placeholder="you@gmail.com" style="width:100%; padding:13px 15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:11px; color:#f0f4ff; font-size:14px; outline:none; font-family:inherit; box-sizing:border-box;" onfocus="this.style.borderColor='rgba(0,212,168,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
-        </div>
-      </div>
-      <div style="display:flex; gap:10px;">
-        <button onclick="document.getElementById('google-demo-overlay').style.display='none'" style="flex:1; padding:13px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:11px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;">Cancel</button>
-        <button onclick="submitGoogleDemo()" style="flex:2; padding:13px; background:linear-gradient(135deg,#00d4a8,#00b896); border:none; border-radius:11px; color:#000; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">Continue</button>
-      </div>
-    </div>
-  </div>
 
   <div id="auth-gate" style="
   position: fixed;
@@ -4760,7 +4546,7 @@
 </div>
 
 
-  <script src="app.js?v=125-phase3c-household"></script>
+  <script src="app.js?v=126-phase4-cleanup"></script>
   <script defer src="./wjp-analytics.js?v=1"></script>
 
   <!-- Mobile sidebar drawer toggle (narrow portrait only) -->

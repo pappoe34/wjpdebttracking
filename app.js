@@ -372,6 +372,11 @@ function pushNotification(notif, type) {
 function logActivity(entry) {
     try {
         if (!entry || typeof entry !== 'object') return false;
+        // Phase 4 — respect Communication Hub user prefs:
+        // If the user has muted this notification type or is in Quiet Hours,
+        // mark the entry as `suppressed:true` so it stays in the Activity Log
+        // (audit trail) but doesn't pop the badge or surface in the bell panel.
+        const allowed = (typeof canNotify === 'function') ? canNotify(entry.type) : true;
         const notif = {
             id: 'a' + Date.now() + Math.floor(Math.random() * 1000),
             title: entry.title || 'Activity',
@@ -380,7 +385,8 @@ function logActivity(entry) {
             priority: entry.priority || 'normal',
             link: entry.link || null,
             timestamp: Date.now(),
-            cleared: false
+            cleared: false,
+            suppressed: !allowed
         };
         if (!appState.notifications) appState.notifications = [];
         appState.notifications.unshift(notif);
@@ -6476,7 +6482,7 @@ function scanStatementToPrefillForm(fieldMap, btnEl) {
         const file = input.files && input.files[0];
         if (!file) return;
         if (!file.name.toLowerCase().endsWith('.pdf')) {
-            if (typeof showToast === 'function') showToast('PDF only — image scan coming soon.');
+            if (typeof showToast === 'function') showToast('Statement scanning supports PDFs only. For images, type the values in manually.');
             return;
         }
         const originalLabel = btnEl ? btnEl.innerHTML : '';
@@ -7919,15 +7925,21 @@ function renderTransactions() {
                 dashList.style.overflowY = 'auto';
                 dashList.style.paddingRight = '4px';
             } catch(_){}
+            // Phase 4 — flag transactions that are in the dedup review queue
+            const reviewIds = new Set();
+            (appState.txnReviewQueue || []).forEach(p => { reviewIds.add(p.plaidId); reviewIds.add(p.manualId); });
             dashList.innerHTML = filtered.map(t => {
                 const colors = getColors(t.category || 'Other');
                 const isPos = (t.amount || 0) > 0;
                 const srcBadge = (typeof renderTxnSourceBadge === 'function') ? renderTxnSourceBadge(t) : '';
+                const reviewBadge = reviewIds.has(t.id)
+                    ? '<span title="In review queue — possible duplicate" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;">⚠ REVIEW</span>'
+                    : '';
                 return `
                     <div class="transaction-item" style="animation: fadeIn 0.3s ease;">
                         <div class="txn-icon" style="background:${colors.bg}; color:${colors.clr}"><i class="${getIcon(t.category || 'other')}"></i></div>
                         <div>
-                            <div class="txn-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${t.merchant || '(unnamed)'} ${srcBadge}</div>
+                            <div class="txn-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${t.merchant || '(unnamed)'} ${srcBadge} ${reviewBadge}</div>
                             <div class="txn-cat">${t.category || 'Uncategorized'} · ${new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
                         </div>
                         <div class="txn-amount ${isPos ? '' : 'neg'}" style="color:${isPos ? '#22c55e' : 'var(--danger)'};">${isPos ? '+' : ''}${fmt(t.amount)}</div>
@@ -8313,7 +8325,9 @@ function renderMoneyLeftWidget() {
 
         ${data.incomeMo === 0 ? `<div style="margin-top:10px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:10px;color:var(--text-3);">
             💡 No income detected yet this month. Once your paycheck hits, this card will populate automatically.
-        </div>` : ''}
+        </div>` : (data.dayOfMonth < 4 ? `<div style="margin-top:10px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:10px;color:var(--text-3);">
+            ⏳ Too early to forecast accurately — collecting data. Forecast becomes reliable from day 4 onward.
+        </div>` : '')}
     `;
 }
 window.renderMoneyLeftWidget = renderMoneyLeftWidget;
@@ -8509,6 +8523,14 @@ window.addEventListener('wjp-allocation-changed', () => {
     try { drawCharts && drawCharts(); } catch(_){}
     try { renderTransactions && renderTransactions(); } catch(_){}
     try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+});
+
+// === Phase 4 — payment-applied event for live Calendar repaint ===
+// Fired by syncBankTransactions whenever a Plaid payment is matched to a debt.
+// Listened by Calendar to immediately repaint that day cell as ✓ paid.
+window.addEventListener('wjp-payment-applied', () => {
+    try { if (typeof renderMainCalendar === 'function') renderMainCalendar(); } catch(_){}
+    try { if (typeof renderMoneyLeftWidget === 'function') renderMoneyLeftWidget(); } catch(_){}
 });
 
 function simulateAllStrategies() {
@@ -8908,6 +8930,24 @@ window.WJP_CloudAI = {
         // === Credit profile ===
         const cp = appState.creditProfile || {};
         if (cp.score) lines.push(`\nCredit score: ${cp.score}${cp.bureau?` (${cp.bureau})`:''}`);
+
+        // === Household context (Phase 4) ===
+        // For household owners with members who have granted data access,
+        // surface aggregate counts so the AI can answer "how does my debt
+        // compare to my household total?" type questions.
+        try {
+            const hh = appState.household;
+            if (hh && hh.inHousehold && hh.household && hh.role === 'owner') {
+                const members = (hh.household.members || []).filter(m => m.status === 'active');
+                const granted = members.filter(m => m.dataAccessGranted);
+                lines.push(`\nHousehold: ${hh.household.name||'My Household'} · ${members.length} member(s) · ${granted.length} sharing data`);
+                if (granted.length > 1) {
+                    lines.push(`(Member-level totals are kept private — only aggregates if/when shared.)`);
+                }
+            } else if (hh && hh.inHousehold) {
+                lines.push(`\nHousehold member · role: ${hh.role}`);
+            }
+        } catch(_){}
 
         return lines.join('\n');
     },
@@ -9606,7 +9646,9 @@ function renderNotifications() {
     const badge = document.getElementById('notifications-badge');
     if (!list) return;
 
-    const activeItems = appState.notifications.filter(n => !n.cleared);
+    // Phase 4 — bell panel hides suppressed entries (muted by user prefs / quiet hours).
+    // Activity Log tab still shows them as audit trail.
+    const activeItems = appState.notifications.filter(n => !n.cleared && !n.suppressed);
     const unreadCount = activeItems.filter(n => !n.read).length;
 
     if (badge) {
@@ -13059,6 +13101,8 @@ async function syncBankTransactions(opts) {
                     if (ptx) ptx.appliedToDebt = debtId;
                     paymentsApplied++;
                     totalPaid += paymentAmt;
+                    // Phase 4 — fire so Calendar / Money-Left repaint live
+                    try { window.dispatchEvent(new CustomEvent('wjp-payment-applied', { detail:{ debtId, amount: paymentAmt } })); } catch(_){}
 
                     if (typeof logActivity === 'function') {
                         const paidOff = next === 0 && prev > 0;
@@ -14517,13 +14561,46 @@ function initAdvisorPageLogic() {
             { key:'accountSynced', label:'Account Synced' },
             { key:'scoreChange', label:'Credit Score Change' },
         ];
+        // Phase 4 N1 — Inbox: last 50 notifications, grouped read/unread.
+        const inbox = (appState.notifications || []).filter(n => !n.cleared).slice(0, 50);
+        const inboxUnread = inbox.filter(n => !n.read).length;
+        const inboxRowsHtml = inbox.length === 0
+            ? `<div style="background:var(--card-2);border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text-3);">
+                 <i class="ph ph-tray" style="font-size:18px;display:block;margin-bottom:6px;opacity:0.5;"></i>
+                 No messages yet.
+               </div>`
+            : inbox.map(n => {
+                const dateStr = new Date(n.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+                const tone = n.priority === 'high' ? '#ef4444' : n.priority === 'low' ? '#94a3b8' : 'var(--accent)';
+                return `<div data-inbox-id="${n.id}" style="display:flex;gap:10px;padding:10px 12px;background:${n.read?'var(--card-2)':'rgba(0,212,168,0.06)'};border:1px solid ${n.read?'var(--border)':'rgba(0,212,168,0.30)'};border-radius:8px;margin-bottom:5px;cursor:pointer;">
+                    <div style="width:4px;background:${tone};border-radius:2px;flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;">
+                            <div style="font-size:11px;font-weight:${n.read?'600':'800'};">${n.title || 'Update'}</div>
+                            <div style="font-size:9px;color:var(--text-3);white-space:nowrap;">${dateStr}</div>
+                        </div>
+                        ${n.text ? `<div style="font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.4;">${n.text}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
         openSettingsDrawer({
             icon: 'ph-bell-ringing',
             badge: 'STEP 04',
             title: 'Communication Hub',
-            subtitle: 'Control when and how WJP contacts you.',
+            subtitle: 'Inbox + control over how WJP contacts you.',
             body: `
               <div style="display:flex;flex-direction:column;gap:20px;">
+                <!-- Inbox -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div style="font-size:11px;font-weight:700;">📨 Inbox ${inboxUnread > 0 ? `<span style="background:var(--accent);color:#0b0f1a;font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;margin-left:4px;">${inboxUnread} unread</span>` : ''}</div>
+                    ${inbox.length > 0 ? `<button id="ch-mark-all-read" style="background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer;font-weight:700;">Mark all read</button>` : ''}
+                  </div>
+                  <div id="ch-inbox-body" style="max-height:240px;overflow:auto;padding-right:4px;">
+                    ${inboxRowsHtml}
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
                 <div>
                   <div style="font-size:11px;font-weight:700;margin-bottom:12px;">Alert Channels</div>
                   ${channelRows.map(n=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
@@ -14611,6 +14688,33 @@ function initAdvisorPageLogic() {
             };
             // Test notification — fires real browser push if granted, else falls
             // back to in-app toast + adds to the notification panel.
+            // Phase 4 N1 — Inbox row click marks read; "Mark all read" button
+            document.querySelectorAll('#ch-inbox-body [data-inbox-id]').forEach(row => {
+                row.addEventListener('click', () => {
+                    const id = row.dataset.inboxId;
+                    const note = (appState.notifications || []).find(n => String(n.id) === String(id));
+                    if (note && !note.read) {
+                        note.read = true;
+                        try { saveState(); } catch(_){}
+                        try { renderNotifications && renderNotifications(); } catch(_){}
+                        // Visual update without re-rendering
+                        row.style.background = 'var(--card-2)';
+                        row.style.borderColor = 'var(--border)';
+                        row.querySelector('div:nth-child(2) > div > div:first-child').style.fontWeight = '600';
+                    }
+                });
+            });
+            const markAllBtn = document.getElementById('ch-mark-all-read');
+            if (markAllBtn) markAllBtn.addEventListener('click', () => {
+                (appState.notifications || []).forEach(n => { if (!n.cleared) n.read = true; });
+                try { saveState(); } catch(_){}
+                try { renderNotifications && renderNotifications(); } catch(_){}
+                showToast('All messages marked read.');
+                // Re-open the drawer to refresh the inbox
+                document.getElementById('settings-drawer-overlay')?.remove();
+                setTimeout(() => document.getElementById('btn-settings-notifications')?.click(), 80);
+            });
+
             const testBtn = document.getElementById('notif-test-btn');
             if (testBtn) testBtn.onclick = () => {
                 if ('Notification' in window && Notification.permission === 'granted') {
@@ -17140,7 +17244,20 @@ function answerCreditQuery(query) {
 
         const now = new Date();
         const payments = appState.debts.map(d => parseInt(d.dueDate) || 1);
-        const paydays = [1, 15]; // Fixed paydays for mock
+        // Pull real paydays from auto-detected income (Plaid recurring deposits)
+        // Falls back to [1, 15] only if no real income is detected yet
+        let paydays = [];
+        try {
+            const incomeRecurring = (appState.recurring || []).filter(r => r && (r.category === 'income' || r.linkedIncome));
+            paydays = incomeRecurring.map(r => {
+                if (r.nextDate) {
+                    const nd = new Date(r.nextDate);
+                    if (!isNaN(nd)) return nd.getDate();
+                }
+                return parseInt(r.anchorDay) || null;
+            }).filter(d => d != null);
+        } catch(_){}
+        if (!paydays.length) paydays = [1, 15];
 
         for (let i = 1; i <= 31; i++) {
             const dayEl = document.createElement('div');
@@ -17309,29 +17426,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // that was overriding answers with hardcoded "Chase statement" demo text.
 
     // ==========================================
-    // 12. Banking Sync Mockup
+    // 12. Banking Sync — production Plaid Link (no demo fallback)
     // ==========================================
     const btnSyncBank = document.getElementById('btn-sync-bank');
-    const plaidModal = document.getElementById('plaid-modal');
-    const plaidClose = document.getElementById('plaid-close');
-    const btnPlaidContinue = document.getElementById('btn-plaid-continue');
 
-    if (btnSyncBank && plaidModal) {
+    if (btnSyncBank) {
         btnSyncBank.addEventListener('click', () => {
-            // Real Plaid Link is the primary path. openPlaidLink() now lazy-loads
-            // the Plaid SDK on demand, so we always try it first. If it throws
-            // synchronously (script blocked, CSP, etc.) we fall back to the mockup.
             const hasOpener = (typeof openPlaidLink === 'function' || typeof window.openPlaidLink === 'function');
             if (hasOpener) {
                 try {
                     (window.openPlaidLink || openPlaidLink)();
                     return;
                 } catch (e) {
-                    console.warn('openPlaidLink threw, falling back to mockup:', e);
+                    console.warn('openPlaidLink threw:', e);
                 }
             }
-            // Fallback: legacy mockup so a click never feels broken.
-            plaidModal.classList.add('active');
+            if (typeof showToast === 'function') {
+                showToast('Bank linking is unavailable right now. Try again in a minute.');
+            }
         });
 
         // === Bank Health Check modal ===
@@ -17438,14 +17550,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-size:12px;font-weight:600;margin-top:3px;">${fmt(s.lastWebhookAt)}</div>
                         </div>
                     </div>
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
-                        ${[
-                            {label:'Items Linked', val: s.itemCount||0, color:'var(--accent)'},
-                            {label:'Accounts',     val: s.accountCount||0, color:'#667eea'},
-                            {label:'Tx (30d)',     val: s.transactionCount30d||0, color:'#22c55e'},
-                            {label:'Recurring',    val: s.recurringCount||0, color:'#fbbf24'}
-                        ].map(t => `<div style="background:var(--card-2);padding:10px;border-radius:8px;text-align:center;">
-                            <div style="font-size:20px;font-weight:800;color:${t.color};">${t.val}</div>
+                    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;">
+                        ${(() => {
+                            const liquid = (appState.linkedAssets || []).reduce((acc, a) => acc + (Number(a.balance) || 0), 0);
+                            const liquidStr = liquid >= 1000 ? '$' + Math.round(liquid/1000) + 'k' : '$' + Math.round(liquid).toLocaleString();
+                            return [
+                                {label:'Items', val: s.itemCount||0, color:'var(--accent)'},
+                                {label:'Accounts', val: s.accountCount||0, color:'#667eea'},
+                                {label:'Liquid', val: liquidStr, color:'#a855f7'},
+                                {label:'Tx (30d)', val: s.transactionCount30d||0, color:'#22c55e'},
+                                {label:'Recurring', val: s.recurringCount||0, color:'#fbbf24'}
+                            ];
+                        })().map(t => `<div style="background:var(--card-2);padding:10px;border-radius:8px;text-align:center;">
+                            <div style="font-size:18px;font-weight:800;color:${t.color};">${t.val}</div>
                             <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${t.label}</div>
                         </div>`).join('')}
                     </div>`;
@@ -17541,56 +17658,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        if (plaidClose) {
-            plaidClose.addEventListener('click', () => {
-                plaidModal.classList.remove('active');
-            });
-        }
-        
-        if (btnPlaidContinue) {
-            btnPlaidContinue.addEventListener('click', () => {
-                // Hide the pre-modal and open the real Plaid Link Mockup
-                plaidModal.classList.remove('active');
-                
-                // Reset mockup screens
-                document.querySelectorAll('.plaid-screen').forEach(s => s.classList.remove('active'));
-                document.getElementById('plaid-screen-banks').classList.add('active');
-                document.getElementById('plaid-link-ui').classList.add('active');
-            });
-        }
     }
-
-    // Global functions for the Plaid Mockup Flow
-    window.showPlaidLogin = function(bankName) {
-        document.getElementById('plaid-bank-name').textContent = bankName;
-        document.querySelectorAll('.plaid-screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('plaid-screen-login').classList.add('active');
-    };
-
-    window.submitPlaidLogin = function() {
-        document.querySelectorAll('.plaid-screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('plaid-screen-loading').classList.add('active');
-        document.getElementById('plaid-loading-text').textContent = 'Authenticating...';
-        
-        setTimeout(() => {
-            document.getElementById('plaid-loading-text').textContent = 'Fetching Accounts...';
-            setTimeout(() => {
-                document.querySelectorAll('.plaid-screen').forEach(s => s.classList.remove('active'));
-                document.getElementById('plaid-screen-success').classList.add('active');
-            }, 1200);
-        }, 1200);
-    };
-
-    window.closePlaidLink = function() {
-        document.getElementById('plaid-link-ui').classList.remove('active');
-        showToast('Bank accounts successfully linked and syncing!');
-        
-        const badge = document.getElementById('notifications-badge');
-        if(badge) {
-            badge.style.display = 'block';
-            badge.textContent = parseInt(badge.textContent || '0') + 1;
-        }
-    };
+    // Legacy Plaid mockup window functions (showPlaidLogin / submitPlaidLogin /
+    // closePlaidLink) removed in Phase 4 — production now uses real Plaid Link.
 
     // ==========================================
     // 13. Activity Log Navigation
@@ -21972,18 +22042,13 @@ window.handleGoogleSignIn = function() {
         google.accounts.id.prompt();
         return;
     }
-    // Demo fallback — show inline mini-form
-    const overlay = document.getElementById('google-demo-overlay');
-    if (overlay) overlay.style.display = 'flex';
+    // Google sign-in not configured — surface a clear message instead of
+    // a fake demo overlay (removed in Phase 4 cleanup).
+    if (typeof showToast === 'function') {
+        showToast('Google sign-in unavailable. Use email + password instead.');
+    }
 };
-
-window.submitGoogleDemo = function() {
-    const name  = (document.getElementById('gdemo-name')?.value  || '').trim();
-    const email = (document.getElementById('gdemo-email')?.value || '').trim();
-    if (!name) { document.getElementById('gdemo-name')?.focus(); return; }
-    document.getElementById('google-demo-overlay').style.display = 'none';
-    window._finishGoogleSignIn(name, email);
-};
+// submitGoogleDemo removed — demo overlay no longer exists.
 
 window.handleAccountCreation = function(e) {
     e.preventDefault();
