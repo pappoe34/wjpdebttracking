@@ -1686,6 +1686,13 @@ function drawCharts() {
 
     /** Helper: Draw Donut Chart using Chart.js */
     function drawDonut(canvasId, segments) {
+        // Phase 3: defer if Chart.js hasn't loaded yet
+        if (typeof Chart === 'undefined') {
+            if (typeof ensureChartLoaded === 'function') {
+                ensureChartLoaded().then(() => { try { drawDonut(canvasId, segments); } catch(_){} });
+            }
+            return;
+        }
         const c = document.getElementById(canvasId);
         if (!c) return;
 
@@ -4483,9 +4490,14 @@ function updateUI() {
         const targetGoal = (appState.budget.targetGoal || originalSum || 0);
         const totalPaid = Math.min(targetGoal, Math.max(debtPaid, realTxnPaid));
 
-        const progressPct = targetGoal > 0 ? Math.min(100, Math.round((totalPaid / targetGoal) * 100)) : 0;
+        // Phase 3: don't round to 0 when totalPaid > 0 -- a tiny visible sliver tells
+        // the user they're making progress. Was: Math.round() snapped to 0% for sub-1% progress.
+        const _rawPct = targetGoal > 0 ? Math.min(100, (totalPaid / targetGoal) * 100) : 0;
+        const progressPct = _rawPct > 0 && _rawPct < 1 ? Math.max(0.8, _rawPct) : Math.round(_rawPct);
 
         freedomFill.style.width = `${progressPct}%`;
+        // Phase 3: backup floor so a tiny progress is still visible even if width rounds down
+        freedomFill.style.minWidth = (totalPaid > 0 && targetGoal > 0) ? '4px' : '0';
         if (freedomPaid) freedomPaid.textContent = `$${totalPaid.toLocaleString()} paid`;
         if (freedomTarget) freedomTarget.textContent = targetGoal > 0 ? `$${targetGoal.toLocaleString()} target` : 'No target yet';
         if (freedomBadge) {
@@ -4539,7 +4551,14 @@ function updateUI() {
         } else {
             if (dfdHero) dfdHero.classList.remove('empty');
             try {
-                const stats = calcSimTotals(strategy, extraMonthly, 0, 0);
+                // Phase 3: route through simulateAllStrategies() (the same engine Debts Overview
+                // uses) so Hero matches Estimated Completion. Was using calcSimTotals which
+                // produced a 1-month drift vs the rest of the app.
+                let _phase3Sim = null;
+                try { _phase3Sim = (typeof simulateAllStrategies === 'function') ? simulateAllStrategies() : null; } catch(_){}
+                const stats = (_phase3Sim && _phase3Sim.simulations && _phase3Sim.simulations[strategy])
+                    ? _phase3Sim.simulations[strategy]
+                    : calcSimTotals(strategy, extraMonthly, 0, 0);
                 if (stats && stats.months > 0 && stats.months < 600) {
                     const payoff = new Date();
                     payoff.setMonth(payoff.getMonth() + stats.months);
@@ -9813,14 +9832,21 @@ function initNotifications() {
         setTimeout(() => {
             const highAprDebt = appState.debts.reduce((p, c) => (p.apr > c.apr) ? p : c, appState.debts[0]);
             if(highAprDebt && highAprDebt.apr > 5) {
+                // Phase 3: stable dedup key so reloads don't re-add this insight.
+                const _monthKey = new Date().toISOString().slice(0, 7);
+                const _nlmKey = 'nlm-' + (highAprDebt.id || highAprDebt.name) + '-' + _monthKey;
+                if (Array.isArray(appState.notifications) && appState.notifications.some(n => n && n.key === _nlmKey)) {
+                    return; // already shown this month for this debt
+                }
                 const saving = (highAprDebt.balance * (highAprDebt.apr / 100) * 0.5).toFixed(0);
                 const added = pushNotification({
                     id: Date.now(),
+                    key: _nlmKey,
                     title: 'NotebookLM Optimizer',
                     text: `Based on your linked accounts, redirecting 50% of your discretionary budget to your ${highAprDebt.name} avoids $${saving} in interest this year.`,
                     type: 'ai',
                     priority: 'high',
-                    time: 'Just now',
+                    timestamp: Date.now(),
                     read: false,
                     cleared: false
                 }, 'ai');
@@ -13728,6 +13754,38 @@ function renderActivityPage() {
         return b.id - a.id;
     });
 
+    // Phase 3: friendly time + sanitize raw error codes + drop noisy internal tags
+    const _formatTime = (n) => {
+        const ts = Number(n && n.timestamp) || 0;
+        if (ts > 0) {
+            const diffMs = Date.now() - ts;
+            const m = Math.floor(diffMs / 60000);
+            if (m < 1) return 'just now';
+            if (m < 60) return m + 'm ago';
+            const h = Math.floor(m / 60);
+            if (h < 24) return h + 'h ago';
+            const d = new Date(ts);
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        return n && n.time && n.time !== 'undefined' ? n.time : 'recent';
+    };
+    const _friendlyText = (text) => {
+        if (!text) return '';
+        const _map = {
+            'INVALID_FIELD': 'invalid request',                                               
+            'INSTITUTION_NO_LONGER_SUPPORTED': 'bank no longer supported',
+            'NO_LIABILITY_ACCOUNTS': 'no liability accounts found',
+            'ITEM_LOGIN_REQUIRED': 'reconnection required',
+            'INSUFFICIENT_CREDENTIALS': 'sign-in needed',
+            'INVALID_CREDENTIALS': 'sign-in failed',
+            'USER_SETUP_REQUIRED': 'sign in to your bank',
+            'MFA_NOT_SUPPORTED': '2FA prompt failed',
+            'NO_ACCOUNTS': 'no accounts found',
+            'INSTITUTION_DOWN': 'your bank is temporarily unavailable',
+            'INTERNAL_SERVER_ERROR': 'temporary service error'
+        };
+        return String(text).replace(/[A-Z][A-Z_]{3,}/g, m => _map[m] || m.toLowerCase().replace(/_/g, ' '));
+    };
     list.innerHTML = sorted.map((n, index) => `
         <div class="activity-card ${n.cleared ? 'cleared' : ''} ${n.priority === 'high' ? 'priority-high' : ''} type-${n.type}" style="animation-delay: ${index * 0.1}s">
             <div class="activity-icon-wrap">
@@ -13735,15 +13793,11 @@ function renderActivityPage() {
             </div>
             <div class="activity-content">
                 <div class="activity-meta">
-                    <div class="activity-title">${n.title}</div>
-                    <div class="activity-date">${n.time}</div>
+                    <div class="activity-title">${_friendlyText(n.title)}</div>
+                    <div class="activity-date">${_formatTime(n)}</div>
                 </div>
-                <div class="activity-desc">${n.text}</div>
-                <div class="activity-tags">
-                    <div class="activity-tag ${n.priority === 'high' ? 'priority-high' : n.priority === 'med' ? 'priority-med' : ''}">${n.priority} focus</div>
-                    <div class="activity-tag ${n.type === 'ai' ? 'type-ai' : ''}">${n.type.toUpperCase()}</div>
-                    ${n.cleared ? '<div class="activity-tag status-archived">Archived</div>' : ''}
-                </div>
+                <div class="activity-desc">${_friendlyText(n.text)}</div>
+                ${n.cleared ? '<div class="activity-tag status-archived" style="margin-top:6px;display:inline-block;">Archived</div>' : ''}
             </div>
         </div>
     `).join('');
@@ -17895,6 +17949,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initBudgetControlPage() {
+    // Phase 3: ensure Chart.js loaded before any chart-using sub-call.
+    if (typeof Chart === 'undefined' && typeof ensureChartLoaded === 'function') {
+        ensureChartLoaded().then(() => { try { initBudgetControlPage(); } catch(_){} });
+        return;
+    }
     renderPaycheckAllocation();
     renderExpenseLegend();
     renderSavingsGoals();
@@ -18468,6 +18527,13 @@ function renderExpenseLegend() {
 }
 
 function renderCashFlowChart() {
+    // Phase 3: Chart.js may not be loaded yet.
+    if (typeof Chart === 'undefined') {
+        if (typeof ensureChartLoaded === 'function') {
+            ensureChartLoaded().then(() => { try { renderCashFlowChart(); } catch(_){} });
+        }
+        return;
+    }
     const canvas = document.getElementById('cashFlowChart');
     if (!canvas) return;
 
@@ -19394,6 +19460,13 @@ function showToast(message) {
 // BUDGET vs AI-PREDICTED CHART (replaces Budget vs Actual)
 // ====================================================================
 function refreshBudgetVsPredicted() {
+    // Phase 3: Chart.js may not be loaded yet.
+    if (typeof Chart === 'undefined') {
+        if (typeof ensureChartLoaded === 'function') {
+            ensureChartLoaded().then(() => { try { refreshBudgetVsPredicted(); } catch(_){} });
+        }
+        return;
+    }
     // Find all instances of the chart canvas (Budget page + Debts sub-tab)
     ['budgetVsActualChart', 'budgetVsActualChart2'].forEach(canvasId => {
         const canvasEl = document.getElementById(canvasId);
