@@ -23537,7 +23537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     var CLICK_WINDOW_MS = 1500;
     var CLICKS_REQUIRED = 3;
-    var SECTION_SELECTOR = '#dfd-hero, #top3-strategy, #math-breakdown, .card, .ai-advisor-card';
+    var SECTION_SELECTOR = '#dfd-hero, #top3-strategy, #math-breakdown, .card, .ai-advisor-card, .wjp-private';
     var sectionState = new WeakMap();
 
     function findSection(el) {
@@ -23653,7 +23653,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 
-/* PHASE 4.6 - Section-level hover unblur (sentinel: P4_7_HOVER_GESTURE)
+/* PHASE 4.6 - Section-level hover unblur (sentinel: P4_10_HOVER_GESTURE)
  * Replaces fragmented CSS per-element :hover with a single section-level
  * mouseenter/mouseleave handler. Whole section unblurs as one unit.
  * 150ms intent delay (fast, avoids scroll-by flicker), instant re-blur on leave. */
@@ -23671,11 +23671,13 @@ document.addEventListener('DOMContentLoaded', () => {
             section.style.setProperty('-webkit-filter','none','important');
             section.style.setProperty('transition','filter 0s','important');
             section.style.setProperty('-webkit-transition','filter 0s','important');
+            section.style.setProperty('cursor','auto','important');
             section.querySelectorAll('*').forEach(function(el){
                 el.style.setProperty('filter','none','important');
                 el.style.setProperty('-webkit-filter','none','important');
                 el.style.setProperty('transition','filter 0s','important');
                 el.style.setProperty('-webkit-transition','filter 0s','important');
+                el.style.setProperty('cursor','auto','important');
             });
         } catch(_){}
     }
@@ -23687,11 +23689,13 @@ document.addEventListener('DOMContentLoaded', () => {
             section.style.removeProperty('-webkit-filter');
             section.style.removeProperty('transition');
             section.style.removeProperty('-webkit-transition');
+            section.style.removeProperty('cursor');
             section.querySelectorAll('*').forEach(function(el){
                 el.style.removeProperty('filter');
                 el.style.removeProperty('-webkit-filter');
                 el.style.removeProperty('transition');
                 el.style.removeProperty('-webkit-transition');
+                el.style.removeProperty('cursor');
             });
         } catch(_){}
     }

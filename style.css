@@ -8180,7 +8180,8 @@ body.wjp-privacy-on #dfd-hero,
 body.wjp-privacy-on #top3-strategy,
 body.wjp-privacy-on .card,
 body.wjp-privacy-on .ai-advisor-card,
-body.wjp-privacy-on #math-breakdown {
+body.wjp-privacy-on #math-breakdown,
+body.wjp-privacy-on .wjp-private {
   cursor: progress;
 }
 body.wjp-privacy-on .wjp-unblur,
@@ -8215,4 +8216,13 @@ body.wjp-privacy-on .wjp-public * {
   -webkit-filter: none !important;
   transition: none !important;
   -webkit-transition: none !important;
+}
+
+
+/* PHASE 4.10 - cursor reverts to auto when section unblurs */
+body.wjp-privacy-on .wjp-hover-unblur,
+body.wjp-privacy-on .wjp-hover-unblur *,
+body.wjp-privacy-on .wjp-unblur,
+body.wjp-privacy-on .wjp-unblur * {
+  cursor: auto !important;
 }
