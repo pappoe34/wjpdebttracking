@@ -23653,7 +23653,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 
-/* PHASE 4.6 - Section-level hover unblur (sentinel: P4_6_HOVER_GESTURE)
+/* PHASE 4.6 - Section-level hover unblur (sentinel: P4_7_HOVER_GESTURE)
  * Replaces fragmented CSS per-element :hover with a single section-level
  * mouseenter/mouseleave handler. Whole section unblurs as one unit.
  * 150ms intent delay (fast, avoids scroll-by flicker), instant re-blur on leave. */
@@ -23669,9 +23669,13 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             section.style.setProperty('filter','none','important');
             section.style.setProperty('-webkit-filter','none','important');
+            section.style.setProperty('transition','filter 0s','important');
+            section.style.setProperty('-webkit-transition','filter 0s','important');
             section.querySelectorAll('*').forEach(function(el){
                 el.style.setProperty('filter','none','important');
                 el.style.setProperty('-webkit-filter','none','important');
+                el.style.setProperty('transition','filter 0s','important');
+                el.style.setProperty('-webkit-transition','filter 0s','important');
             });
         } catch(_){}
     }
@@ -23681,9 +23685,13 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             section.style.removeProperty('filter');
             section.style.removeProperty('-webkit-filter');
+            section.style.removeProperty('transition');
+            section.style.removeProperty('-webkit-transition');
             section.querySelectorAll('*').forEach(function(el){
                 el.style.removeProperty('filter');
                 el.style.removeProperty('-webkit-filter');
+                el.style.removeProperty('transition');
+                el.style.removeProperty('-webkit-transition');
             });
         } catch(_){}
     }
