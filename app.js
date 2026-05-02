@@ -16,11 +16,15 @@ function loadScriptOnce(url, opts) {
         const s = document.createElement('script');
         s.src = url;
         s.async = true;
-        // Only set crossOrigin if explicitly requested — default plain-script loads
-        // let the browser handle CORS per-server, which is what CDNs like plaid.com
-        // actually expect. Setting 'anonymous' was breaking the load when the CDN
-        // doesn't return Access-Control-Allow-Origin.
-        if (opts.cors) s.crossOrigin = 'anonymous';
+        // PHASE 5a: support SRI via opts.integrity (auto-sets crossOrigin since SRI requires CORS)
+        // Default plain-script loads let the browser handle CORS per-server, which is what CDNs
+        // like plaid.com expect (no Access-Control-Allow-Origin header). Sentinel: P5A_SRI
+        if (opts.integrity) {
+            s.integrity = opts.integrity;
+            s.crossOrigin = 'anonymous';
+        } else if (opts.cors) {
+            s.crossOrigin = 'anonymous';
+        }
         s.onload = () => { console.log('[loaded]', url); resolve(); };
         s.onerror = (e) => {
             delete _scriptPromises[url];
@@ -33,7 +37,10 @@ function loadScriptOnce(url, opts) {
 }
 function ensureChartLoaded() {
     if (typeof Chart !== 'undefined') return Promise.resolve();
-    return loadScriptOnce('https://cdn.jsdelivr.net/npm/chart.js');
+    // PHASE 5a: pinned Chart.js v4.5.1 + SRI hash (sha384). Update both URL and hash together.
+    return loadScriptOnce('https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js', {
+        integrity: 'sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ'
+    });
 }
 
 /* ---------- Dashboard greeting (Welcome back, Winston) ----------
