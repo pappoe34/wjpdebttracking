@@ -24962,3 +24962,108 @@ window.showPrivacyHint = function showPrivacyHint() {
     // Periodic refresh so reminders update day-to-day
     setInterval(refreshGenerators, 5 * 60 * 1000);
 })();
+
+
+/* PHASE 13a - Lightweight error monitor (sentinel: P13_ERROR_MONITOR)
+ * Captures uncaught errors + unhandled promise rejections to Firestore at
+ * users/{uid}/errors/{timestamp}. Throttled. Skips known noise. */
+(function(){
+    if (window._wjpErrorMonitorInstalled) return;
+    window._wjpErrorMonitorInstalled = true;
+
+    var SKIP_PATTERNS = [
+        /Script error\.?$/i,                    /* cross-origin no-detail */
+        /ResizeObserver loop limit/i,            /* chrome warning, harmless */
+        /Non-Error promise rejection captured/i,
+        /Failed to fetch dynamically imported module/i  /* network blip on chunk loads */
+    ];
+    var lastWriteAt = 0;
+    var MIN_INTERVAL = 5000;  /* throttle: at most one write per 5s */
+
+    async function logError(payload) {
+        var now = Date.now();
+        if (now - lastWriteAt < MIN_INTERVAL) return;
+        lastWriteAt = now;
+        try {
+            var fbApp = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
+            var fsMod = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+            var fbAuth = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js');
+            var apps = fbApp.getApps();
+            if (!apps.length) return;
+            var u = fbAuth.getAuth(apps[0]).currentUser;
+            if (!u) return;  /* don't log unauthenticated errors */
+            var db = fsMod.getFirestore(apps[0]);
+            await fsMod.setDoc(fsMod.doc(db, 'users', u.uid, 'errors', String(now)), payload, { merge: false });
+        } catch(_) { /* swallow - we never want logger to crash the app */ }
+    }
+
+    window.addEventListener('error', function(ev){
+        try {
+            var msg = String((ev && ev.message) || '');
+            if (SKIP_PATTERNS.some(function(p){ return p.test(msg); })) return;
+            logError({
+                kind: 'error',
+                msg: msg.slice(0, 500),
+                src: String(ev.filename || '').slice(0, 200),
+                line: ev.lineno || 0,
+                col: ev.colno || 0,
+                stack: (ev.error && ev.error.stack) ? String(ev.error.stack).slice(0, 2000) : '',
+                url: location.pathname + location.search,
+                ua: (navigator.userAgent || '').slice(0, 200),
+                ts: Date.now()
+            });
+        } catch(_){}
+    });
+
+    window.addEventListener('unhandledrejection', function(ev){
+        try {
+            var reason = ev && ev.reason;
+            var msg = (reason && reason.message) || String(reason || 'unknown');
+            if (SKIP_PATTERNS.some(function(p){ return p.test(msg); })) return;
+            logError({
+                kind: 'rejection',
+                msg: String(msg).slice(0, 500),
+                stack: (reason && reason.stack) ? String(reason.stack).slice(0, 2000) : '',
+                url: location.pathname + location.search,
+                ua: (navigator.userAgent || '').slice(0, 200),
+                ts: Date.now()
+            });
+        } catch(_){}
+    });
+})();
+
+/* PHASE 13c - Cookie/localStorage consent banner (sentinel: P13_COOKIE_CONSENT) */
+(function(){
+    if (window._wjpConsentInstalled) return;
+    window._wjpConsentInstalled = true;
+    function hasConsent() {
+        try { return localStorage.getItem('wjp_cookie_consent_v1') === 'accepted'; } catch(_) { return false; }
+    }
+    function show() {
+        if (hasConsent()) return;
+        if (document.getElementById('wjp-cookie-banner')) return;
+        var bar = document.createElement('div');
+        bar.id = 'wjp-cookie-banner';
+        bar.setAttribute('role', 'dialog');
+        bar.setAttribute('aria-label', 'Cookie and storage notice');
+        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99998;background:var(--card,#0e1422);border:1px solid var(--border,#1a2434);border-radius:14px;padding:14px 16px;box-shadow:0 12px 40px rgba(0,0,0,0.45);display:flex;gap:14px;align-items:center;flex-wrap:wrap;max-width:760px;margin:0 auto;';
+        bar.innerHTML = '<div style="flex:1;min-width:220px;font-size:12px;line-height:1.5;color:var(--text-2,#94a3b8);">'
+            + '<strong style="color:var(--text,#fff);">We use cookies and local storage</strong> to keep you signed in, sync your data across devices, and remember your settings. No advertising trackers. '
+            + '<a href="/intro.html#privacy" style="color:var(--accent,#00d4a8);text-decoration:none;">Learn more</a>.'
+            + '</div>'
+            + '<div style="display:flex;gap:8px;flex-shrink:0;">'
+            +   '<button id="wjp-cookie-accept" class="btn btn-primary" style="font-size:12px;padding:8px 16px;font-weight:700;">Got it</button>'
+            + '</div>';
+        document.body.appendChild(bar);
+        document.getElementById('wjp-cookie-accept').addEventListener('click', function(){
+            try { localStorage.setItem('wjp_cookie_consent_v1', 'accepted'); } catch(_){}
+            try { localStorage.setItem('wjp_cookie_consent_at', String(Date.now())); } catch(_){}
+            bar.remove();
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(show, 800); });
+    } else {
+        setTimeout(show, 800);
+    }
+})();

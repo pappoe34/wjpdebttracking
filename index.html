@@ -140,10 +140,22 @@
       // Delete Account helper — exposed so app.js (non-module) can call Firebase.
       // Handles the 'auth/requires-recent-login' case by re-authenticating the
       // current user before retrying the delete.
+      // Helper: wipe the user's Firestore subtree before deleting their auth record.
+      async function _wipeFirestore(uid) {
+        try {
+          const fsMod = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
+          const db = fsMod.getFirestore(app);
+          // Delete the main state doc + any sync probes
+          await fsMod.deleteDoc(fsMod.doc(db, 'users', uid, 'state', 'main')).catch(()=>{});
+          await fsMod.deleteDoc(fsMod.doc(db, 'users', uid, 'sync', 'probe')).catch(()=>{});
+        } catch (e) { console.warn('[delete] firestore wipe partial:', e); }
+      }
       window.__wjpDeleteAccount = async function(passwordOrNull){
         const u = auth.currentUser;
         if (!u) throw new Error('no-user');
         try {
+          // GDPR: wipe Firestore data first, then delete auth user
+          await _wipeFirestore(u.uid);
           await deleteUser(u);
           return { ok:true };
         } catch (err) {
@@ -159,6 +171,7 @@
               } else {
                 return { ok:false, error:'unsupported-provider' };
               }
+              await _wipeFirestore(u.uid);
               await deleteUser(u);
               return { ok:true };
             } catch (e2) {
