@@ -23742,7 +23742,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 
-/* PHASE 4.8 - Privacy tag pass (sentinel: P4_8_TAGGER)
+/* PHASE 4.8 - Privacy tag pass (sentinel: P4_11_TAGGER)
  * Walks DOM and tags items per user spec:
  *   .wjp-private  -> will blur in Privacy Mode
  *   .wjp-public   -> will OVERRIDE blur (force visible)
@@ -23836,6 +23836,26 @@ document.addEventListener('DOMContentLoaded', () => {
             // ===== CREDIT SCORE TAB - 12 (everything) =====
             var cst = document.getElementById('credit-score-tab-content');
             if (cst) add(cst, 'wjp-private');
+
+            // ===== AGGRESSIVE SWEEP (P4.11) - tag ANY leaf containing money/percent/comma-number =====
+            try {
+                var moneyRe = /(\$|\u20ac|\u00a3)\s?-?\d|\d+(\.\d+)?\s?%|^-?\d{1,3}(,\d{3})+/;
+                // Skip nav badges, sidebar pills, eyebrow/label text
+                var skipSelector = '.sidebar, .topbar, .nav-item, .nav-pill, .nav-badge, .privacy-public, .wjp-public, #btn-privacy-mask, #btn-privacy-mask *, .top3-header, .top3-header *, .modal, .toast, .activity-tags';
+                var scopes = document.querySelectorAll('main, .main-area, .content-area, .page');
+                scopes.forEach(function(scope){
+                    var leaves = scope.querySelectorAll('div, span, strong, td, th, p, li, h1, h2, h3, h4, label');
+                    leaves.forEach(function(el){
+                        if (el.children.length > 0) return;
+                        if (el.closest(skipSelector)) return;
+                        var t = (el.textContent||'').trim();
+                        if (!t || t.length > 80) return;
+                        if (moneyRe.test(t)) {
+                            add(el, 'wjp-private');
+                        }
+                    });
+                });
+            } catch(_){}
 
             // ===== RESILIENCE TAB - 13 (anything with an amount) =====
             var rt = document.getElementById('resilience-tab-content');
