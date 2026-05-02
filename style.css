@@ -8041,8 +8041,8 @@ body.wjp-privacy-on .top3-amount:hover,
 body.wjp-privacy-on .top3-progress:hover {
   filter: none !important;
   -webkit-filter: none !important;
-  transition: filter 0s 3s !important;
-  -webkit-transition: filter 0s 3s !important;
+  transition: filter 0s 2s !important;
+  -webkit-transition: filter 0s 2s !important;
 }
 
 #btn-privacy-mask[aria-pressed="true"] { background: rgba(0,212,168,0.12) !important; border-color: var(--accent) !important; }
@@ -8142,8 +8142,8 @@ body.wjp-privacy-on .ml-burn:hover,
 body.wjp-privacy-on .ml-forecast:hover {
   filter: none !important;
   -webkit-filter: none !important;
-  transition: filter 0s 3s !important;
-  -webkit-transition: filter 0s 3s !important;
+  transition: filter 0s 2s !important;
+  -webkit-transition: filter 0s 2s !important;
 }
 
 
