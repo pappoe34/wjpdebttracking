@@ -8499,3 +8499,73 @@ select:focus-visible,
     white-space: nowrap !important;
   }
 }
+
+
+/* PHASE_5D_3_HOTFIX - Add button always visible on mobile */
+
+@media (max-width: 720px) {
+  #btn-new-entry {
+    position: fixed !important;
+    right: 16px !important;
+    bottom: 24px !important;
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 200 !important;
+    box-shadow: 0 8px 24px rgba(0, 212, 168, 0.42), 0 2px 6px rgba(0,0,0,0.2) !important;
+    font-size: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  #btn-new-entry i,
+  #btn-new-entry .ph-plus {
+    font-size: 26px !important;
+    margin: 0 !important;
+  }
+
+  .header-icons {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    min-width: 0 !important;
+  }
+  .header-icons::-webkit-scrollbar { display: none !important; }
+
+  #btn-sync-bank,
+  #btn-bank-health,
+  #btn-privacy-mask {
+    padding: 8px 10px !important;
+    font-size: 0 !important;
+  }
+  #btn-sync-bank i,
+  #btn-bank-health i,
+  #btn-privacy-mask i {
+    font-size: 16px !important;
+    margin: 0 !important;
+  }
+  #btn-privacy-mask-label,
+  #btn-sync-bank-label,
+  #btn-bank-health span {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  #btn-new-entry {
+    width: 52px !important;
+    height: 52px !important;
+    bottom: 20px !important;
+  }
+  #btn-new-entry i,
+  #btn-new-entry .ph-plus {
+    font-size: 24px !important;
+  }
+}
