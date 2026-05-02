@@ -8181,7 +8181,7 @@ body.wjp-privacy-on #top3-strategy,
 body.wjp-privacy-on .card,
 body.wjp-privacy-on .ai-advisor-card,
 body.wjp-privacy-on #math-breakdown {
-  cursor: help;
+  cursor: progress;
 }
 body.wjp-privacy-on .wjp-unblur,
 body.wjp-privacy-on .wjp-unblur * {
