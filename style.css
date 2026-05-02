@@ -7930,33 +7930,119 @@ body.sidebar-collapsed .sidebar-user { justify-content: center; }
 .txn-provenance-row[data-src-kind="system"]    td { background: rgba(148,163,184,0.04) !important; border-top-color: rgba(148,163,184,0.15) !important; }
 
 
-/* PHASE 4 - balance privacy mask */
+/* PHASE 4.2 - Privacy Mode (site-wide) - 3s hover delay, instant re-blur */
 body.wjp-privacy-on .stat-value,
+body.wjp-privacy-on .budget-stat-value,
 body.wjp-privacy-on .dfd-amount,
+body.wjp-privacy-on .dfd-date,
+body.wjp-privacy-on .dfd-meta,
+body.wjp-privacy-on .dfd-strategy,
+body.wjp-privacy-on .dfd-encouragement,
+body.wjp-privacy-on .dfd-quarters,
+body.wjp-privacy-on .dfd-progress,
+body.wjp-privacy-on .dfd-labels,
 body.wjp-privacy-on .freedom-amount,
 body.wjp-privacy-on .txn-amount,
 body.wjp-privacy-on .upcoming-amount,
 body.wjp-privacy-on .balance-amount,
 body.wjp-privacy-on .ai-rev-strat-stat,
 body.wjp-privacy-on .ai-rev-strat-sub,
+body.wjp-privacy-on .ai-rev-table tbody td,
+body.wjp-privacy-on .score-delta-live,
+body.wjp-privacy-on .credit-score-value,
+body.wjp-privacy-on .acct-mask,
+body.wjp-privacy-on [class*="-amount"],
+body.wjp-privacy-on [class*="-balance"],
+body.wjp-privacy-on [class*="-value"],
+body.wjp-privacy-on [data-money],
 body.wjp-privacy-on #money-left-body,
 body.wjp-privacy-on #math-breakdown-body,
 body.wjp-privacy-on #payoff-engine-body,
 body.wjp-privacy-on #linked-assets-body,
-body.wjp-privacy-on .ai-rev-table td:nth-child(2),
-body.wjp-privacy-on .ai-rev-table td:nth-child(4),
-body.wjp-privacy-on .ai-rev-table td:nth-child(6) {
+body.wjp-privacy-on #top3-strategy .top3-debt-card,
+body.wjp-privacy-on #top3-strategy .top3-stat,
+body.wjp-privacy-on #credit-profile-card .stat-value,
+body.wjp-privacy-on #credit-profile-card .credit-score-card-num,
+body.wjp-privacy-on #credit-profile-card .credit-score-bar,
+body.wjp-privacy-on #cal-detailed-upcoming .upcoming-row,
+body.wjp-privacy-on #cal-detailed-upcoming .upcoming-amount,
+body.wjp-privacy-on #budget-txn-tbody tr,
+body.wjp-privacy-on #dbg-detailed-txn-body tr,
+body.wjp-privacy-on .recurring-row,
+body.wjp-privacy-on .debt-row,
+body.wjp-privacy-on .debt-card,
+body.wjp-privacy-on .ob-income,
+body.wjp-privacy-on .activity-log-row,
+body.wjp-privacy-on .upcoming-list,
+body.wjp-privacy-on .debts-overview-row,
+body.wjp-privacy-on .strategy-card-stat,
+body.wjp-privacy-on .strategy-card-amount,
+body.wjp-privacy-on #spending-detail-list,
+body.wjp-privacy-on #ai-advisor-card .ai-rev-action-body,
+body.wjp-privacy-on .top3-amount,
+body.wjp-privacy-on .top3-progress {
   filter: blur(8px) !important;
   -webkit-filter: blur(8px) !important;
   user-select: none;
-  transition: filter 0.18s ease;
+  transition: filter 0s !important;
+  -webkit-transition: filter 0s !important;
 }
+
+/* On hover: 3s delay, then snap to unblurred. On leave: instant re-blur (transition reverts). */
 body.wjp-privacy-on .stat-value:hover,
+body.wjp-privacy-on .budget-stat-value:hover,
+body.wjp-privacy-on .dfd-amount:hover,
+body.wjp-privacy-on .dfd-date:hover,
+body.wjp-privacy-on .dfd-meta:hover,
+body.wjp-privacy-on .dfd-strategy:hover,
+body.wjp-privacy-on .dfd-encouragement:hover,
+body.wjp-privacy-on .dfd-quarters:hover,
+body.wjp-privacy-on .dfd-progress:hover,
+body.wjp-privacy-on .dfd-labels:hover,
+body.wjp-privacy-on .freedom-amount:hover,
+body.wjp-privacy-on .txn-amount:hover,
+body.wjp-privacy-on .upcoming-amount:hover,
+body.wjp-privacy-on .balance-amount:hover,
+body.wjp-privacy-on .ai-rev-strat-stat:hover,
+body.wjp-privacy-on .ai-rev-strat-sub:hover,
+body.wjp-privacy-on .ai-rev-table tbody td:hover,
+body.wjp-privacy-on .score-delta-live:hover,
+body.wjp-privacy-on .credit-score-value:hover,
+body.wjp-privacy-on .acct-mask:hover,
+body.wjp-privacy-on [class*="-amount"]:hover,
+body.wjp-privacy-on [class*="-balance"]:hover,
+body.wjp-privacy-on [class*="-value"]:hover,
+body.wjp-privacy-on [data-money]:hover,
 body.wjp-privacy-on #money-left-body:hover,
 body.wjp-privacy-on #math-breakdown-body:hover,
 body.wjp-privacy-on #payoff-engine-body:hover,
-body.wjp-privacy-on #linked-assets-body:hover {
+body.wjp-privacy-on #linked-assets-body:hover,
+body.wjp-privacy-on #top3-strategy .top3-debt-card:hover,
+body.wjp-privacy-on #top3-strategy .top3-stat:hover,
+body.wjp-privacy-on #credit-profile-card .stat-value:hover,
+body.wjp-privacy-on #credit-profile-card .credit-score-card-num:hover,
+body.wjp-privacy-on #credit-profile-card .credit-score-bar:hover,
+body.wjp-privacy-on #cal-detailed-upcoming .upcoming-row:hover,
+body.wjp-privacy-on #cal-detailed-upcoming .upcoming-amount:hover,
+body.wjp-privacy-on #budget-txn-tbody tr:hover,
+body.wjp-privacy-on #dbg-detailed-txn-body tr:hover,
+body.wjp-privacy-on .recurring-row:hover,
+body.wjp-privacy-on .debt-row:hover,
+body.wjp-privacy-on .debt-card:hover,
+body.wjp-privacy-on .ob-income:hover,
+body.wjp-privacy-on .activity-log-row:hover,
+body.wjp-privacy-on .upcoming-list:hover,
+body.wjp-privacy-on .debts-overview-row:hover,
+body.wjp-privacy-on .strategy-card-stat:hover,
+body.wjp-privacy-on .strategy-card-amount:hover,
+body.wjp-privacy-on #spending-detail-list:hover,
+body.wjp-privacy-on #ai-advisor-card .ai-rev-action-body:hover,
+body.wjp-privacy-on .top3-amount:hover,
+body.wjp-privacy-on .top3-progress:hover {
   filter: none !important;
   -webkit-filter: none !important;
+  transition: filter 0s 3s !important;
+  -webkit-transition: filter 0s 3s !important;
 }
+
 #btn-privacy-mask[aria-pressed="true"] { background: rgba(0,212,168,0.12) !important; border-color: var(--accent) !important; }

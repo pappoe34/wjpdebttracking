@@ -23503,7 +23503,8 @@ function applyPrivacyMaskState() {
         const lbl = document.getElementById('btn-privacy-mask-label');
         if (btn) btn.setAttribute('aria-pressed', String(on));
         if (icon) icon.className = on ? 'ph ph-eye-slash' : 'ph ph-eye';
-        if (lbl) lbl.textContent = on ? 'Show' : 'Privacy';
+        if (lbl) lbl.textContent = on ? 'Show' : 'Privacy Mode';
+        // P4_2_PRIVACY_MODE
     } catch(_){}
 }
 function togglePrivacyMask() {
