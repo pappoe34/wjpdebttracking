@@ -8466,3 +8466,36 @@ select:focus-visible,
     max-height: 200px !important;
   }
 }
+
+
+/* PHASE_5D_2_HOTFIX - top section nav must scroll, not clip; active tab visible */
+@media (max-width: 720px) {
+  .header-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 4px !important;
+    padding: 4px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .header-nav::-webkit-scrollbar { display: none !important; }
+  .header-nav-item {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    padding: 9px 16px !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+  }
+
+  /* Brand: don't squeeze the logo text "WJP Budgeting" off screen */
+  .header-brand,
+  .header-brand-text {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+}
