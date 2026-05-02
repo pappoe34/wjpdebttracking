@@ -8046,3 +8046,102 @@ body.wjp-privacy-on .top3-progress:hover {
 }
 
 #btn-privacy-mask[aria-pressed="true"] { background: rgba(0,212,168,0.12) !important; border-color: var(--accent) !important; }
+
+
+/* PHASE 4.2b - additional coverage: whole hero + Top 3 + freedom progress labels */
+body.wjp-privacy-on #dfd-hero,
+body.wjp-privacy-on #top3-strategy,
+body.wjp-privacy-on #freedom-paid-amt,
+body.wjp-privacy-on #freedom-target-amt,
+body.wjp-privacy-on #dfd-date,
+body.wjp-privacy-on #dfd-meta,
+body.wjp-privacy-on #dfd-eyebrow,
+body.wjp-privacy-on .dfd-meta strong,
+body.wjp-privacy-on .top3-paid,
+body.wjp-privacy-on .top3-target,
+body.wjp-privacy-on .top3-debt-apr,
+body.wjp-privacy-on .top3-debt-reason,
+body.wjp-privacy-on .top3-debt-card,
+body.wjp-privacy-on .top3-debt-name,
+body.wjp-privacy-on .top3-progress-bar,
+body.wjp-privacy-on #ai-advisor-card .ai-card-body,
+body.wjp-privacy-on .credit-score-card-num,
+body.wjp-privacy-on .strategy-stat-amount,
+body.wjp-privacy-on .strategy-stat-months,
+body.wjp-privacy-on .upcoming-row,
+body.wjp-privacy-on .activity-text,
+body.wjp-privacy-on .activity-meta,
+body.wjp-privacy-on .debt-name,
+body.wjp-privacy-on .debt-balance,
+body.wjp-privacy-on .debt-min,
+body.wjp-privacy-on .debt-apr,
+body.wjp-privacy-on .recurring-amount,
+body.wjp-privacy-on .recurring-name,
+body.wjp-privacy-on .recurring-cadence,
+body.wjp-privacy-on .progress-labels,
+body.wjp-privacy-on .budget-row,
+body.wjp-privacy-on .budget-line,
+body.wjp-privacy-on .pe-target-row,
+body.wjp-privacy-on .pe-target-row-amount,
+body.wjp-privacy-on .breakdown-row,
+body.wjp-privacy-on #math-row-income,
+body.wjp-privacy-on .math-row-val,
+body.wjp-privacy-on .math-row-label,
+body.wjp-privacy-on .ml-amount,
+body.wjp-privacy-on .ml-spent,
+body.wjp-privacy-on .ml-burn,
+body.wjp-privacy-on .ml-forecast {
+  filter: blur(8px) !important;
+  -webkit-filter: blur(8px) !important;
+  user-select: none;
+  transition: filter 0s !important;
+  -webkit-transition: filter 0s !important;
+}
+
+body.wjp-privacy-on #dfd-hero:hover,
+body.wjp-privacy-on #top3-strategy:hover,
+body.wjp-privacy-on #freedom-paid-amt:hover,
+body.wjp-privacy-on #freedom-target-amt:hover,
+body.wjp-privacy-on #dfd-date:hover,
+body.wjp-privacy-on #dfd-meta:hover,
+body.wjp-privacy-on #dfd-eyebrow:hover,
+body.wjp-privacy-on .dfd-meta strong:hover,
+body.wjp-privacy-on .top3-paid:hover,
+body.wjp-privacy-on .top3-target:hover,
+body.wjp-privacy-on .top3-debt-apr:hover,
+body.wjp-privacy-on .top3-debt-reason:hover,
+body.wjp-privacy-on .top3-debt-card:hover,
+body.wjp-privacy-on .top3-debt-name:hover,
+body.wjp-privacy-on .top3-progress-bar:hover,
+body.wjp-privacy-on #ai-advisor-card .ai-card-body:hover,
+body.wjp-privacy-on .credit-score-card-num:hover,
+body.wjp-privacy-on .strategy-stat-amount:hover,
+body.wjp-privacy-on .strategy-stat-months:hover,
+body.wjp-privacy-on .upcoming-row:hover,
+body.wjp-privacy-on .activity-text:hover,
+body.wjp-privacy-on .activity-meta:hover,
+body.wjp-privacy-on .debt-name:hover,
+body.wjp-privacy-on .debt-balance:hover,
+body.wjp-privacy-on .debt-min:hover,
+body.wjp-privacy-on .debt-apr:hover,
+body.wjp-privacy-on .recurring-amount:hover,
+body.wjp-privacy-on .recurring-name:hover,
+body.wjp-privacy-on .recurring-cadence:hover,
+body.wjp-privacy-on .progress-labels:hover,
+body.wjp-privacy-on .budget-row:hover,
+body.wjp-privacy-on .budget-line:hover,
+body.wjp-privacy-on .pe-target-row:hover,
+body.wjp-privacy-on .pe-target-row-amount:hover,
+body.wjp-privacy-on .breakdown-row:hover,
+body.wjp-privacy-on #math-row-income:hover,
+body.wjp-privacy-on .math-row-val:hover,
+body.wjp-privacy-on .math-row-label:hover,
+body.wjp-privacy-on .ml-amount:hover,
+body.wjp-privacy-on .ml-spent:hover,
+body.wjp-privacy-on .ml-burn:hover,
+body.wjp-privacy-on .ml-forecast:hover {
+  filter: none !important;
+  -webkit-filter: none !important;
+  transition: filter 0s 3s !important;
+  -webkit-transition: filter 0s 3s !important;
+}
