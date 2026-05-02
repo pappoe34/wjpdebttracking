@@ -8760,3 +8760,62 @@ html, body {
     font-size: 8px !important;
   }
 }
+
+
+/* PHASE_11_2_HOTFIX - calendar grid functional on phone */
+@media (max-width: 480px) {
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    overflow-x: hidden !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    gap: 2px !important;
+    padding: 0 !important;
+  }
+  .cal-day-cell {
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 4px 2px !important;
+    font-size: 10px !important;
+    gap: 0 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+    position: relative !important;
+    aspect-ratio: auto !important;
+    min-width: 0 !important;
+    cursor: pointer !important;
+  }
+  .cal-day-cell > div {
+    font-size: 10px !important;
+    margin: 0 !important;
+  }
+  .cal-day-cell > div:first-child {
+    margin-bottom: 0 !important;
+    justify-content: center !important;
+  }
+  .cal-day-cell > div:first-child > div:first-child {
+    font-size: 12px !important;
+    font-weight: 800 !important;
+  }
+  .cal-day-cell > div:not(:first-child) {
+    display: none !important;
+  }
+  .cal-day-cell > div:first-child > div:not(:first-child) {
+    display: none !important;
+  }
+  .cal-day-cell.empty {
+    min-height: 44px !important;
+    max-height: 44px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  .cal-day-header {
+    font-size: 9px !important;
+    padding: 4px 0 !important;
+    text-align: center !important;
+  }
+  .cal-day-cell:not(.empty) {
+    background: var(--card-1) !important;
+    border: 1px solid rgba(255,255,255,0.04) !important;
+  }
+}
