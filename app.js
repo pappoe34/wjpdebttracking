@@ -7711,14 +7711,19 @@ function sortDebtsByStrategy(debts, strategy) {
         });
     }
 
-    // Hybrid: interest dollars only — balance × APR, descending.
-    // Tie-breaker: APR (per-dollar interest savings rate).
+    // PHASE 6: Hybrid = APR per dollar of balance, descending.
+    // Prioritises small + high-APR debts first (true blend of Snowball + Avalanche).
+    // Old formula (balance * APR) was Avalanche-with-balance-weight and put low-APR/large-balance
+    // debts on top, making Hybrid pay MORE interest than both pure strategies. Sentinel: P6_HYBRID_FIX
     return list.sort((a, b) => {
-        const aBleed = (a.balance || 0) * (a.apr || 0);
-        const bBleed = (b.balance || 0) * (b.apr || 0);
-        const bleedDelta = bBleed - aBleed;
-        if (Math.abs(bleedDelta) > 0.01) return bleedDelta;
-        return (b.apr || 0) - (a.apr || 0);
+        const aBal = a.balance || 0;
+        const bBal = b.balance || 0;
+        const aScore = aBal > 0 ? (a.apr || 0) / aBal : 0;
+        const bScore = bBal > 0 ? (b.apr || 0) / bBal : 0;
+        const delta = bScore - aScore;
+        if (Math.abs(delta) > 1e-9) return delta;
+        // Tie-breaker: smaller balance first (snowball lean)
+        return aBal - bBal;
     });
 }
 
