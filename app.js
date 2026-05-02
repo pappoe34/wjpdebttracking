@@ -23651,3 +23651,80 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 })();
+
+
+/* PHASE 4.6 - Section-level hover unblur (sentinel: P4_6_HOVER_GESTURE)
+ * Replaces fragmented CSS per-element :hover with a single section-level
+ * mouseenter/mouseleave handler. Whole section unblurs as one unit.
+ * 150ms intent delay (fast, avoids scroll-by flicker), instant re-blur on leave. */
+(function(){
+    if (window._wjpHoverGestureInstalled) return;
+    window._wjpHoverGestureInstalled = true;
+
+    var HOVER_DELAY_MS = 150;
+    var SECTION_SELECTOR = '#dfd-hero, #top3-strategy, #math-breakdown, .card, .ai-advisor-card';
+
+    function applyInlineUnblur(section) {
+        if (!section) return;
+        try {
+            section.style.setProperty('filter','none','important');
+            section.style.setProperty('-webkit-filter','none','important');
+            section.querySelectorAll('*').forEach(function(el){
+                el.style.setProperty('filter','none','important');
+                el.style.setProperty('-webkit-filter','none','important');
+            });
+        } catch(_){}
+    }
+
+    function removeInlineUnblur(section) {
+        if (!section) return;
+        try {
+            section.style.removeProperty('filter');
+            section.style.removeProperty('-webkit-filter');
+            section.querySelectorAll('*').forEach(function(el){
+                el.style.removeProperty('filter');
+                el.style.removeProperty('-webkit-filter');
+            });
+        } catch(_){}
+    }
+
+    function attach(section) {
+        if (section._wjpHoverWired) return;
+        section._wjpHoverWired = true;
+        section.addEventListener('mouseenter', function(){
+            if (!document.body.classList.contains('wjp-privacy-on')) return;
+            if (section.classList.contains('wjp-unblur')) return;
+            if (section._wjpHoverTimer) clearTimeout(section._wjpHoverTimer);
+            section._wjpHoverTimer = setTimeout(function(){
+                if (!document.body.classList.contains('wjp-privacy-on')) return;
+                applyInlineUnblur(section);
+                section.classList.add('wjp-hover-unblur');
+                section._wjpHoverTimer = null;
+            }, HOVER_DELAY_MS);
+        });
+        section.addEventListener('mouseleave', function(){
+            if (section._wjpHoverTimer) {
+                clearTimeout(section._wjpHoverTimer);
+                section._wjpHoverTimer = null;
+            }
+            if (section.classList.contains('wjp-hover-unblur')) {
+                section.classList.remove('wjp-hover-unblur');
+                if (!section.classList.contains('wjp-unblur')) {
+                    removeInlineUnblur(section);
+                }
+            }
+        });
+    }
+
+    function attachAll() {
+        try { document.querySelectorAll(SECTION_SELECTOR).forEach(attach); } catch(_){}
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachAll);
+    } else {
+        attachAll();
+    }
+    // Re-attach for dynamically added cards (some are rendered after page navs)
+    setInterval(attachAll, 2000);
+})();
