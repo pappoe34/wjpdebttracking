@@ -1213,7 +1213,9 @@ function renderCalendarLegend() {
         host.id = 'cal-legend';
         host.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap;padding:10px 0 14px;font-size:10px;color:var(--text-2);align-items:center;';
         // Insert BEFORE the grid
-        grid.parentElement.insertBefore(host, grid);
+        // P11.3: insert legend ABOVE the day-headers row so headers sit flush against the grid
+        var dh = document.getElementById('cal-day-headers-row');
+        grid.parentElement.insertBefore(host, dh || grid);
     }
     const items = [
         { dot:'#22c55e', icon:'✓', label:'Paid' },

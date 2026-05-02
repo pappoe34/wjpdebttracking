@@ -8819,3 +8819,44 @@ html, body {
     border: 1px solid rgba(255,255,255,0.04) !important;
   }
 }
+
+
+/* PHASE_11_3_HOTFIX - calendar stretches a bit + headers flush to grid */
+@media (max-width: 480px) {
+  .cal-day-cell {
+    min-height: 56px !important;
+    max-height: 56px !important;
+  }
+  .cal-day-cell.empty {
+    min-height: 56px !important;
+    max-height: 56px !important;
+  }
+  .cal-day-cell > div:first-child > div:first-child {
+    font-size: 13px !important;
+  }
+  /* Calendar card on mobile: stretch full available width, more vertical room */
+  [class*="card"]:has(#main-calendar-grid) {
+    min-height: 0 !important;
+    padding: 14px 10px !important;
+  }
+  #main-calendar-grid {
+    margin: 0 !important;
+  }
+  #cal-day-headers-row {
+    margin: 0 !important;
+  }
+  #cal-legend {
+    padding: 6px 0 12px !important;
+    gap: 8px !important;
+    font-size: 9px !important;
+  }
+  #cal-legend > div { font-size: 9px !important; }
+}
+
+@media (max-width: 720px) {
+  /* Stretch the calendar card to use more horizontal width on tablet portrait */
+  .reveal.reveal-1 > .card:has(#main-calendar-grid) {
+    padding: 16px !important;
+    min-height: 520px !important;
+  }
+}
