@@ -24014,3 +24014,177 @@ window.showPrivacyHint = function showPrivacyHint() {
         }, 100);
     } catch(_){}
 };
+
+
+/* PHASE 8 - Cloud sync via Firestore (sentinel: P8_CLOUD_SYNC)
+ * Schema: users/{uid}/state/main holds a single doc with appState fields.
+ * Pull on auth-ready -> if cloud is newer than local, merge in.
+ * Push debounced 2s on saveState() -> uploads non-synthetic txns + recent state.
+ * Skip everything if appState.prefs.cloudMode === false. */
+(function(){
+    if (window._wjpCloudSyncInstalled) return;
+    window._wjpCloudSyncInstalled = true;
+
+    var _db = null, _uid = null, _ready = false, _pushTimer = null, _pulling = false;
+    var _firestore = null, _docFn = null, _setDocFn = null, _getDocFn = null;
+    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds'];
+    var FB_BASE = 'https://www.gstatic.com/firebasejs/10.13.0/';
+
+    function setIndicator(state) {
+        try {
+            var el = document.getElementById('wjp-sync-indicator');
+            if (!el) return;
+            var map = {
+                synced:  { text: '\u2713 Synced',  color: 'rgba(34,197,94,0.9)',   bg: 'rgba(34,197,94,0.10)' },
+                syncing: { text: '\u21bb Syncing', color: 'rgba(102,126,234,0.95)', bg: 'rgba(102,126,234,0.10)' },
+                offline: { text: '\u26a0 Offline', color: 'rgba(239,68,68,0.95)',   bg: 'rgba(239,68,68,0.10)' }
+            };
+            var m = map[state] || map.offline;
+            el.textContent = m.text;
+            el.style.color = m.color;
+            el.style.background = m.bg;
+        } catch(_){}
+    }
+
+    function injectIndicator() {
+        if (document.getElementById('wjp-sync-indicator')) return;
+        var sb = document.querySelector('.sidebar') || document.body;
+        var el = document.createElement('div');
+        el.id = 'wjp-sync-indicator';
+        el.style.cssText = 'position:fixed;bottom:8px;left:8px;font-size:10px;font-weight:700;padding:4px 8px;border-radius:10px;background:rgba(34,197,94,0.10);color:rgba(34,197,94,0.9);z-index:50;letter-spacing:0.02em;pointer-events:none;';
+        el.textContent = '\u22ef Connecting';
+        document.body.appendChild(el);
+    }
+
+    async function ensureFirestore() {
+        if (_firestore) return _firestore;
+        var fbApp = await import(FB_BASE + 'firebase-app.js');
+        var fbAuth = await import(FB_BASE + 'firebase-auth.js');
+        var fbStore = await import(FB_BASE + 'firebase-firestore.js');
+        var apps = fbApp.getApps();
+        if (!apps.length) throw new Error('no firebase app');
+        var auth = fbAuth.getAuth(apps[0]);
+        var user = auth.currentUser;
+        if (!user) {
+            user = await new Promise(function(resolve){
+                var unsub = fbAuth.onAuthStateChanged(auth, function(u){ unsub(); resolve(u); });
+                setTimeout(function(){ resolve(null); }, 5000);
+            });
+        }
+        if (!user) throw new Error('no signed-in user');
+        _db = fbStore.getFirestore(apps[0]);
+        _uid = user.uid;
+        _docFn = fbStore.doc;
+        _setDocFn = fbStore.setDoc;
+        _getDocFn = fbStore.getDoc;
+        _firestore = fbStore;
+        return fbStore;
+    }
+
+    async function cloudPull() {
+        if (_pulling) return;
+        _pulling = true;
+        try {
+            await ensureFirestore();
+            var ref = _docFn(_db, 'users', _uid, 'state', 'main');
+            var snap = await _getDocFn(ref);
+            if (!snap.exists()) {
+                console.log('[cloud-sync] first-time, seeding cloud from local');
+                await cloudPushNow();
+                return;
+            }
+            var cloud = snap.data();
+            var localTs = (appState && appState._cloudSyncTs) || 0;
+            var cloudTs = cloud._cloudSyncTs || 0;
+            if (cloudTs <= localTs) { console.log('[cloud-sync] local is newer or equal, skipping pull'); return; }
+            console.log('[cloud-sync] cloud newer (', cloudTs, '>', localTs, '), pulling');
+            STATE_KEYS.forEach(function(k){ if (cloud[k] !== undefined) appState[k] = cloud[k]; });
+            // Transactions: cloud holds REAL ones, keep local synthetic
+            if (Array.isArray(cloud.transactions)) {
+                var localSynth = (appState.transactions || []).filter(function(t){ return t && t.synthetic; });
+                appState.transactions = cloud.transactions.concat(localSynth);
+            }
+            // Notifications: union by id, prefer cloud version on conflict
+            if (Array.isArray(cloud.notifications)) {
+                var localById = {}; (appState.notifications || []).forEach(function(n){ if (n && n.id != null) localById[n.id] = n; });
+                cloud.notifications.forEach(function(n){ if (n && n.id != null) localById[n.id] = n; });
+                appState.notifications = Object.values(localById);
+            }
+            appState._cloudSyncTs = cloudTs;
+            try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch(_){}
+            try { if (typeof updateUI === 'function') updateUI(); } catch(_){}
+            setIndicator('synced');
+        } catch (e) {
+            console.warn('[cloud-sync] pull error', e);
+            setIndicator('offline');
+        } finally {
+            _pulling = false;
+        }
+    }
+
+    async function cloudPushNow() {
+        try {
+            await ensureFirestore();
+            var ref = _docFn(_db, 'users', _uid, 'state', 'main');
+            var realTxns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic; }).slice(-300);
+            var recentNotifs = (appState.notifications || []).slice(-100);
+            var payload = {};
+            STATE_KEYS.forEach(function(k){ if (appState[k] !== undefined) payload[k] = appState[k]; });
+            payload.transactions = realTxns;
+            payload.notifications = recentNotifs;
+            payload._cloudSyncTs = Date.now();
+            payload._cloudSyncFrom = (navigator.userAgent || '').slice(0, 80);
+            appState._cloudSyncTs = payload._cloudSyncTs;
+            await _setDocFn(ref, payload, { merge: false });
+            try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch(_){}
+            setIndicator('synced');
+        } catch (e) {
+            console.warn('[cloud-sync] push error', e);
+            setIndicator('offline');
+        }
+    }
+
+    function cloudPushDebounced() {
+        if (!_ready) return;
+        if (!appState || !appState.prefs || appState.prefs.cloudMode === false) return;
+        if (_pushTimer) clearTimeout(_pushTimer);
+        setIndicator('syncing');
+        _pushTimer = setTimeout(function(){ _pushTimer = null; cloudPushNow(); }, 2000);
+    }
+    window.cloudPushNow = cloudPushNow;
+    window.cloudPull = cloudPull;
+    window.cloudPushDebounced = cloudPushDebounced;
+
+    // Hook saveState
+    function hookSaveState() {
+        if (typeof saveState !== 'function') return;
+        if (saveState.__cloudHooked) return;
+        var orig = saveState;
+        var wrapped = function(){ try { orig.apply(this, arguments); } finally { try { cloudPushDebounced(); } catch(_){} } };
+        wrapped.__cloudHooked = true;
+        try { window.saveState = wrapped; } catch(_){}
+    }
+
+    async function init() {
+        injectIndicator();
+        if (!appState || (appState.prefs && appState.prefs.cloudMode === false)) {
+            setIndicator('offline');
+            return;
+        }
+        try {
+            await ensureFirestore();
+            _ready = true;
+            hookSaveState();
+            await cloudPull();
+        } catch (e) {
+            console.warn('[cloud-sync] init failed', e);
+            setIndicator('offline');
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(init, 1500); });
+    } else {
+        setTimeout(init, 1500);
+    }
+})();
