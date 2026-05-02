@@ -213,6 +213,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="light">
+<a class="wjp-skip-link" href="#page-dashboard">Skip to main content</a>
+<div id="wjp-aria-live" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></div>
 
 
 <!-- ============================================================
@@ -2100,9 +2102,9 @@
                     <h3 style="font-size:14px; font-weight:700;">Payment Calendar</h3>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <button id="btn-rec-cal-prev" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;"><i class="ph ph-caret-left"></i></button>
+                    <button id="btn-rec-cal-prev" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" aria-label="Previous month"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
                     <span id="rec-cal-label" style="font-size:11px; color:var(--text-2); min-width:100px; text-align:center;">—</span>
-                    <button id="btn-rec-cal-next" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;"><i class="ph ph-caret-right"></i></button>
+                    <button id="btn-rec-cal-next" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" aria-label="Next month"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
                   </div>
                 </div>
                 <!-- View toggle -->
@@ -2512,8 +2514,8 @@
                 <div style="display:flex; align-items:center; gap:16px;">
                   <h2 id="cal-month-year" style="font-size:24px; font-weight:900; margin:0; letter-spacing:-0.5px;">—</h2>
                   <div style="display:flex; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:4px;">
-                    <button id="btn-cal-prev" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;"><i class="ph ph-caret-left"></i></button>
-                    <button id="btn-cal-next" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;"><i class="ph ph-caret-right"></i></button>
+                    <button id="btn-cal-prev" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;" aria-label="Previous month"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+                    <button id="btn-cal-next" class="icon-btn" style="width:32px; height:32px; background:transparent; border:none; color:var(--text-2); cursor:pointer;" aria-label="Next month"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
                   </div>
                 </div>
                 <div style="display:flex; gap:8px; background:var(--bg); padding:4px; border-radius:10px; border:1px solid var(--border);">

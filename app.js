@@ -6840,7 +6840,7 @@ function renderPerDebtAttachments() {
                                 <i class="ph ph-sparkle"></i> ${a.analysis ? 'View Insights' : 'Analyze'}
                             </button>
                             <a href="${a.dataUrl}" download="${a.name}" class="att-row-open">OPEN</a>
-                            <button data-debt-id="${d.id}" data-idx="${i}" class="attach-remove-btn"><i class="ph ph-x"></i></button>
+                            <button data-debt-id="${d.id}" data-idx="${i}" class="attach-remove-btn" aria-label="Remove attachment"><i class="ph ph-x"></i></button>
                         </div>
                         <div class="att-analysis-panel" id="att-analysis-${d.id}-${i}" style="display:none;"></div>
                     </div>
@@ -19650,6 +19650,11 @@ window.renderCashFlowChart = function() {
 function showToast(message) {
     const existing = document.getElementById('budget-toast');
     if (existing) existing.remove();
+    // PHASE 5b: announce via aria-live region for screen readers (sentinel: P5B_A11Y)
+    try {
+        const live = document.getElementById('wjp-aria-live');
+        if (live) { live.textContent = ''; setTimeout(function(){ live.textContent = message; }, 50); }
+    } catch(_){}
     const toast = document.createElement('div');
     toast.id = 'budget-toast';
     toast.style.cssText = 'position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:var(--accent); color:#0b0f1a; font-weight:700; font-size:13px; padding:12px 24px; border-radius:50px; z-index:99999; box-shadow:0 4px 20px rgba(0,212,168,0.4); animation:fadeIn 0.3s ease;';

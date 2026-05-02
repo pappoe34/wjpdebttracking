@@ -8226,3 +8226,51 @@ body.wjp-privacy-on .wjp-unblur,
 body.wjp-privacy-on .wjp-unblur * {
   cursor: auto !important;
 }
+
+
+/* PHASE 5b - accessibility */
+
+/* Skip-to-main link: visually hidden until focused */
+.wjp-skip-link {
+  position: fixed;
+  top: -100px;
+  left: 12px;
+  z-index: 999999;
+  background: var(--accent, #00d4a8);
+  color: #0b0f1a;
+  padding: 12px 18px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: none;
+  transition: top 0.18s ease;
+}
+.wjp-skip-link:focus,
+.wjp-skip-link:focus-visible {
+  top: 12px;
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Strong focus-visible default for any interactive element that lacks one */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent, #00d4a8);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect prefers-reduced-motion: disable transitions/animations across the app */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
