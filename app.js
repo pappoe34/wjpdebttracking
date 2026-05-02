@@ -24029,7 +24029,7 @@ window.showPrivacyHint = function showPrivacyHint() {
 
     var _db = null, _uid = null, _ready = false, _pushTimer = null, _pulling = false;
     var _firestore = null, _docFn = null, _setDocFn = null, _getDocFn = null;
-    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds'];
+    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds','inbox'];
     var FB_BASE = 'https://www.gstatic.com/firebasejs/10.13.0/';
 
     function setIndicator(state) {
@@ -24426,4 +24426,366 @@ window.showPrivacyHint = function showPrivacyHint() {
         setTimeout(sweep, 200);
     }
     setInterval(sweep, 4000);
+})();
+
+
+/* PHASE 12 - Inbox tab (sentinel: P12_INBOX)
+ * Curated actionable items separate from Activity Log.
+ * State: appState.inbox = [{id, type, title, body, priority, createdAt, read, dismissed, action}]
+ * Generators run on init + each open; idempotent (stable IDs prevent dupes).
+ * Synced via Phase 8 cloud-sync (already includes appState by default). */
+(function(){
+    if (window._wjpInboxInstalled) return;
+    window._wjpInboxInstalled = true;
+
+    function ensureInbox() {
+        if (!Array.isArray(appState.inbox)) appState.inbox = [];
+        return appState.inbox;
+    }
+
+    function findById(id) {
+        return ensureInbox().find(function(x){ return x && x.id === id; });
+    }
+
+    function upsert(item) {
+        var inbox = ensureInbox();
+        var existing = findById(item.id);
+        if (existing) {
+            // Refresh title/body but preserve user's read/dismissed flags
+            existing.title = item.title;
+            existing.body = item.body;
+            existing.priority = item.priority;
+            existing.action = item.action;
+            existing.refreshedAt = Date.now();
+            return existing;
+        }
+        item.createdAt = Date.now();
+        item.read = false;
+        item.dismissed = false;
+        inbox.push(item);
+        return item;
+    }
+
+    /* === GENERATORS ============================================== */
+
+    function genBillReminders() {
+        var debts = appState.debts || [];
+        var rec = (appState.recurringPayments || []).filter(function(r){ return r && !r.linkedIncome && r.category !== 'income'; });
+        var now = new Date();
+        var ymKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+        debts.forEach(function(d){
+            var dueDay = parseInt(d.dueDate || d.dueDay) || 15;
+            var dueDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
+            if (dueDate < now) dueDate.setMonth(dueDate.getMonth() + 1);
+            var daysUntil = Math.ceil((dueDate - now) / 86400000);
+            if (daysUntil < 0 || daysUntil > 7) return;
+            var pri = daysUntil <= 1 ? 'high' : daysUntil <= 3 ? 'normal' : 'low';
+            upsert({
+                id: 'bill-' + d.id + '-' + ymKey,
+                type: 'bill',
+                title: (d.name || 'Debt') + ' due ' + (daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : 'in ' + daysUntil + ' days'),
+                body: 'Min payment $' + Math.round(d.minPayment || 0).toLocaleString() + ' \u00b7 ' + (d.apr || 0).toFixed(2) + '% APR. Make sure funds are available.',
+                priority: pri,
+                action: { label: 'View in Debts', target: 'debts' }
+            });
+        });
+
+        rec.forEach(function(r){
+            if (!r || !r.amount) return;
+            var nd = r.nextDate ? new Date(r.nextDate) : null;
+            if (!nd || isNaN(nd)) return;
+            var daysUntil = Math.ceil((nd - now) / 86400000);
+            if (daysUntil < 0 || daysUntil > 7) return;
+            var pri = daysUntil <= 1 ? 'high' : 'normal';
+            upsert({
+                id: 'bill-rec-' + (r.id || r.name) + '-' + ymKey,
+                type: 'bill',
+                title: (r.name || 'Recurring bill') + ' \u2014 $' + Math.abs(Math.round(r.amount)) + ' ' + (daysUntil === 0 ? 'today' : 'in ' + daysUntil + ' days'),
+                body: 'Recurring payment scheduled. Confirm cash is available.',
+                priority: pri,
+                action: { label: 'View Calendar', target: 'recurring' }
+            });
+        });
+    }
+
+    function genProgressReports() {
+        var now = new Date();
+        var lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        var lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        var prevMonth = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        var prevMonthEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59);
+        var txns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic && (Number(t.amount) || 0) !== 0; });
+
+        var lastSpend = txns.filter(function(t){ var d = new Date(t.date); return d >= lastMonth && d <= lastMonthEnd && t.amount < 0; }).reduce(function(s,t){ return s + Math.abs(t.amount); }, 0);
+        var prevSpend = txns.filter(function(t){ var d = new Date(t.date); return d >= prevMonth && d <= prevMonthEnd && t.amount < 0; }).reduce(function(s,t){ return s + Math.abs(t.amount); }, 0);
+
+        if (lastSpend > 0 && prevSpend > 0) {
+            var delta = lastSpend - prevSpend;
+            var pct = Math.round(Math.abs(delta) / prevSpend * 100);
+            var ymKey = lastMonth.getFullYear() + '-' + String(lastMonth.getMonth()+1).padStart(2,'0');
+            var monthName = lastMonth.toLocaleString('en-US', { month: 'long' });
+            if (delta < 0) {
+                upsert({
+                    id: 'progress-spend-' + ymKey,
+                    type: 'progress',
+                    title: 'You spent ' + pct + '% less in ' + monthName,
+                    body: '$' + Math.round(Math.abs(delta)).toLocaleString() + ' less than the prior month. Strong move.',
+                    priority: 'normal',
+                    action: { label: 'View Budget', target: 'budgets' }
+                });
+            } else if (delta > 200) {
+                upsert({
+                    id: 'progress-spend-' + ymKey,
+                    type: 'progress',
+                    title: 'Spending up ' + pct + '% in ' + monthName,
+                    body: '$' + Math.round(delta).toLocaleString() + ' more than the prior month. Worth a look.',
+                    priority: 'normal',
+                    action: { label: 'View Budget', target: 'budgets' }
+                });
+            }
+        }
+    }
+
+    function genImprovementSuggestions() {
+        var debts = appState.debts || [];
+        if (!debts.length) return;
+        var ymKey = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
+
+        // Highest-APR debt suggestion (if APR > 25%)
+        var sortedByApr = debts.slice().sort(function(a,b){ return (b.apr||0) - (a.apr||0); });
+        var top = sortedByApr[0];
+        if (top && (top.apr || 0) >= 25) {
+            upsert({
+                id: 'sugg-highapr-' + (top.id || top.name) + '-' + ymKey,
+                type: 'suggestion',
+                title: 'Refinance candidate: ' + (top.name || 'this debt'),
+                body: 'At ' + (top.apr||0).toFixed(2) + '% APR on $' + Math.round(top.balance||0).toLocaleString() + ', a balance transfer to a 0%-intro card or a personal loan at 12-18% would cut your annual interest cost meaningfully.',
+                priority: 'normal',
+                action: { label: 'Open in Debts', target: 'debts' }
+            });
+        }
+
+        // High-utilization warning (>= 80%)
+        debts.forEach(function(d){
+            var util = (d.creditLimit && d.balance) ? (d.balance / d.creditLimit) : null;
+            if (util != null && util >= 0.8) {
+                upsert({
+                    id: 'sugg-util-' + (d.id || d.name) + '-' + ymKey,
+                    type: 'suggestion',
+                    title: (d.name || 'Card') + ' at ' + Math.round(util*100) + '% utilization',
+                    body: 'High utilization hurts your credit score. Bring this card under 30% before its statement closes for the biggest credit-score lift.',
+                    priority: 'high',
+                    action: { label: 'Open in Debts', target: 'debts' }
+                });
+            }
+        });
+
+        // Allocation suggestion (data-driven, from Phase 7)
+        try {
+            var ssg = (typeof computeSuggestedExtraContribution === 'function') ? computeSuggestedExtraContribution() : null;
+            if (ssg && !ssg.insufficient && ssg.suggested > 0) {
+                var current = (appState.budget && appState.budget.contribution) || 0;
+                if (Math.abs(ssg.suggested - current) > 50) {
+                    upsert({
+                        id: 'sugg-alloc-' + ymKey,
+                        type: 'suggestion',
+                        title: 'Bump your monthly extra to $' + ssg.suggested.toLocaleString(),
+                        body: 'Based on your last ' + ssg.basisMonths + ' months of surplus (median \u00d7 0.75 buffer), this is what you can sustainably add. Currently set to $' + current.toLocaleString() + '.',
+                        priority: 'normal',
+                        action: { label: 'Open Allocation', target: 'dashboard' }
+                    });
+                }
+            }
+        } catch(_){}
+    }
+
+    function genPaydayNotices() {
+        var now = new Date();
+        var sevenAgo = new Date(now.getTime() - 7 * 86400000);
+        var txns = (appState.transactions || []).filter(function(t){
+            if (!t || t.synthetic) return false;
+            if ((Number(t.amount) || 0) <= 0) return false;
+            var d = new Date(t.date);
+            return d >= sevenAgo && d <= now;
+        });
+        txns.forEach(function(t){
+            var dateKey = (new Date(t.date)).toISOString().slice(0,10);
+            upsert({
+                id: 'payday-' + (t.id || (dateKey + '-' + Math.round(t.amount))),
+                type: 'payday',
+                title: 'Income received: $' + Math.round(t.amount).toLocaleString(),
+                body: (t.merchant || t.name || 'Deposit') + ' on ' + dateKey + '. Allocate it before it gets absorbed.',
+                priority: 'normal',
+                action: { label: 'Open Allocation', target: 'dashboard' }
+            });
+        });
+    }
+
+    function refreshGenerators() {
+        try { genBillReminders(); } catch(e){ console.warn('[inbox] bill gen', e); }
+        try { genProgressReports(); } catch(e){ console.warn('[inbox] progress gen', e); }
+        try { genImprovementSuggestions(); } catch(e){ console.warn('[inbox] suggestion gen', e); }
+        try { genPaydayNotices(); } catch(e){ console.warn('[inbox] payday gen', e); }
+        try { saveState(); } catch(_){}
+        try { updateInboxBadge(); } catch(_){}
+    }
+    window._refreshInbox = refreshGenerators;
+
+    /* === RENDER ================================================== */
+
+    var currentFilter = 'all';
+
+    function updateInboxBadge() {
+        var unread = ensureInbox().filter(function(x){ return x && !x.read && !x.dismissed; }).length;
+        var badge = document.getElementById('inbox-badge');
+        if (badge) {
+            badge.textContent = unread;
+            badge.style.display = unread > 0 ? 'flex' : 'none';
+        }
+    }
+    window.updateInboxBadge = updateInboxBadge;
+
+    function renderInbox() {
+        var host = document.getElementById('inbox-list');
+        if (!host) return;
+        var items = ensureInbox().filter(function(x){ return x && !x.dismissed; });
+        if (currentFilter !== 'all') items = items.filter(function(x){ return x.type === currentFilter; });
+        // Sort: priority desc, then createdAt desc
+        var pri = { high: 3, normal: 2, low: 1 };
+        items.sort(function(a,b){
+            var pd = (pri[b.priority] || 0) - (pri[a.priority] || 0);
+            if (pd !== 0) return pd;
+            return (b.createdAt || 0) - (a.createdAt || 0);
+        });
+        if (!items.length) {
+            host.innerHTML = '<div style="padding:48px 20px;text-align:center;color:var(--text-3);font-size:13px;line-height:1.6;"><i class="ph ph-tray" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.4;"></i>No items in your inbox yet. Bill reminders and AI suggestions will appear here as they\u2019re generated.</div>';
+            return;
+        }
+        var typeIcons = { bill: 'ph-receipt', progress: 'ph-chart-line-up', suggestion: 'ph-lightbulb', payday: 'ph-currency-circle-dollar' };
+        var typeColors = { bill: '#fbbf24', progress: '#22c55e', suggestion: '#667eea', payday: 'var(--accent)' };
+        var priColors = { high: '#ef4444', normal: 'var(--text-3)', low: 'var(--text-3)' };
+        host.innerHTML = items.map(function(it){
+            var icon = typeIcons[it.type] || 'ph-bell';
+            var color = typeColors[it.type] || 'var(--accent)';
+            var unreadDot = it.read ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px;flex-shrink:0;"></span>';
+            return '<div data-inbox-id="' + it.id + '" style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;cursor:pointer;background:' + (it.read ? 'transparent' : 'rgba(0,212,168,0.03)') + ';">'
+                + '<div style="width:32px;height:32px;border-radius:8px;background:' + color + ';flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#0b0f1a;"><i class="ph ' + icon + '" style="font-size:16px;"></i></div>'
+                + '<div style="flex:1;min-width:0;">'
+                +   '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' + unreadDot + '<div style="font-size:13px;font-weight:700;color:var(--text);overflow-wrap:anywhere;">' + it.title + '</div></div>'
+                +   '<div style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin-bottom:8px;">' + it.body + '</div>'
+                +   '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+                +     (it.action ? '<button class="btn btn-primary inbox-action-btn" data-action-target="' + (it.action.target||'') + '" style="font-size:10px;padding:6px 10px;">' + (it.action.label || 'View') + '</button>' : '')
+                +     '<button class="btn btn-ghost inbox-mark-read" style="font-size:10px;padding:6px 10px;">' + (it.read ? 'Mark unread' : 'Mark read') + '</button>'
+                +     '<button class="btn btn-ghost inbox-dismiss" style="font-size:10px;padding:6px 10px;color:var(--text-3);">Dismiss</button>'
+                +   '</div>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+        // Wire interactions
+        host.querySelectorAll('[data-inbox-id]').forEach(function(row){
+            var id = row.getAttribute('data-inbox-id');
+            var it = findById(id);
+            if (!it) return;
+            row.querySelectorAll('.inbox-action-btn').forEach(function(b){
+                b.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    it.read = true;
+                    var target = b.getAttribute('data-action-target');
+                    try { saveState(); } catch(_){}
+                    if (target && typeof navTo === 'function') navTo(target);
+                    renderInbox();
+                    updateInboxBadge();
+                });
+            });
+            row.querySelectorAll('.inbox-mark-read').forEach(function(b){
+                b.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    it.read = !it.read;
+                    try { saveState(); } catch(_){}
+                    renderInbox();
+                    updateInboxBadge();
+                });
+            });
+            row.querySelectorAll('.inbox-dismiss').forEach(function(b){
+                b.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    it.dismissed = true;
+                    try { saveState(); } catch(_){}
+                    renderInbox();
+                    updateInboxBadge();
+                });
+            });
+            row.addEventListener('click', function(){
+                if (!it.read) { it.read = true; try { saveState(); } catch(_){}; renderInbox(); updateInboxBadge(); }
+            });
+        });
+    }
+    window.renderInbox = renderInbox;
+
+    /* === WIRING ================================================== */
+
+    function wireFilters() {
+        document.querySelectorAll('#inbox-filters [data-inbox-filter]').forEach(function(b){
+            if (b._wjpInboxWired) return;
+            b._wjpInboxWired = true;
+            b.addEventListener('click', function(){
+                document.querySelectorAll('#inbox-filters [data-inbox-filter]').forEach(function(x){ x.classList.remove('active'); });
+                b.classList.add('active');
+                currentFilter = b.getAttribute('data-inbox-filter');
+                renderInbox();
+            });
+        });
+        var markAll = document.getElementById('btn-inbox-mark-all-read');
+        if (markAll && !markAll._wjpInboxWired) {
+            markAll._wjpInboxWired = true;
+            markAll.addEventListener('click', function(){
+                ensureInbox().forEach(function(x){ if (x) x.read = true; });
+                try { saveState(); } catch(_){}
+                renderInbox(); updateInboxBadge();
+            });
+        }
+        var clearD = document.getElementById('btn-inbox-clear-dismissed');
+        if (clearD && !clearD._wjpInboxWired) {
+            clearD._wjpInboxWired = true;
+            clearD.addEventListener('click', function(){
+                appState.inbox = ensureInbox().filter(function(x){ return x && !x.dismissed; });
+                try { saveState(); } catch(_){}
+                renderInbox(); updateInboxBadge();
+            });
+        }
+    }
+
+    // Initial run + on every navTo
+    function init() {
+        ensureInbox();
+        refreshGenerators();
+        wireFilters();
+        renderInbox();
+        updateInboxBadge();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(init, 800); });
+    } else {
+        setTimeout(init, 800);
+    }
+
+    // Hook into navigateSPA so opening Inbox refreshes generators
+    var origNav = window.navigateSPA;
+    if (typeof origNav === 'function' && !origNav.__inboxHooked) {
+        var wrapped = function(target) {
+            try { origNav.apply(this, arguments); } catch(e) { throw e; }
+            if (target === 'inbox') {
+                refreshGenerators();
+                wireFilters();
+                renderInbox();
+                updateInboxBadge();
+            }
+        };
+        wrapped.__inboxHooked = true;
+        window.navigateSPA = wrapped;
+    }
+
+    // Periodic refresh so reminders update day-to-day
+    setInterval(refreshGenerators, 5 * 60 * 1000);
 })();

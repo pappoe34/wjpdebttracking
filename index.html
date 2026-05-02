@@ -716,6 +716,11 @@
           <div class="nav-icon"><i class="ph ph-calendar-blank"></i></div>
           <span>Calendar</span>
         </div>
+        <div class="nav-item" data-page="inbox" id="nav-inbox">
+          <div class="nav-icon"><i class="ph ph-tray"></i></div>
+          <span>Inbox</span>
+          <div class="nav-badge" id="inbox-badge" style="display:none;">0</div>
+        </div>
         <div class="nav-item" data-page="advisor">
           <div class="nav-icon"><i class="ph ph-robot"></i></div>
           <span>AI Coach</span>
@@ -2675,6 +2680,35 @@
              </div>
            </div>
         </div>
+
+        <!-- PAGE: INBOX (P12) -->
+        <div class="page" id="page-inbox">
+          <div style="margin-bottom:24px;" class="reveal">
+            <div style="font-size:9px; color:var(--accent); text-transform:uppercase; font-weight:700; letter-spacing:0.1em; margin-bottom:8px;">Inbox</div>
+            <h1 style="font-size:32px; font-weight:900; margin-bottom:8px; letter-spacing:-0.5px;">Your inbox</h1>
+            <p style="font-size:13px; color:var(--text-3); max-width:640px; line-height:1.55;">Curated, actionable items only \u2014 bill reminders, AI progress reports, and ways to improve your plan. The full activity log lives under <strong>Activity Log</strong>.</p>
+          </div>
+
+          <div class="card reveal reveal-1" style="padding:0; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; gap:6px; flex-wrap:wrap;" id="inbox-filters">
+                <button class="filter-pill active" data-inbox-filter="all">All</button>
+                <button class="filter-pill" data-inbox-filter="bill">Bills</button>
+                <button class="filter-pill" data-inbox-filter="progress">Progress</button>
+                <button class="filter-pill" data-inbox-filter="suggestion">Suggestions</button>
+                <button class="filter-pill" data-inbox-filter="payday">Payday</button>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-ghost" id="btn-inbox-mark-all-read" style="font-size:11px;">Mark all read</button>
+                <button class="btn btn-ghost" id="btn-inbox-clear-dismissed" style="font-size:11px; color:var(--text-3);">Clear dismissed</button>
+              </div>
+            </div>
+            <div id="inbox-list" style="min-height:280px;">
+              <!-- Populated by renderInbox() -->
+            </div>
+          </div>
+        </div>
+
 
         <!-- PAGE: BUDGETS -->
         
