@@ -23736,3 +23736,126 @@ document.addEventListener('DOMContentLoaded', () => {
     // Re-attach for dynamically added cards (some are rendered after page navs)
     setInterval(attachAll, 2000);
 })();
+
+
+/* PHASE 4.8 - Privacy tag pass (sentinel: P4_8_TAGGER)
+ * Walks DOM and tags items per user spec:
+ *   .wjp-private  -> will blur in Privacy Mode
+ *   .wjp-public   -> will OVERRIDE blur (force visible)
+ * Re-runs after navigation since some sections render dynamically. */
+(function(){
+    if (window._wjpTaggerInstalled) return;
+    window._wjpTaggerInstalled = true;
+
+    function add(el, cls) {
+        if (!el || !el.classList) return;
+        if (!el.classList.contains(cls)) el.classList.add(cls);
+    }
+
+    function findByText(textRegex, parentScope) {
+        var scope = parentScope || document;
+        var heads = scope.querySelectorAll('h1,h2,h3,h4,.section-label,.card-label,.eyebrow');
+        for (var i=0; i<heads.length; i++) {
+            if (textRegex.test((heads[i].textContent||'').trim())) return heads[i];
+        }
+        return null;
+    }
+
+    function tagPrivacyTargets() {
+        try {
+            // ===== DASHBOARD =====
+            // 2. Spending Tracker top bar (Spent/Income/Net) only
+            var spendSum = document.getElementById('spending-summary');
+            if (spendSum) add(spendSum, 'wjp-private');
+
+            // 3. Focus of the Month - UNBLUR (override existing #top3-strategy blur)
+            var top3Header = document.querySelector('#top3-strategy .top3-header');
+            if (top3Header) add(top3Header, 'wjp-public');
+
+            // 4. Credit Profile - whole card blurred (existing partial blur reinforced)
+            var cp = document.getElementById('credit-profile-card');
+            if (cp) add(cp, 'wjp-private');
+
+            // 5. Snowball/Hybrid/Avalanche indicators -> only Total Interest/Months/Debt-Free values
+            ['strat-card-snowball','strat-card-hybrid','strat-card-avalanche'].forEach(function(sid){
+                var sc = document.getElementById(sid);
+                if (!sc) return;
+                // Walk all div children; when text is one of the 3 labels, tag the next sibling
+                var divs = sc.querySelectorAll('div');
+                divs.forEach(function(d){
+                    var t = (d.textContent||'').trim();
+                    if (/^(Total Interest|Months|Debt-Free)$/i.test(t)) {
+                        var sib = d.nextElementSibling;
+                        if (sib) add(sib, 'wjp-private');
+                    }
+                });
+            });
+
+            // ===== BUDGETS PAGE =====
+            // 7. Paycheck Allocation Engine - find by H2 text and tag the wrapping section
+            var paeH = findByText(/Paycheck Allocation Engine/i, document);
+            if (paeH) {
+                // Walk up until we find a card-like wrapper or sibling block
+                var wrap = paeH.parentElement;
+                // Take parent that has multiple children (the section wrapping the engine)
+                if (wrap) add(wrap, 'wjp-private');
+            }
+
+            // ===== STRATEGY TAB (top) - 8 -- alias for the strategy cards already covered above =====
+
+            // ===== OVERVIEW TAB =====
+            // 9. Expense Categories + Current Obligations cards
+            var ov = document.querySelector('[data-subtab="overview"]');
+            if (ov) {
+                var hExp = findByText(/^Expense Categories$/i, ov);
+                if (hExp) {
+                    var card1 = hExp.closest('.card,.reveal,div[class*="card"]');
+                    if (card1) add(card1, 'wjp-private');
+                }
+                var hObl = findByText(/^Current Obligations$/i, ov);
+                if (hObl) {
+                    var card2 = hObl.closest('.card,.reveal,div[class*="card"]');
+                    if (card2) add(card2, 'wjp-private');
+                }
+            }
+
+            // ===== TRANSACTIONS TAB - 10 (already covered by existing rules; reinforce) =====
+            ['dbg-detailed-txn-body','budget-txn-tbody'].forEach(function(id){
+                var t = document.getElementById(id); if (t) add(t, 'wjp-private');
+            });
+
+            // ===== RECURRING PAYMENTS TAB - 11 =====
+            ['rec-stats-bar','rec-table','rec-tbody','rec-optimization-ai','rec-optimization-content'].forEach(function(id){
+                var e = document.getElementById(id); if (e) add(e, 'wjp-private');
+            });
+
+            // ===== CREDIT SCORE TAB - 12 (everything) =====
+            var cst = document.getElementById('credit-score-tab-content');
+            if (cst) add(cst, 'wjp-private');
+
+            // ===== RESILIENCE TAB - 13 (anything with an amount) =====
+            var rt = document.getElementById('resilience-tab-content');
+            if (rt) {
+                // Tag any element whose text contains $ or % (amount/percent)
+                rt.querySelectorAll('div,span,td').forEach(function(el){
+                    if (el.children.length > 0) return; // leaf only
+                    var t = (el.textContent||'').trim();
+                    if (/\$|\d+%/.test(t)) add(el, 'wjp-private');
+                });
+                // Also tag any .stat-value, .resilience-score, etc.
+                rt.querySelectorAll('.stat-value, .resilience-score, [class*="-amount"], [class*="-value"]').forEach(function(el){
+                    add(el, 'wjp-private');
+                });
+            }
+        } catch(_){}
+    }
+    window.tagPrivacyTargets = tagPrivacyTargets;
+
+    // Run on init + repeatedly to catch dynamic content
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', tagPrivacyTargets);
+    } else {
+        tagPrivacyTargets();
+    }
+    setInterval(tagPrivacyTargets, 2500);
+})();

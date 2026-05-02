@@ -8187,3 +8187,32 @@ body.wjp-privacy-on .wjp-unblur,
 body.wjp-privacy-on .wjp-unblur * {
   cursor: auto;
 }
+
+
+/* PHASE 4.8 - tag-based coverage refinement */
+body.wjp-privacy-on .wjp-private,
+body.wjp-privacy-on .wjp-private * {
+  filter: blur(8px) !important;
+  -webkit-filter: blur(8px) !important;
+  user-select: none;
+  transition: filter 0s !important;
+  -webkit-transition: filter 0s !important;
+}
+
+/* Hover on a .wjp-private section: 150ms intent then unblur (handled by JS hover gesture too) */
+body.wjp-privacy-on .wjp-private:hover,
+body.wjp-privacy-on .wjp-private:hover * {
+  filter: none !important;
+  -webkit-filter: none !important;
+  transition: filter 0s 0.15s !important;
+  -webkit-transition: filter 0s 0.15s !important;
+}
+
+/* Explicit UNBLUR: Focus of the Month + others tagged .wjp-public */
+body.wjp-privacy-on .wjp-public,
+body.wjp-privacy-on .wjp-public * {
+  filter: none !important;
+  -webkit-filter: none !important;
+  transition: none !important;
+  -webkit-transition: none !important;
+}
