@@ -23488,3 +23488,39 @@ window.addEventListener('pageshow', (e) => {
     wire(); maybeShow();
   }
 })();
+
+/* PHASE 4 - Balance Privacy Mask
+ * Toggles body.wjp-privacy-on which blurs sensitive amount selectors via CSS.
+ * Persists in appState.prefs.maskBalances so it survives reloads.
+ * Sentinel: P4_PRIVACY_MASK
+ */
+function applyPrivacyMaskState() {
+    try {
+        const on = !!(appState && appState.prefs && appState.prefs.maskBalances);
+        document.body.classList.toggle('wjp-privacy-on', on);
+        const btn = document.getElementById('btn-privacy-mask');
+        const icon = document.getElementById('btn-privacy-mask-icon');
+        const lbl = document.getElementById('btn-privacy-mask-label');
+        if (btn) btn.setAttribute('aria-pressed', String(on));
+        if (icon) icon.className = on ? 'ph ph-eye-slash' : 'ph ph-eye';
+        if (lbl) lbl.textContent = on ? 'Show' : 'Privacy';
+    } catch(_){}
+}
+function togglePrivacyMask() {
+    if (!appState.prefs) appState.prefs = {};
+    appState.prefs.maskBalances = !appState.prefs.maskBalances;
+    try { saveState(); } catch(_){}
+    applyPrivacyMaskState();
+}
+window.applyPrivacyMaskState = applyPrivacyMaskState;
+window.togglePrivacyMask = togglePrivacyMask;
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const btn = document.getElementById('btn-privacy-mask');
+        if (btn && !btn._wjpPrivacyWired) {
+            btn._wjpPrivacyWired = true;
+            btn.addEventListener('click', togglePrivacyMask);
+        }
+        applyPrivacyMaskState();
+    }, 200);
+});

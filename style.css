@@ -7928,3 +7928,35 @@ body.sidebar-collapsed .sidebar-user { justify-content: center; }
 .txn-provenance-row[data-src-kind="manual"]    td { background: rgba(251,191,36,0.04) !important; border-top-color: rgba(251,191,36,0.15) !important; }
 .txn-provenance-row[data-src-kind="recurring"] td { background: rgba(168,85,247,0.04) !important; border-top-color: rgba(168,85,247,0.15) !important; }
 .txn-provenance-row[data-src-kind="system"]    td { background: rgba(148,163,184,0.04) !important; border-top-color: rgba(148,163,184,0.15) !important; }
+
+
+/* PHASE 4 - balance privacy mask */
+body.wjp-privacy-on .stat-value,
+body.wjp-privacy-on .dfd-amount,
+body.wjp-privacy-on .freedom-amount,
+body.wjp-privacy-on .txn-amount,
+body.wjp-privacy-on .upcoming-amount,
+body.wjp-privacy-on .balance-amount,
+body.wjp-privacy-on .ai-rev-strat-stat,
+body.wjp-privacy-on .ai-rev-strat-sub,
+body.wjp-privacy-on #money-left-body,
+body.wjp-privacy-on #math-breakdown-body,
+body.wjp-privacy-on #payoff-engine-body,
+body.wjp-privacy-on #linked-assets-body,
+body.wjp-privacy-on .ai-rev-table td:nth-child(2),
+body.wjp-privacy-on .ai-rev-table td:nth-child(4),
+body.wjp-privacy-on .ai-rev-table td:nth-child(6) {
+  filter: blur(8px) !important;
+  -webkit-filter: blur(8px) !important;
+  user-select: none;
+  transition: filter 0.18s ease;
+}
+body.wjp-privacy-on .stat-value:hover,
+body.wjp-privacy-on #money-left-body:hover,
+body.wjp-privacy-on #math-breakdown-body:hover,
+body.wjp-privacy-on #payoff-engine-body:hover,
+body.wjp-privacy-on #linked-assets-body:hover {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+#btn-privacy-mask[aria-pressed="true"] { background: rgba(0,212,168,0.12) !important; border-color: var(--accent) !important; }

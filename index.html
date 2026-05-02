@@ -205,7 +205,7 @@
   <link rel="prefetch" href="https://cdn.plaid.com/link/v2/stable/link-initialize.js" as="script">
 
   <!-- Phosphor icons — defers naturally; CSS/font-based so no JS blocking -->
-  <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script defer src="https://unpkg.com/@phosphor-icons/web@2.1.2/src/index.js" integrity="sha384-J7cw2fbG1T4C5MirTVUxsZGaMfw2m0XsCgOQEqUvB1OF9VIsHWuZF1GmyVRzs7eu" crossorigin="anonymous"></script>
 
   <!-- Brand typography: Fraunces (editorial serif) + Inter (UI sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -805,6 +805,9 @@
               </div>
             </div>
           </div>
+          <button class="btn-new" id="btn-privacy-mask" style="background:var(--card-2); color:var(--text); border:1px solid var(--border); margin-right:8px;" title="Toggle balance privacy mode" aria-label="Toggle balance privacy" aria-pressed="false">
+            <i class="ph ph-eye" id="btn-privacy-mask-icon" style="color:var(--accent);"></i> <span id="btn-privacy-mask-label">Privacy</span>
+          </button>
           <button class="btn-new" id="btn-sync-bank" style="background:var(--card-2); color:var(--text); border:1px solid var(--border); margin-right:8px;" title="Credentials never shared — read-only tokens only" aria-label="Sync Bank — your credentials are never shared with WJP">
             <i class="ph ph-arrows-left-right" style="color:var(--accent);"></i> Sync Bank
           </button>
