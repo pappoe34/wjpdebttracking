@@ -23527,7 +23527,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-/* PHASE 4.3 - 3-click-to-unblur gesture (sentinel: P4_3_CLICK_GESTURE)
+/* PHASE 4.3 - 3-click-to-unblur gesture (sentinel: P4_3b_CLICK_GESTURE)
  * In Privacy Mode, three clicks within 1.5s on a section unblurs the whole section.
  * Click outside any unblurred section re-blurs everything.
  * Toggling Privacy Mode off clears all click state. */
@@ -23553,6 +23553,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function reblurAll() {
         document.querySelectorAll('.wjp-unblur').forEach(function(s){
             s.classList.remove('wjp-unblur');
+            try {
+                s.style.removeProperty('filter');
+                s.style.removeProperty('-webkit-filter');
+                s.querySelectorAll('*').forEach(function(el){
+                    el.style.removeProperty('filter');
+                    el.style.removeProperty('-webkit-filter');
+                });
+            } catch(_){}
         });
         document.querySelectorAll('.wjp-click-1, .wjp-click-2').forEach(function(s){
             s.classList.remove('wjp-click-1','wjp-click-2');
@@ -23579,7 +23587,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Click on an unrelated section while another is unblurred: re-blur the others first
         document.querySelectorAll('.wjp-unblur').forEach(function(s){
-            if (s !== section) s.classList.remove('wjp-unblur');
+            if (s !== section) {
+                s.classList.remove('wjp-unblur');
+                try {
+                    s.style.removeProperty('filter');
+                    s.style.removeProperty('-webkit-filter');
+                    s.querySelectorAll('*').forEach(function(el){
+                        el.style.removeProperty('filter');
+                        el.style.removeProperty('-webkit-filter');
+                    });
+                } catch(_){}
+            }
         });
 
         var now = Date.now();
@@ -23596,6 +23614,15 @@ document.addEventListener('DOMContentLoaded', () => {
             section.classList.add('wjp-click-2');
         } else if (st.count >= CLICKS_REQUIRED) {
             section.classList.add('wjp-unblur');
+            // P4.3b: inline style beats existing ID-level !important rules
+            try {
+                section.style.setProperty('filter','none','important');
+                section.style.setProperty('-webkit-filter','none','important');
+                section.querySelectorAll('*').forEach(function(el){
+                    el.style.setProperty('filter','none','important');
+                    el.style.setProperty('-webkit-filter','none','important');
+                });
+            } catch(_){}
             st.count = 0;
             sectionState.set(section, st);
         }
