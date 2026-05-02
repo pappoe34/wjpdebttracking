@@ -8687,3 +8687,76 @@ html, body {
 
 .sidebar { will-change: transform; }
 .modal-content { will-change: transform; }
+
+
+/* PHASE_11_1_HOTFIX */
+
+@media (max-width: 720px) {
+  /* 1) Per-Debt Payoff Breakdown table (and any data-table inside cards):
+        Phase 5d's word-break:break-word on .card was bleeding into table cells, breaking text per-character.
+        Override for tables specifically. */
+  .card table.data-table th,
+  .card table.data-table td,
+  .card .ai-rev-table th,
+  .card .ai-rev-table td,
+  .card table th,
+  .card table td {
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    white-space: nowrap !important;
+  }
+  /* Allow table parents to scroll horizontally so nowrap doesn't overflow viewport */
+  .card table.data-table,
+  .card .ai-rev-table,
+  .card table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .card table.data-table thead,
+  .card table.data-table tbody,
+  .card table thead,
+  .card table tbody {
+    display: table !important;
+    width: 100% !important;
+    min-width: 600px;
+  }
+
+  /* 2) Monthly Debt Payoff Allocation input row: tighter sizing on phone */
+  #pe-allocation-input {
+    font-size: 18px !important;
+    padding: 8px 12px !important;
+    min-width: 0 !important;
+  }
+  #payoff-engine-body > div:first-child > span:first-child {
+    font-size: 18px !important;
+  }
+  #payoff-engine-body > div:first-child {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  #pe-save-btn {
+    padding: 8px 14px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* 3) Calendar grid: at <=480px give it horizontal scroll instead of crushing 7 cols */
+@media (max-width: 480px) {
+  .calendar-grid {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    grid-template-columns: repeat(7, minmax(48px, 1fr)) !important;
+    min-width: 100%;
+    gap: 3px !important;
+  }
+  .cal-day {
+    font-size: 10px !important;
+    min-width: 36px;
+  }
+  .cal-day-header {
+    font-size: 8px !important;
+  }
+}
