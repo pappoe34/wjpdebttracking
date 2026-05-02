@@ -8204,8 +8204,8 @@ body.wjp-privacy-on .wjp-private:hover,
 body.wjp-privacy-on .wjp-private:hover * {
   filter: none !important;
   -webkit-filter: none !important;
-  transition: filter 0s 0.15s !important;
-  -webkit-transition: filter 0s 0.15s !important;
+  transition: filter 0s 2s !important;
+  -webkit-transition: filter 0s 2s !important;
 }
 
 /* Explicit UNBLUR: Focus of the Month + others tagged .wjp-public */

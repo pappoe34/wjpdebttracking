@@ -23661,7 +23661,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window._wjpHoverGestureInstalled) return;
     window._wjpHoverGestureInstalled = true;
 
-    var HOVER_DELAY_MS = 150;
+    var HOVER_DELAY_MS = 2000;
     var SECTION_SELECTOR = '#dfd-hero, #top3-strategy, #math-breakdown, .card, .ai-advisor-card';
 
     function applyInlineUnblur(section) {
