@@ -8274,3 +8274,83 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
 }
+
+
+/* PHASE 5d - Mobile responsiveness pass */
+/* Tier breakpoints: 720px (tablet portrait), 480px (small phone) */
+/* Sentinel: PHASE_5D_MOBILE */
+
+@media (max-width: 720px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; }
+
+  .data-table { min-width: 600px; }
+  .card table.data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .modal-content, .modal-form {
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 24px) !important;
+    overflow-y: auto;
+  }
+
+  .card, .dfd-hero, #top3-strategy, .ai-advisor-card, #math-breakdown {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  #top3-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .strategy-card, #strat-card-snowball, #strat-card-hybrid, #strat-card-avalanche {
+    width: 100% !important; margin-bottom: 12px;
+  }
+
+  .dfd-amount, .dfd-date, .stat-value {
+    font-size: clamp(20px, 6vw, 32px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pin-card-btn { display: none !important; }
+
+  .card, .dfd-hero, #top3-strategy, .ai-advisor-card, #math-breakdown {
+    padding: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  button, .btn, .btn-new, .nav-item,
+  input[type="button"], input[type="submit"] { min-height: 40px; }
+
+  #btn-privacy-mask, #btn-sync-bank, #btn-bank-health, #btn-new-entry {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+    margin-right: 4px !important;
+  }
+  #btn-bank-health span,
+  #btn-privacy-mask-label,
+  #btn-sync-bank-label { display: none; }
+
+  .data-table { min-width: 480px; font-size: 11px; }
+  .data-table th, .data-table td { padding: 6px 8px !important; }
+
+  .modal-content, .modal-form { padding: 16px !important; }
+
+  .ai-card-actions, .btn-row, .modal-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  canvas { max-width: 100% !important; height: auto !important; }
+
+  .dfd-meta, .dfd-strategy { font-size: 11px !important; }
+}
+
+/* Touch device: 16px input font prevents iOS zoom on focus */
+@media (hover: none) and (pointer: coarse) {
+  input, textarea, select { font-size: 16px; }
+}
