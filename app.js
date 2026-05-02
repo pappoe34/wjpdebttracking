@@ -23509,9 +23509,14 @@ function applyPrivacyMaskState() {
 }
 function togglePrivacyMask() {
     if (!appState.prefs) appState.prefs = {};
+    var wasOff = !appState.prefs.maskBalances;
     appState.prefs.maskBalances = !appState.prefs.maskBalances;
     try { saveState(); } catch(_){}
     applyPrivacyMaskState();
+    // P4.12: show one-time hint when Privacy Mode is activated for the first time
+    if (wasOff && appState.prefs.maskBalances && !appState.prefs.privacyHintShown) {
+        try { showPrivacyHint(); } catch(_){}
+    }
 }
 window.applyPrivacyMaskState = applyPrivacyMaskState;
 window.togglePrivacyMask = togglePrivacyMask;
@@ -23883,3 +23888,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     setInterval(tagPrivacyTargets, 2500);
 })();
+
+
+/* PHASE 4.12 - one-time Privacy Mode usage hint (sentinel: P4_12_HINT) */
+window.showPrivacyHint = function showPrivacyHint() {
+    try {
+        if (appState && appState.prefs && appState.prefs.privacyHintShown) return;
+        if (document.getElementById('wjp-privacy-hint')) return;
+        var hint = document.createElement('div');
+        hint.id = 'wjp-privacy-hint';
+        hint.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card,#fff);color:var(--text,#0b0f1a);border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:24px 26px;z-index:999999;box-shadow:0 20px 60px rgba(0,0,0,0.30);max-width:380px;font-size:13px;line-height:1.55;';
+        hint.innerHTML = ''
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+            +   '<i class="ph-fill ph-eye-slash" style="color:var(--accent,#00d4a8);font-size:20px;"></i>'
+            +   '<div style="font-size:15px;font-weight:800;">Privacy Mode is on</div>'
+            + '</div>'
+            + '<div style="color:var(--text-2,#64748b);margin-bottom:14px;">All dollar amounts and balances are now blurred. To peek:</div>'
+            + '<ul style="margin:0 0 16px 18px;padding:0;color:var(--text-2,#64748b);">'
+            +   '<li style="margin-bottom:6px;"><strong>Hover</strong> any blurred section for 2 seconds (loading-ring cursor confirms)</li>'
+            +   '<li style="margin-bottom:6px;"><strong>Triple-click</strong> a section to latch it open</li>'
+            +   '<li style="margin-bottom:6px;"><strong>Click outside</strong> to re-blur</li>'
+            +   '<li>Click the <strong>Privacy Mode</strong> button again to turn off entirely</li>'
+            + '</ul>'
+            + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+            +   '<button id="wjp-privacy-hint-ok" class="btn btn-primary" style="padding:8px 18px;font-size:12px;font-weight:800;">Got it</button>'
+            + '</div>';
+        document.body.appendChild(hint);
+        var dismiss = function() {
+            try { hint.remove(); } catch(_){}
+            if (!appState.prefs) appState.prefs = {};
+            appState.prefs.privacyHintShown = true;
+            try { saveState(); } catch(_){}
+        };
+        var okBtn = document.getElementById('wjp-privacy-hint-ok');
+        if (okBtn) okBtn.onclick = dismiss;
+        // Click outside also dismisses
+        setTimeout(function(){
+            document.addEventListener('click', function once(e){
+                if (!hint.contains(e.target)) {
+                    document.removeEventListener('click', once);
+                    dismiss();
+                }
+            });
+        }, 100);
+    } catch(_){}
+};
