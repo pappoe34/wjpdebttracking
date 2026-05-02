@@ -24243,3 +24243,89 @@ window.showPrivacyHint = function showPrivacyHint() {
     setInterval(sweep, 3000);
     document.addEventListener('click', function(){ setTimeout(sweep, 200); }, true);
 })();
+
+
+/* PHASE 10 - migrated inline handlers (sentinel: P10_INLINE_MIGRATION) */
+(function(){
+  if (window._wjpEHMigrated) return;
+  window._wjpEHMigrated = true;
+  var H = [];
+  H[0] = function(event){ try { document.getElementById('landing-page').style.display='none'; showAuthGate('login'); } catch(e){ console.warn('[eh-0]', e); } };
+  H[1] = function(event){ try { document.getElementById('landing-page').style.display='none'; showAuthGate('signup'); } catch(e){ console.warn('[eh-1]', e); } };
+  H[2] = function(event){ try { document.getElementById('landing-page').style.display='none'; showAuthGate('signup'); } catch(e){ console.warn('[eh-2]', e); } };
+  H[3] = function(event){ try { document.getElementById('landing-page').style.display='none'; showAuthGate('signup'); } catch(e){ console.warn('[eh-3]', e); } };
+  H[4] = function(event){ try { document.getElementById('landing-page').style.display='none'; showAuthGate('signup'); } catch(e){ console.warn('[eh-4]', e); } };
+  H[5] = function(event){ try { event.preventDefault(); try { if (typeof navigateSPA === 'function') navigateSPA('dashboard'); else if (window.navigateSPA) window.navigateSPA('dashboard'); } catch(_){} } catch(e){ console.warn('[eh-5]', e); } };
+  H[6] = function(event){ try { document.querySelector('[data-page=settings]').click() } catch(e){ console.warn('[eh-6]', e); } };
+  H[7] = function(event){ try { document.querySelector('[data-subtab=transactions]').click() } catch(e){ console.warn('[eh-7]', e); } };
+  H[8] = function(event){ try { document.querySelectorAll('.debts-subtabs .subtab')[1].click() } catch(e){ console.warn('[eh-8]', e); } };
+  H[9] = function(event){ try { this.style.transform='translateX(2px)' } catch(e){ console.warn('[eh-9]', e); } };
+  H[10] = function(event){ try { this.style.transform='translateX(0)' } catch(e){ console.warn('[eh-10]', e); } };
+  H[11] = function(event){ try { navTo('debts'); setTimeout(() => document.querySelectorAll('.debts-subtabs .subtab')[1].click(), 50); } catch(e){ console.warn('[eh-11]', e); } };
+  H[12] = function(event){ try { this.classList.toggle('on') } catch(e){ console.warn('[eh-12]', e); } };
+  H[13] = function(event){ try { this.classList.toggle('on') } catch(e){ console.warn('[eh-13]', e); } };
+  H[14] = function(event){ try { this.classList.toggle('on') } catch(e){ console.warn('[eh-14]', e); } };
+  H[15] = function(event){ try { if(!document.body.classList.contains('light'))this.style.opacity='1' } catch(e){ console.warn('[eh-15]', e); } };
+  H[16] = function(event){ try { if(!document.body.classList.contains('light'))this.style.opacity='0.75' } catch(e){ console.warn('[eh-16]', e); } };
+  H[17] = function(event){ try { document.getElementById('credit-import-modal').style.display='none' } catch(e){ console.warn('[eh-17]', e); } };
+  H[18] = function(event){ try { document.getElementById('credit-guide-modal').style.display='none'; document.getElementById('credit-import-modal').style.display='flex'; } catch(e){ console.warn('[eh-18]', e); } };
+  H[19] = function(event){ try { startOnboarding() } catch(e){ console.warn('[eh-19]', e); } };
+  H[20] = function(event){ try { skipOnboarding() } catch(e){ console.warn('[eh-20]', e); } };
+  H[21] = function(event){ try { exitOnboarding() } catch(e){ console.warn('[eh-21]', e); } };
+  H[22] = function(event){ try { toggleAuthMode('create') } catch(e){ console.warn('[eh-22]', e); } };
+  H[23] = function(event){ try { toggleAuthMode('login') } catch(e){ console.warn('[eh-23]', e); } };
+  H[24] = function(event){ try { handleGoogleSignIn() } catch(e){ console.warn('[eh-24]', e); } };
+  H[25] = function(event){ try { this.style.background='rgba(255,255,255,0.09)' } catch(e){ console.warn('[eh-25]', e); } };
+  H[26] = function(event){ try { this.style.background='rgba(255,255,255,0.05)' } catch(e){ console.warn('[eh-26]', e); } };
+  H[27] = function(event){ try { handleAccountCreation(event) } catch(e){ console.warn('[eh-27]', e); } };
+  H[28] = function(event){ try { handleGoogleSignIn() } catch(e){ console.warn('[eh-28]', e); } };
+  H[29] = function(event){ try { this.style.background='rgba(255,255,255,0.09)' } catch(e){ console.warn('[eh-29]', e); } };
+  H[30] = function(event){ try { this.style.background='rgba(255,255,255,0.05)' } catch(e){ console.warn('[eh-30]', e); } };
+  H[31] = function(event){ try { handleLogin(event) } catch(e){ console.warn('[eh-31]', e); } };
+  H[32] = function(event){ try { backOnboarding() } catch(e){ console.warn('[eh-32]', e); } };
+  H[33] = function(event){ try { handleFinancialInfo(event) } catch(e){ console.warn('[eh-33]', e); } };
+  H[34] = function(event){ try { backOnboarding() } catch(e){ console.warn('[eh-34]', e); } };
+  H[35] = function(event){ try { toggleGoalChip(this) } catch(e){ console.warn('[eh-35]', e); } };
+  H[36] = function(event){ try { toggleGoalChip(this) } catch(e){ console.warn('[eh-36]', e); } };
+  H[37] = function(event){ try { toggleGoalChip(this) } catch(e){ console.warn('[eh-37]', e); } };
+  H[38] = function(event){ try { toggleGoalChip(this) } catch(e){ console.warn('[eh-38]', e); } };
+  H[39] = function(event){ try { toggleGoalChip(this) } catch(e){ console.warn('[eh-39]', e); } };
+  H[40] = function(event){ try { handleGoalsStep(true) } catch(e){ console.warn('[eh-40]', e); } };
+  H[41] = function(event){ try { handleGoalsStep(false) } catch(e){ console.warn('[eh-41]', e); } };
+  H[42] = function(event){ try { backOnboarding() } catch(e){ console.warn('[eh-42]', e); } };
+  H[43] = function(event){ try { selectDataSource('bank') } catch(e){ console.warn('[eh-43]', e); } };
+  H[44] = function(event){ try { selectDataSource('manual') } catch(e){ console.warn('[eh-44]', e); } };
+  H[45] = function(event){ try { selectDataSource('upload') } catch(e){ console.warn('[eh-45]', e); } };
+  H[46] = function(event){ try { backOnboarding() } catch(e){ console.warn('[eh-46]', e); } };
+  H[47] = function(event){ try { handleBankLink(event) } catch(e){ console.warn('[eh-47]', e); } };
+  H[48] = function(event){ try { backOnboarding() } catch(e){ console.warn('[eh-48]', e); } };
+  H[49] = function(event){ try { handleManualEntry(event) } catch(e){ console.warn('[eh-49]', e); } };
+  H[50] = function(event){ try { backOnboarding() } catch(e){ console.warn('[eh-50]', e); } };
+  H[51] = function(event){ try { handleDocumentUpload(event) } catch(e){ console.warn('[eh-51]', e); } };
+  H[52] = function(event){ try { document.getElementById('onboard-file').click() } catch(e){ console.warn('[eh-52]', e); } };
+  H[53] = function(event){ try { switchAuthTab('login') } catch(e){ console.warn('[eh-53]', e); } };
+  H[54] = function(event){ try { switchAuthTab('signup') } catch(e){ console.warn('[eh-54]', e); } };
+  H[55] = function(event){ try { handleEmailLogin(); event.preventDefault();event.stopPropagation();event.preventDefault();event.stopPropagation();return false; } catch(e){ console.warn('[eh-55]', e); } };
+  H[56] = function(event){ try { togglePasswordVisibility('auth-password') } catch(e){ console.warn('[eh-56]', e); } };
+  H[57] = function(event){ try { handleForgotPassword() } catch(e){ console.warn('[eh-57]', e); } };
+  H[58] = function(event){ try { handleGoogleAuth() } catch(e){ console.warn('[eh-58]', e); } };
+  H[59] = function(event){ try { handleEmailSignup(); event.preventDefault();event.stopPropagation();event.preventDefault();event.stopPropagation();return false; } catch(e){ console.warn('[eh-59]', e); } };
+  H[60] = function(event){ try { updatePasswordStrength(this.value) } catch(e){ console.warn('[eh-60]', e); } };
+  H[61] = function(event){ try { togglePasswordVisibility('auth-signup-password') } catch(e){ console.warn('[eh-61]', e); } };
+  H[62] = function(event){ try { handleGoogleAuth() } catch(e){ console.warn('[eh-62]', e); } };
+  function bind() {
+    document.querySelectorAll('[data-wjp-eh-click], [data-wjp-eh-submit], [data-wjp-eh-input], [data-wjp-eh-mouseover], [data-wjp-eh-mouseout], [data-wjp-eh-change], [data-wjp-eh-blur], [data-wjp-eh-focus], [data-wjp-eh-keydown], [data-wjp-eh-keyup]').forEach(function(el){
+      ['click','submit','input','mouseover','mouseout','change','blur','focus','keydown','keyup'].forEach(function(ev){
+        var idx = el.getAttribute('data-wjp-eh-' + ev);
+        if (idx == null) return;
+        var fn = H[parseInt(idx,10)];
+        if (!fn || el.dataset['wjpEhBound' + ev]) return;
+        el.addEventListener(ev, fn);
+        el.dataset['wjpEhBound' + ev] = '1';
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(bind, 50); });
+  else setTimeout(bind, 50);
+  setInterval(bind, 2500);
+})();

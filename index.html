@@ -588,8 +588,8 @@
       <span class="lp-brand-text">WJP <em>Budgeting</em></span>
     </div>
     <div class="lp-nav-right">
-      <a class="lp-login-link" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('login');">Log In</a>
-      <button class="lp-nav-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &rarr;</button>
+      <a class="lp-login-link" data-wjp-eh-click="0">Log In</a>
+      <button class="lp-nav-cta" data-wjp-eh-click="1">Get Started &rarr;</button>
     </div>
   </nav>
 
@@ -598,12 +598,12 @@
       <div class="lp-badge"><i class="ph-fill ph-lightning"></i> AI-Powered Debt Elimination Engine</div>
       <h1 class="lp-h1"><em>Master</em> your debt.</h1>
       <p class="lp-sub">Your AI-powered financial co-pilot. Track spending, eliminate debt, and build wealth &mdash; all in one place.</p>
-      <button class="lp-hero-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &rarr;</button>
+      <button class="lp-hero-cta" data-wjp-eh-click="2">Get Started &rarr;</button>
     </div>
     <div class="lp-chat">
       <div class="lp-chat-bar">
         <input type="text" id="lp-chat-input" placeholder="How fast can I pay off my credit card?" readonly>
-        <button class="lp-chat-send" aria-label="Send message" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');"><i class="ph-bold ph-arrow-up"></i></button>
+        <button class="lp-chat-send" aria-label="Send message" data-wjp-eh-click="3"><i class="ph-bold ph-arrow-up"></i></button>
       </div>
       <div class="lp-chat-label">Track everything. Ask anything.</div>
     </div>
@@ -646,7 +646,7 @@
   <section class="lp-bottom">
     <h2>Ready to take control?</h2>
     <p>Join thousands eliminating debt smarter with AI</p>
-    <button class="lp-bottom-cta" onclick="document.getElementById('landing-page').style.display='none'; showAuthGate('signup');">Get Started &mdash; It's Free &rarr;</button>
+    <button class="lp-bottom-cta" data-wjp-eh-click="4">Get Started &mdash; It's Free &rarr;</button>
   </section>
 
   <footer class="lp-footer">
@@ -681,7 +681,7 @@
              If somehow the router isn't available we fall back to a no-op (not a redirect)
              so the user never feels like they've been signed out. -->
         <a href="#dashboard" class="logo-mark" style="text-decoration:none;color:inherit"
-           onclick="event.preventDefault(); try { if (typeof navigateSPA === 'function') navigateSPA('dashboard'); else if (window.navigateSPA) window.navigateSPA('dashboard'); } catch(_){}">
+           data-wjp-eh-click="5">
           <span class="logo-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/>
@@ -735,7 +735,7 @@
           <div class="nav-icon"><i class="ph ph-question"></i></div>
           <span>Support</span>
         </div>
-        <div class="sidebar-user" onclick="document.querySelector('[data-page=settings]').click()">
+        <div class="sidebar-user" data-wjp-eh-click="6">
           <div class="user-avatar" id="sidebar-user-initials">?</div>
           <div class="user-info">
             <div class="user-name" id="sidebar-user-name">User</div>
@@ -1531,7 +1531,7 @@
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                 <h3 style="font-size:14px; font-weight:700;">Latest Transactions</h3>
                 <div style="display:flex; gap:4px; font-size:11px;">
-                  <span style="color:var(--accent); font-weight:600; cursor:pointer" onclick="document.querySelector('[data-subtab=transactions]').click()">View</span>
+                  <span style="color:var(--accent); font-weight:600; cursor:pointer" data-wjp-eh-click="7">View</span>
                   <span style="color:var(--text-3)">All</span>
                 </div>
               </div>
@@ -1743,7 +1743,7 @@
             <div class="card reveal reveal-2">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h3 style="font-size:16px; font-weight:700;">Detailed Transactions</h3>
-                <div style="display:flex; align-items:center; gap:6px; color:var(--accent); font-size:12px; font-weight:600; cursor:pointer;" onclick="document.querySelectorAll('.debts-subtabs .subtab')[1].click()">
+                <div style="display:flex; align-items:center; gap:6px; color:var(--accent); font-size:12px; font-weight:600; cursor:pointer;" data-wjp-eh-click="8">
                   View Statement <i class="ph ph-arrow-square-out"></i>
                 </div>
               </div>
@@ -2325,7 +2325,7 @@
                     </div>
                     <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; margin-top:16px; display:flex; align-items:center; gap:12px; transition:border 0.3s;" class="chat-input-wrap">
                       <input type="text" placeholder="Type your scenario..." style="background:transparent; border:none; outline:none; color:var(--text); font-size:12px; font-family:'Inter', sans-serif; flex:1;">
-                      <i class="ph-fill ph-paper-plane-right" style="color:var(--accent); font-size:16px; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='translateX(2px)'" onmouseout="this.style.transform='translateX(0)'"></i>
+                      <i class="ph-fill ph-paper-plane-right" style="color:var(--accent); font-size:16px; cursor:pointer; transition:transform 0.2s;" data-wjp-eh-mouseover="9" data-wjp-eh-mouseout="10"></i>
                     </div>
                   </div>
 
@@ -2954,7 +2954,7 @@
                   <h3 style="font-size:16px; font-weight:700;">Detailed Transactions</h3>
                   <div style="font-size:10px; color:var(--text-3); margin-top:2px;">Click any row to view full transaction details &amp; AI insights</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; color:var(--accent); font-size:12px; font-weight:600; cursor:pointer;" onclick="navTo('debts'); setTimeout(() => document.querySelectorAll('.debts-subtabs .subtab')[1].click(), 50);">
+                <div style="display:flex; align-items:center; gap:6px; color:var(--accent); font-size:12px; font-weight:600; cursor:pointer;" data-wjp-eh-click="11">
                   View All <i class="ph ph-arrow-square-out"></i>
                 </div>
               </div>
@@ -3084,15 +3084,15 @@
               <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px; flex:1;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span style="font-size:11px; font-weight:600;">Email Notifications</span>
-                  <div class="toggle-switch on" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                  <div class="toggle-switch on" data-wjp-eh-click="12"><div class="thumb"></div></div>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span style="font-size:11px; font-weight:600;">Push Alerts</span>
-                  <div class="toggle-switch on" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                  <div class="toggle-switch on" data-wjp-eh-click="13"><div class="thumb"></div></div>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span style="font-size:11px; font-weight:600;">SMS Alerts</span>
-                  <div class="toggle-switch" onclick="this.classList.toggle('on')"><div class="thumb"></div></div>
+                  <div class="toggle-switch" data-wjp-eh-click="14"><div class="thumb"></div></div>
                 </div>
               </div>
 
@@ -3171,7 +3171,7 @@
                   </div>
                   <div class="theme-dot-dark" style="width:11px; height:11px; border-radius:50%; background:var(--accent); flex-shrink:0;"></div>
                 </div>
-                <div class="theme-option" data-theme="light" style="background:var(--card-2); border:1.5px solid transparent; border-radius:10px; padding:11px 14px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:all 0.2s; opacity:0.75;" onmouseover="if(!document.body.classList.contains('light'))this.style.opacity='1'" onmouseout="if(!document.body.classList.contains('light'))this.style.opacity='0.75'">
+                <div class="theme-option" data-theme="light" style="background:var(--card-2); border:1.5px solid transparent; border-radius:10px; padding:11px 14px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:all 0.2s; opacity:0.75;" data-wjp-eh-mouseover="15" data-wjp-eh-mouseout="16">
                   <i class="ph ph-sun" style="color:#84cc16; font-size:16px; flex-shrink:0;"></i>
                   <div style="flex:1; min-width:0;">
                     <div style="font-size:12.5px; font-weight:700; line-height:1.2;">Verdant</div>
@@ -3845,7 +3845,7 @@
 
       <!-- Actions -->
       <div class="modal-actions" style="display:flex; gap:12px;">
-        <button type="button" class="btn btn-ghost modal-cancel" style="flex:1;" onclick="document.getElementById('credit-import-modal').style.display='none'">Cancel</button>
+        <button type="button" class="btn btn-ghost modal-cancel" style="flex:1;" data-wjp-eh-click="17">Cancel</button>
         <button type="button" id="btn-confirm-credit-import" class="btn btn-primary" disabled style="flex:2; display:flex; align-items:center; justify-content:center; gap:8px;">
           <i class="ph ph-lightning"></i> Load Into Dashboard
         </button>
@@ -3923,7 +3923,7 @@
       </div>
 
       <div class="modal-actions" style="margin-top:16px;">
-        <button type="button" class="btn btn-primary" style="width:100%;" onclick="document.getElementById('credit-guide-modal').style.display='none'; document.getElementById('credit-import-modal').style.display='flex';">
+        <button type="button" class="btn btn-primary" style="width:100%;" data-wjp-eh-click="18">
           Got it — Open Import Tool <i class="ph ph-arrow-right"></i>
         </button>
       </div>
@@ -4042,8 +4042,8 @@
         <h1 class="ob-h1">Own your <em>freedom.</em></h1>
         <p class="ob-sub">Track every debt, pay off smarter, build wealth — your AI co-pilot for financial freedom.</p>
         <div class="ob-ctas">
-          <button class="ob-pill" onclick="startOnboarding()">Get started →</button>
-          <button class="ob-ghost" onclick="skipOnboarding()">Skip for now</button>
+          <button class="ob-pill" data-wjp-eh-click="19">Get started →</button>
+          <button class="ob-ghost" data-wjp-eh-click="20">Skip for now</button>
         </div>
         <div class="ob-fine">Bank-level encryption · Plaid-powered security</div>
       </div>
@@ -4150,7 +4150,7 @@
 
         <!-- STEP 1: Create Account / Log In -->
         <div id="onboarding-step-1" style="display:block;">
-          <button onclick="exitOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="21" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
 
           <!-- Step indicator -->
           <div class="ob-step-indicator">
@@ -4161,8 +4161,8 @@
 
           <!-- Auth Tab Toggle -->
           <div class="ob-auth-tabs">
-            <button class="ob-auth-tab active" id="auth-tab-create" onclick="toggleAuthMode('create')">Create Account</button>
-            <button class="ob-auth-tab" id="auth-tab-login" onclick="toggleAuthMode('login')">Log In</button>
+            <button class="ob-auth-tab active" id="auth-tab-create" data-wjp-eh-click="22">Create Account</button>
+            <button class="ob-auth-tab" id="auth-tab-login" data-wjp-eh-click="23">Log In</button>
           </div>
 
           <!-- CREATE ACCOUNT FORM -->
@@ -4170,7 +4170,7 @@
             <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Get Started Free</div>
             <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Set up your account in under 2 minutes</div>
             <!-- Google button -->
-            <button type="button" onclick="handleGoogleSignIn()" style="width:100%; padding:13px 16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#f0f4ff; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s; font-family:inherit; margin-bottom:16px; box-sizing:border-box;" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+            <button type="button" data-wjp-eh-click="24" style="width:100%; padding:13px 16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#f0f4ff; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s; font-family:inherit; margin-bottom:16px; box-sizing:border-box;" data-wjp-eh-mouseover="25" data-wjp-eh-mouseout="26">
               <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
               Continue with Google
             </button>
@@ -4180,7 +4180,7 @@
               <div style="font-size:11px; color:rgba(255,255,255,0.3); font-weight:600; letter-spacing:0.5px;">OR</div>
               <div style="flex:1; height:1px; background:rgba(255,255,255,0.07);"></div>
             </div>
-            <form onsubmit="handleAccountCreation(event)" style="display:flex; flex-direction:column; gap:16px;">
+            <form data-wjp-eh-submit="27" style="display:flex; flex-direction:column; gap:16px;">
               <div>
                 <label class="ob-label">Full Name</label>
                 <input type="text" id="onboard-name" required class="ob-input" placeholder="Winston Pappoe">
@@ -4202,7 +4202,7 @@
             <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Welcome Back</div>
             <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Sign in to continue your journey</div>
             <!-- Google button -->
-            <button type="button" onclick="handleGoogleSignIn()" style="width:100%; padding:13px 16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#f0f4ff; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s; font-family:inherit; margin-bottom:16px; box-sizing:border-box;" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+            <button type="button" data-wjp-eh-click="28" style="width:100%; padding:13px 16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#f0f4ff; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s; font-family:inherit; margin-bottom:16px; box-sizing:border-box;" data-wjp-eh-mouseover="29" data-wjp-eh-mouseout="30">
               <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
               Continue with Google
             </button>
@@ -4212,7 +4212,7 @@
               <div style="font-size:11px; color:rgba(255,255,255,0.3); font-weight:600; letter-spacing:0.5px;">OR</div>
               <div style="flex:1; height:1px; background:rgba(255,255,255,0.07);"></div>
             </div>
-            <form onsubmit="handleLogin(event)" style="display:flex; flex-direction:column; gap:16px;">
+            <form data-wjp-eh-submit="31" style="display:flex; flex-direction:column; gap:16px;">
               <div>
                 <label class="ob-label">Email Address</label>
                 <input type="email" id="login-email" class="ob-input" placeholder="you@example.com">
@@ -4235,7 +4235,7 @@
 
         <!-- STEP 2: Financial Profile -->
         <div id="onboarding-step-2" style="display:none;">
-          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="32" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
           <div class="ob-step-indicator">
             <div class="ob-step-dot"></div>
             <div class="ob-step-dot active"></div>
@@ -4243,7 +4243,7 @@
           </div>
           <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Your Financial Profile</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Help the AI build your personalized strategy</div>
-          <form onsubmit="handleFinancialInfo(event)" style="display:flex; flex-direction:column; gap:16px;">
+          <form data-wjp-eh-submit="33" style="display:flex; flex-direction:column; gap:16px;">
             <div>
               <label class="ob-label">Monthly Income</label>
               <input type="number" id="onboard-income" required class="ob-input" placeholder="5000">
@@ -4262,7 +4262,7 @@
 
         <!-- STEP 2.5: Topic picker (Tier 2.2) -->
         <div id="onboarding-step-goals" style="display:none;">
-          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="34" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
           <div class="ob-step-indicator">
             <div class="ob-step-dot"></div>
             <div class="ob-step-dot active"></div>
@@ -4271,21 +4271,21 @@
           <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">What matters most to you?</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:20px;">Pick any that apply — we'll reorder your dashboard to match.</div>
           <div id="ob-goal-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;">
-            <button type="button" class="ob-goal-chip" data-goal="payoff" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Pay off credit cards fastest</button>
-            <button type="button" class="ob-goal-chip" data-goal="score" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Raise my credit score</button>
-            <button type="button" class="ob-goal-chip" data-goal="emergency" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Build emergency fund</button>
-            <button type="button" class="ob-goal-chip" data-goal="paycheck" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Stop living paycheck to paycheck</button>
-            <button type="button" class="ob-goal-chip" data-goal="partner" onclick="toggleGoalChip(this)" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Keep partner in the loop</button>
+            <button type="button" class="ob-goal-chip" data-goal="payoff" data-wjp-eh-click="35" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Pay off credit cards fastest</button>
+            <button type="button" class="ob-goal-chip" data-goal="score" data-wjp-eh-click="36" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Raise my credit score</button>
+            <button type="button" class="ob-goal-chip" data-goal="emergency" data-wjp-eh-click="37" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Build emergency fund</button>
+            <button type="button" class="ob-goal-chip" data-goal="paycheck" data-wjp-eh-click="38" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Stop living paycheck to paycheck</button>
+            <button type="button" class="ob-goal-chip" data-goal="partner" data-wjp-eh-click="39" style="padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:999px; color:#f0f4ff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">Keep partner in the loop</button>
           </div>
           <div style="display:flex; gap:10px;">
-            <button type="button" onclick="handleGoalsStep(true)" class="ob-btn" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#f0f4ff;">Skip for now</button>
-            <button type="button" onclick="handleGoalsStep(false)" class="ob-btn ob-btn-primary" style="flex:2;">Continue →</button>
+            <button type="button" data-wjp-eh-click="40" class="ob-btn" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#f0f4ff;">Skip for now</button>
+            <button type="button" data-wjp-eh-click="41" class="ob-btn ob-btn-primary" style="flex:2;">Continue →</button>
           </div>
         </div>
 
         <!-- STEP 3: Data Source -->
         <div id="onboarding-step-3" style="display:none;">
-          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="42" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
           <div class="ob-step-indicator">
             <div class="ob-step-dot"></div>
             <div class="ob-step-dot"></div>
@@ -4294,7 +4294,7 @@
           <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Add Your Financial Data</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Choose how to import your information</div>
           <div style="display:flex; flex-direction:column; gap:10px;">
-            <button type="button" onclick="selectDataSource('bank')" class="ob-source-card">
+            <button type="button" data-wjp-eh-click="43" class="ob-source-card">
               <div class="ob-source-icon" style="background:rgba(0,212,168,0.1); border:1px solid rgba(0,212,168,0.18);">
                 <i class="ph ph-bank" style="color:#00d4a8;"></i>
               </div>
@@ -4304,7 +4304,7 @@
               </div>
               <i class="ph ph-arrow-right" style="color:rgba(255,255,255,0.3); font-size:14px;"></i>
             </button>
-            <button type="button" onclick="selectDataSource('manual')" class="ob-source-card">
+            <button type="button" data-wjp-eh-click="44" class="ob-source-card">
               <div class="ob-source-icon" style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.18);">
                 <i class="ph ph-note-pencil" style="color:#818cf8;"></i>
               </div>
@@ -4314,7 +4314,7 @@
               </div>
               <i class="ph ph-arrow-right" style="color:rgba(255,255,255,0.3); font-size:14px;"></i>
             </button>
-            <button type="button" onclick="selectDataSource('upload')" class="ob-source-card">
+            <button type="button" data-wjp-eh-click="45" class="ob-source-card">
               <div class="ob-source-icon" style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.18);">
                 <i class="ph ph-cloud-upload" style="color:#fbbf24;"></i>
               </div>
@@ -4329,14 +4329,14 @@
 
         <!-- STEP BANK: Link Bank -->
         <div id="onboarding-step-bank" style="display:none;">
-          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="46" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
           <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Link Your Bank Account</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Securely connect via open banking API</div>
           <div class="ob-security-note">
             <i class="ph ph-shield-check" style="color:#00d4a8; font-size:15px;"></i>
             Bank-level encryption. Your credentials are never stored on our servers.
           </div>
-          <form onsubmit="handleBankLink(event)" style="display:flex; flex-direction:column; gap:16px;">
+          <form data-wjp-eh-submit="47" style="display:flex; flex-direction:column; gap:16px;">
             <div>
               <label class="ob-label">Select Your Bank</label>
               <input type="text" id="onboard-bank" required class="ob-input" placeholder="Chase, Bank of America, Wells Fargo…">
@@ -4347,10 +4347,10 @@
 
         <!-- STEP MANUAL: Manual Debt Entry -->
         <div id="onboarding-step-manual" style="display:none;">
-          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="48" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
           <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Add Your Debts</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Enter your debt details below</div>
-          <form onsubmit="handleManualEntry(event)" style="display:flex; flex-direction:column; gap:16px;">
+          <form data-wjp-eh-submit="49" style="display:flex; flex-direction:column; gap:16px;">
             <div>
               <label class="ob-label">Debt Name</label>
               <input type="text" id="onboard-debt-name" required class="ob-input" placeholder="e.g., Student Loan, Credit Card">
@@ -4369,11 +4369,11 @@
 
         <!-- STEP UPLOAD: Document Upload -->
         <div id="onboarding-step-upload" style="display:none;">
-          <button onclick="backOnboarding()" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
+          <button data-wjp-eh-click="50" class="ob-back-btn"><i class="ph ph-arrow-left"></i> Back</button>
           <div style="font-size:24px; font-weight:800; color:#f0f4ff; margin-bottom:6px;">Upload Documents</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:24px;">Import bank statements or loan documents</div>
-          <form onsubmit="handleDocumentUpload(event)" style="display:flex; flex-direction:column; gap:16px;">
-            <div class="ob-upload-zone" onclick="document.getElementById('onboard-file').click()">
+          <form data-wjp-eh-submit="51" style="display:flex; flex-direction:column; gap:16px;">
+            <div class="ob-upload-zone" data-wjp-eh-click="52">
               <i class="ph ph-cloud-upload" style="color:#00d4a8; font-size:36px; margin-bottom:12px;"></i>
               <div style="font-size:14px; font-weight:700; color:#f0f4ff; margin-bottom:4px;">Click to upload</div>
               <div style="font-size:12px; color:rgba(255,255,255,0.35);">PDF, CSV, JPG, or PNG — AI will parse automatically</div>
@@ -4489,8 +4489,8 @@
       </div>
 
       <div class="auth-tabs">
-        <button class="auth-tab active" id="auth-tab-login" onclick="switchAuthTab('login')">Sign In</button>
-        <button class="auth-tab" id="auth-tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+        <button class="auth-tab active" id="auth-tab-login" data-wjp-eh-click="53">Sign In</button>
+        <button class="auth-tab" id="auth-tab-signup" data-wjp-eh-click="54">Create Account</button>
       </div>
 
       <div id="auth-welcome-back" class="auth-welcome">
@@ -4499,7 +4499,7 @@
         <div class="auth-welcome-subtitle">Signing you in...</div>
       </div>
 
-      <form id="auth-login-form" class="auth-form active" onsubmit="handleEmailLogin(); return false;">
+      <form id="auth-login-form" class="auth-form active" data-wjp-eh-submit="55">
         <div id="auth-error" class="auth-error"></div>
         <div class="auth-form-group">
           <label class="auth-label" for="auth-email">Email Address</label>
@@ -4509,21 +4509,21 @@
           <label class="auth-label" for="auth-password">Password</label>
           <div class="auth-password-wrapper">
             <input id="auth-password" type="password" class="auth-input" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password" />
-            <button type="button" class="auth-password-toggle" onclick="togglePasswordVisibility('auth-password')" tabindex="-1" aria-label="Show or hide password"><i class="ph-fill ph-eye" aria-hidden="true"></i></button>
+            <button type="button" class="auth-password-toggle" data-wjp-eh-click="56" tabindex="-1" aria-label="Show or hide password"><i class="ph-fill ph-eye" aria-hidden="true"></i></button>
           </div>
         </div>
         <div class="auth-forgot">
-          <button type="button" class="auth-forgot-link" onclick="handleForgotPassword()">Forgot password?</button>
+          <button type="button" class="auth-forgot-link" data-wjp-eh-click="57">Forgot password?</button>
         </div>
         <button type="submit" class="auth-button" id="auth-login-btn"><span class="auth-spinner"></span><span>Sign In</span></button>
         <div class="auth-divider"><div class="auth-divider-line"></div><div class="auth-divider-text">Or</div><div class="auth-divider-line"></div></div>
-        <button type="button" class="auth-button auth-button-secondary" onclick="handleGoogleAuth()">
+        <button type="button" class="auth-button auth-button-secondary" data-wjp-eh-click="58">
           <svg class="auth-google-icon" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/></svg>
           <span>Continue with Google</span>
         </button>
       </form>
 
-      <form id="auth-signup-form" class="auth-form" onsubmit="handleEmailSignup(); return false;">
+      <form id="auth-signup-form" class="auth-form" data-wjp-eh-submit="59">
         <div id="auth-signup-error" class="auth-error"></div>
         <div class="auth-form-group">
           <label class="auth-label" for="auth-name">Full Name</label>
@@ -4536,14 +4536,14 @@
         <div class="auth-form-group">
           <label class="auth-label" for="auth-signup-password">Password</label>
           <div class="auth-password-wrapper">
-            <input id="auth-signup-password" type="password" class="auth-input" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="new-password" oninput="updatePasswordStrength(this.value)" />
-            <button type="button" class="auth-password-toggle" onclick="togglePasswordVisibility('auth-signup-password')" tabindex="-1" aria-label="Show or hide password"><i class="ph-fill ph-eye" aria-hidden="true"></i></button>
+            <input id="auth-signup-password" type="password" class="auth-input" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="new-password" data-wjp-eh-input="60" />
+            <button type="button" class="auth-password-toggle" data-wjp-eh-click="61" tabindex="-1" aria-label="Show or hide password"><i class="ph-fill ph-eye" aria-hidden="true"></i></button>
           </div>
           <div class="auth-password-strength"><div class="auth-password-strength-bar" id="auth-strength-bar"></div></div>
         </div>
         <button type="submit" class="auth-button" id="auth-signup-btn"><span class="auth-spinner"></span><span>Create Account</span></button>
         <div class="auth-divider"><div class="auth-divider-line"></div><div class="auth-divider-text">Or</div><div class="auth-divider-line"></div></div>
-        <button type="button" class="auth-button auth-button-secondary" onclick="handleGoogleAuth()">
+        <button type="button" class="auth-button auth-button-secondary" data-wjp-eh-click="62">
           <svg class="auth-google-icon" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/></svg>
           <span>Continue with Google</span>
         </button>
