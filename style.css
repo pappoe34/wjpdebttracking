@@ -8145,3 +8145,45 @@ body.wjp-privacy-on .ml-forecast:hover {
   transition: filter 0s 3s !important;
   -webkit-transition: filter 0s 3s !important;
 }
+
+
+/* PHASE 4.3 - 3-click-to-unblur gesture overrides */
+/* When a section gets .wjp-unblur, override blur on it and EVERY descendant */
+body.wjp-privacy-on .wjp-unblur,
+body.wjp-privacy-on .wjp-unblur *,
+body.wjp-privacy-on .wjp-unblur *:hover {
+  filter: none !important;
+  -webkit-filter: none !important;
+  transition: filter 0s !important;
+  -webkit-transition: filter 0s !important;
+}
+
+/* Click-progress visual: subtle accent ring to confirm clicks are registering */
+body.wjp-privacy-on .wjp-click-1 {
+  outline: 2px solid rgba(0,212,168,0.35) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+body.wjp-privacy-on .wjp-click-2 {
+  outline: 3px solid rgba(0,212,168,0.7) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+body.wjp-privacy-on .wjp-unblur {
+  outline: 1px solid rgba(0,212,168,0.45) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Cursor hint on blurred sections */
+body.wjp-privacy-on #dfd-hero,
+body.wjp-privacy-on #top3-strategy,
+body.wjp-privacy-on .card,
+body.wjp-privacy-on .ai-advisor-card,
+body.wjp-privacy-on #math-breakdown {
+  cursor: help;
+}
+body.wjp-privacy-on .wjp-unblur,
+body.wjp-privacy-on .wjp-unblur * {
+  cursor: auto;
+}

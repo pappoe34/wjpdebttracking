@@ -23525,3 +23525,102 @@ document.addEventListener('DOMContentLoaded', () => {
         applyPrivacyMaskState();
     }, 200);
 });
+
+
+/* PHASE 4.3 - 3-click-to-unblur gesture (sentinel: P4_3_CLICK_GESTURE)
+ * In Privacy Mode, three clicks within 1.5s on a section unblurs the whole section.
+ * Click outside any unblurred section re-blurs everything.
+ * Toggling Privacy Mode off clears all click state. */
+(function(){
+    if (window._wjpClickGestureInstalled) return;
+    window._wjpClickGestureInstalled = true;
+
+    var CLICK_WINDOW_MS = 1500;
+    var CLICKS_REQUIRED = 3;
+    var SECTION_SELECTOR = '#dfd-hero, #top3-strategy, #math-breakdown, .card, .ai-advisor-card';
+    var sectionState = new WeakMap();
+
+    function findSection(el) {
+        if (!el || !el.closest) return null;
+        return el.closest(SECTION_SELECTOR);
+    }
+
+    function clearProgressClasses(section) {
+        if (!section) return;
+        section.classList.remove('wjp-click-1', 'wjp-click-2');
+    }
+
+    function reblurAll() {
+        document.querySelectorAll('.wjp-unblur').forEach(function(s){
+            s.classList.remove('wjp-unblur');
+        });
+        document.querySelectorAll('.wjp-click-1, .wjp-click-2').forEach(function(s){
+            s.classList.remove('wjp-click-1','wjp-click-2');
+        });
+    }
+
+    document.addEventListener('click', function(e){
+        if (!document.body.classList.contains('wjp-privacy-on')) return;
+        // Skip clicks on the privacy toggle itself
+        if (e.target.closest('#btn-privacy-mask')) return;
+
+        var section = findSection(e.target);
+
+        // Click outside any section: re-blur everything
+        if (!section) {
+            reblurAll();
+            return;
+        }
+
+        // Click on already-unblurred section: ignore (let normal interactions through)
+        if (section.classList.contains('wjp-unblur')) {
+            return;
+        }
+
+        // Click on an unrelated section while another is unblurred: re-blur the others first
+        document.querySelectorAll('.wjp-unblur').forEach(function(s){
+            if (s !== section) s.classList.remove('wjp-unblur');
+        });
+
+        var now = Date.now();
+        var st = sectionState.get(section) || {count: 0, ts: 0};
+        if (now - st.ts > CLICK_WINDOW_MS) st.count = 0;
+        st.count++;
+        st.ts = now;
+        sectionState.set(section, st);
+
+        clearProgressClasses(section);
+        if (st.count === 1) {
+            section.classList.add('wjp-click-1');
+        } else if (st.count === 2) {
+            section.classList.add('wjp-click-2');
+        } else if (st.count >= CLICKS_REQUIRED) {
+            section.classList.add('wjp-unblur');
+            st.count = 0;
+            sectionState.set(section, st);
+        }
+
+        // Auto-clear progress class if user pauses
+        setTimeout(function(){
+            var stNow = sectionState.get(section);
+            if (stNow && Date.now() - stNow.ts >= CLICK_WINDOW_MS) {
+                clearProgressClasses(section);
+                stNow.count = 0;
+                sectionState.set(section, stNow);
+            }
+        }, CLICK_WINDOW_MS + 50);
+    }, true);
+
+    // When Privacy Mode is toggled off via existing applyPrivacyMaskState, clear unblurs
+    var _origApply = window.applyPrivacyMaskState;
+    if (typeof _origApply === 'function') {
+        window.applyPrivacyMaskState = function(){
+            try { _origApply.apply(this, arguments); } catch(_){}
+            try {
+                if (!document.body.classList.contains('wjp-privacy-on')) {
+                    reblurAll();
+                }
+            } catch(_){}
+        };
+    }
+})();
