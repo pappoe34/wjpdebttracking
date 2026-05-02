@@ -4509,7 +4509,7 @@
           <label class="auth-label" for="auth-password">Password</label>
           <div class="auth-password-wrapper">
             <input id="auth-password" type="password" class="auth-input" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password" />
-            <button type="button" class="auth-password-toggle" onclick="togglePasswordVisibility('auth-password')" tabindex="-1"><i class="ph-fill ph-eye"></i></button>
+            <button type="button" class="auth-password-toggle" onclick="togglePasswordVisibility('auth-password')" tabindex="-1" aria-label="Show or hide password"><i class="ph-fill ph-eye" aria-hidden="true"></i></button>
           </div>
         </div>
         <div class="auth-forgot">
@@ -4537,7 +4537,7 @@
           <label class="auth-label" for="auth-signup-password">Password</label>
           <div class="auth-password-wrapper">
             <input id="auth-signup-password" type="password" class="auth-input" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="new-password" oninput="updatePasswordStrength(this.value)" />
-            <button type="button" class="auth-password-toggle" onclick="togglePasswordVisibility('auth-signup-password')" tabindex="-1"><i class="ph-fill ph-eye"></i></button>
+            <button type="button" class="auth-password-toggle" onclick="togglePasswordVisibility('auth-signup-password')" tabindex="-1" aria-label="Show or hide password"><i class="ph-fill ph-eye" aria-hidden="true"></i></button>
           </div>
           <div class="auth-password-strength"><div class="auth-password-strength-bar" id="auth-strength-bar"></div></div>
         </div>
