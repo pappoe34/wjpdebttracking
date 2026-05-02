@@ -24329,3 +24329,61 @@ window.showPrivacyHint = function showPrivacyHint() {
   else setTimeout(bind, 50);
   setInterval(bind, 2500);
 })();
+
+
+/* PHASE 10.1 - runtime auto-migrator for dynamically-rendered inline handlers
+ * Finds elements with on* attributes (e.g. set by innerHTML), wraps the code
+ * via Function() (allowed by 'unsafe-eval'), addEventListener-binds it, and
+ * removes the attribute so CSP doesn't keep complaining. (sentinel: P10_1_AUTO_MIGRATE) */
+(function(){
+    if (window._wjpAutoMigrateInstalled) return;
+    window._wjpAutoMigrateInstalled = true;
+    var EVENTS = ['click','change','submit','input','mouseover','mouseout','focus','blur','keydown','keyup','dblclick','contextmenu'];
+    function migrate(el){
+        if (!el || !el.getAttribute) return;
+        EVENTS.forEach(function(ev){
+            var attr = 'on' + ev;
+            var code = el.getAttribute(attr);
+            if (!code) return;
+            try {
+                var fn = new Function('event', code);
+                el.addEventListener(ev, fn.bind(el));
+                el.removeAttribute(attr);
+            } catch(e) { /* malformed; just strip */ try { el.removeAttribute(attr); } catch(_){} }
+        });
+    }
+    function sweep(root){
+        var scope = root || document;
+        try {
+            var sel = EVENTS.map(function(e){ return '[on' + e + ']'; }).join(',');
+            scope.querySelectorAll(sel).forEach(migrate);
+        } catch(_){}
+    }
+    window._wjpAutoMigrateSweep = sweep;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(sweep, 30); });
+    } else {
+        setTimeout(sweep, 30);
+    }
+    // Watch for dynamically inserted nodes
+    try {
+        var obs = new MutationObserver(function(mutations){
+            for (var i=0; i<mutations.length; i++) {
+                var m = mutations[i];
+                if (m.type === 'childList') {
+                    m.addedNodes && m.addedNodes.forEach(function(node){
+                        if (node.nodeType === 1) {
+                            migrate(node);
+                            sweep(node);
+                        }
+                    });
+                } else if (m.type === 'attributes' && m.attributeName && /^on/i.test(m.attributeName)) {
+                    migrate(m.target);
+                }
+            }
+        });
+        obs.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['onclick','onchange','onsubmit','oninput','onmouseover','onmouseout','onfocus','onblur','onkeydown','onkeyup','ondblclick','oncontextmenu'] });
+    } catch(_){}
+    // Periodic safety net
+    setInterval(sweep, 1500);
+})();
