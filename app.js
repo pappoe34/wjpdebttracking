@@ -24429,7 +24429,7 @@ window.showPrivacyHint = function showPrivacyHint() {
 })();
 
 
-/* PHASE 12 - Inbox tab (sentinel: P12_INBOX)
+/* PHASE 12 - Inbox tab (sentinel: P12_1_INBOX)
  * Curated actionable items separate from Activity Log.
  * State: appState.inbox = [{id, type, title, body, priority, createdAt, read, dismissed, action}]
  * Generators run on init + each open; idempotent (stable IDs prevent dupes).
@@ -24622,11 +24622,184 @@ window.showPrivacyHint = function showPrivacyHint() {
         });
     }
 
+    function genWeeklyOverspend() {
+        var monthlyBudget = (appState.budget && (appState.budget.monthlyIncome || appState.budget.income)) || 0;
+        if (monthlyBudget <= 0) return;
+        var weeklyTarget = (monthlyBudget * 0.55) / 4.33;
+        var now = new Date();
+        var sevenAgo = new Date(now.getTime() - 7 * 86400000);
+        var spent = (appState.transactions || []).filter(function(t){
+            if (!t || t.synthetic) return false;
+            var amt = Number(t.amount) || 0;
+            if (amt >= 0) return false;
+            var d = new Date(t.date);
+            return d >= sevenAgo && d <= now;
+        }).reduce(function(s,t){ return s + Math.abs(t.amount); }, 0);
+        if (weeklyTarget <= 0 || spent <= 0) return;
+        var overshootPct = (spent - weeklyTarget) / weeklyTarget;
+        var weekKey = sevenAgo.toISOString().slice(0,10);
+        if (overshootPct >= 0.10) {
+            upsert({
+                id: 'overspend-week-' + weekKey,
+                type: 'progress',
+                title: 'Weekly spending up ' + Math.round(overshootPct * 100) + '% over target',
+                body: 'You spent $' + Math.round(spent).toLocaleString() + ' in the last 7 days vs your ~$' + Math.round(weeklyTarget).toLocaleString() + ' weekly target. Pull back on discretionary purchases for the rest of the week to compensate.',
+                priority: overshootPct >= 0.25 ? 'high' : 'normal',
+                action: { label: 'Open Budget', target: 'budgets' }
+            });
+        }
+    }
+
+    function genMonthlyOverspend() {
+        var monthlyBudget = (appState.budget && (appState.budget.monthlyIncome || appState.budget.income)) || 0;
+        if (monthlyBudget <= 0) return;
+        var nondebtTarget = monthlyBudget * 0.55;
+        var now = new Date();
+        var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        var ymKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+        var dayOfMonth = now.getDate();
+        var totalDays = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+        var pacePct = dayOfMonth / totalDays;
+        var pacedTarget = nondebtTarget * pacePct;
+
+        var byCategory = {};
+        var spent = 0;
+        (appState.transactions || []).forEach(function(t){
+            if (!t || t.synthetic) return;
+            var amt = Number(t.amount) || 0;
+            if (amt >= 0) return;
+            var d = new Date(t.date);
+            if (d < monthStart || d > now) return;
+            var abs = Math.abs(amt);
+            spent += abs;
+            var cat = (t.category || 'Uncategorized').toString();
+            byCategory[cat] = (byCategory[cat] || 0) + abs;
+        });
+        if (spent <= pacedTarget * 1.10) return;
+
+        var topCats = Object.keys(byCategory).map(function(k){ return [k, byCategory[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, 3);
+        var driverList = topCats.map(function(p){ return p[0] + ' ($' + Math.round(p[1]).toLocaleString() + ')'; }).join(', ');
+        upsert({
+            id: 'overspend-month-' + ymKey,
+            type: 'progress',
+            title: 'Monthly spend running hot \u2014 day ' + dayOfMonth + ' of ' + totalDays,
+            body: 'You\u2019re at $' + Math.round(spent).toLocaleString() + ' vs ~$' + Math.round(pacedTarget).toLocaleString() + ' paced. Top drivers: ' + (driverList || 'mixed categories') + '. Cut here first to recover the gap.',
+            priority: spent > nondebtTarget ? 'high' : 'normal',
+            action: { label: 'Open Budget', target: 'budgets' }
+        });
+    }
+
+    function genStatementUploadNudge() {
+        var debts = appState.debts || [];
+        var now = Date.now();
+        var ninetyDays = 90 * 86400000;
+        var ymKey = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
+        debts.forEach(function(d){
+            var atts = Array.isArray(d.attachments) ? d.attachments : [];
+            var newest = atts.reduce(function(max, a){ return Math.max(max, Number(a.ts) || 0); }, 0);
+            var ageMs = newest > 0 ? now - newest : Infinity;
+            if (ageMs < ninetyDays) return;
+            var msg = newest > 0
+                ? 'Last statement was ' + Math.round(ageMs / 86400000) + ' days ago. Re-upload so we can update interest, fees, and APR changes.'
+                : 'No statement on file. Upload one so we can detect APR/fee/balance updates and personalize your plan.';
+            upsert({
+                id: 'stmt-nudge-' + (d.id || d.name) + '-' + ymKey,
+                type: 'suggestion',
+                title: 'Upload a fresh statement for ' + (d.name || 'this debt'),
+                body: msg,
+                priority: 'low',
+                action: { label: 'Open in Debts', target: 'debts' }
+            });
+        });
+    }
+
+    function genCreditScoreTips() {
+        var debts = appState.debts || [];
+        var ymKey = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
+
+        var totalBal = 0, totalLim = 0;
+        debts.forEach(function(d){
+            var dt = String(d.type || '').toLowerCase();
+            var subt = String(d.subtype || '').toLowerCase();
+            var isRevolving = dt.includes('credit') || dt.includes('card') || subt.includes('credit card');
+            if (!isRevolving) return;
+            if (d.creditLimit > 0) {
+                totalBal += (d.balance || 0);
+                totalLim += (d.creditLimit || 0);
+            }
+        });
+        if (totalLim > 0) {
+            var utilPct = (totalBal / totalLim) * 100;
+            if (utilPct >= 30) {
+                var target30 = Math.max(0, Math.round(totalBal - totalLim * 0.30));
+                upsert({
+                    id: 'credit-util-overall-' + ymKey,
+                    type: 'suggestion',
+                    title: 'Credit utilization at ' + utilPct.toFixed(0) + '% \u2014 biggest score lever',
+                    body: 'Pay down $' + target30.toLocaleString() + ' across your revolving cards before their statements close to drop overall utilization under 30%. Utilization is 30% of your FICO score; this is the single fastest move.',
+                    priority: utilPct >= 50 ? 'high' : 'normal',
+                    action: { label: 'Open in Debts', target: 'debts' }
+                });
+            }
+        }
+
+        debts.forEach(function(d){
+            if (!d.creditLimit || !d.balance) return;
+            var u = d.balance / d.creditLimit;
+            if (u < 0.80) return;
+            upsert({
+                id: 'credit-util-card-' + (d.id || d.name) + '-' + ymKey,
+                type: 'suggestion',
+                title: (d.name || 'Card') + ' near limit (' + Math.round(u*100) + '%)',
+                body: 'Cards over 80% utilization can ding your score 30-50 points. Even a partial paydown to under 50% before the statement closes can recover most of that.',
+                priority: 'high',
+                action: { label: 'Open in Debts', target: 'debts' }
+            });
+        });
+
+        var anyPastDue = debts.some(function(d){
+            return (d.daysPastDue && d.daysPastDue > 0) || d.status === 'past-due';
+        });
+        if (anyPastDue) {
+            upsert({
+                id: 'credit-payhist-' + ymKey,
+                type: 'suggestion',
+                title: 'Bring past-due accounts current ASAP',
+                body: 'Payment history is 35% of your FICO. A single 30-day late drops 30-80 points and stays for 7 years. Settle past-due balances before they hit a credit bureau report cycle.',
+                priority: 'high',
+                action: { label: 'Open in Debts', target: 'debts' }
+            });
+        }
+
+        var hasInstallment = debts.some(function(d){
+            var t = String(d.type || '').toLowerCase();
+            return t.includes('loan') || t.includes('mortgage') || t.includes('auto');
+        });
+        var hasRevolving = debts.some(function(d){
+            var t = String(d.type || '').toLowerCase();
+            return t.includes('credit') || t.includes('card');
+        });
+        if (debts.length >= 3 && hasRevolving && !hasInstallment) {
+            upsert({
+                id: 'credit-mix-' + ymKey,
+                type: 'suggestion',
+                title: 'Credit mix: consider a small installment loan',
+                body: 'Credit mix is 10% of your FICO. You currently have only revolving credit (cards). A small credit-builder installment loan paid on time for 12+ months can add 10-20 points. Skip if you\u2019re not actively trying to optimize score.',
+                priority: 'low',
+                action: { label: 'Open Credit Score tab', target: 'debts' }
+            });
+        }
+    }
+
     function refreshGenerators() {
         try { genBillReminders(); } catch(e){ console.warn('[inbox] bill gen', e); }
         try { genProgressReports(); } catch(e){ console.warn('[inbox] progress gen', e); }
         try { genImprovementSuggestions(); } catch(e){ console.warn('[inbox] suggestion gen', e); }
         try { genPaydayNotices(); } catch(e){ console.warn('[inbox] payday gen', e); }
+        try { genWeeklyOverspend(); } catch(e){ console.warn('[inbox] weekly gen', e); }
+        try { genMonthlyOverspend(); } catch(e){ console.warn('[inbox] monthly gen', e); }
+        try { genStatementUploadNudge(); } catch(e){ console.warn('[inbox] stmt gen', e); }
+        try { genCreditScoreTips(); } catch(e){ console.warn('[inbox] credit gen', e); }
         try { saveState(); } catch(_){}
         try { updateInboxBadge(); } catch(_){}
     }
