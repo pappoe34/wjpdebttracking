@@ -24387,3 +24387,41 @@ window.showPrivacyHint = function showPrivacyHint() {
     // Periodic safety net
     setInterval(sweep, 1500);
 })();
+
+
+/* PHASE 11 - autocomplete + inputmode hints on common inputs (sentinel: P11_INPUT_HINTS) */
+(function(){
+    if (window._wjpInputHintsInstalled) return;
+    window._wjpInputHintsInstalled = true;
+    var rules = [
+        [/email|e[-_]?mail/i, 'email', 'email', 'next'],
+        [/password|pwd/i, 'current-password', null, 'go'],
+        [/phone|mobile|tel/i, 'tel', 'tel', 'next'],
+        [/zip|postal/i, 'postal-code', 'numeric', 'next'],
+        [/^name$|fullname|full[-_]?name|first[-_]?name|last[-_]?name/i, 'name', 'text', 'next'],
+        [/balance|amount|payment|min[-_]?payment|income|salary|monthly/i, null, 'decimal', 'next'],
+        [/apr|rate|interest/i, null, 'decimal', 'next']
+    ];
+    function annotate(el){
+        if (!el) return;
+        var key = (el.id || '') + '|' + (el.name || '') + '|' + (el.placeholder || '');
+        for (var i=0; i<rules.length; i++) {
+            var r = rules[i];
+            if (r[0].test(key)) {
+                if (r[1] && !el.getAttribute('autocomplete')) el.setAttribute('autocomplete', r[1]);
+                if (r[2] && !el.getAttribute('inputmode')) el.setAttribute('inputmode', r[2]);
+                if (r[3] && !el.getAttribute('enterkeyhint')) el.setAttribute('enterkeyhint', r[3]);
+                break;
+            }
+        }
+    }
+    function sweep(){
+        try { document.querySelectorAll('input, textarea').forEach(annotate); } catch(_){}
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(sweep, 200); });
+    } else {
+        setTimeout(sweep, 200);
+    }
+    setInterval(sweep, 4000);
+})();

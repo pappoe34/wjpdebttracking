@@ -8631,3 +8631,59 @@ select:focus-visible,
     font-size: 13px !important;
   }
 }
+
+
+/* PHASE 11 - Mobile polish (iOS/Android gotchas) */
+
+.sidebar,
+.modal-overlay,
+.modal-backdrop,
+[class*="full-height"],
+.auth-gate {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .top-header {
+    padding-top: max(12px, env(safe-area-inset-top)) !important;
+  }
+  #wjp-sync-indicator {
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
+  }
+}
+
+* { -webkit-tap-highlight-color: rgba(0,212,168,0.12); }
+
+button, a, [role="button"], .btn, .btn-new, .nav-item, .chip {
+  touch-action: manipulation;
+}
+
+.card, .modal-content, table, .data-table, [class*="scrollable"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-content, .top3-strategy .chip-group, .debts-subtabs, .header-nav {
+  overscroll-behavior: contain;
+}
+
+html, body {
+  background-color: var(--bg, #0b0f1a);
+  overscroll-behavior-y: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  body, .app-wrapper {
+    background-attachment: scroll !important;
+  }
+}
+
+.sidebar { will-change: transform; }
+.modal-content { will-change: transform; }
