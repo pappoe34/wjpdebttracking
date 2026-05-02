@@ -24016,7 +24016,7 @@ window.showPrivacyHint = function showPrivacyHint() {
 };
 
 
-/* PHASE 8 - Cloud sync via Firestore (sentinel: P8_CLOUD_SYNC)
+/* PHASE 8 - Cloud sync via Firestore (sentinel: P8_1_CLOUD_SYNC)
  * Schema: users/{uid}/state/main holds a single doc with appState fields.
  * Pull on auth-ready -> if cloud is newer than local, merge in.
  * Push debounced 2s on saveState() -> uploads non-synthetic txns + recent state.
@@ -24119,6 +24119,11 @@ window.showPrivacyHint = function showPrivacyHint() {
             setIndicator('offline');
         } finally {
             _pulling = false;
+            _pullDone = true; // P8.1: unblock pushes
+            if (_pushPendingDuringPull) {
+                _pushPendingDuringPull = false;
+                try { cloudPushDebounced(); } catch(_){}
+            }
         }
     }
 
@@ -24144,9 +24149,17 @@ window.showPrivacyHint = function showPrivacyHint() {
         }
     }
 
+    var _pullDone = false;
+    var _pushPendingDuringPull = false;
     function cloudPushDebounced() {
         if (!_ready) return;
         if (!appState || !appState.prefs || appState.prefs.cloudMode === false) return;
+        // P8.1 race fix: block push until pull completes, otherwise we overwrite cloud with stale local state
+        if (!_pullDone) {
+            _pushPendingDuringPull = true;
+            setIndicator('syncing');
+            return;
+        }
         if (_pushTimer) clearTimeout(_pushTimer);
         setIndicator('syncing');
         _pushTimer = setTimeout(function(){ _pushTimer = null; cloudPushNow(); }, 2000);
@@ -24187,4 +24200,46 @@ window.showPrivacyHint = function showPrivacyHint() {
     } else {
         setTimeout(init, 1500);
     }
+})();
+
+
+/* PHASE 9 - Form labeling: promote placeholder text to aria-label for inputs
+ * lacking label/aria-label/aria-labelledby. Idempotent and safe to re-run.
+ * Sentinel: P9_LABEL_SWEEP */
+(function(){
+    if (window._wjpLabelSweepInstalled) return;
+    window._wjpLabelSweepInstalled = true;
+    var SKIP_TYPES = ['hidden','button','submit','reset'];
+    function sweep(){
+        try {
+            var inputs = document.querySelectorAll('input, textarea, select');
+            inputs.forEach(function(el){
+                if (SKIP_TYPES.indexOf(el.type) !== -1) return;
+                if (el.getAttribute('aria-label')) return;
+                if (el.getAttribute('aria-labelledby')) return;
+                var id = el.id;
+                if (id) {
+                    try { if (document.querySelector('label[for="' + id.replace(/[\\"\\\\]/g,'\\\\$&') + '"]')) return; } catch(_){}
+                }
+                var ph = el.getAttribute('placeholder');
+                if (ph && ph.trim()) {
+                    el.setAttribute('aria-label', ph.trim());
+                    return;
+                }
+                var nm = el.getAttribute('name') || el.id;
+                if (nm) {
+                    var human = nm.replace(/[-_]+/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2');
+                    el.setAttribute('aria-label', human.charAt(0).toUpperCase() + human.slice(1));
+                }
+            });
+        } catch(_){}
+    }
+    window.wjpLabelSweep = sweep;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(sweep, 250); });
+    } else {
+        setTimeout(sweep, 250);
+    }
+    setInterval(sweep, 3000);
+    document.addEventListener('click', function(){ setTimeout(sweep, 200); }, true);
 })();
