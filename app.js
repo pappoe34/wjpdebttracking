@@ -8657,6 +8657,48 @@ window.setMonthlyAllocation = setMonthlyAllocation;
  *  income (Plaid + manual) − recurring bills − debt minimums.
  *  Returns { income, recurringBills, debtMinimums, surplus }.
  */
+/* PHASE 7 - data-driven suggested extra contribution (sentinel: P7_SUGGEST)
+ * Looks at last 3 calendar months of REAL (non-synthetic) Plaid + manual transactions.
+ * surplus = income - spending - debt_minimums per month.
+ * Suggested = median of surpluses x 0.75 (keeps a 25%% buffer for life-happens variance).
+ * Rounds to nearest $50. Returns { suggested, basisMonths, medianSurplus, methodology, insufficient }. */
+function computeSuggestedExtraContribution() {
+    var out = { suggested: 0, basisMonths: 0, medianSurplus: 0, methodology: '', insufficient: true };
+    try {
+        var txns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic && (Number(t.amount) || 0) !== 0 && t.date; });
+        if (!txns.length) { out.methodology = 'no real transactions yet'; return out; }
+        var now = new Date();
+        var buckets = {};
+        for (var i=0; i<3; i++) {
+            var m = new Date(now.getFullYear(), now.getMonth() - i - 1, 1); /* last 3 COMPLETED months */
+            var key = m.getFullYear() + '-' + (m.getMonth()+1);
+            buckets[key] = { income: 0, spend: 0 };
+        }
+        txns.forEach(function(t){
+            var d = new Date(t.date);
+            var key = d.getFullYear() + '-' + (d.getMonth()+1);
+            if (!buckets[key]) return;
+            var amt = Number(t.amount) || 0;
+            if (amt > 0) buckets[key].income += amt;
+            else buckets[key].spend += Math.abs(amt);
+        });
+        var monthlyMin = (appState.debts || []).reduce(function(s,d){ return s + (Number(d.minPayment) || 0); }, 0);
+        var surpluses = Object.keys(buckets).map(function(k){ return buckets[k].income - buckets[k].spend - monthlyMin; }).filter(function(v){ return v != null && !isNaN(v); });
+        if (surpluses.length < 2) { out.methodology = 'need at least 2 full months of bank-synced data'; out.basisMonths = surpluses.length; return out; }
+        surpluses.sort(function(a,b){ return a-b; });
+        var median = surpluses.length % 2 ? surpluses[Math.floor(surpluses.length/2)] : (surpluses[surpluses.length/2-1] + surpluses[surpluses.length/2]) / 2;
+        out.medianSurplus = median;
+        out.basisMonths = surpluses.length;
+        if (median <= 0) { out.methodology = 'no surplus on average; cut bills first'; out.suggested = 0; return out; }
+        var raw = median * 0.75; /* 25% safety buffer for life-happens variance */
+        out.suggested = Math.max(0, Math.round(raw / 50) * 50);
+        out.methodology = 'median of last ' + surpluses.length + ' months\\u2019 surplus, x 0.75 safety factor';
+        out.insufficient = false;
+    } catch(_) {}
+    return out;
+}
+window.computeSuggestedExtraContribution = computeSuggestedExtraContribution;
+
 function computePayoffSurplus() {
     // Phase 2 — prefer real Plaid-detected income over manual estimate
     const income = (typeof computeRealMonthlyIncome === 'function')
@@ -8685,22 +8727,26 @@ function renderDebtPayoffEngine() {
     const target = sorted[0];
     const stratLabel = strategy.charAt(0).toUpperCase() + strategy.slice(1);
 
-    // Suggestion logic
+    // PHASE 7 - data-driven suggestion: median monthly surplus over last 3 months x 0.75 (sentinel: P7_SUGGEST_UI)
     let suggestionHtml = '';
-    if (surplus.income > 0) {
-        if (surplus.surplus < 0) {
-            suggestionHtml = `<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:#ef4444;font-weight:600;">⚠ Spending exceeds income by ${fmt(Math.abs(surplus.surplus))}/mo. Cut bills first.</div>`;
-        } else if (surplus.surplus > allocation + 50) {
-            suggestionHtml = `<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                <div style="font-size:11px;color:var(--text-2);">💡 Surplus is <strong style="color:#22c55e;">${fmt(surplus.surplus)}</strong>. Bump allocation?</div>
-                <button id="pe-apply-surplus" style="background:#22c55e;color:#0b0f1a;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer;">Use ${fmt(surplus.surplus)}</button>
+    let _ssg = (typeof computeSuggestedExtraContribution === 'function') ? computeSuggestedExtraContribution() : { suggested: 0, basisMonths: 0, insufficient: true };
+    if (!_ssg.insufficient && _ssg.suggested > 0) {
+        const same = Math.abs(_ssg.suggested - allocation) < 25;
+        if (same) {
+            suggestionHtml = `<div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:var(--text-2);">\u2713 Allocation matches our data-driven suggestion (${fmt(_ssg.suggested)}/mo, based on your last ${_ssg.basisMonths} months).</div>`;
+        } else {
+            suggestionHtml = `<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="font-size:11px;color:var(--text-2);flex:1 1 200px;min-width:0;">\ud83d\udca1 Based on your last ${_ssg.basisMonths} months\u2019 surplus, we suggest <strong style="color:#22c55e;">${fmt(_ssg.suggested)}/mo</strong>. <span style="color:var(--text-3);font-size:10px;">(median \u00d7 0.75 buffer for life events)</span></div>
+                <button id="pe-apply-surplus" style="background:#22c55e;color:#0b0f1a;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer;">Use ${fmt(_ssg.suggested)}</button>
             </div>`;
-        } else if (allocation > 0 && Math.abs(surplus.surplus - allocation) < 100) {
-            suggestionHtml = `<div style="background:rgba(102,126,234,0.06);border:1px solid rgba(102,126,234,0.30);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:var(--text-2);">✓ Allocation is right-sized for your current surplus.</div>`;
         }
-    } else {
-        suggestionHtml = `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:10px;color:var(--text-3);">Add income under <strong>Budget Control</strong> to see your auto-computed surplus.</div>`;
+    } else if (_ssg.insufficient && _ssg.basisMonths < 2) {
+        suggestionHtml = `<div style="background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:10px;color:var(--text-3);line-height:1.5;">\ud83d\udd0d Connect a bank or log 2+ months of real transactions and we\u2019ll suggest a personalized extra contribution based on your actual surplus.</div>`;
+    } else if (_ssg.medianSurplus <= 0) {
+        suggestionHtml = `<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:#ef4444;font-weight:600;">\u26a0 Your last ${_ssg.basisMonths} months ran at or below break-even after debt minimums. Cut bills before increasing allocation.</div>`;
     }
+    // Pe-apply-surplus button below now uses the suggested value variable
+    const _ssgValue = _ssg.suggested;
 
     host.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
@@ -8749,7 +8795,8 @@ function renderDebtPayoffEngine() {
     }
     if (applyBtn) {
         applyBtn.addEventListener('click', () => {
-            setMonthlyAllocation(Math.max(0, Math.floor(surplus.surplus)));
+            // PHASE 7: apply the data-driven suggested value, not raw current-month surplus
+            setMonthlyAllocation(Math.max(0, Math.floor(_ssgValue || surplus.surplus)));
         });
     }
 }
@@ -10232,8 +10279,10 @@ function getEffectiveExtraContribution() {
 }
 
 function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
-    if (!appState || !appState.debts.length) return { months: 0, totalInterest: 0, totalPaid: 0 };
-    const key = `T:${strategy}:${extraMonthly}:${lumpSum}:${rateAdj || 0}`;
+    if (!appState || !appState.debts.length) return { months: 0, totalInterest: 0, totalPaid: 0, monthsFractional: 0 };
+    // PHASE 7: cache key includes portfolio fingerprint so debt changes invalidate stale entries (sentinel: P7_CACHE_FINGERPRINT)
+    const _fp = (appState.debts || []).map(function(d){ return (d.id||'?')+':'+(d.balance||0)+':'+(d.apr||0)+':'+(d.minPayment||0); }).join('|');
+    const key = `T:${strategy}:${extraMonthly}:${lumpSum}:${rateAdj || 0}:${_fp}`;
     if (_simCache.has(key)) return _simCache.get(key);
 
     let debts = JSON.parse(JSON.stringify(appState.debts));
@@ -10271,7 +10320,21 @@ function calcSimTotals(strategy, extraMonthly, lumpSum, rateAdj) {
         }
         if (allPaid) break;
     }
-    const out = { months, totalInterest, totalPaid };
+    // PHASE 7: estimate fractional months. The final iteration may have 'overshot' the last debt;
+    // remaining cascade represents how much capacity we didn't actually need that month.
+    let monthsFractional = months;
+    try {
+        // After the final clearing iteration, 'cascade' holds leftover capacity.
+        // Total monthly capacity ~ sum of original minimums + extraMonthly.
+        const capacity = (appState.debts || []).reduce(function(s,d){return s+(d.minPayment||0);},0) + (extraMonthly||0);
+        if (capacity > 0) {
+            const used = Math.max(0, Math.min(capacity, capacity - cascade));
+            const lastMonthFraction = used / capacity;
+            monthsFractional = (months - 1) + lastMonthFraction;
+            if (monthsFractional < 0) monthsFractional = months;
+        }
+    } catch(_){}
+    const out = { months, monthsFractional, totalInterest, totalPaid };
     _simCache.set(key, out);
     return out;
 }
@@ -10285,7 +10348,8 @@ function calcBalanceTrajectory(strategy, extraMonthly, monthLimit) {
     const cap = monthLimit || 60;
     if (!appState || !appState.debts.length) return [0];
 
-    const key = `B:${strategy}:${extraMonthly}:${cap}`;
+    const _fp = (appState.debts || []).map(function(d){ return (d.id||'?')+':'+(d.balance||0)+':'+(d.apr||0); }).join('|');
+    const key = `B:${strategy}:${extraMonthly}:${cap}:${_fp}`;
     if (_simCache.has(key)) return _simCache.get(key);
 
     let debts = JSON.parse(JSON.stringify(appState.debts));
