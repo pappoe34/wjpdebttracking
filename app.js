@@ -28643,3 +28643,466 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 })();
 /* P19_TRIAL_V1 sentinel */
 
+
+
+/* ============================================================
+   PHASE 20 — Onboarding wizard v1 (post-signup activation)
+   Sentinel: P20_ONBOARDING_V1
+   4 steps: Goal -> Add first debt -> Pick strategy -> Reveal date.
+   Suppresses the legacy onboarding-modal flow (stale Netlify Identity copy).
+   ============================================================ */
+(function(){
+    if (window._wjpOnboardingV1) return;
+    window._wjpOnboardingV1 = true;
+
+    /* ---- Disable legacy onboarding modal (stale auth flow) ---- */
+    if (typeof window.checkOnboarding === 'function') {
+        window.checkOnboarding = function(){ /* P20: legacy onboarding suppressed */ };
+    }
+    // Also suppress legacy startOnboarding/skipOnboarding — they reference the
+    // old onboarding-page that no longer matches Firebase auth.
+    var legacyModal = document.getElementById('onboarding-modal');
+    if (legacyModal) legacyModal.classList.remove('active'), legacyModal.style.display = 'none';
+    var legacyPage = document.getElementById('onboarding-page');
+    if (legacyPage) legacyPage.style.display = 'none';
+
+    /* ---- Persistence helpers ---- */
+    function getOnb() {
+        if (!appState) return {};
+        if (!appState.onboarding) appState.onboarding = {};
+        return appState.onboarding;
+    }
+    function markCompleted() {
+        var o = getOnb();
+        o.completedV2 = true;
+        o.completedAt = Date.now();
+        try { saveState(); } catch(_){}
+    }
+    function markSkipped() {
+        var o = getOnb();
+        o.skippedV2 = true;
+        o.skippedAt = Date.now();
+        try { saveState(); } catch(_){}
+    }
+
+    /* ---- Should we show the wizard? ---- */
+    function shouldShow() {
+        try {
+            if (!appState) return false;
+            var o = getOnb();
+            if (o.completedV2 || o.skippedV2) return false;
+            if (window.WJP_IS_ADMIN) return false;
+            // Existing users with debts already onboarded
+            var debts = appState.debts || [];
+            if (debts.length > 0) return false;
+            // Don't fire while the trial offer modal is open
+            if (document.getElementById('wjp-trial-offer-modal')) return false;
+            // Need a user
+            if (!(window.__wjpUser || (window.__wjpAuth && window.__wjpAuth.currentUser))) return false;
+            return true;
+        } catch(_) { return false; }
+    }
+
+    /* ---- Step content + state ---- */
+    var STATE = {
+        step: 1,
+        intent: null   // 'cards' | 'student' | 'mortgage' | 'track-all'
+    };
+    var INTENT_LABELS = {
+        'cards':     'Pay off credit cards',
+        'student':   'Crush student loans',
+        'mortgage':  'Get out of mortgage early',
+        'track-all': 'Just track everything'
+    };
+
+    /* ---- Step 1: Goal ---- */
+    function r_step1() {
+        var u = window.__wjpUser || {};
+        var name = (appState && appState.profile && (appState.profile.fullName || appState.profile.displayName))
+                || u.displayName
+                || (u.email && u.email.split('@')[0])
+                || 'friend';
+        var firstName = String(name).split(/\s+/)[0];
+        var chips = [
+            ['cards', '💳', 'Pay off credit cards'],
+            ['student', '🎓', 'Crush student loans'],
+            ['mortgage', '🏠', 'Get out of mortgage early'],
+            ['track-all', '🎯', 'Just track everything']
+        ].map(function(c){
+            var sel = STATE.intent === c[0] ? ' selected' : '';
+            return '<button class="ob2-chip' + sel + '" data-intent="' + c[0] + '">'
+                + '<span class="ob2-chip-emoji">' + c[1] + '</span>'
+                + '<span class="ob2-chip-label">' + c[2] + '</span>'
+                + '</button>';
+        }).join('');
+        return ''
+            + '<div class="ob2-eyebrow">WELCOME, ' + firstName.toUpperCase() + '</div>'
+            + '<h2 class="ob2-title">What brings you to WJP?</h2>'
+            + '<p class="ob2-sub">Pick the one that fits best. We\'ll tailor the strategy + reminders to that goal.</p>'
+            + '<div class="ob2-chips">' + chips + '</div>'
+            + '<div class="ob2-actions">'
+            +   '<button class="ob2-btn ob2-btn-primary" id="ob2-step1-next" ' + (STATE.intent ? '' : 'disabled') + '>Next →</button>'
+            +   '<button class="ob2-btn ob2-btn-ghost" id="ob2-skip">Skip setup</button>'
+            + '</div>';
+    }
+
+    /* ---- Step 2: Add first debt ---- */
+    function r_step2() {
+        var debtCount = (appState.debts || []).length;
+        var added = debtCount > 0;
+        return ''
+            + '<div class="ob2-eyebrow">STEP 2 OF 4 · ADD A DEBT</div>'
+            + '<h2 class="ob2-title">Let\'s get your first debt in.</h2>'
+            + '<p class="ob2-sub">Pick the fastest way for you. You can add more anytime from the <b>+ Add</b> button.</p>'
+            + '<div class="ob2-paths">'
+            +   '<button class="ob2-path' + (added ? ' done' : '') + '" data-path="scan">'
+            +     '<div class="ob2-path-icon" style="background:rgba(31,122,74,0.10);color:#1f7a4a;"><i class="ph-fill ph-sparkle"></i></div>'
+            +     '<div class="ob2-path-text"><div class="ob2-path-title">Scan a statement <span class="ob2-pill">FASTEST</span></div>'
+            +     '<div class="ob2-path-sub">PDF or photo. OCR fills balance, APR, min payment.</div></div>'
+            +     '<i class="ph ph-arrow-right ob2-path-arrow"></i>'
+            +   '</button>'
+            +   '<button class="ob2-path' + (added ? ' done' : '') + '" data-path="manual">'
+            +     '<div class="ob2-path-icon" style="background:rgba(102,126,234,0.10);color:#667eea;"><i class="ph-fill ph-pencil-simple"></i></div>'
+            +     '<div class="ob2-path-text"><div class="ob2-path-title">Type it manually</div>'
+            +     '<div class="ob2-path-sub">~60 seconds. Name, balance, APR, minimum payment.</div></div>'
+            +     '<i class="ph ph-arrow-right ob2-path-arrow"></i>'
+            +   '</button>'
+            +   '<button class="ob2-path' + (added ? ' done' : '') + '" data-path="bank">'
+            +     '<div class="ob2-path-icon" style="background:rgba(245,158,11,0.10);color:#f59e0b;"><i class="ph-fill ph-bank"></i></div>'
+            +     '<div class="ob2-path-text"><div class="ob2-path-title">Link a bank (Plaid)</div>'
+            +     '<div class="ob2-path-sub">Read-only, encrypted. Auto-imports cards + loans.</div></div>'
+            +     '<i class="ph ph-arrow-right ob2-path-arrow"></i>'
+            +   '</button>'
+            + '</div>'
+            + (added
+                ? '<div class="ob2-success"><i class="ph-fill ph-check-circle"></i> ' + debtCount + ' debt' + (debtCount === 1 ? '' : 's') + ' added — looking good.</div>'
+                : '<div class="ob2-hint">Choose any one. We\'ll come back here when you\'re done.</div>')
+            + '<div class="ob2-actions">'
+            +   '<button class="ob2-btn ob2-btn-back" id="ob2-back">← Back</button>'
+            +   (added
+                  ? '<button class="ob2-btn ob2-btn-primary" id="ob2-step2-next">Next: pick strategy →</button>'
+                  : '<button class="ob2-btn ob2-btn-ghost" id="ob2-step2-skip">Skip — I\'ll add debts later</button>')
+            + '</div>';
+    }
+
+    /* ---- Step 3: Pick strategy ---- */
+    function r_step3() {
+        var current = (appState.strategy && appState.strategy.method) || 'avalanche';
+        var strategies = [
+            ['snowball',  '⛄', 'Snowball', 'Smallest balance first. Builds momentum quickly. Best if motivation matters more than money saved.'],
+            ['avalanche', '🏔️', 'Avalanche', 'Highest APR first. Saves the most in interest. Best if you trust the math and stay disciplined. Recommended.'],
+            ['hybrid',    '🔀', 'Hybrid', 'Knock out anything under $500 first, then switch to Avalanche. Quick early wins + long-term savings.']
+        ].map(function(s){
+            var sel = current === s[0] ? ' selected' : '';
+            var rec = s[0] === 'avalanche' ? '<span class="ob2-rec">RECOMMENDED</span>' : '';
+            return '<button class="ob2-strat' + sel + '" data-strat="' + s[0] + '">'
+                +    '<div class="ob2-strat-emoji">' + s[1] + '</div>'
+                +    '<div class="ob2-strat-name">' + s[2] + ' ' + rec + '</div>'
+                +    '<div class="ob2-strat-desc">' + s[3] + '</div>'
+                +  '</button>';
+        }).join('');
+        return ''
+            + '<div class="ob2-eyebrow">STEP 3 OF 4 · STRATEGY</div>'
+            + '<h2 class="ob2-title">How do you want to pay it down?</h2>'
+            + '<p class="ob2-sub">You can switch anytime. We\'ll show side-by-side comparisons in the Strategy tab.</p>'
+            + '<div class="ob2-strats">' + strategies + '</div>'
+            + '<div class="ob2-actions">'
+            +   '<button class="ob2-btn ob2-btn-back" id="ob2-back">← Back</button>'
+            +   '<button class="ob2-btn ob2-btn-primary" id="ob2-step3-next">Next: see your debt-free date →</button>'
+            + '</div>';
+    }
+
+    /* ---- Step 4: Reveal debt-free date ---- */
+    function r_step4() {
+        var debts = (appState.debts || []);
+        var totalBalance = debts.reduce(function(s,d){ return s + (d.balance||0); }, 0);
+        var totalMin = debts.reduce(function(s,d){ return s + (d.minPayment||0); }, 0);
+        var debtFreeDate = null;
+        var monthsToZero = null;
+        var dateHTML;
+        try {
+            if (typeof calculateDebtPayoff === 'function' && debts.length > 0) {
+                // Honor whatever strategy was chosen in step 3
+                var method = (appState.strategy && appState.strategy.method) || 'avalanche';
+                var contribution = (appState.budget && appState.budget.contribution) || totalMin;
+                var result = calculateDebtPayoff(debts, contribution, method);
+                if (result && result.totalMonths) {
+                    monthsToZero = result.totalMonths;
+                    var now = new Date();
+                    debtFreeDate = new Date(now.getFullYear(), now.getMonth() + monthsToZero, 1);
+                }
+            }
+        } catch(e){ console.warn('[onboard] calc failed', e); }
+        if (debtFreeDate) {
+            var dateStr = debtFreeDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+            dateHTML = '<div class="ob2-date-big">' + dateStr + '</div>'
+                     + '<div class="ob2-date-meta">in ' + monthsToZero + ' months · paying down $' + Math.round(totalBalance).toLocaleString() + ' across ' + debts.length + ' debt' + (debts.length === 1 ? '' : 's') + '</div>';
+        } else {
+            dateHTML = '<div class="ob2-date-big" style="font-size:32px;">Add a debt to see yours</div>'
+                     + '<div class="ob2-date-meta">Then we\'ll calculate the exact month, plus the strategy that gets you there fastest.</div>';
+        }
+        return ''
+            + '<div class="ob2-eyebrow">STEP 4 OF 4 · YOUR FINISH LINE</div>'
+            + '<h2 class="ob2-title">You\'ll be debt-free in</h2>'
+            + '<div class="ob2-date-card">' + dateHTML + '</div>'
+            + '<div class="ob2-final-meta">'
+            +   '<div class="ob2-final-row"><i class="ph-fill ph-bell"></i> Bill alerts will hit your Inbox before due dates</div>'
+            +   '<div class="ob2-final-row"><i class="ph-fill ph-robot"></i> AI Coach is on — ask anything from the chat tab</div>'
+            +   '<div class="ob2-final-row"><i class="ph-fill ph-shield-check"></i> Privacy mode lives in Settings → Privacy</div>'
+            + '</div>'
+            + '<div class="ob2-actions">'
+            +   '<button class="ob2-btn ob2-btn-back" id="ob2-back">← Back</button>'
+            +   '<button class="ob2-btn ob2-btn-primary" id="ob2-finish">Take me to my dashboard →</button>'
+            + '</div>';
+    }
+
+    /* ---- Step renderer + dot indicator ---- */
+    function dotsHTML() {
+        return '<div class="ob2-dots">' +
+            [1,2,3,4].map(function(n){
+                return '<span class="ob2-dot' + (n === STATE.step ? ' active' : '') + (n < STATE.step ? ' done' : '') + '"></span>';
+            }).join('') +
+        '</div>';
+    }
+
+    var renderers = { 1: r_step1, 2: r_step2, 3: r_step3, 4: r_step4 };
+
+    function render() {
+        var existing = document.getElementById('wjp-onb-overlay');
+        if (existing) existing.remove();
+        var overlay = document.createElement('div');
+        overlay.id = 'wjp-onb-overlay';
+        overlay.className = 'ob2-overlay';
+        var card = '<div class="ob2-card">'
+            + dotsHTML()
+            + '<div class="ob2-body">' + renderers[STATE.step]() + '</div>'
+            + '</div>';
+        overlay.innerHTML = card;
+        document.body.appendChild(overlay);
+        wireStep(STATE.step);
+    }
+
+    function go(step) {
+        STATE.step = step;
+        render();
+    }
+    function close() {
+        var el = document.getElementById('wjp-onb-overlay');
+        if (el) el.remove();
+    }
+
+    /* ---- Per-step wiring ---- */
+    function wireStep(step) {
+        // Common: skip button (step 1 only)
+        var skipBtn = document.getElementById('ob2-skip');
+        if (skipBtn) skipBtn.onclick = function(){ markSkipped(); close(); };
+        var backBtn = document.getElementById('ob2-back');
+        if (backBtn) backBtn.onclick = function(){ go(Math.max(1, STATE.step - 1)); };
+
+        if (step === 1) {
+            document.querySelectorAll('.ob2-chip').forEach(function(b){
+                b.onclick = function(){
+                    document.querySelectorAll('.ob2-chip').forEach(function(x){ x.classList.remove('selected'); });
+                    b.classList.add('selected');
+                    STATE.intent = b.dataset.intent;
+                    var nb = document.getElementById('ob2-step1-next');
+                    if (nb) nb.disabled = false;
+                };
+            });
+            var n1 = document.getElementById('ob2-step1-next');
+            if (n1) n1.onclick = function(){
+                var o = getOnb();
+                o.intent = STATE.intent;
+                o.intentLabel = INTENT_LABELS[STATE.intent] || '';
+                try { saveState(); } catch(_){}
+                go(2);
+            };
+        }
+
+        if (step === 2) {
+            // Watch for debts.length changes; if a debt is added while step 2 is open, re-render
+            var initialCount = (appState.debts || []).length;
+            window._wjpOnbWatchT && clearInterval(window._wjpOnbWatchT);
+            window._wjpOnbWatchT = setInterval(function(){
+                var c = (appState.debts || []).length;
+                if (c !== initialCount) {
+                    initialCount = c;
+                    if (STATE.step === 2) render();
+                }
+            }, 800);
+
+            document.querySelectorAll('.ob2-path').forEach(function(b){
+                b.onclick = function(){
+                    var path = b.dataset.path;
+                    if (path === 'scan') {
+                        if (typeof window.wjpRunStatementScan === 'function') {
+                            window.wjpRunStatementScan(null);
+                        } else {
+                            // Fallback: open the +Add modal so user can pick a path manually
+                            var addBtn = document.getElementById('btn-new-entry');
+                            if (addBtn) addBtn.click();
+                        }
+                    } else if (path === 'manual') {
+                        // Open +Add modal pinned to credit-card or loan tile based on intent
+                        var addBtn = document.getElementById('btn-new-entry');
+                        if (addBtn) addBtn.click();
+                        setTimeout(function(){
+                            var route = (STATE.intent === 'cards') ? 'credit-card' : 'loan';
+                            var tile = document.querySelector('.entry-tile[data-route="' + route + '"]');
+                            if (tile) tile.click();
+                        }, 200);
+                    } else if (path === 'bank') {
+                        if (typeof openPlaidLink === 'function') openPlaidLink();
+                        else if (window.openPlaidLink) window.openPlaidLink();
+                        else if (typeof showToast === 'function') showToast('Plaid not loaded — try again in a moment.');
+                    }
+                };
+            });
+            var nextBtn = document.getElementById('ob2-step2-next');
+            if (nextBtn) nextBtn.onclick = function(){
+                window._wjpOnbWatchT && clearInterval(window._wjpOnbWatchT);
+                go(3);
+            };
+            var skip2 = document.getElementById('ob2-step2-skip');
+            if (skip2) skip2.onclick = function(){
+                window._wjpOnbWatchT && clearInterval(window._wjpOnbWatchT);
+                go(3);
+            };
+        }
+
+        if (step === 3) {
+            document.querySelectorAll('.ob2-strat').forEach(function(b){
+                b.onclick = function(){
+                    document.querySelectorAll('.ob2-strat').forEach(function(x){ x.classList.remove('selected'); });
+                    b.classList.add('selected');
+                    if (!appState.strategy) appState.strategy = {};
+                    appState.strategy.method = b.dataset.strat;
+                    try { saveState(); } catch(_){}
+                };
+            });
+            var n3 = document.getElementById('ob2-step3-next');
+            if (n3) n3.onclick = function(){ go(4); };
+        }
+
+        if (step === 4) {
+            var f = document.getElementById('ob2-finish');
+            if (f) f.onclick = function(){
+                markCompleted();
+                close();
+                if (typeof navigateSPA === 'function') navigateSPA('dashboard');
+                if (typeof showToast === 'function') showToast('You\'re all set. Welcome aboard.');
+            };
+        }
+    }
+
+    /* ---- CSS injector ---- */
+    function injectCss() {
+        if (document.getElementById('wjp-onb-css')) return;
+        var s = document.createElement('style');
+        s.id = 'wjp-onb-css';
+        s.textContent = ''
+          + '.ob2-overlay{position:fixed;inset:0;z-index:9100;background:rgba(11,15,26,0.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;animation:ob2FadeIn 0.20s ease;}\n'
+          + '@keyframes ob2FadeIn{from{opacity:0;}to{opacity:1;}}\n'
+          + '@keyframes ob2SlideUp{from{transform:translateY(14px);opacity:0;}to{transform:none;opacity:1;}}\n'
+          + '.ob2-card{background:var(--card,#fff);color:var(--text,#0a0a0a);border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:20px;padding:22px 28px 26px;width:min(580px,96vw);max-height:92vh;overflow-y:auto;box-shadow:0 32px 90px rgba(0,0,0,0.32);animation:ob2SlideUp 0.22s cubic-bezier(0.2,0.8,0.2,1);}\n'
+          + '.ob2-dots{display:flex;justify-content:center;gap:8px;margin-bottom:18px;}\n'
+          + '.ob2-dot{width:30px;height:5px;border-radius:99px;background:var(--card-2,rgba(0,0,0,0.10));transition:background 0.18s,width 0.18s;}\n'
+          + '.ob2-dot.done{background:var(--accent,#1f7a4a);}\n'
+          + '.ob2-dot.active{background:var(--accent,#1f7a4a);width:48px;}\n'
+          + '.ob2-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:var(--accent,#1f7a4a);margin-bottom:8px;text-align:center;}\n'
+          + '.ob2-title{font-size:24px;font-weight:800;color:var(--text,#0a0a0a);margin:0 0 8px;letter-spacing:-0.02em;line-height:1.20;text-align:center;}\n'
+          + '.ob2-sub{font-size:14px;color:var(--text-2,rgba(10,10,10,0.66));margin:0 0 20px;line-height:1.55;text-align:center;}\n'
+          // Step 1 chips
+          + '.ob2-chips{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}\n'
+          + '@media (max-width:520px){.ob2-chips{grid-template-columns:1fr;}}\n'
+          + '.ob2-chip{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--card-2,#f7f6f2);border:2px solid transparent;border-radius:13px;cursor:pointer;font-family:inherit;text-align:left;transition:border-color 0.14s,background 0.14s;}\n'
+          + '.ob2-chip:hover{border-color:var(--border,rgba(0,0,0,0.18));}\n'
+          + '.ob2-chip.selected{border-color:var(--accent,#1f7a4a);background:rgba(31,122,74,0.06);}\n'
+          + '.ob2-chip-emoji{font-size:22px;flex-shrink:0;}\n'
+          + '.ob2-chip-label{font-size:13px;font-weight:700;color:var(--text,#0a0a0a);line-height:1.30;}\n'
+          // Step 2 paths
+          + '.ob2-paths{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}\n'
+          + '.ob2-path{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--card-2,#f7f6f2);border:1px solid var(--border,rgba(0,0,0,0.08));border-radius:13px;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:border-color 0.14s,transform 0.05s;}\n'
+          + '.ob2-path:hover{border-color:var(--accent,#1f7a4a);}\n'
+          + '.ob2-path:active{transform:scale(0.99);}\n'
+          + '.ob2-path.done{opacity:0.55;}\n'
+          + '.ob2-path-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}\n'
+          + '.ob2-path-text{flex:1;min-width:0;}\n'
+          + '.ob2-path-title{font-size:14px;font-weight:800;color:var(--text,#0a0a0a);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}\n'
+          + '.ob2-path-sub{font-size:12px;color:var(--text-2,rgba(10,10,10,0.55));margin-top:2px;line-height:1.4;}\n'
+          + '.ob2-pill{font-size:9.5px;font-weight:800;color:var(--accent,#1f7a4a);background:rgba(31,122,74,0.15);padding:2px 7px;border-radius:99px;letter-spacing:0.06em;}\n'
+          + '.ob2-path-arrow{color:var(--text-2,rgba(10,10,10,0.45));font-size:16px;flex-shrink:0;}\n'
+          + '.ob2-success{background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.22);border-radius:11px;padding:11px 14px;font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;}\n'
+          + '.ob2-success i{font-size:18px;}\n'
+          + '.ob2-hint{font-size:12px;color:var(--text-2,rgba(10,10,10,0.55));text-align:center;margin-bottom:14px;line-height:1.5;}\n'
+          // Step 3 strats
+          + '.ob2-strats{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}\n'
+          + '.ob2-strat{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;background:var(--card-2,#f7f6f2);border:2px solid transparent;border-radius:13px;cursor:pointer;font-family:inherit;text-align:left;transition:border-color 0.14s,background 0.14s;}\n'
+          + '.ob2-strat:hover{border-color:var(--border,rgba(0,0,0,0.18));}\n'
+          + '.ob2-strat.selected{border-color:var(--accent,#1f7a4a);background:rgba(31,122,74,0.06);}\n'
+          + '.ob2-strat-emoji{font-size:22px;}\n'
+          + '.ob2-strat-name{font-size:14px;font-weight:800;color:var(--text,#0a0a0a);display:flex;align-items:center;gap:8px;}\n'
+          + '.ob2-strat-desc{font-size:12.5px;color:var(--text-2,rgba(10,10,10,0.62));line-height:1.50;}\n'
+          + '.ob2-rec{font-size:9.5px;font-weight:800;color:var(--accent,#1f7a4a);background:rgba(31,122,74,0.14);padding:3px 7px;border-radius:99px;letter-spacing:0.06em;}\n'
+          // Step 4 reveal
+          + '.ob2-date-card{padding:30px 22px;background:linear-gradient(135deg,rgba(31,122,74,0.10),rgba(102,126,234,0.06));border:1px solid rgba(31,122,74,0.22);border-radius:18px;text-align:center;margin:14px 0 18px;}\n'
+          + '.ob2-date-big{font-family:var(--sans,Inter);font-size:42px;font-weight:800;color:var(--text,#0a0a0a);letter-spacing:-0.03em;line-height:1.05;margin-bottom:8px;}\n'
+          + '.ob2-date-meta{font-size:13px;color:var(--text-2,rgba(10,10,10,0.62));line-height:1.55;}\n'
+          + '.ob2-final-meta{display:flex;flex-direction:column;gap:8px;background:var(--card-2,#f7f6f2);border-radius:11px;padding:14px 16px;margin-bottom:18px;}\n'
+          + '.ob2-final-row{font-size:12.5px;color:var(--text,#0a0a0a);display:flex;align-items:center;gap:10px;}\n'
+          + '.ob2-final-row i{color:var(--accent,#1f7a4a);font-size:16px;flex-shrink:0;}\n'
+          // Actions
+          + '.ob2-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px;}\n'
+          + '.ob2-btn{padding:13px 18px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:filter 0.14s,transform 0.05s,background 0.14s;}\n'
+          + '.ob2-btn:active{transform:scale(0.99);}\n'
+          + '.ob2-btn:disabled{opacity:0.45;cursor:not-allowed;}\n'
+          + '.ob2-btn-primary{background:var(--accent,#1f7a4a);color:#fff;}\n'
+          + '.ob2-btn-primary:hover:not(:disabled){filter:brightness(1.10);}\n'
+          + '.ob2-btn-back{background:transparent;color:var(--text-2,rgba(10,10,10,0.55));}\n'
+          + '.ob2-btn-back:hover{color:var(--text,#0a0a0a);}\n'
+          + '.ob2-btn-ghost{background:transparent;color:var(--text-2,rgba(10,10,10,0.55));border-color:var(--border,rgba(0,0,0,0.10));}\n'
+          + '.ob2-btn-ghost:hover{color:var(--text,#0a0a0a);background:var(--card-2,#f7f6f2);}\n';
+        document.head.appendChild(s);
+    }
+
+    /* ---- Trigger ---- */
+    function maybeShow() {
+        if (!shouldShow()) return;
+        injectCss();
+        STATE.step = 1;
+        render();
+    }
+    function tryWatch() {
+        // Wait for trial offer modal to disappear (or never appear)
+        if (document.getElementById('wjp-trial-offer-modal')) {
+            setTimeout(tryWatch, 1500);
+            return;
+        }
+        // Wait until appState is loaded
+        if (!appState) {
+            setTimeout(tryWatch, 800);
+            return;
+        }
+        maybeShow();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(tryWatch, 2500); });
+    } else {
+        setTimeout(tryWatch, 2500);
+    }
+    window.addEventListener('wjp-auth-ready', function(){ setTimeout(tryWatch, 2500); });
+
+    // Expose for testing
+    window.wjpForceOnboarding = function(){
+        if (appState && appState.onboarding) {
+            delete appState.onboarding.completedV2;
+            delete appState.onboarding.skippedV2;
+        }
+        injectCss();
+        STATE.step = 1;
+        render();
+    };
+})();
+/* P20_ONBOARDING_V1 sentinel */
+
