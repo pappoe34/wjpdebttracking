@@ -473,6 +473,20 @@ html, body {
   body.dark svg .grid { stroke: rgba(255,255,255,0.06) !important; }
 
   /* P21_DARK_TOGGLE additions: theme button, health dots, ext links, auto-refresh */
+
+  /* P23 admin mobile fixes */
+  @media (max-width: 480px) {
+    .health-strip { gap: 8px; padding: 10px 12px; font-size: 11.5px; }
+    .health-item { flex: 0 1 auto; }
+    .health-spacer { display: none; }
+    .auto-refresh { font-size: 11px; flex: 1 1 100%; justify-content: flex-end; padding-top: 4px; border-top: 1px solid rgba(0,0,0,0.05); }
+    body.dark .auto-refresh { border-top-color: rgba(255,255,255,0.05); }
+    .ext-links { flex-wrap: wrap; gap: 4px; }
+    .ext-link { font-size: 10.5px; padding: 5px 8px; }
+    .theme-btn { width: 32px; height: 32px; font-size: 14px; }
+    .top-bar .actions { flex-wrap: wrap; gap: 8px; }
+  }
+
   .theme-btn {
     background: transparent; border: 1px solid #e5e7eb; color: #0b0f1a;
     width: 36px; height: 36px; border-radius: 9px; cursor: pointer;
@@ -547,7 +561,7 @@ html, body {
 <div id="locked-view" class="wrap locked" style="display:none;">
   <h2 id="locked-title">Admin only</h2>
   <p id="locked-msg" style="font-size:13px;">This page is restricted to the WJP admin.</p>
-  <p style="margin-top:16px;"><a id="locked-signin-link" href="./signin.html?next=/admin.html" style="color:#1f7a4a; font-weight:600;">Sign in</a> &nbsp;·&nbsp; <a href="./intro.html" style="color:#6b7280;">Back to home</a></p>
+  <p style="margin-top:16px;"><a href='/signin?next=/admin.html' id='locked-signin-link' style='color:#1f7a4a; font-weight:600;'>Sign in</a> &nbsp;·&nbsp; <a href='/intro' style='color:#6b7280;'>Back to home</a></p>
 </div>
 
 <div id="admin-view" class="wrap" style="display:none;">

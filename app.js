@@ -29111,3 +29111,62 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 })();
 /* P20_ONBOARDING_V1 sentinel */
 
+
+
+/* PHASE 23 — mobile polish (sentinel: P23 mobile fixes) */
+(function(){
+    if (window._wjpMobileFixesV1) return;
+    window._wjpMobileFixesV1 = true;
+    var s = document.createElement('style');
+    s.id = 'wjp-mobile-fixes';
+    s.textContent = ''
+        // Trial banner: wrap gracefully on narrow viewports
+        + '@media (max-width:520px){'
+        +   '.wjp-trial-banner-inner{flex-wrap:wrap;padding:10px 14px;gap:8px;}'
+        +   '.wjp-trial-banner-msg{flex:1 0 100%;font-size:12px;line-height:1.45;order:2;}'
+        +   '.wjp-trial-banner-emoji{order:1;}'
+        +   '.wjp-trial-banner-cta{order:3;flex:1 1 auto;text-align:center;justify-content:center;font-size:11.5px;padding:7px 12px;}'
+        +   '.wjp-trial-banner-dismiss{order:4;flex:0 0 auto;}'
+        +   'body.has-trial-banner{padding-top:84px;}'
+        + '}'
+        // Trial offer modal: bigger thumb targets + tighter padding on small screens
+        + '@media (max-width:480px){'
+        +   '.wjp-trial-offer-card{padding:24px 22px 22px;border-radius:14px;}'
+        +   '.wjp-trial-offer-title{font-size:21px;line-height:1.20;}'
+        +   '.wjp-trial-offer-sub{font-size:13px;}'
+        +   '.wjp-trial-offer-btn{padding:14px 16px;font-size:14px;min-height:48px;}'
+        +   '.wjp-trial-offer-list li{font-size:13px;}'
+        + '}'
+        // OCR review modal: image preview shouldn't overflow on mobile
+        + '@media (max-width:480px){'
+        +   '.wjp-ocr-card{border-radius:12px;max-height:96vh;}'
+        +   '.wjp-ocr-header{padding:16px 18px 12px;}'
+        +   '.wjp-ocr-title{font-size:16px;line-height:1.25;}'
+        +   '.wjp-ocr-subtitle{font-size:12px;}'
+        +   '.wjp-ocr-img{max-height:200px;}'
+        +   '.wjp-ocr-fields{padding:12px 16px;}'
+        +   '.wjp-ocr-footer{padding:12px 16px;flex-wrap:wrap;}'
+        +   '.wjp-ocr-btn{flex:1 1 auto;min-height:44px;}'
+        + '}'
+        // Add-modal scan tile: ensure tile doesn't overflow on narrow grids
+        + '@media (max-width:480px){'
+        +   '#entry-tile-scan{grid-column:span 1 !important;padding:12px 14px;}'
+        +   '#entry-tile-scan i.ph-arrow-right{display:none;}'
+        + '}'
+        // Settings v3 sub-nav: ensure horizontal scroll feels right on mobile
+        + '@media (max-width:520px){'
+        +   '.settings-subnav{padding:6px;gap:4px;}'
+        +   '.settings-subnav-item{padding:8px 10px;font-size:12.5px;flex-shrink:0;}'
+        + '}'
+        // Settings panel-header on mobile: shrink hero
+        + '@media (max-width:480px){'
+        +   '.settings-hero-title{font-size:24px;}'
+        +   '.settings-hero-subtitle{font-size:13px;}'
+        +   '.settings-panel-title{font-size:18px;}'
+        + '}'
+        // Sidebar avatar circle should keep its image on mobile
+        + '@media (max-width:520px){'
+        +   '.has-avatar-image{background-size:cover !important;}'
+        + '}';
+    document.head.appendChild(s);
+})();
