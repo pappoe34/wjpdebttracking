@@ -27776,3 +27776,468 @@ body.high-contrast .settings-row-label { font-weight: 800; }
     // Also expose so other code can manually trigger a repaint after avatar change
     window.repaintAvatarSurfaces = paintAvatar;
 })();
+
+
+/* PHASE 18 - OCR review modal CSS (P18_OCR_CSS_V1) */
+(function(){if(window._wjpOcrCssV1)return;window._wjpOcrCssV1=true;var s=document.createElement('style');s.id='wjp-ocr-css-v1';s.textContent=`/* PHASE 18 — Statement OCR review modal (sentinel: P18_OCR_CSS_V1) */
+.wjp-ocr-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    animation: wjpOcrFadeIn 0.18s ease;
+}
+@keyframes wjpOcrFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.wjp-ocr-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    width: min(960px, 96vw);
+    max-height: 92vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.30);
+    animation: wjpOcrSlideUp 0.22s cubic-bezier(0.2,0.8,0.2,1);
+}
+@keyframes wjpOcrSlideUp { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.wjp-ocr-header {
+    padding: 20px 22px 16px;
+    display: flex; justify-content: space-between; gap: 18px;
+    border-bottom: 1px solid var(--border);
+}
+.wjp-ocr-eyebrow {
+    font-size: 10px; font-weight: 800; color: var(--accent);
+    letter-spacing: 0.10em; margin-bottom: 6px;
+}
+.wjp-ocr-title {
+    font-size: 19px; font-weight: 800; color: var(--text);
+    margin: 0 0 4px; letter-spacing: -0.01em;
+}
+.wjp-ocr-subtitle {
+    font-size: 13px; color: var(--text-3); margin: 0; line-height: 1.5;
+}
+.wjp-ocr-close {
+    background: var(--card-2); border: 1px solid var(--border);
+    width: 34px; height: 34px; border-radius: 50%;
+    color: var(--text-3); font-size: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.14s, color 0.14s, border-color 0.14s;
+}
+.wjp-ocr-close:hover { background: var(--card); color: var(--text); border-color: var(--accent); }
+
+.wjp-ocr-body {
+    display: grid;
+    grid-template-columns: minmax(220px, 380px) 1fr;
+    gap: 0;
+    overflow: hidden;
+    flex: 1; min-height: 0;
+}
+@media (max-width: 720px) {
+    .wjp-ocr-body { grid-template-columns: 1fr; }
+}
+
+.wjp-ocr-preview {
+    background: var(--card-2);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow: auto; min-height: 0;
+}
+@media (max-width: 720px) {
+    .wjp-ocr-preview { border-right: none; border-bottom: 1px solid var(--border); max-height: 200px; }
+}
+.wjp-ocr-filename {
+    font-size: 11.5px; font-weight: 700; color: var(--text-2);
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border);
+    padding: 8px 10px; border-radius: 8px;
+    word-break: break-all;
+}
+.wjp-ocr-filename i { color: var(--accent); flex-shrink: 0; font-size: 16px; }
+
+.wjp-ocr-img {
+    width: 100%; max-height: 540px; object-fit: contain;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: white;
+}
+.wjp-ocr-pdf-fallback {
+    background: var(--card); border: 1px dashed var(--border);
+    border-radius: 10px; padding: 28px 16px; text-align: center;
+    color: var(--text-3); font-size: 12.5px; line-height: 1.55;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.wjp-ocr-pdf-fallback i { font-size: 40px; color: var(--accent); opacity: 0.7; }
+
+.wjp-ocr-fields {
+    padding: 16px 20px;
+    overflow: auto; min-height: 0;
+}
+.ocr-field-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border);
+}
+.ocr-field-row:last-child { border-bottom: none; }
+.ocr-field-label {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    font-size: 12.5px; font-weight: 700; color: var(--text);
+}
+.ocr-pill {
+    font-size: 9.5px; font-weight: 800;
+    padding: 3px 7px; border-radius: 999px;
+    letter-spacing: 0.06em;
+}
+.ocr-pill-form { background: rgba(0,212,168,0.12); color: var(--accent); }
+.ocr-pill-extra { background: var(--card-2); color: var(--text-3); border: 1px solid var(--border); }
+.ocr-field-input {
+    display: flex; align-items: center; gap: 8px;
+}
+.ocr-field-input input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text); font-size: 13px;
+    font-family: ui-monospace, 'SF Mono', monospace;
+    transition: border-color 0.14s, box-shadow 0.14s;
+}
+.ocr-field-input input:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,168,0.15);
+}
+.ocr-confidence {
+    font-size: 9.5px; font-weight: 800;
+    padding: 3px 7px; border-radius: 999px;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+}
+.ocr-conf-good { background: rgba(34,197,94,0.12); color: #16a34a; }
+.ocr-conf-miss { background: rgba(245,158,11,0.12); color: #d97706; }
+
+.wjp-ocr-footer {
+    padding: 14px 22px;
+    display: flex; justify-content: flex-end; gap: 10px;
+    border-top: 1px solid var(--border);
+    background: var(--card-2);
+}
+.wjp-ocr-btn {
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 9px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: filter 0.14s, transform 0.05s, background 0.14s, border-color 0.14s;
+}
+.wjp-ocr-btn:hover { filter: brightness(1.05); }
+.wjp-ocr-btn:active { transform: scale(0.98); }
+.wjp-ocr-btn-ghost { background: transparent; color: var(--text-3); }
+.wjp-ocr-btn-ghost:hover { background: var(--card); color: var(--text); border-color: var(--text-3); }
+.wjp-ocr-btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.wjp-ocr-btn-primary:hover { filter: brightness(1.10); }
+`;document.head.appendChild(s);})();
+
+/* ============================================================
+   PHASE 18 — Statement OCR v1 (image + PDF + preview-confirm)
+   Sentinel: P18_STATEMENT_OCR_V1
+   Adds Tesseract.js image OCR and a preview/confirm modal that wraps
+   the existing parseStatementText extraction. Replaces the silent
+   PDF-only scan flow with a review-before-apply UX.
+   ============================================================ */
+(function(){
+    if (window._wjpStatementOcrV1) return;
+    window._wjpStatementOcrV1 = true;
+
+    var TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
+    var _tessLoading = null;
+
+    function ensureTesseractLoaded() {
+        if (typeof Tesseract !== 'undefined') return Promise.resolve();
+        if (_tessLoading) return _tessLoading;
+        _tessLoading = new Promise(function(resolve, reject){
+            var s = document.createElement('script');
+            s.src = TESSERACT_CDN;
+            s.onload = function(){ resolve(); };
+            s.onerror = function(){ reject(new Error('Tesseract.js CDN failed')); };
+            document.head.appendChild(s);
+        });
+        return _tessLoading;
+    }
+
+    /* ---------- File type detection ---------- */
+    function isPdf(file) { return /\.pdf$/i.test(file.name) || file.type === 'application/pdf'; }
+    function isImg(file) { return /^image\//.test(file.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name); }
+
+    /* ---------- Image -> raw OCR text ---------- */
+    function imageToText(file, onProgress) {
+        return ensureTesseractLoaded().then(function(){
+            // For HEIC, ask Tesseract to use the URL directly. Modern browsers
+            // can decode HEIC if the OS supports it; otherwise it'll fail and
+            // user gets a helpful error.
+            return Tesseract.recognize(file, 'eng', {
+                logger: function(m){ if (onProgress && m.progress != null) onProgress(m); }
+            }).then(function(res){ return (res && res.data && res.data.text) || ''; });
+        });
+    }
+
+    /* ---------- PDF -> raw text (reuses existing extractPdfText) ---------- */
+    function pdfToText(file) {
+        return new Promise(function(resolve, reject){
+            var reader = new FileReader();
+            reader.onload = function(){ resolve(reader.result); };
+            reader.onerror = function(){ reject(reader.error); };
+            reader.readAsDataURL(file);
+        }).then(function(dataUrl){
+            if (typeof extractPdfText !== 'function') throw new Error('extractPdfText not available');
+            return extractPdfText(dataUrl);
+        });
+    }
+
+    /* ---------- Field labels for the preview UI ---------- */
+    var FIELD_DEFS = [
+        { key: 'statementBalance', label: 'Statement balance', kind: 'money', formField: 'debt-balance' },
+        { key: 'minPayment',       label: 'Minimum payment',   kind: 'money', formField: 'debt-min' },
+        { key: 'apr',              label: 'APR (%)',           kind: 'pct',   formField: 'debt-apr' },
+        { key: 'creditLimit',      label: 'Credit limit',      kind: 'money', formField: 'debt-limit' },
+        { key: 'dueDate',          label: 'Payment due',       kind: 'date',  formField: 'debt-due-day' },
+        { key: 'statementDate',    label: 'Statement closes',  kind: 'date',  formField: 'debt-statement-day' },
+        { key: 'cashAdvanceApr',   label: 'Cash advance APR',  kind: 'pct',   formField: null },
+        { key: 'penaltyApr',       label: 'Penalty APR',       kind: 'pct',   formField: null },
+        { key: 'lateFee',          label: 'Late fee',          kind: 'money', formField: null },
+        { key: 'annualFee',        label: 'Annual fee',        kind: 'money', formField: null },
+        { key: 'interestCharged',  label: 'Interest this period', kind: 'money', formField: null },
+        { key: 'availableCredit',  label: 'Available credit',  kind: 'money', formField: null }
+    ];
+
+    function fmtVal(kind, v) {
+        if (v == null || v === '') return '';
+        if (kind === 'money') return Number(v).toFixed(2);
+        if (kind === 'pct')   return Number(v).toFixed(2);
+        return String(v);
+    }
+
+    /* ---------- Build the review modal ---------- */
+    function showPreviewModal(opts) {
+        // opts: { fileName, previewSrc, isImage, parsed, onApply }
+        var existing = document.getElementById('wjp-ocr-modal');
+        if (existing) existing.remove();
+
+        var rows = FIELD_DEFS.map(function(f){
+            var raw = opts.parsed ? opts.parsed[f.key] : null;
+            var has = raw != null && raw !== '';
+            var safeId = 'ocr-' + f.key;
+            return ''
+                + '<div class="ocr-field-row">'
+                +   '<label for="'+safeId+'" class="ocr-field-label">'
+                +     '<span>'+f.label+'</span>'
+                +     (f.formField ? '<span class="ocr-pill ocr-pill-form">FILLS FORM</span>' : '<span class="ocr-pill ocr-pill-extra">EXTRA</span>')
+                +   '</label>'
+                +   '<div class="ocr-field-input">'
+                +     '<input type="text" id="'+safeId+'" data-key="'+f.key+'" data-kind="'+f.kind+'" '
+                +       'value="'+ (has ? String(fmtVal(f.kind, raw)).replace(/"/g,'&quot;') : '') +'" '
+                +       'placeholder="'+ (has ? '' : 'Not detected') +'">'
+                +     (has ? '<span class="ocr-confidence ocr-conf-good">DETECTED</span>'
+                          : '<span class="ocr-confidence ocr-conf-miss">FILL IN</span>')
+                +   '</div>'
+                + '</div>';
+        }).join('');
+
+        var html = ''
+            + '<div class="wjp-ocr-overlay" id="wjp-ocr-modal">'
+            +   '<div class="wjp-ocr-card">'
+            +     '<div class="wjp-ocr-header">'
+            +       '<div>'
+            +         '<div class="wjp-ocr-eyebrow">REVIEW EXTRACTED FIELDS</div>'
+            +         '<h2 class="wjp-ocr-title">Confirm what we found in your statement</h2>'
+            +         '<p class="wjp-ocr-subtitle">Edit anything that looks wrong. Only checked fields will fill the form.</p>'
+            +       '</div>'
+            +       '<button class="wjp-ocr-close" id="ocr-close" aria-label="Close">&times;</button>'
+            +     '</div>'
+            +     '<div class="wjp-ocr-body">'
+            +       '<div class="wjp-ocr-preview">'
+            +         '<div class="wjp-ocr-filename"><i class="ph ph-file-text"></i> '+(opts.fileName||'statement')+'</div>'
+            +         (opts.isImage
+                          ? '<img class="wjp-ocr-img" src="'+opts.previewSrc+'" alt="Statement preview">'
+                          : '<div class="wjp-ocr-pdf-fallback"><i class="ph ph-file-pdf"></i><div>PDF preview not embedded — fields extracted from text layer.</div></div>'
+                       )
+            +       '</div>'
+            +       '<div class="wjp-ocr-fields">'+rows+'</div>'
+            +     '</div>'
+            +     '<div class="wjp-ocr-footer">'
+            +       '<button class="wjp-ocr-btn wjp-ocr-btn-ghost" id="ocr-cancel">Cancel</button>'
+            +       '<button class="wjp-ocr-btn wjp-ocr-btn-primary" id="ocr-apply">Apply to form</button>'
+            +     '</div>'
+            +   '</div>'
+            + '</div>';
+
+        var wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        var node = wrap.firstChild;
+        document.body.appendChild(node);
+
+        function close() { node.remove(); }
+        node.querySelector('#ocr-close').onclick = close;
+        node.querySelector('#ocr-cancel').onclick = close;
+        node.addEventListener('click', function(e){ if (e.target === node) close(); });
+
+        node.querySelector('#ocr-apply').onclick = function(){
+            // Collect values
+            var values = {};
+            FIELD_DEFS.forEach(function(f){
+                var el = node.querySelector('#ocr-' + f.key);
+                if (!el) return;
+                var v = (el.value || '').trim();
+                if (!v) return;
+                values[f.key] = v;
+            });
+            opts.onApply && opts.onApply(values);
+            close();
+        };
+    }
+
+    /* ---------- Apply confirmed values to the debt form ---------- */
+    function applyToDebtForm(values) {
+        var prefilled = 0;
+        FIELD_DEFS.forEach(function(f){
+            if (!f.formField) return;
+            var v = values[f.key];
+            if (v == null || v === '') return;
+            var el = document.getElementById(f.formField);
+            if (!el) return;
+            // Date keys -> day of month
+            if (f.kind === 'date') {
+                var day = (typeof extractDayOfMonth === 'function') ? extractDayOfMonth(v) : null;
+                if (day == null) {
+                    var parsedDay = parseInt(v.replace(/\D/g,''), 10);
+                    day = (parsedDay >= 1 && parsedDay <= 31) ? parsedDay : null;
+                }
+                if (day == null) return;
+                el.value = String(day);
+            } else {
+                el.value = v;
+            }
+            // Trigger any input listeners (validation, dependent UI)
+            try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_){}
+            try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){}
+            prefilled++;
+        });
+        if (typeof showToast === 'function') {
+            showToast(prefilled ? ('Filled ' + prefilled + ' field' + (prefilled===1?'':'s') + ' from statement.') : 'No fields filled — enter manually.');
+        }
+        // Reveal credit-card date row if balance + APR detected
+        try {
+            var typeEl = document.getElementById('debt-type');
+            if (typeEl && /credit/i.test(typeEl.value)) {
+                var ccDates = document.getElementById('debt-cc-dates-group');
+                if (ccDates) ccDates.style.display = '';
+            }
+        } catch(_){}
+    }
+
+    /* ---------- Progress UI on the scan button ---------- */
+    function setBtnState(btn, label, isWorking) {
+        if (!btn) return;
+        if (isWorking) {
+            btn.disabled = true;
+            btn.dataset._origHtml = btn.dataset._origHtml || btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner-gap" style="animation: creditSpin 0.8s linear infinite; display:inline-block;"></i> ' + label;
+        } else {
+            btn.disabled = false;
+            if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml;
+        }
+    }
+
+    /* ---------- Main flow: pick file -> extract -> preview ---------- */
+    function runScanFlow(btn) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,image/*';
+        input.onchange = function(){
+            var file = input.files && input.files[0];
+            if (!file) return;
+            if (!isPdf(file) && !isImg(file)) {
+                showToast && showToast('Please choose a PDF or an image.');
+                return;
+            }
+            setBtnState(btn, 'Reading...', true);
+            var previewSrc = '';
+            var imagePreview = isImg(file);
+
+            // Build preview source for images (data URL)
+            var previewPromise = imagePreview
+                ? new Promise(function(resolve, reject){
+                    var rd = new FileReader();
+                    rd.onload = function(){ resolve(rd.result); };
+                    rd.onerror = function(){ reject(rd.error); };
+                    rd.readAsDataURL(file);
+                  }).then(function(d){ previewSrc = d; })
+                : Promise.resolve();
+
+            var textPromise = isPdf(file)
+                ? pdfToText(file)
+                : imageToText(file, function(m){
+                    var pct = Math.round((m.progress||0)*100);
+                    setBtnState(btn, (m.status||'OCR') + ' ' + pct + '%', true);
+                  });
+
+            Promise.all([previewPromise, textPromise]).then(function(arr){
+                var text = arr[1] || '';
+                var parsed = (typeof parseStatementText === 'function') ? parseStatementText(text) : {};
+                setBtnState(btn, '', false);
+                showPreviewModal({
+                    fileName: file.name,
+                    previewSrc: previewSrc,
+                    isImage: imagePreview,
+                    parsed: parsed,
+                    onApply: function(values){ applyToDebtForm(values); }
+                });
+            }).catch(function(err){
+                setBtnState(btn, '', false);
+                console.warn('[ocr] flow failed', err);
+                showToast && showToast('Could not read this file: ' + (err && err.message ? err.message : 'unknown error'));
+            });
+        };
+        input.click();
+    }
+
+    /* ---------- Override the existing scan button so it uses our new flow ---------- */
+    function attach() {
+        var btn = document.getElementById('debt-scan-btn');
+        if (!btn) { setTimeout(attach, 250); return; }
+        if (btn.__wjpOcrV1Wired) return;
+        btn.__wjpOcrV1Wired = true;
+        // Refresh the button label to reflect new capability
+        if (!/PDF|image|photo/i.test(btn.textContent)) {
+            btn.innerHTML = '<i class="ph-fill ph-sparkle"></i> Scan PDF or photo to auto-fill';
+        } else {
+            btn.innerHTML = '<i class="ph-fill ph-sparkle"></i> Scan PDF or photo to auto-fill';
+        }
+        // Replace the handler — capture phase so we beat the original.
+        btn.addEventListener('click', function(e){
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            runScanFlow(btn);
+        }, true);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+    else attach();
+
+    // Expose for debugging / external use
+    window.wjpRunStatementScan = runScanFlow;
+})();
+/* P18_STATEMENT_OCR_V1 sentinel marker */
+
