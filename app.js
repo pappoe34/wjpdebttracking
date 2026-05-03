@@ -28265,3 +28265,140 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 })();
 /* P18_STATEMENT_OCR_V1 sentinel marker */
 
+
+
+/* ============================================================
+   PHASE 18.3 — Scan tile in the +Add modal picker
+   Sentinel: P18_ADD_SCAN_V1
+   Adds a "Scan statement" tile to the entry-picker grid (top-right
+   + Add button -> modal). Reuses Phase 18 OCR pipeline.
+   ============================================================ */
+(function(){
+    if (window._wjpAddScanV1) return;
+    window._wjpAddScanV1 = true;
+
+    /** Build the scan tile DOM */
+    function buildScanTile() {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'entry-tile';
+        btn.id = 'entry-tile-scan';
+        btn.setAttribute('data-route', '__scan__');
+        btn.style.cssText = 'text-align:left;padding:14px;background:linear-gradient(135deg,rgba(0,212,168,0.10),rgba(102,126,234,0.04));border:1px solid var(--border-accent);border-radius:12px;cursor:pointer;color:var(--text);font-family:inherit;transition:all .15s;grid-column:span 3;';
+        btn.innerHTML =
+            '<div style="display:flex;align-items:center;gap:14px;">'+
+              '<div style="width:42px;height:42px;border-radius:11px;background:rgba(0,212,168,0.18);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+                '<i class="ph-fill ph-sparkle" style="font-size:20px;"></i>'+
+              '</div>'+
+              '<div style="flex:1;min-width:0;">'+
+                '<div style="font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+
+                  'Scan a statement (PDF or photo)'+
+                  '<span style="font-size:9px;font-weight:800;color:var(--accent);background:rgba(0,212,168,0.15);padding:2px 7px;border-radius:99px;letter-spacing:0.06em;">FASTEST</span>'+
+                '</div>'+
+                '<div style="font-size:11px;color:var(--text-3);margin-top:3px;line-height:1.45;">Auto-fills balance, APR, min payment, due date, credit limit. Works for credit card statements, auto/student/mortgage loans, and any bill.</div>'+
+              '</div>'+
+              '<i class="ph ph-arrow-right" style="color:var(--text-3);font-size:16px;flex-shrink:0;"></i>'+
+            '</div>';
+        return btn;
+    }
+
+    /** Click handler: run OCR flow, on Apply navigate to debt form with prefilled fields */
+    function onScanTileClick() {
+        if (typeof window.wjpRunStatementScan !== 'function') {
+            if (typeof showToast === 'function') showToast('Scan not loaded yet, try again.');
+            return;
+        }
+        // Trick: wjpRunStatementScan opens its own file picker + preview modal.
+        // The preview modal's Apply button calls applyToDebtForm(values) which writes
+        // values directly into the #debt-* form fields (which exist in DOM even
+        // when hidden). After that finishes, we route to the debt form.
+        // We can't easily hook the Apply callback from outside, so we patch the
+        // modal's apply behavior right before invoking the scan.
+        var origApply = window.__wjpScanFromAddBtn = function(values) {
+            // Decide debt type by what was extracted
+            var hasLimit = values && values.creditLimit && parseFloat(values.creditLimit) > 0;
+            var route = hasLimit ? 'credit-card' : 'loan';
+            // Navigate by simulating a click on the correct picker tile
+            var tile = document.querySelector('.entry-tile[data-route="'+route+'"]');
+            if (tile) tile.click();
+            // Show toast feedback
+            if (typeof showToast === 'function') {
+                setTimeout(function(){
+                    showToast('Form ready - review and edit before saving.');
+                }, 300);
+            }
+        };
+        // Run the scan; the OCR module handles file picker + preview + applyToDebtForm internally.
+        // We need to monkey-patch the preview modal's Apply so AFTER it fills the form,
+        // we also route to the form view. Easiest: wrap window.applyToDebtForm... but
+        // that fn is private inside the OCR IIFE. Instead, we'll watch for the modal
+        // close (which happens after Apply) + then route.
+        // Strategy: after scan, poll for "did any of the debt-* fields get filled?"
+        var beforeBalance = (document.getElementById('debt-balance')||{}).value || '';
+        window.wjpRunStatementScan(/* btnEl */ null);
+        // After the user goes through OCR + Apply, the form fields populate.
+        // Watch for that via a polling loop (max 60s).
+        var startedAt = Date.now();
+        var poll = setInterval(function(){
+            if (Date.now() - startedAt > 60000) { clearInterval(poll); return; }
+            // Has the OCR review modal closed and were values applied?
+            var modalStillOpen = !!document.getElementById('wjp-ocr-modal');
+            if (modalStillOpen) return;
+            var afterBalance = (document.getElementById('debt-balance')||{}).value || '';
+            var afterApr     = (document.getElementById('debt-apr')||{}).value || '';
+            var afterMin     = (document.getElementById('debt-min')||{}).value || '';
+            var afterLimit   = (document.getElementById('debt-limit')||{}).value || '';
+            var anyFilled = (afterBalance && afterBalance !== beforeBalance) || afterApr || afterMin || afterLimit;
+            if (anyFilled) {
+                clearInterval(poll);
+                // Route based on credit limit presence
+                var route = afterLimit && parseFloat(afterLimit) > 0 ? 'credit-card' : 'loan';
+                var tile = document.querySelector('.entry-tile[data-route="'+route+'"]');
+                if (tile) tile.click();
+            }
+        }, 250);
+    }
+
+    /** Inject the scan tile into the picker grid */
+    function injectScanTile() {
+        var grid = document.querySelector('#entry-picker-step .entry-picker-grid');
+        if (!grid) return false;
+        if (grid.querySelector('#entry-tile-scan')) return true; // already there
+        var tile = buildScanTile();
+        tile.addEventListener('click', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            onScanTileClick();
+        });
+        // Place at the very top of the picker
+        grid.insertBefore(tile, grid.firstChild);
+        return true;
+    }
+
+    /** Watch for the entry-modal opening so we inject when it appears */
+    function watch() {
+        // Try immediately
+        injectScanTile();
+        // Also watch for class changes on the modal
+        var modal = document.getElementById('entry-modal');
+        if (!modal) { setTimeout(watch, 500); return; }
+        // MutationObserver on the modal for class changes (open/close)
+        var mo = new MutationObserver(function(){
+            if (modal.classList.contains('active')) injectScanTile();
+        });
+        mo.observe(modal, { attributes: true, attributeFilter: ['class'] });
+        // Click handler on the +Add button as belt-and-suspenders
+        var btn = document.getElementById('btn-new-entry');
+        if (btn && !btn.__scanInjectWired) {
+            btn.__scanInjectWired = true;
+            btn.addEventListener('click', function(){
+                setTimeout(injectScanTile, 50);
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
+    else watch();
+})();
+/* P18_ADD_SCAN_V1 sentinel */
+
