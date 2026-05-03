@@ -28557,6 +28557,12 @@ body.high-contrast .settings-row-label { font-weight: 800; }
             var sub = (window.appState && appState.subscription) || {};
             if (sub.status === 'trialing' || sub.status === 'active') return;
             if (sub.stripeSubscriptionId) return;
+            // P22: defer until legacy onboarding overlay closes
+            var ob = document.getElementById('ob-overlay');
+            if (ob && (ob.style.display === 'flex' || ob.style.display === 'block')) {
+                setTimeout(maybeAutoStartTrial, 1500);
+                return;
+            }
             // Skip if already prompted this session
             if (window._wjpTrialPromptShown) return;
             window._wjpTrialPromptShown = true;
@@ -28687,20 +28693,9 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 
     /* ---- Should we show the wizard? ---- */
     function shouldShow() {
-        try {
-            if (!appState) return false;
-            var o = getOnb();
-            if (o.completedV2 || o.skippedV2) return false;
-            if (window.WJP_IS_ADMIN) return false;
-            // Existing users with debts already onboarded
-            var debts = appState.debts || [];
-            if (debts.length > 0) return false;
-            // Don't fire while the trial offer modal is open
-            if (document.getElementById('wjp-trial-offer-modal')) return false;
-            // Need a user
-            if (!(window.__wjpUser || (window.__wjpAuth && window.__wjpAuth.currentUser))) return false;
-            return true;
-        } catch(_) { return false; }
+        // P22 wizard suppression: legacy #ob-overlay flow handles onboarding.
+        // Phase 20 wizard kept as dead code; window.wjpForceOnboarding still works for QA.
+        return false;
     }
 
     /* ---- Step content + state ---- */
