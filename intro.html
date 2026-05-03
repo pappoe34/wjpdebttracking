@@ -62,7 +62,17 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "Pappoe Venture LLC",
+      "alternateName": "WJP",
+      "url": "https://wjpdebttracking.com/",
+      "logo": "https://wjpdebttracking.com/icon-512.png",
+      "sameAs": []
+    },
+    {
+      "@type": "SoftwareApplication",
   "name": "WJP Budgetting",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web",
@@ -79,7 +89,9 @@
     "@type": "Organization",
     "name": "Pappoe Venture LLC",
     "url": "https://wjpdebttracking.com/"
-  }
+      }
+    }
+  ]
 }
 </script>
 
@@ -215,12 +227,13 @@
     </p>
     <div class="hero-cta">
       <a class='pill accent' href='/signup'>Get my debt-free date →</a>
-      <a class='pill ghost' href='/signin'>I have an account</a>
+      <a class='pill ghost' href='/signin'>Sign in</a>
     </div>
     <div class="hero-meta">
       <span>Free forever</span>
       <span>No credit card</span>
-      <span>Set up in 4 minutes</span>
+      <span>Set up in 4 min</span>
+      <span>Cancel anytime</span>
     </div>
 
     <!-- Plaid trust row — uses Plaid's official wordmark per their brand kit -->
@@ -355,6 +368,83 @@
     </div>
   </div>
 </section>
+
+
+<!-- HOW IT WORKS — 4-minute concrete flow (P16e) -->
+<section class="how-mini">
+  <div class="wrap reveal" style="text-align:center">
+    <span class="eyebrow">4 minutes from start to finish</span>
+    <h2 class="h2">How fast you'll see your <em>finish date.</em></h2>
+  </div>
+  <div class="how-steps reveal">
+    <div class="how-step">
+      <div class="how-step-num">1</div>
+      <div class="how-step-time">~60 sec</div>
+      <h3>Sign up free</h3>
+      <p>Email or Google. No card. No sales call.</p>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">2</div>
+      <div class="how-step-time">~90 sec</div>
+      <h3>Add your debts</h3>
+      <p>Type them in or upload a statement &mdash; <b>OCR auto-fills</b> balance, APR, and minimum.</p>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">3</div>
+      <div class="how-step-time">~30 sec</div>
+      <h3>Pick a strategy</h3>
+      <p>Snowball, Avalanche, or Hybrid. WJP runs the math and shows the trade-offs side by side.</p>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">4</div>
+      <div class="how-step-time">Done</div>
+      <h3>See the date</h3>
+      <p>The exact day you'll be debt-free. Updated live every time you make a payment.</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .how-mini { padding:80px 24px 56px; position:relative; }
+  .how-steps {
+    max-width:1080px; margin:48px auto 0;
+    display:grid; grid-template-columns:repeat(4,1fr); gap:18px;
+  }
+  .how-step {
+    position:relative; padding:28px 22px 24px;
+    background:var(--glass-bg, rgba(255,255,255,0.55));
+    backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid var(--glass-border, rgba(255,255,255,0.65));
+    border-radius:18px;
+    box-shadow:0 8px 32px rgba(20,20,20,0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+    transition:transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .how-step:hover { transform:translateY(-3px); box-shadow:0 14px 42px rgba(20,20,20,0.10); }
+  .how-step-num {
+    position:absolute; top:18px; right:20px;
+    width:28px; height:28px; border-radius:50%;
+    background:linear-gradient(135deg,#1f7a4a,#c99a2a);
+    color:#fff; font-family:var(--sans); font-weight:800; font-size:13px;
+    display:grid; place-items:center;
+    box-shadow:0 4px 10px rgba(31,122,74,0.30);
+  }
+  .how-step-time {
+    font-family:var(--mono,'JetBrains Mono'); font-size:10.5px;
+    letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--accent,#1f7a4a); font-weight:700;
+    margin-bottom:10px;
+  }
+  .how-step h3 {
+    font-family:var(--sans); font-size:18px; font-weight:800;
+    color:var(--ink,#0a0a0a); letter-spacing:-0.02em; margin-bottom:8px;
+  }
+  .how-step p {
+    color:var(--ink-dim,rgba(10,10,10,0.66));
+    font-size:14px; line-height:1.55;
+  }
+  @media (max-width:980px) { .how-steps { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px) { .how-steps { grid-template-columns:1fr; gap:12px; } .how-mini { padding:60px 18px 40px; } }
+</style>
 
 <!-- PRICING (P17f - 3-tier with toggle) -->
 <section class="pricing" id="pricing">
@@ -554,6 +644,77 @@
   }
 </style>
 
+
+<!-- FAQ (intro condensed, P16e) -->
+<section class="intro-faq">
+  <div class="wrap reveal" style="text-align:center; margin-bottom:32px;">
+    <span class="eyebrow">Common questions</span>
+    <h2 class="h2">Yes, but <em>actually.</em></h2>
+  </div>
+  <div class="intro-faq-grid reveal">
+    <details>
+      <summary>Is my bank login safe?</summary>
+      <p>We never see it. Bank links go through <b>Plaid</b> — read-only, the same infrastructure Venmo, Robinhood, and Chime use. We can see balances and transactions; we can't move money or change a thing.</p>
+    </details>
+    <details>
+      <summary>What does it actually cost?</summary>
+      <p>Free is unlimited forever. Pro is $11.99/mo (or $99/yr, save 31%). Pro Plus is $24.99/mo (or $199/yr) for households. <a href="/pricing.html">Full breakdown of every dollar &rarr;</a></p>
+    </details>
+    <details>
+      <summary>Will it really work for me?</summary>
+      <p>If you have at least one debt and want it gone, yes. Snowball, Avalanche, and Hybrid strategies handle credit cards, student loans, mortgages, autos, BNPL, medical &mdash; anything with a balance and an APR.</p>
+    </details>
+    <details>
+      <summary>What if I cancel?</summary>
+      <p>One click in Stripe's portal. You keep access until the end of your billing period, then drop back to Free. All your manually-entered data stays. No clawback, no auto-renew tricks.</p>
+    </details>
+    <details>
+      <summary>Do you sell my data?</summary>
+      <p>Never. No advertising, no data brokers. Your subscription is our only revenue source &mdash; that's the whole point of this pricing model.</p>
+    </details>
+    <details>
+      <summary>How is this different from Mint or YNAB?</summary>
+      <p>Mint was about budgeting, then it shut down. YNAB is great for habits, but doesn't model debt payoff cascades. WJP is built around <b>one question</b>: when will you be debt-free? Every feature ladders up to that.</p>
+    </details>
+  </div>
+  <div class="wrap reveal" style="text-align:center; margin-top:30px;">
+    <a href="/faq.html" class="pill ghost">Read all 12 FAQs &rarr;</a>
+  </div>
+</section>
+
+<style>
+  .intro-faq { padding:80px 24px 56px; }
+  .intro-faq-grid {
+    max-width:980px; margin:0 auto;
+    display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  }
+  .intro-faq details {
+    background:var(--glass-bg, rgba(255,255,255,0.55));
+    backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid var(--glass-border, rgba(255,255,255,0.65));
+    border-radius:14px; padding:18px 22px;
+    box-shadow:0 8px 32px rgba(20,20,20,0.05), inset 0 1px 0 rgba(255,255,255,0.8);
+    transition:border-color 0.18s, box-shadow 0.18s;
+  }
+  .intro-faq details:hover { border-color:rgba(31,122,74,0.30); }
+  .intro-faq details[open] {
+    background:rgba(31,122,74,0.06);
+    border-color:rgba(31,122,74,0.30);
+  }
+  .intro-faq summary {
+    font-size:15px; font-weight:800; color:var(--ink,#0a0a0a);
+    cursor:pointer; list-style:none;
+    display:flex; justify-content:space-between; align-items:center; gap:14px;
+    letter-spacing:-0.01em;
+  }
+  .intro-faq summary::-webkit-details-marker { display:none; }
+  .intro-faq summary::after { content:"+"; font-size:22px; font-weight:300; color:var(--accent,#1f7a4a); transition:transform 0.18s; }
+  .intro-faq details[open] summary::after { content:"\2212"; }
+  .intro-faq details p { font-size:14px; color:var(--ink-dim,rgba(10,10,10,0.66)); line-height:1.6; margin:12px 0 0; }
+  .intro-faq details p a { color:var(--accent,#1f7a4a); font-weight:700; }
+  @media (max-width:760px) { .intro-faq-grid { grid-template-columns:1fr; } .intro-faq { padding:60px 18px 40px; } }
+</style>
+
 <!-- FINAL CTA -->
 <section class="final">
   <div class="wrap reveal">
@@ -562,12 +723,17 @@
     <p class="lede" style="margin:22px auto 0; max-width:640px;">
       You've carried this long enough. Spend four minutes telling WJP what you owe, and you'll walk away with the exact date you'll be free of it — plus a quiet plan to get there faster.
     </p>
-    <p class="lede" style="margin:12px auto 0; max-width:640px; font-size:13.5px; color:var(--muted,#6b7280);">
+    <p class="lede" style="margin:12px auto 0; max-width:640px; font-size:13.5px; color:var(--ink-dim,#6b7280);">
       No credit card. No junk email. No shame. Cancel anytime.
     </p>
+    <div class="hero-meta" style="margin-top:20px;">
+      <span>3 minutes to sign up</span>
+      <span>Free forever</span>
+      <span>Bank-grade security</span>
+    </div>
     <div class="hero-cta">
       <a class='pill accent' href='/signup'>Get my debt-free date →</a>
-      <a class='pill ghost' href='/signin'>I have an account</a>
+      <a class='pill ghost' href='/signin'>Sign in</a>
     </div>
   </div>
 </section>
