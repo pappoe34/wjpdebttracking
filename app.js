@@ -29170,3 +29170,63 @@ body.high-contrast .settings-row-label { font-weight: 800; }
         + '}';
     document.head.appendChild(s);
 })();
+
+
+/* PHASE 24 — Mobile UX fixes (sentinel: P24 mobile fixes) */
+(function(){
+    if (window._wjpMobileV24) return;
+    window._wjpMobileV24 = true;
+
+    // 1. Safety: ensure Settings v3 renders even if the navigateSPA wrap missed
+    function ensureSettingsRendered() {
+        try {
+            var pageSettings = document.getElementById('page-settings');
+            if (!pageSettings || !pageSettings.classList.contains('active')) return;
+            var content = document.getElementById('settings-content');
+            if (!content) return;
+            // If the content is empty (renderer failed), force-render
+            if (!content.innerHTML.trim() && typeof window.renderSettingsPage === 'function') {
+                window.renderSettingsPage();
+            }
+        } catch(_){}
+    }
+
+    // 2. Sidebar nav-item: ensure click ALSO fires on mobile (some touch devices
+    //    don't dispatch click reliably when the parent gets a class swap).
+    //    Add touchend backup that triggers click if needed.
+    function ensureNavTouchWorks() {
+        document.querySelectorAll('.sidebar .nav-item[data-page]').forEach(function(item){
+            if (item.__wjpTouchWired) return;
+            item.__wjpTouchWired = true;
+            item.addEventListener('touchend', function(e){
+                // If a click handler is bound, the click event will fire after touchend.
+                // We don't want to double-fire navigateSPA. Just ensure menu closes.
+                setTimeout(function(){
+                    document.body.classList.remove('app-menu-open');
+                }, 50);
+            }, { passive: true });
+        });
+    }
+
+    // 3. After every navigateSPA call, run ensureSettingsRendered if target was settings
+    if (typeof window.navigateSPA === 'function') {
+        var orig = window.navigateSPA;
+        window.navigateSPA = function(target) {
+            try { orig.call(this, target); } catch(e){ console.warn('[nav]', e); }
+            // Close mobile menu after navigation
+            try { document.body.classList.remove('app-menu-open'); } catch(_){}
+            if (target === 'settings') {
+                setTimeout(ensureSettingsRendered, 60);
+                setTimeout(ensureSettingsRendered, 250);
+            }
+        };
+    }
+
+    function ready() {
+        ensureNavTouchWorks();
+        // Periodically check (in case sidebar nav items get re-rendered)
+        setInterval(ensureNavTouchWorks, 3000);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+    else ready();
+})();
