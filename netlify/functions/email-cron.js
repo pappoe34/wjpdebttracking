@@ -124,7 +124,9 @@ async function processUser(db, user) {
 exports.handler = async (event) => {
   // Allow manual invocation via GET for testing — but require ?dry=1 if not Netlify scheduler
   const isScheduled = !!event.headers['x-netlify-scheduled'] || !!(event.body && event.body.indexOf('"scheduled"') >= 0);
-  const isDryRun = (event.queryStringParameters && event.queryStringParameters.dry === '1') || isScheduled === false;
+  const forceSend = !!(event.queryStringParameters && event.queryStringParameters.send === '1');
+  const isDryRun = (event.queryStringParameters && event.queryStringParameters.dry === '1')
+                   || (!isScheduled && !forceSend);
 
   try {
     const admin = getFirebaseAdmin();
