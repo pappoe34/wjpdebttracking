@@ -29230,3 +29230,26 @@ body.high-contrast .settings-row-label { font-weight: 800; }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
     else ready();
 })();
+
+
+/* PHASE 24.2 — Settings sub-nav mobile width fix (sentinel: P24.2 subnav-fix) */
+(function(){
+    if (window._wjpSubnavFixV1) return;
+    window._wjpSubnavFixV1 = true;
+    var s = document.createElement('style');
+    s.id = 'wjp-subnav-mobile-fix';
+    s.textContent = ''
+        + '@media (max-width:880px){'
+        +   '.settings-subnav{position:relative;margin:0 -4px 18px;}'
+        +   '.settings-subnav-item{width:auto !important;flex:0 0 auto !important;white-space:nowrap;padding:9px 14px !important;font-size:13px !important;}'
+        +   '.settings-subnav-item span{display:inline !important;}'
+        +   '.settings-subnav::after{content:"";position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,0.85));pointer-events:none;border-radius:0 14px 14px 0;}'
+        +   'body.dark .settings-subnav::after{background:linear-gradient(to right, rgba(20,23,28,0), rgba(20,23,28,0.85));}'
+        + '}'
+        // Tablet still benefits from horizontal scroll hint
+        + '@media (max-width:520px){'
+        +   '.settings-subnav-item i{font-size:16px !important;}'
+        +   '.settings-subnav{scroll-padding:0 12px;}'
+        + '}';
+    document.head.appendChild(s);
+})();
