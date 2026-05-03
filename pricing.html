@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pricing — WJP Debt Tracker</title>
+
+<meta name="description" content="Simple, transparent pricing. Free forever for manual tracking. Pro $11.99/mo for bank sync + AI Coach. Pro Plus $24.99/mo for households + unlimited everything. See exactly where every dollar goes." />
+<link rel="canonical" href="https://wjpdebttracking.com/pricing.html">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://wjpdebttracking.com/pricing.html">
+<meta property="og:title" content="WJP Pricing — Honest, transparent, fair.">
+<meta property="og:description" content="Free, Pro $11.99/mo, Pro Plus $24.99/mo. See the real cost of running your subscription, dollar by dollar.">
+<meta property="og:image" content="https://wjpdebttracking.com/icon-512.png">
+<meta property="og:site_name" content="WJP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WJP Pricing — Honest, transparent, fair.">
+<meta name="twitter:description" content="Free, Pro $11.99/mo, Pro Plus $24.99/mo. See the real cost of running your subscription, dollar by dollar.">
+<meta name="twitter:image" content="https://wjpdebttracking.com/icon-512.png">
+<meta name="robots" content="index,follow">
+<meta name="author" content="Pappoe Venture LLC">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "WJP Budgetting",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web",
+  "url": "https://wjpdebttracking.com/",
+  "offers": [
+    { "@type": "Offer", "name": "Free",         "price": "0",      "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Monthly",  "price": "11.99",  "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Yearly",   "price": "99.00",  "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Plus Monthly", "price": "24.99",  "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Plus Yearly",  "price": "199.00", "priceCurrency": "USD" }
+  ],
+  "publisher": { "@type": "Organization", "name": "Pappoe Venture LLC", "url": "https://wjpdebttracking.com/" }
+}
+</script>
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1f7a4a">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+
+<link rel="preload" as="font" href="/fonts/inter-var.woff2" type="font/woff2" crossorigin>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 100 900; font-style: normal; font-display: swap;
+    src: url('/fonts/inter-var.woff2') format('woff2-variations'), url('/fonts/inter-var.woff2') format('woff2'); }
+  @font-face { font-family: 'Fraunces'; font-weight: 700; font-style: normal; font-display: swap;
+    src: url('/fonts/fraunces-700.woff2') format('woff2'); }
+</style>
+<link rel="stylesheet" href="./landing.css?v=phase2-15">
+
+<style>
+  /* ===== Pricing-page-specific styling ===== */
+  .pricing-hero {
+    padding: 130px 24px 50px; text-align: center; position: relative;
+    background: radial-gradient(700px 400px at 15% 20%, rgba(31,122,74,0.07), transparent 70%),
+                radial-gradient(600px 360px at 85% 60%, rgba(201,154,42,0.06), transparent 70%);
+  }
+  .pricing-hero .wrap { max-width: 920px; margin: 0 auto; }
+
+  .billing-toggle {
+    display: inline-flex; padding: 6px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px; gap: 4px;
+    margin: 32px auto 0;
+  }
+  .cycle-btn {
+    background: none; border: none; padding: 11px 22px;
+    border-radius: 999px; font-size: 13px; font-weight: 700;
+    color: var(--ink-dim); cursor: pointer; font-family: var(--sans);
+    transition: all 0.18s; display: inline-flex; align-items: center; gap: 8px;
+    letter-spacing: -0.01em;
+  }
+  .cycle-btn.active { background: var(--ink); color: #fff; }
+  .cycle-btn:not(.active):hover { color: var(--ink); }
+  .save-badge {
+    background: rgba(31,122,74,0.15); color: var(--accent);
+    font-size: 9.5px; font-weight: 800;
+    padding: 3px 8px; border-radius: 4px; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .cycle-btn.active .save-badge { background: rgba(255,255,255,0.18); color: #fff; }
+
+  .tier-grid {
+    max-width: 1180px; margin: 56px auto 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+    padding: 0 24px;
+  }
+  .tier {
+    position: relative;
+    padding: 32px 28px 28px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 22px;
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow);
+    display: flex; flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s;
+  }
+  .tier:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(20,20,20,0.10); }
+  .tier.featured {
+    background: linear-gradient(180deg, rgba(31,122,74,0.06), rgba(255,255,255,0.55) 60%);
+    border-color: rgba(31,122,74,0.32);
+    box-shadow: 0 18px 50px rgba(31,122,74,0.16);
+    transform: scale(1.02);
+  }
+  .tier.featured:hover { transform: translateY(-4px) scale(1.02); }
+  .rec-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #1f7a4a, #c99a2a);
+    color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.10em; text-transform: uppercase;
+    padding: 6px 14px; border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(31,122,74,0.28);
+  }
+  .tier-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .tier-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    display: grid; place-items: center;
+    background: rgba(31,122,74,0.10); color: var(--accent);
+  }
+  .tier-icon i { font-size: 20px; }
+  .tier-name { font-family: var(--sans); font-weight: 800; font-size: 18px; color: var(--ink); letter-spacing: -0.02em; }
+  .tier-tag { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+  .tier-price { display: flex; align-items: baseline; gap: 2px; margin: 8px 0 4px; }
+  .tier-price .dollar { font-size: 18px; font-weight: 700; color: var(--ink-dim); margin-top: 6px; }
+  .tier-price .int    { font-family: var(--sans); font-size: 50px; font-weight: 800; color: var(--ink); line-height: 1; letter-spacing: -0.04em; }
+  .tier-price .cents  { font-size: 18px; font-weight: 700; color: var(--ink-dim); }
+  .tier-billing { font-size: 12px; color: var(--ink-faint); font-weight: 600; margin-bottom: 6px; }
+  .tier-trial {
+    display: inline-block; background: rgba(31,122,74,0.12);
+    color: var(--accent); font-size: 10.5px; font-weight: 800;
+    padding: 5px 11px; border-radius: 6px; letter-spacing: 0.04em; margin-bottom: 18px;
+  }
+  .tier-cta {
+    width: 100%; padding: 13px; border-radius: 12px; font-size: 13px; font-weight: 800;
+    letter-spacing: 0.02em; cursor: pointer; transition: all 0.18s; border: none;
+    margin-bottom: 22px;
+    font-family: var(--sans); text-decoration: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tier-cta.primary { background: var(--accent); color: #fff; box-shadow: 0 6px 18px rgba(31,122,74,0.28); }
+  .tier-cta.primary:hover { background: var(--accent-2); transform: translateY(-1px); }
+  .tier-cta.ghost { background: rgba(255,255,255,0.7); color: var(--ink); border: 1px solid rgba(10,10,10,0.12); }
+  .tier-cta.ghost:hover { background: rgba(255,255,255,0.95); border-color: rgba(10,10,10,0.24); }
+  .tier-features { list-style: none; padding: 0; margin: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .tier-features li {
+    font-size: 13.5px; color: var(--ink); line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .tier-features li.no { color: var(--ink-faint); }
+  .feat-icon { flex-shrink: 0; width: 16px; height: 16px; margin-top: 3px; }
+  .feat-icon.yes { color: var(--accent); }
+  .feat-icon.no  { color: var(--ink-faint); }
+  .feat-note { font-size: 10.5px; color: var(--ink-faint); font-weight: 600; }
+
+  @media (max-width: 920px) {
+    .tier-grid { grid-template-columns: 1fr; max-width: 460px; gap: 16px; }
+    .tier.featured { transform: none; }
+    .tier.featured:hover { transform: translateY(-4px); }
+  }
+
+  /* ===== Cost breakdown ===== */
+  .cost-breakdown {
+    max-width: 920px; margin: 80px auto 0;
+    padding: 40px 36px 32px;
+    background: linear-gradient(135deg, rgba(31,122,74,0.06), rgba(255,255,255,0.55));
+    border: 1px solid rgba(31,122,74,0.20);
+    border-radius: 22px;
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  }
+  .cost-eyebrow {
+    font-size: 11px; letter-spacing: 0.20em; color: var(--accent);
+    font-weight: 800; text-transform: uppercase; margin-bottom: 10px;
+  }
+  .cost-breakdown h2 {
+    font-family: var(--sans); font-size: clamp(26px, 3.8vw, 38px);
+    font-weight: 800; letter-spacing: -0.03em; color: var(--ink); margin: 0 0 12px;
+  }
+  .cost-breakdown > p {
+    font-size: 14.5px; color: var(--ink-dim); max-width: 600px;
+    line-height: 1.6; margin: 0 0 28px;
+  }
+  .cost-table { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border-radius: 14px; overflow: hidden; }
+  .cost-row {
+    display: grid; grid-template-columns: 1fr auto 1.4fr;
+    gap: 18px; padding: 16px 20px; align-items: center;
+    background: rgba(255,255,255,0.85);
+  }
+  .cost-row .lbl { font-size: 13.5px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 11px; }
+  .cost-row .lbl i { font-size: 17px; }
+  .cost-amt { font-family: var(--mono); font-size: 14px; font-weight: 800; text-align: right; color: var(--ink); }
+  .cost-amt.positive { color: var(--accent); }
+  .cost-note { font-size: 11.5px; color: var(--ink-faint); text-align: right; }
+  .cost-row.total { background: rgba(255,255,255,1); font-weight: 800; }
+  .cost-row.margin { background: rgba(31,122,74,0.07); }
+  .cost-footer { font-size: 12.5px; color: var(--ink-faint); line-height: 1.55; padding-top: 18px; }
+  @media (max-width: 600px) {
+    .cost-row { grid-template-columns: 1fr auto; }
+    .cost-note { grid-column: 1 / -1; text-align: left; padding-left: 28px; margin-top: -4px; }
+  }
+
+  /* ===== Comparison ===== */
+  .compare-section { padding: 80px 24px 24px; }
+  .compare-section .wrap { max-width: 1080px; margin: 0 auto; }
+  .compare-section h2 {
+    font-family: var(--sans); font-size: clamp(28px, 4vw, 38px); font-weight: 800;
+    letter-spacing: -0.03em; color: var(--ink); margin: 0 0 28px; text-align: center;
+  }
+  .compare-wrap { overflow-x: auto; border-radius: 16px;
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+  .compare-table { width: 100%; min-width: 660px; border-collapse: collapse; }
+  .compare-table th, .compare-table td {
+    padding: 16px 20px; text-align: center; font-size: 13px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .compare-table thead th {
+    background: rgba(255,255,255,0.65);
+    font-size: 13px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink);
+    padding-top: 20px; padding-bottom: 20px;
+  }
+  .compare-table .th-pro, .compare-table .td-pro {
+    background: rgba(31,122,74,0.04);
+    border-left: 1px solid rgba(31,122,74,0.14);
+    border-right: 1px solid rgba(31,122,74,0.14);
+  }
+  .compare-table .th-pro { color: var(--accent); }
+  .compare-table .td-feat { text-align: left; font-weight: 700; color: var(--ink); }
+  .compare-table tbody tr:hover { background: rgba(255,255,255,0.5); }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+
+  /* ===== Pricing-page FAQ ===== */
+  .pricing-faq { padding: 80px 24px 24px; }
+  .pricing-faq .wrap { max-width: 920px; margin: 0 auto; }
+  .pricing-faq h2 {
+    font-family: var(--sans); font-size: clamp(28px, 4vw, 38px); font-weight: 800;
+    letter-spacing: -0.03em; color: var(--ink); margin: 0 0 28px; text-align: center;
+  }
+  .pricing-faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .pricing-faq-grid { grid-template-columns: 1fr; } }
+  .pricing-faq details {
+    background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 14px;
+    padding: 18px 22px; cursor: pointer;
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow);
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  .pricing-faq details:hover { border-color: rgba(31,122,74,0.30); }
+  .pricing-faq details[open] { background: rgba(31,122,74,0.06); border-color: rgba(31,122,74,0.30); }
+  .pricing-faq summary {
+    font-size: 14.5px; font-weight: 800; color: var(--ink); cursor: pointer;
+    list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    letter-spacing: -0.01em;
+  }
+  .pricing-faq summary::-webkit-details-marker { display: none; }
+  .pricing-faq summary::after { content: "+"; font-size: 22px; font-weight: 400; color: var(--accent); }
+  .pricing-faq details[open] summary::after { content: "−"; }
+  .pricing-faq details p { font-size: 13.5px; color: var(--ink-dim); line-height: 1.6; margin: 12px 0 0; }
+
+  /* ===== Trust strip ===== */
+  .trust-strip {
+    max-width: 1080px; margin: 80px auto 0;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
+    padding: 26px;
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow);
+  }
+  .trust-item { display: flex; align-items: center; gap: 11px; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .trust-item i { color: var(--accent); font-size: 20px; flex-shrink: 0; }
+  @media (max-width: 720px) { .trust-strip { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 420px) { .trust-strip { grid-template-columns: 1fr; } }
+
+  /* ===== Final CTA ===== */
+  .final-cta {
+    padding: 100px 24px;
+    text-align: center;
+    background: radial-gradient(900px 450px at 50% 30%, rgba(31,122,74,0.06), transparent 70%),
+                radial-gradient(700px 380px at 50% 90%, rgba(201,154,42,0.04), transparent 70%);
+    border-top: 1px solid var(--rule);
+  }
+  .final-cta .wrap { max-width: 720px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top" id="nav">
+  <a class='brand' href='/intro.html'>
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/></g></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class='link' href='/about'>About</a>
+    <a class='link' href='/how'>How</a>
+    <a class='link' href='/features'>Features</a>
+    <a class='link active' href='/pricing.html'>Pricing</a>
+    <a class='link' href='/faq'>FAQ</a>
+    <a class='pill ghost' href='/signin'>Sign in</a>
+    <a class='pill accent' href='/signup'>Start free →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="pricing-hero">
+  <div class="wrap reveal">
+    <span class="eyebrow">Pricing</span>
+    <h1 class="head" style="font-size:clamp(36px,5.5vw,64px);">Honest pricing.<br><em>Transparent breakdown.</em></h1>
+    <p class="lede" style="margin:22px auto 0; max-width:620px;">
+      Start free for as long as you want. Upgrade only if bank sync, AI Coach, or household mode actually saves you time. Cancel in one click — no clawback, no nonsense.
+    </p>
+    <div class="billing-toggle reveal">
+      <button class="cycle-btn active" data-cycle="monthly">Monthly</button>
+      <button class="cycle-btn" data-cycle="yearly">Yearly <span class="save-badge" id="save-badge">Save 31%</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- TIER CARDS (rendered by JS) -->
+<div id="tier-grid" class="tier-grid reveal"></div>
+
+<!-- COST BREAKDOWN -->
+<section style="padding: 24px;">
+  <div id="cost-breakdown-host"></div>
+</section>
+
+<!-- COMPARISON TABLE -->
+<section class="compare-section">
+  <div class="wrap">
+    <h2>Compare every feature</h2>
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr><th></th><th>Free</th><th class="th-pro">Pro</th><th>Pro Plus</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="td-feat">Manual debt + transaction entry</td><td>✓</td><td class="td-pro">✓</td><td>✓</td></tr>
+          <tr><td class="td-feat">Payoff strategies</td><td>Snowball + Avalanche</td><td class="td-pro">+ Hybrid</td><td>+ Hybrid</td></tr>
+          <tr><td class="td-feat">Calendar view + bill alerts</td><td>✓</td><td class="td-pro">✓</td><td>✓</td></tr>
+          <tr><td class="td-feat">Statement OCR (PDF + photo)</td><td>✓</td><td class="td-pro">✓</td><td>✓</td></tr>
+          <tr><td class="td-feat">Linked bank accounts (Plaid)</td><td>—</td><td class="td-pro">Up to 3</td><td>Unlimited</td></tr>
+          <tr><td class="td-feat">AI Coach Cloud Mode</td><td>—</td><td class="td-pro">50 questions / mo</td><td>Unlimited</td></tr>
+          <tr><td class="td-feat">Inbox alert generators</td><td>Bills only</td><td class="td-pro">All 8</td><td>All 8 + custom</td></tr>
+          <tr><td class="td-feat">CSV export</td><td>—</td><td class="td-pro">✓</td><td>✓</td></tr>
+          <tr><td class="td-feat">Credit score</td><td>—</td><td class="td-pro">Snapshot</td><td>Monthly history</td></tr>
+          <tr><td class="td-feat">Household / partner mode</td><td>—</td><td class="td-pro">—</td><td>✓ up to 4 members</td></tr>
+          <tr><td class="td-feat">Support</td><td>Community</td><td class="td-pro">Email</td><td>Priority email</td></tr>
+          <tr><td class="td-feat">Free trial</td><td>—</td><td class="td-pro">14 days</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST STRIP -->
+<div style="padding: 0 24px;">
+  <div class="trust-strip reveal">
+    <div class="trust-item"><i class="ph-fill ph-shield-check" aria-hidden="true">✓</i> Bank-grade encryption</div>
+    <div class="trust-item"><i class="ph-fill ph-eye-slash" aria-hidden="true">∅</i> No ads, ever</div>
+    <div class="trust-item"><i class="ph-fill ph-lock-key" aria-hidden="true">🔒</i> Your data, your rules</div>
+    <div class="trust-item"><i class="ph-fill ph-prohibit" aria-hidden="true">⊘</i> Cancel in 1 click</div>
+  </div>
+</div>
+
+<!-- FAQ -->
+<section class="pricing-faq">
+  <div class="wrap reveal">
+    <h2>Common pricing questions</h2>
+    <div class="pricing-faq-grid">
+      <details><summary>Can I cancel anytime?</summary>
+        <p>Yes — one click in Stripe's portal. You keep access until the end of your billing period. No clawback, no auto-charge after cancellation.</p></details>
+      <details><summary>What happens after the 14-day Pro trial?</summary>
+        <p>On day 14 your card is charged for the next month (or year, if annual). We email you 3 days before so you have time to cancel without surprise.</p></details>
+      <details><summary>Can I switch between Pro and Pro Plus?</summary>
+        <p>Yes — Stripe portal handles upgrades and downgrades, prorating the difference. You only pay the gap.</p></details>
+      <details><summary>What if I want a refund?</summary>
+        <p>Email <a href="mailto:support@wjpdebttracking.com">support@wjpdebttracking.com</a> within 30 days of any charge. Full refund, no questions asked.</p></details>
+      <details><summary>Do you sell my data?</summary>
+        <p>Never. No advertising, no data brokers. Your subscription is our only revenue source — that's the whole point of this pricing model.</p></details>
+      <details><summary>What if I downgrade back to Free?</summary>
+        <p>All your manually-entered debts and transactions stay. Plaid syncs and AI Coach Cloud Mode get disabled until you re-upgrade.</p></details>
+      <details><summary>Why no free trial on Pro Plus?</summary>
+        <p>Pro Plus is for people who already love the product. Start Pro free for 14 days; if you hit a Pro Plus-only feature (household mode, unlimited banks/AI), upgrade with a prorated charge.</p></details>
+      <details><summary>Is there an annual discount?</summary>
+        <p>Yes. Pro is $99/yr (≈$8.25/mo, save 31%). Pro Plus is $199/yr (≈$16.58/mo, save 33%). Toggle "Yearly" above to see the lower prices.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final-cta">
+  <div class="wrap reveal">
+    <h2 class="h2">Pick a plan, or stay Free.<br>Either way, get out of debt.</h2>
+    <p class="lede" style="margin:22px auto 0; max-width:520px;">
+      Free is a real tool, not a teaser. Pro is for when manual stops scaling. Pro Plus is for households running money together.
+    </p>
+    <div class="hero-cta">
+      <a class='pill accent' href='/signup'>Start free →</a>
+      <a class='pill ghost' href='/index.html'>Open the app</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-about">
+      WJP is built and operated by <b>Pappoe Venture LLC</b>. We sell one product to one customer: you. No ads, no data brokers, no investor mandate. The full bill of materials for what your subscription pays for is right above — that's how we keep our incentives aligned.
+    </div>
+    <div class="foot-row">
+      <div class="foot-trust">
+        <span>Bank-grade encryption</span>
+        <span>Plaid-secured links</span>
+        <span>Zero data sales</span>
+        <span>Cancel anytime</span>
+      </div>
+      <div class="foot-links">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/about">About</a>
+        <a href="/faq">FAQ</a>
+        <a href="mailto:support@wjpdebttracking.com">Support</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ===== Pricing JS =====
+  const TIERS = {
+    free: {
+      name: 'Free', tag: 'Good for getting started.', icon: '○',
+      mPrice: 0, yPrice: 0,
+      cta: { label: 'Start free', href: '/signup', kind: 'ghost' },
+      features: [
+        ['yes', 'Unlimited manual debts + transactions'],
+        ['yes', 'Snowball + Avalanche payoff plans'],
+        ['yes', 'Bill-due alerts in Inbox'],
+        ['yes', 'Calendar view'],
+        ['yes', 'Statement OCR (PDF + photo)'],
+        ['no',  'Bank sync via Plaid'],
+        ['no',  'AI Coach Cloud Mode'],
+        ['no',  'Hybrid strategy + CSV export']
+      ]
+    },
+    pro: {
+      name: 'Pro', tag: 'For people serious about getting out of debt.', icon: '⚡',
+      mPrice: 11.99, yPrice: 99, mEquiv: 8.25,
+      featured: true, recommended: true, trial: '14-day free trial',
+      cta: { label: 'Start 14-day free trial', href: '/signup?tier=pro', kind: 'primary' },
+      features: [
+        ['yes', 'Everything in Free'],
+        ['yes', 'Up to 3 linked banks via Plaid'],
+        ['yes', 'AI Coach Cloud Mode (50 questions/mo)'],
+        ['yes', 'Hybrid payoff strategy'],
+        ['yes', 'All 8 Inbox alert generators'],
+        ['yes', 'CSV export'],
+        ['yes', 'Credit score snapshot'],
+        ['yes', 'Email support'],
+        ['no',  'Household / partner mode', 'Pro Plus only']
+      ]
+    },
+    plus: {
+      name: 'Pro Plus', tag: 'For households + power users.', icon: '◆',
+      mPrice: 24.99, yPrice: 199, mEquiv: 16.58,
+      cta: { label: 'Upgrade to Pro Plus', href: '/signup?tier=plus', kind: 'ghost' },
+      features: [
+        ['yes', 'Everything in Pro'],
+        ['yes', 'Unlimited linked bank accounts'],
+        ['yes', 'Unlimited AI Coach Cloud Mode'],
+        ['yes', 'Household / partner mode (up to 4)'],
+        ['yes', 'Monthly credit-score history'],
+        ['yes', 'Priority email support']
+      ]
+    }
+  };
+  let cycle = 'monthly';
+
+  function priceFor(tier) {
+    if (tier.mPrice === 0) return { dollar: '$', int: '0', cents: '', billing: 'forever' };
+    if (cycle === 'yearly') {
+      const eq = tier.mEquiv;
+      return {
+        dollar: '$',
+        int: Math.floor(eq),
+        cents: '.' + String(Math.round((eq - Math.floor(eq)) * 100)).padStart(2,'0'),
+        billing: 'per month, billed $' + tier.yPrice + '/year'
+      };
+    }
+    const m = tier.mPrice;
+    return {
+      dollar: '$',
+      int: Math.floor(m),
+      cents: '.' + String(Math.round((m - Math.floor(m)) * 100)).padStart(2,'0'),
+      billing: 'per month, cancel anytime'
+    };
+  }
+
+  function renderTiers() {
+    const grid = document.getElementById('tier-grid');
+    if (!grid) return;
+    grid.innerHTML = ['free','pro','plus'].map(key => {
+      const t = TIERS[key];
+      const p = priceFor(t);
+      const trial = t.trial ? '<div class="tier-trial">' + t.trial + ' · cancel anytime</div>' : '';
+      const recBadge = t.recommended ? '<div class="rec-badge">RECOMMENDED</div>' : '';
+      const ctaCls = t.cta.kind === 'primary' ? 'tier-cta primary' : 'tier-cta ghost';
+      const featuresHTML = t.features.map(f => {
+        const cls = f[0] === 'yes' ? '' : 'no';
+        const note = f[2] ? ' <span class="feat-note">(' + f[2] + ')</span>' : '';
+        const icon = f[0] === 'yes'
+          ? '<svg class="feat-icon yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+          : '<svg class="feat-icon no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        return '<li class="' + cls + '">' + icon + '<span>' + f[1] + note + '</span></li>';
+      }).join('');
+      return ''
+        + '<div class="tier' + (t.featured ? ' featured' : '') + '">'
+        +   recBadge
+        +   '<div class="tier-head">'
+        +     '<div class="tier-icon">' + t.icon + '</div>'
+        +     '<div><div class="tier-name">' + t.name + '</div>'
+        +     '<div class="tier-tag">' + t.tag + '</div></div>'
+        +   '</div>'
+        +   '<div class="tier-price">'
+        +     '<span class="dollar">' + p.dollar + '</span>'
+        +     '<span class="int">' + p.int + '</span>'
+        +     (p.cents ? '<span class="cents">' + p.cents + '</span>' : '')
+        +   '</div>'
+        +   '<div class="tier-billing">' + p.billing + '</div>'
+        +   trial
+        +   '<a class="' + ctaCls + '" href="' + t.cta.href + '">' + t.cta.label + '</a>'
+        +   '<ul class="tier-features">' + featuresHTML + '</ul>'
+        + '</div>';
+    }).join('');
+  }
+
+  function renderCostBreakdown() {
+    const host = document.getElementById('cost-breakdown-host');
+    if (!host) return;
+    const price = cycle === 'yearly' ? 8.25 : 11.99;
+    const label = cycle === 'yearly' ? '$8.25/mo (annual Pro)' : '$11.99/mo Pro';
+    const stripe = +(price * 0.029 + 0.30).toFixed(2);
+    const plaid  = 0.90;
+    const groq   = 0.30;
+    const infra  = 0.10;
+    const total  = +(stripe + plaid + groq + infra).toFixed(2);
+    const margin = +(price - total).toFixed(2);
+    host.innerHTML = ''
+      + '<div class="cost-breakdown reveal">'
+      +   '<div class="cost-eyebrow">RADICAL TRANSPARENCY</div>'
+      +   '<h2>Where your ' + label + ' actually goes</h2>'
+      +   '<p>Most fintech hides this. We don\'t. Here\'s the bill of materials for delivering Pro to one customer for one month.</p>'
+      +   '<div class="cost-table">'
+      +     '<div class="cost-row"><div class="lbl"><i style="color:#667eea;">▣</i> Bank sync (Plaid)</div><div class="cost-amt">$' + plaid.toFixed(2) + '</div><div class="cost-note">3 banks · daily transactions</div></div>'
+      +     '<div class="cost-row"><div class="lbl"><i style="color:#fbbf24;">◈</i> Payment processing (Stripe)</div><div class="cost-amt">$' + stripe.toFixed(2) + '</div><div class="cost-note">2.9% + $0.30 per charge</div></div>'
+      +     '<div class="cost-row"><div class="lbl"><i style="color:#a855f7;">◉</i> AI Coach (Groq Llama)</div><div class="cost-amt">$' + groq.toFixed(2) + '</div><div class="cost-note">capped at 50 questions / month</div></div>'
+      +     '<div class="cost-row"><div class="lbl"><i style="color:#94a3b8;">☁</i> Hosting + storage</div><div class="cost-amt">$' + infra.toFixed(2) + '</div><div class="cost-note">Netlify + Firebase, encrypted</div></div>'
+      +     '<div class="cost-row total"><div class="lbl">Total cost to deliver</div><div class="cost-amt">$' + total.toFixed(2) + '</div><div></div></div>'
+      +     '<div class="cost-row margin"><div class="lbl"><i style="color:var(--accent);">♥</i> Funds product + support</div><div class="cost-amt positive">$' + margin.toFixed(2) + '</div><div class="cost-note">keeps us independent of investors</div></div>'
+      +   '</div>'
+      +   '<div class="cost-footer">No advertising. No data sales. Your subscription is the only way we make money — that keeps our incentives aligned with yours.</div>'
+      + '</div>';
+  }
+
+  function setCycle(c) {
+    cycle = c;
+    document.querySelectorAll('.cycle-btn').forEach(b => b.classList.toggle('active', b.dataset.cycle === c));
+    renderTiers();
+    renderCostBreakdown();
+  }
+
+  document.querySelectorAll('.cycle-btn').forEach(b => {
+    b.addEventListener('click', () => setCycle(b.dataset.cycle));
+  });
+
+  // Initial render
+  renderTiers();
+  renderCostBreakdown();
+
+  // IntersectionObserver for .reveal animations
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Nav scrolled state
+  window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 12);
+  }, { passive: true });
+</script>
+</body>
+</html>

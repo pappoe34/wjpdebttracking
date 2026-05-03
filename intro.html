@@ -69,9 +69,11 @@
   "url": "https://wjpdebttracking.com/",
   "description": "Your private debt strategist. Link your accounts, engineer a payoff plan, and hold yourself accountable — until the last balance hits zero.",
   "offers": [
-    { "@type": "Offer", "name": "Free trial", "price": "0", "priceCurrency": "USD" },
-    { "@type": "Offer", "name": "Pro Monthly", "price": "9.99", "priceCurrency": "USD" },
-    { "@type": "Offer", "name": "Pro Yearly",  "price": "79.00", "priceCurrency": "USD" }
+    { "@type": "Offer", "name": "Free",          "price": "0",      "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Monthly",   "price": "11.99",  "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Yearly",    "price": "99.00",  "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Plus Monthly","price": "24.99","priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro Plus Yearly", "price": "199.00","priceCurrency": "USD" }
   ],
   "publisher": {
     "@type": "Organization",
@@ -187,18 +189,18 @@
 
 <!-- NAV -->
 <nav class="top" id="nav">
-  <a href="./intro.html" class="brand">
+  <a class='brand' href='/intro'>
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>
     <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
   </a>
   <div class="nav-links">
-    <a class="link" href="./about.html">About</a>
-    <a class="link" href="./how.html">How</a>
-    <a class="link" href="./features.html">Features</a>
-    <a class="link" href="./math.html">Math</a>
-    <a class="link" href="./faq.html">FAQ</a>
-    <a class="pill ghost" href="./signin.html">Sign in</a>
-    <a class="pill accent" href="./signup.html">Start free →</a>
+    <a class='link' href='/about'>About</a>
+    <a class='link' href='/how'>How</a>
+    <a class='link' href='/features'>Features</a>
+    <a class='link' href='/math'>Math</a>
+    <a class='link' href='/faq'>FAQ</a>
+    <a class='pill ghost' href='/signin'>Sign in</a>
+    <a class='pill accent' href='/signup'>Start free →</a>
   </div>
 </nav>
 
@@ -212,8 +214,8 @@
       You've been carrying the math in your head for too long. The late-night calculations. The flinch when you open the banking app. The feeling that minimum payments never move the needle. <b>WJP takes all of that off your shoulders</b> — and gives you back something most debt apps never will: a finish date.
     </p>
     <div class="hero-cta">
-      <a class="pill accent" href="./signup.html">Get my debt-free date →</a>
-      <a class="pill ghost" href="./signin.html">I have an account</a>
+      <a class='pill accent' href='/signup'>Get my debt-free date →</a>
+      <a class='pill ghost' href='/signin'>I have an account</a>
     </div>
     <div class="hero-meta">
       <span>3 months free</span>
@@ -354,75 +356,121 @@
   </div>
 </section>
 
-<!-- PRICING -->
-<section class="pricing">
+<!-- PRICING (P17f - 3-tier with toggle) -->
+<section class="pricing" id="pricing">
   <div class="wrap reveal" style="text-align:center">
     <span class="eyebrow">Pricing</span>
     <h2 class="h2">Simple, fair, <em>transparent.</em></h2>
     <p class="lede" style="margin:16px auto 0; max-width:620px;">
-      Start free for three months. No credit card. When you upgrade, keep what you built.
+      Free is a real tool, not a teaser. Pro is for when manual stops scaling. Pro Plus is for households running money together.
     </p>
+    <div class="billing-toggle reveal" style="margin:28px auto 0;">
+      <button class="cycle-btn active" data-cycle="monthly" type="button">Monthly</button>
+      <button class="cycle-btn" data-cycle="yearly" type="button">Yearly <span class="save-badge">Save 31%</span></button>
+    </div>
   </div>
 
   <div class="price-grid reveal">
-    <!-- FREE — the hand-entered tracker. Manual only. Essentials included. -->
+    <!-- FREE -->
     <div class="price-card">
       <div class="price-tag">Free</div>
-      <div class="price-amount"><span class="p-num">$0</span><span class="p-unit">/ forever</span></div>
+      <div class="price-amount">
+        <span class="p-num"><span class="p-dyn-int" data-tier="free">0</span></span>
+        <span class="p-unit"><span class="p-dyn-unit" data-tier="free">/ forever</span></span>
+      </div>
       <div class="price-sub">A real tool for getting out of debt</div>
       <ul class="price-feat">
         <li><b>Unlimited</b> manual debt entries</li>
-        <li>Debt-free date calculator</li>
-        <li>Calendar view (read-only)</li>
-        <li>Avalanche &amp; snowball payoff plans</li>
-        <li>Transactions &amp; categories</li>
+        <li>Snowball &amp; Avalanche payoff plans</li>
+        <li>Statement OCR (PDF + photo)</li>
+        <li>Calendar view + bill alerts</li>
+        <li>No credit card required</li>
       </ul>
-      <a class="pill ghost" href="./signup.html" style="width:100%; justify-content:center;">Start for free</a>
+      <a class='pill ghost' href='/signup' style='width:100%; justify-content:center;'>Start for free</a>
     </div>
 
-    <!-- PRO MONTHLY — Free + automation + AI + reminders -->
+    <!-- PRO -->
     <div class="price-card featured">
       <div class="price-badge">Most popular</div>
-      <div class="price-tag">Pro Monthly</div>
-      <div class="price-amount"><span class="p-num">$9.99</span><span class="p-unit">/ month</span></div>
-      <div class="price-sub">Three months free, cancel anytime</div>
+      <div class="price-tag">Pro</div>
+      <div class="price-amount">
+        <span class="p-num"><span class="p-dyn-int" data-tier="pro">11.99</span></span>
+        <span class="p-unit"><span class="p-dyn-unit" data-tier="pro">/ month</span></span>
+      </div>
+      <div class="price-sub" id="pro-trial-line">14-day free trial &middot; cancel anytime</div>
       <ul class="price-feat">
         <li><b>Everything in Free</b>, plus:</li>
-        <li>Automatic bank &amp; credit card sync via Plaid</li>
-        <li>Payment reminders &amp; bill alerts</li>
+        <li>Up to 3 linked banks (Plaid)</li>
+        <li>AI Coach Cloud Mode (50 Qs/mo)</li>
         <li>Hybrid payoff strategy</li>
-        <li>AI coach with personalized recommendations</li>
-        <li>What-if simulations (lump sums, extra payments)</li>
-        <li>Stress tests (job loss, rate hikes)</li>
-        <li>Weekly email digest &amp; milestone check-ins</li>
-        <li>Accountability partner (optional)</li>
-        <li>Advanced analytics &amp; insights</li>
+        <li>All 8 Inbox alert generators</li>
+        <li>CSV export &amp; credit-score snapshot</li>
+        <li>Email support</li>
       </ul>
-      <a class="pill accent" href="./signup.html" style="width:100%; justify-content:center;">Start free trial →</a>
+      <a class='pill accent' href='/signup?tier=pro' style='width:100%; justify-content:center;'>Start 14-day trial &rarr;</a>
     </div>
 
-    <!-- PRO YEARLY -->
+    <!-- PRO PLUS -->
     <div class="price-card">
-      <div class="price-tag">Pro Yearly</div>
-      <div class="price-amount"><span class="p-num">$79</span><span class="p-unit">/ year</span></div>
-      <div class="price-sub"><b>Save 34%</b> · effectively $6.58/mo</div>
+      <div class="price-tag">Pro Plus</div>
+      <div class="price-amount">
+        <span class="p-num"><span class="p-dyn-int" data-tier="plus">24.99</span></span>
+        <span class="p-unit"><span class="p-dyn-unit" data-tier="plus">/ month</span></span>
+      </div>
+      <div class="price-sub">Households + power users</div>
       <ul class="price-feat">
-        <li>Everything in Pro Monthly</li>
-        <li>One annual charge — set it and forget it</li>
-        <li>Locked rate — pricing won't change on you</li>
-        <li>Priority support</li>
+        <li><b>Everything in Pro</b>, plus:</li>
+        <li>Unlimited linked banks</li>
+        <li>Unlimited AI Coach Cloud Mode</li>
+        <li>Household / partner mode (up to 4)</li>
+        <li>Monthly credit-score history</li>
+        <li>Priority email support</li>
       </ul>
-      <a class="pill ghost" href="./signup.html" style="width:100%; justify-content:center;">Go yearly</a>
+      <a class='pill ghost' href='/signup?tier=plus' style='width:100%; justify-content:center;'>Upgrade to Pro Plus</a>
     </div>
   </div>
 
-  <div class="wrap reveal" style="text-align:center; margin-top:24px;">
-    <p style="font-size:12.5px; color:var(--muted,#6b7280); max-width:580px; margin:0 auto;">
-      Trial ends, we send an email. Don't want to upgrade? Your data stays, your tracking stays, your payoff plan stays. You just lose Pro-only features like bank sync and weekly digests.
+  <div class="wrap reveal" style="text-align:center; margin-top:30px;">
+    <p style="font-size:13px; color:var(--ink-dim,#6b7280); max-width:580px; margin:0 auto 14px;">
+      Want the full bill of materials? See exactly where every dollar of your subscription goes.
     </p>
+    <a href="/pricing.html" class="pill ghost" style="display:inline-flex;">See full breakdown &amp; cost transparency &rarr;</a>
   </div>
 </section>
 
+<!-- PRICING TOGGLE STYLES (intro-only, scoped) -->
+<style>
+  .billing-toggle { display:inline-flex; padding:5px; background:rgba(255,255,255,0.55); border:1px solid rgba(10,10,10,0.10); border-radius:999px; gap:4px; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  .cycle-btn { background:none; border:none; padding:10px 22px; border-radius:999px; font-size:13px; font-weight:700; color:var(--ink-dim,#6b7280); cursor:pointer; font-family:inherit; transition:all .18s; display:inline-flex; align-items:center; gap:8px; letter-spacing:-0.005em; }
+  .cycle-btn.active { background:var(--ink,#0a0a0a); color:#fff; }
+  .cycle-btn:not(.active):hover { color:var(--ink,#0a0a0a); }
+  .save-badge { background:rgba(31,122,74,0.15); color:var(--accent,#1f7a4a); font-size:9.5px; font-weight:800; padding:3px 7px; border-radius:4px; letter-spacing:0.06em; text-transform:uppercase; }
+  .cycle-btn.active .save-badge { background:rgba(255,255,255,0.20); color:#fff; }
+</style>
+<script>
+  (function(){
+    var prices = {
+      free:  { m: '0',     y: '0',    mUnit:'/ forever', yUnit:'/ forever' },
+      pro:   { m: '11.99', y: '8.25', mUnit:'/ month, cancel anytime', yUnit:'/ mo &middot; billed $99/yr' },
+      plus:  { m: '24.99', y: '16.58',mUnit:'/ month, cancel anytime', yUnit:'/ mo &middot; billed $199/yr' }
+    };
+    function applyCycle(c) {
+      document.querySelectorAll('.cycle-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.cycle === c); });
+      document.querySelectorAll('.p-dyn-int').forEach(function(el){
+        var t = el.dataset.tier; if (!prices[t]) return;
+        el.textContent = c === 'yearly' ? prices[t].y : prices[t].m;
+      });
+      document.querySelectorAll('.p-dyn-unit').forEach(function(el){
+        var t = el.dataset.tier; if (!prices[t]) return;
+        el.innerHTML = c === 'yearly' ? prices[t].yUnit : prices[t].mUnit;
+      });
+    }
+    document.querySelectorAll('.cycle-btn').forEach(function(b){
+      b.addEventListener('click', function(){ applyCycle(b.dataset.cycle); });
+    });
+    // Initial state already monthly via HTML defaults; nothing to do.
+  })();
+</script>
 <!-- PRICING CSS (scoped) -->
 <style>
   .pricing{padding:96px 24px 32px; position:relative}
@@ -518,8 +566,8 @@
       No credit card. No junk email. No shame. Cancel anytime.
     </p>
     <div class="hero-cta">
-      <a class="pill accent" href="./signup.html">Get my debt-free date →</a>
-      <a class="pill ghost" href="./signin.html">I have an account</a>
+      <a class='pill accent' href='/signup'>Get my debt-free date →</a>
+      <a class='pill ghost' href='/signin'>I have an account</a>
     </div>
   </div>
 </section>
@@ -535,13 +583,13 @@
     <div class="foot-row">
       <div>© <span id="year"></span> WJP Budgetting. All rights reserved.</div>
       <div class="foot-links">
-        <a href="./about.html">About</a>
-        <a href="./how.html">How</a>
-        <a href="./features.html">Features</a>
-        <a href="./math.html">Math</a>
-        <a href="./faq.html">FAQ</a>
-        <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>
-        <a href="./terms.html" target="_blank" rel="noopener">Terms</a>
+        <a href='/about'>About</a>
+        <a href='/how'>How</a>
+        <a href='/features'>Features</a>
+        <a href='/math'>Math</a>
+        <a href='/faq'>FAQ</a>
+        <a href='/privacy' rel='noopener' target='_blank'>Privacy</a>
+        <a href='/terms' rel='noopener' target='_blank'>Terms</a>
       </div>
     </div>
     <div class="foot-trust">
