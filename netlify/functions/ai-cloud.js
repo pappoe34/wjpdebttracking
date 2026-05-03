@@ -1,6 +1,7 @@
 // netlify/functions/ai-cloud.js
 //
-// Cloud AI proxy → Groq (free tier) for fast Llama 3.3 70B inference.
+// Cloud AI proxy → Groq. Routes between Llama 3.1 8B (fast/cheap, simple Qs)
+// and Llama 3.3 70B (deep/accurate, complex analysis). Client picks via {model}.
 // The browser POSTs { question, context } here; we relay to Groq with the
 // API key (kept server-side, never exposed to the client). Streams back to
 // the browser as SSE.
@@ -37,6 +38,11 @@ exports.handler = async (event) => {
   const context = String(payload.context || '').trim();
   const tone   = String(payload.tone   || 'friendly').toLowerCase();
   const length = String(payload.length || 'standard').toLowerCase();
+  // P17h: tier-aware model routing. Client passes 'fast' or 'deep' or 'auto'.
+  // 'fast' -> Llama 3.1 8B instant (cheap, simple lookups).
+  // 'deep' or omitted -> Llama 3.3 70B versatile (default — accurate analysis).
+  const modelPref = String(payload.model || 'deep').toLowerCase();
+  const groqModel = (modelPref === 'fast') ? 'llama-3.1-8b-instant' : 'llama-3.3-70b-versatile';
   if (!question) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing question' }) };
   }
@@ -93,7 +99,7 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         // Llama 3.3 70B Versatile — strong reasoning, sub-1s typical responses
-        model: 'llama-3.3-70b-versatile',
+        model: groqModel,  // P17h routed: 8B-instant or 70B-versatile
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question }

@@ -9315,15 +9315,39 @@ window.WJP_CloudAI = {
     },
 
     /** POST to /ai-cloud, returns the full answer string.
-     *  Honors user-configured tone + length from Settings → AI Intelligence. */
+     *  Honors user-configured tone + length + model from Settings AI Coach.
+     *  P17h: routes between 8B (fast/cheap) and 70B (deep/accurate). */
+    _pickModel(question, modelPref) {
+        // Explicit override
+        if (modelPref === 'fast') return 'fast';
+        if (modelPref === 'deep') return 'deep';
+        // Auto: classify by intent + complexity
+        const q = (question || '').toLowerCase().trim();
+        if (!q) return 'fast';
+        // Strong "needs reasoning" signals -> 70B
+        const deepKeywords = /\b(compare|comparison|vs\.?|versus|should i|what if|if i|simulate|simulation|optimize|optimi[sz]ation|strategy|strategie|breakdown|why|explain|analy[sz]e|analysis|projection|forecast|recommend|recommendation|plan(?!t)|cascade|payoff order|snowball|avalanche|hybrid|interest paid|total interest|months left|payoff date|time to|when will|how long)\b/;
+        if (deepKeywords.test(q)) return 'deep';
+        // Math intent ('calculate', 'compute', specific multi-step) -> 70B
+        const mathKeywords = /\b(calculate|compute|how much (?:will|would|do|am i|am paying|extra|more|less)|figure out|work out|estimate)\b/;
+        if (mathKeywords.test(q)) return 'deep';
+        // Short factual lookups -> 8B (cheap)
+        // Examples: "what's my balance", "due this week", "how many debts"
+        const lookupKeywords = /\b(what.s|whats|what is|when is|where is|due|balance|amount|list|show|tell me my|how many|which)\b/;
+        if (lookupKeywords.test(q) && q.length < 80) return 'fast';
+        // Tiebreaker: word count. <12 words -> fast, otherwise deep.
+        return q.split(/\s+/).length < 12 ? 'fast' : 'deep';
+    },
     async ask(question) {
         const ctx = this._buildContext();
         const tone   = (appState.prefs && appState.prefs.aiTone)   || 'friendly';
         const length = (appState.prefs && appState.prefs.aiLength) || 'standard';
+        const modelPref = (appState.prefs && appState.prefs.aiCoach && appState.prefs.aiCoach.model) || 'auto';
+        const model = this._pickModel(question, modelPref);
+        try { console.log('[ai-cloud] pref=%s -> model=%s for: %s', modelPref, model, question.slice(0,60)); } catch(_){}
         const resp = await fetch('/.netlify/functions/ai-cloud', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, context: ctx, tone, length })
+            body: JSON.stringify({ question, context: ctx, tone, length, model })
         });
         if (!resp.ok) {
             const text = await resp.text().catch(() => '');
