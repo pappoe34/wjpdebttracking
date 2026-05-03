@@ -296,7 +296,7 @@
 
 <!-- NAV -->
 <nav class="top" id="nav">
-  <a class='brand' href='/intro.html'>
+  <a class='brand' href='/intro'>
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/></g></svg></span>
     <span class="brand-text"><b>WJP</b><i> Budgetting</i><small>Tracking OS</small></span>
   </a>
@@ -304,7 +304,7 @@
     <a class='link' href='/about'>About</a>
     <a class='link' href='/how'>How</a>
     <a class='link' href='/features'>Features</a>
-    <a class='link active' href='/pricing.html'>Pricing</a>
+    <a class='link active' href='/pricing'>Pricing</a>
     <a class='link' href='/faq'>FAQ</a>
     <a class='pill ghost' href='/signin'>Sign in</a>
     <a class='pill accent' href='/signup'>Start free →</a>
@@ -317,7 +317,7 @@
     <span class="eyebrow">Pricing</span>
     <h1 class="head" style="font-size:clamp(36px,5.5vw,64px);">Honest pricing.<br><em>Transparent breakdown.</em></h1>
     <p class="lede" style="margin:22px auto 0; max-width:620px;">
-      Start free for as long as you want. Upgrade only if bank sync, AI Coach, or household mode actually saves you time. Cancel in one click — no clawback, no nonsense.
+      Every new account starts with 14 days of Pro Plus, free. Card required up front; we send reminders 7 + 1 day before billing. Cancel anytime to drop to Free.
     </p>
     <div class="billing-toggle reveal">
       <button class="cycle-btn active" data-cycle="monthly">Monthly</button>
@@ -406,7 +406,7 @@
     </p>
     <div class="hero-cta">
       <a class='pill accent' href='/signup'>Start free →</a>
-      <a class='pill ghost' href='/index.html'>Open the app</a>
+      <a class='pill ghost' href='/'>Open the app</a>
     </div>
   </div>
 </section>
@@ -425,8 +425,8 @@
         <span>Cancel anytime</span>
       </div>
       <div class="foot-links">
-        <a href="/privacy.html">Privacy</a>
-        <a href="/terms.html">Terms</a>
+        <a href='/privacy'>Privacy</a>
+        <a href='/terms'>Terms</a>
         <a href="/about">About</a>
         <a href="/faq">FAQ</a>
         <a href="mailto:support@wjpdebttracking.com">Support</a>
@@ -439,7 +439,7 @@
   // ===== Pricing JS =====
   const TIERS = {
     free: {
-      name: 'Free', tag: 'Good for getting started.', icon: '○',
+      name: 'Free', tag: 'After your trial if you cancel.', icon: '○',
       mPrice: 0, yPrice: 0,
       cta: { label: 'Start free', href: '/signup', kind: 'ghost' },
       features: [
@@ -454,10 +454,10 @@
       ]
     },
     pro: {
-      name: 'Pro', tag: 'For people serious about getting out of debt.', icon: '⚡',
+      name: 'Pro', tag: 'Default after your 14-day Pro Plus trial.', icon: '⚡',
       mPrice: 11.99, yPrice: 99, mEquiv: 8.25,
-      featured: true, recommended: true, trial: '14-day free trial',
-      cta: { label: 'Start 14-day free trial', href: '/signup?tier=pro', kind: 'primary' },
+      featured: true, recommended: true, trial: 'Includes 14-day Pro Plus trial · cancel anytime',
+      cta: { label: 'Start 14-day Pro Plus trial', href: '/signup?tier=pro', kind: 'primary' },
       features: [
         ['yes', 'Everything in Free'],
         ['yes', 'Up to 3 linked banks via Plaid'],
@@ -473,7 +473,7 @@
     plus: {
       name: 'Pro Plus', tag: 'For households + power users.', icon: '◆',
       mPrice: 24.99, yPrice: 199, mEquiv: 16.58,
-      cta: { label: 'Upgrade to Pro Plus', href: '/signup?tier=plus', kind: 'ghost' },
+      cta: { label: 'Skip the trial — go Pro Plus now', href: '/signup?tier=plus', kind: 'ghost' },
       features: [
         ['yes', 'Everything in Pro'],
         ['yes', 'Unlimited linked bank accounts'],

@@ -28402,3 +28402,244 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 })();
 /* P18_ADD_SCAN_V1 sentinel */
 
+
+
+/* ============================================================
+   PHASE 19 — Auto-trial + Pro Plus during trial + banner
+   Sentinel: P19_TRIAL_V1
+   ============================================================ */
+(function(){
+    if (window._wjpTrialV1Installed) return;
+    window._wjpTrialV1Installed = true;
+
+    /* ---------- 1. Wrap getTier so trialing users get Pro Plus features ---------- */
+    var origGetTier = window.getTier;
+    window.getTier = function() {
+        if (window.WJP_IS_ADMIN) return 'admin';
+        var sub = (window.appState && appState.subscription) || {};
+        if (sub.isAdmin) return 'admin';
+        // P19: trialing users get full Pro Plus access regardless of stored tier
+        if (sub.status === 'trialing' && sub.trialEnd && sub.trialEnd > Date.now()) {
+            return 'plus';
+        }
+        if (typeof origGetTier === 'function') return origGetTier();
+        var t = String(sub.tier || 'free').toLowerCase();
+        if (t === 'pro-plus') t = 'plus';
+        if (['admin','plus','pro','free'].indexOf(t) === -1) t = 'free';
+        return t;
+    };
+
+    // Helper: days remaining in trial (whole days, floor)
+    window.trialDaysLeft = function() {
+        var sub = (window.appState && appState.subscription) || {};
+        if (sub.status !== 'trialing' || !sub.trialEnd) return 0;
+        var ms = sub.trialEnd - Date.now();
+        if (ms <= 0) return 0;
+        return Math.ceil(ms / (24 * 60 * 60 * 1000));
+    };
+
+    /* ---------- 2. Trial banner with countdown + auto-charge date ---------- */
+    function fmtDate(ms) {
+        try {
+            var d = new Date(ms);
+            return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        } catch (_) { return ''; }
+    }
+    function dismissedToday() {
+        try {
+            var k = 'wjp_trial_banner_dismissed';
+            var stored = localStorage.getItem(k);
+            return stored && stored === new Date().toISOString().slice(0,10);
+        } catch (_) { return false; }
+    }
+    function setDismissedToday() {
+        try {
+            localStorage.setItem('wjp_trial_banner_dismissed', new Date().toISOString().slice(0,10));
+        } catch (_) {}
+    }
+
+    function renderTrialBanner() {
+        var sub = (window.appState && appState.subscription) || {};
+        var existing = document.getElementById('wjp-trial-banner');
+        var inTrial = sub.status === 'trialing' && sub.trialEnd && sub.trialEnd > Date.now();
+        if (!inTrial || dismissedToday()) {
+            if (existing) existing.remove();
+            return;
+        }
+        var days = window.trialDaysLeft();
+        var chargeDate = fmtDate(sub.trialEnd);
+        var urgent = days <= 3;
+        // Determine the post-trial price from the subscription's lookup_key. Default $11.99 Pro.
+        var lookupKey = sub.currentPriceLookupKey || 'pro_monthly';
+        var postTrialPrice = lookupKey.indexOf('plus') !== -1
+            ? (lookupKey.indexOf('yearly') !== -1 ? '$199/year' : '$24.99/month')
+            : (lookupKey.indexOf('yearly') !== -1 ? '$99/year' : '$11.99/month');
+        var emoji = urgent ? '⚠️' : '🎉';
+        var msg = urgent
+            ? '<b>Trial ends in ' + days + ' day' + (days === 1 ? '' : 's') + '.</b> Card will be charged ' + postTrialPrice + ' on ' + chargeDate + ' unless you cancel.'
+            : '<b>Day ' + (14 - days + 1) + ' of 14 — Pro Plus features active.</b> ' + postTrialPrice + ' Pro starts on ' + chargeDate + '.';
+
+        if (existing) {
+            existing.querySelector('.wjp-trial-banner-msg').innerHTML = msg;
+            existing.classList.toggle('urgent', urgent);
+            return;
+        }
+        var bar = document.createElement('div');
+        bar.id = 'wjp-trial-banner';
+        bar.className = 'wjp-trial-banner' + (urgent ? ' urgent' : '');
+        bar.innerHTML =
+            '<div class="wjp-trial-banner-inner">' +
+              '<span class="wjp-trial-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
+              '<span class="wjp-trial-banner-msg">' + msg + '</span>' +
+              '<button class="wjp-trial-banner-cta" id="wjp-trial-manage" type="button">Manage</button>' +
+              '<button class="wjp-trial-banner-dismiss" id="wjp-trial-dismiss" aria-label="Dismiss">×</button>' +
+            '</div>';
+        document.body.appendChild(bar);
+        document.body.classList.add('has-trial-banner');
+        document.getElementById('wjp-trial-manage').onclick = function(){
+            if (typeof navigateSPA === 'function') navigateSPA('plans');
+            else location.hash = '#plans';
+        };
+        document.getElementById('wjp-trial-dismiss').onclick = function(){
+            setDismissedToday();
+            bar.remove();
+            document.body.classList.remove('has-trial-banner');
+        };
+    }
+
+    // CSS injector for banner
+    if (!document.getElementById('wjp-trial-banner-css')) {
+        var css = document.createElement('style');
+        css.id = 'wjp-trial-banner-css';
+        css.textContent = ''
+          + '.wjp-trial-banner{position:fixed;top:0;left:0;right:0;z-index:9000;'
+          +   'background:linear-gradient(135deg,rgba(0,212,168,0.96),rgba(102,126,234,0.96));'
+          +   'color:#fff;font-family:inherit;'
+          +   'box-shadow:0 4px 18px rgba(0,0,0,0.16);}\n'
+          + '.wjp-trial-banner.urgent{background:linear-gradient(135deg,#f59e0b,#dc2626);}\n'
+          + '.wjp-trial-banner-inner{display:flex;align-items:center;gap:12px;padding:10px 18px;max-width:1180px;margin:0 auto;font-size:13px;font-weight:500;}\n'
+          + '.wjp-trial-banner-emoji{font-size:18px;flex-shrink:0;}\n'
+          + '.wjp-trial-banner-msg{flex:1;line-height:1.45;}\n'
+          + '.wjp-trial-banner-msg b{font-weight:800;}\n'
+          + '.wjp-trial-banner-cta{background:rgba(255,255,255,0.20);color:#fff;border:1px solid rgba(255,255,255,0.40);padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;transition:background 0.14s;}\n'
+          + '.wjp-trial-banner-cta:hover{background:rgba(255,255,255,0.30);}\n'
+          + '.wjp-trial-banner-dismiss{background:transparent;border:none;color:rgba(255,255,255,0.85);font-size:22px;font-weight:300;cursor:pointer;padding:0 6px;line-height:1;flex-shrink:0;}\n'
+          + '.wjp-trial-banner-dismiss:hover{color:#fff;}\n'
+          + 'body.has-trial-banner{padding-top:44px;}\n'
+          + '@media (max-width:600px){.wjp-trial-banner-inner{padding:8px 14px;font-size:12px;gap:8px;}.wjp-trial-banner-cta{padding:5px 10px;font-size:11px;}body.has-trial-banner{padding-top:60px;}}\n';
+        document.head.appendChild(css);
+    }
+
+    // Render initially + every 60s + after subscription updates
+    function tick() { try { renderTrialBanner(); } catch(_){}}
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick);
+    else tick();
+    setInterval(tick, 60 * 1000);
+    // Also re-render when subscription state changes
+    var origRender = window.renderSettingsTierCard;
+    if (typeof origRender === 'function') {
+        window.renderSettingsTierCard = function() {
+            var r = origRender.apply(this, arguments);
+            tick();
+            return r;
+        };
+    }
+
+    /* ---------- 3. Auto-start trial after fresh signup ---------- */
+    function maybeAutoStartTrial() {
+        try {
+            var u = window.__wjpUser || (window.__wjpAuth && window.__wjpAuth.currentUser) || null;
+            if (!u || !u.metadata) return;
+            // Only act on users who created their account in the last 5 minutes
+            var created = u.metadata.creationTime ? new Date(u.metadata.creationTime).getTime() : 0;
+            if (!created || (Date.now() - created) > 5 * 60 * 1000) return;
+            // Skip if subscription already exists (avoid double-charge prompts)
+            var sub = (window.appState && appState.subscription) || {};
+            if (sub.status === 'trialing' || sub.status === 'active') return;
+            if (sub.stripeSubscriptionId) return;
+            // Skip if already prompted this session
+            if (window._wjpTrialPromptShown) return;
+            window._wjpTrialPromptShown = true;
+            // Skip if URL has skip flag (escape hatch for testing)
+            if (location.search.indexOf('skip_trial=1') !== -1) return;
+            showTrialOfferModal();
+        } catch (_) {}
+    }
+
+    function showTrialOfferModal() {
+        if (document.getElementById('wjp-trial-offer-modal')) return;
+        var div = document.createElement('div');
+        div.id = 'wjp-trial-offer-modal';
+        div.className = 'wjp-trial-offer-overlay';
+        div.innerHTML = ''
+          + '<div class="wjp-trial-offer-card">'
+          +   '<div class="wjp-trial-offer-eyebrow">WELCOME TO WJP</div>'
+          +   '<h2 class="wjp-trial-offer-title">Try Pro Plus free for 14 days.</h2>'
+          +   '<p class="wjp-trial-offer-sub">Bank sync, unlimited AI Coach, household mode — every premium feature, on us. Card required so you stay flowing after the trial. <b>$11.99/month Pro starts in 14 days unless you cancel.</b></p>'
+          +   '<ul class="wjp-trial-offer-list">'
+          +     '<li>Unlimited bank sync via Plaid</li>'
+          +     '<li>AI Coach Cloud Mode (Llama 70B)</li>'
+          +     '<li>Hybrid + Snowball + Avalanche strategies</li>'
+          +     '<li>All 8 inbox alert generators</li>'
+          +     '<li>Household / partner mode (Pro Plus exclusive)</li>'
+          +   '</ul>'
+          +   '<div class="wjp-trial-offer-actions">'
+          +     '<button id="wjp-trial-start" class="wjp-trial-offer-btn primary" type="button">Start 14-day Pro Plus trial &rarr;</button>'
+          +     '<button id="wjp-trial-skip" class="wjp-trial-offer-btn ghost" type="button">Stay on Free for now</button>'
+          +   '</div>'
+          +   '<div class="wjp-trial-offer-meta">No charge today. Reminders 7 days + 1 day before billing. Cancel any time in one click.</div>'
+          + '</div>';
+        document.body.appendChild(div);
+        if (!document.getElementById('wjp-trial-offer-css')) {
+            var s = document.createElement('style');
+            s.id = 'wjp-trial-offer-css';
+            s.textContent = ''
+              + '.wjp-trial-offer-overlay{position:fixed;inset:0;z-index:10000;background:rgba(11,15,26,0.62);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;animation:wjpTrialFadeIn 0.20s ease;}\n'
+              + '@keyframes wjpTrialFadeIn{from{opacity:0;}to{opacity:1;}}\n'
+              + '.wjp-trial-offer-card{background:var(--card,#fff);color:var(--text,#0a0a0a);border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:18px;padding:32px 32px 26px;width:min(540px,96vw);box-shadow:0 30px 80px rgba(0,0,0,0.30);animation:wjpTrialSlide 0.22s cubic-bezier(0.2,0.8,0.2,1);}\n'
+              + '@keyframes wjpTrialSlide{from{transform:translateY(14px);opacity:0;}to{transform:none;opacity:1;}}\n'
+              + '.wjp-trial-offer-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:var(--accent,#1f7a4a);margin-bottom:10px;}\n'
+              + '.wjp-trial-offer-title{font-size:24px;font-weight:800;color:var(--text,#0a0a0a);margin:0 0 10px;letter-spacing:-0.02em;line-height:1.18;}\n'
+              + '.wjp-trial-offer-sub{font-size:14px;color:var(--text-2,rgba(10,10,10,0.66));margin:0 0 18px;line-height:1.55;}\n'
+              + '.wjp-trial-offer-sub b{color:var(--text,#0a0a0a);}\n'
+              + '.wjp-trial-offer-list{margin:0 0 22px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;}\n'
+              + '.wjp-trial-offer-list li{font-size:13.5px;color:var(--text,#0a0a0a);padding-left:24px;position:relative;line-height:1.45;}\n'
+              + '.wjp-trial-offer-list li::before{content:"✓";position:absolute;left:0;top:0;color:var(--accent,#1f7a4a);font-weight:800;}\n'
+              + '.wjp-trial-offer-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}\n'
+              + '.wjp-trial-offer-btn{padding:13px 18px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:filter 0.14s,transform 0.05s;}\n'
+              + '.wjp-trial-offer-btn:active{transform:scale(0.99);}\n'
+              + '.wjp-trial-offer-btn.primary{background:var(--accent,#1f7a4a);color:#fff;}\n'
+              + '.wjp-trial-offer-btn.primary:hover{filter:brightness(1.10);}\n'
+              + '.wjp-trial-offer-btn.ghost{background:var(--card-2,#f7f6f2);color:var(--text-3,rgba(10,10,10,0.55));border-color:var(--border,rgba(0,0,0,0.10));}\n'
+              + '.wjp-trial-offer-btn.ghost:hover{color:var(--text,#0a0a0a);}\n'
+              + '.wjp-trial-offer-meta{font-size:11.5px;color:var(--text-3,rgba(10,10,10,0.45));text-align:center;line-height:1.5;}\n';
+            document.head.appendChild(s);
+        }
+        document.getElementById('wjp-trial-start').onclick = function(){
+            // Fire Stripe Checkout for pro_monthly (which has 14-day trial)
+            if (typeof openStripeCheckout === 'function') {
+                openStripeCheckout('pro_monthly', 'Pro');
+            } else if (typeof showToast === 'function') {
+                showToast('Stripe checkout not ready. Try Settings -> Plans.');
+            }
+            div.remove();
+        };
+        document.getElementById('wjp-trial-skip').onclick = function(){
+            div.remove();
+            try { localStorage.setItem('wjp_trial_skipped', '1'); } catch(_){}
+        };
+    }
+
+    // Try to auto-start trial offer once auth + subscription state are loaded
+    function tryAutoOffer() {
+        // Wait until window.openStripeCheckout exists
+        if (typeof openStripeCheckout !== 'function') { setTimeout(tryAutoOffer, 600); return; }
+        // Slight delay to let subscription listener populate
+        setTimeout(maybeAutoStartTrial, 1500);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryAutoOffer);
+    else tryAutoOffer();
+    window.addEventListener('wjp-auth-ready', tryAutoOffer);
+})();
+/* P19_TRIAL_V1 sentinel */
+
