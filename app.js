@@ -26834,7 +26834,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
    Replaces window.renderSettingsPage with a fully wired version.
    ============================================================ */
 (function(){
-    if (window._wjpSettingsV3Installed) return;
+    if (window._wjpSettingsV3Installed) return; /* P17e.4 ws-fix applied */
     window._wjpSettingsV3Installed = true;
 
     /* ---------- helpers ---------- */
@@ -26917,7 +26917,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        ============================================================ */
     function r_profile(){
         var u = window.__wjpUser || {};
-        var p = (window.appState && appState.profile) || {};
+        var p = (appState && appState.profile) || {};
         var name  = p.fullName || p.displayName || u.displayName || '';
         var email = p.email || u.email || '';
         var phone = p.phone || '';
@@ -26953,7 +26953,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 2 — BILLING  (links to /plans page)
        ============================================================ */
     function r_billing(){
-        var tier = (window.appState && appState.tier) || 'free';
+        var tier = (appState && appState.tier) || 'free';
         var tierLabel = { free:'Free', pro:'Pro', plus:'Pro Plus' }[tier] || 'Free';
         return panelHead('Billing','Manage subscription and payment.') +
         '<div class="settings-plan-banner">'+
@@ -26992,7 +26992,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 4 — AI COACH  (model, tone, length, autopilot, history)
        ============================================================ */
     function r_aicoach(){
-        var prefs = ((window.appState && appState.prefs) || {});
+        var prefs = ((appState && appState.prefs) || {});
         var ai = prefs.aiCoach || {};
         var model = ai.model || 'auto';
         var tone = ai.tone || 'coach';
@@ -27033,18 +27033,18 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 5 — NOTIFICATIONS  (channels + types + quiet + SMS verify)
        ============================================================ */
     function r_notifs(){
-        var prefs = ((window.appState && appState.prefs) || {});
+        var prefs = ((appState && appState.prefs) || {});
         var n = prefs.notifications || {};
         var ch = n.channels || { email:true, push:true, sms:false, inApp:true };
         var ty = n.types || { paymentDue:true, paymentOverdue:true, milestone:true, strategyChange:true, aiInsights:true, accountSynced:false, scoreChange:true, weeklyRecap:true, monthlyReport:true, productUpdates:false };
         var qh = n.quietHours || { from:'22:00', to:'07:00', enabled:true };
         var lead = n.paymentLead || 3;
-        var phone = (window.appState && appState.profile && appState.profile.phone) || '';
+        var phone = (appState && appState.profile && appState.profile.phone) || '';
         var smsVerified = !!n.smsVerified;
 
         return panelHead('Notifications','Choose what reaches you, when, and how.') +
         card('Channels',
-            row('Email','<span class="settings-row-hint" style="margin-right:8px;font-size:12px;">'+esc(((window.appState && appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || ''))+'</span>'+toggle('ch-email', ch.email!==false, 'data-channel="email"'))+
+            row('Email','<span class="settings-row-hint" style="margin-right:8px;font-size:12px;">'+esc(((appState && appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || ''))+'</span>'+toggle('ch-email', ch.email!==false, 'data-channel="email"'))+
             row('Browser push','<button class="settings-btn settings-btn-ghost" id="set-push-test" style="margin-right:8px;">Test</button>'+toggle('ch-push', !!ch.push, 'data-channel="push"'),'Requires browser permission.')+
             row('SMS', (phone?'<span class="settings-pill" style="margin-right:8px;">'+(smsVerified?'Verified':'Unverified')+'</span>':'<button class="settings-btn settings-btn-ghost" id="set-sms-add-phone" style="margin-right:8px;">Add phone</button>')+toggle('ch-sms', !!ch.sms && !!phone && smsVerified, 'data-channel="sms"'),
                 phone?('Texts go to '+esc(phone.replace(/.(?=.{4})/g,'•'))+(smsVerified?'':' — verify to enable.')):'Add a phone number first in Profile.')+
@@ -27074,7 +27074,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 6 — PRIVACY
        ============================================================ */
     function r_privacy(){
-        var prefs = ((window.appState && appState.prefs) || {});
+        var prefs = ((appState && appState.prefs) || {});
         var pv = prefs.privacy || {};
         return panelHead('Privacy','Control what is shown, stored, and shared.') +
         card('On-screen privacy',
@@ -27103,7 +27103,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 7 — SECURITY
        ============================================================ */
     function r_security(){
-        var prefs = ((window.appState && appState.prefs) || {});
+        var prefs = ((appState && appState.prefs) || {});
         var sec = prefs.security || {};
         var u = window.__wjpUser || {};
         return panelHead('Security','Lock things down + keep an eye on access.') +
@@ -27135,7 +27135,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 8 — APPEARANCE  (theme + accent + density + more)
        ============================================================ */
     function r_appearance(){
-        var prefs = ((window.appState && appState.prefs) || {});
+        var prefs = ((appState && appState.prefs) || {});
         var theme = prefs.theme || (document.body.classList.contains('dark')?'dark':'light');
         var accent = prefs.accentColor || (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00d4a8');
         var density = prefs.density || 'cozy';
@@ -27184,7 +27184,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
        PANEL 9 — DATA
        ============================================================ */
     function r_data(){
-        var s = window.appState || {};
+        var s = appState || {};
         var prefs = s.prefs || {};
         var debtCount = (s.debts||[]).length;
         var txCount = (s.transactions||[]).length;
@@ -27293,8 +27293,8 @@ body.high-contrast .settings-row-label { font-weight: 800; }
     };
 
     function ensureNamespace(path){
-        if (!window.appState) window.appState = {};
-        var obj = window.appState;
+        if (!appState) return null;
+        var obj = appState; /* P17e.4 ws-fix */
         for (var i=0; i<path.length; i++){ if (!obj[path[i]]) obj[path[i]] = {}; obj = obj[path[i]]; } /* P17e.3 fix */
         return obj;
     }
@@ -27304,9 +27304,9 @@ body.high-contrast .settings-row-label { font-weight: 800; }
         document.querySelectorAll('[data-pref]').forEach(function(el){
             var key = el.dataset.pref;
             el.onchange = function(){
-                if (!window.appState) window.appState = {};
-                if (!window.appState.prefs) window.appState.prefs = {};
-                window.appState.prefs[key] = (el.type==='checkbox') ? el.checked : el.value;
+                if (!appState) return;
+                if (!appState.prefs) appState.prefs = {};
+                appState.prefs[key] = (el.type==='checkbox') ? el.checked : el.value;
                 if (key==='theme') applyThemeChoice(el.value);
                 if (key==='accentColor') applyAccent(el.value);
                 if (key==='density') document.body.setAttribute('data-density', el.value);
@@ -27415,7 +27415,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 
         // Render assets immediately from local state
         if (assetsHost) {
-            var assets = (window.appState && appState.linkedAssets) || [];
+            var assets = (appState && appState.linkedAssets) || [];
             if (!assets.length) {
                 assetsHost.innerHTML = '<div class="settings-empty"><i class="ph ph-piggy-bank"></i>No manual assets yet.</div>';
             } else {
@@ -27493,12 +27493,12 @@ body.high-contrast .settings-row-label { font-weight: 800; }
         var reset = document.getElementById('set-ai-reset');
         if (clear) clear.onclick = function(){
             if (!confirm('Clear ALL AI Coach chat history? This cannot be undone.')) return;
-            if (window.appState) { window.appState.chatHistory = []; if (typeof saveState==='function') saveState(); }
+            if (appState) { appState.chatHistory = []; if (typeof saveState==='function') saveState(); }
             showToast('Chat history cleared');
         };
         if (reset) reset.onclick = function(){
             var p = ensureNamespace(['prefs','aiCoach']);
-            window.appState.prefs.aiCoach = {};
+            appState.prefs.aiCoach = {};
             if (typeof saveState==='function') saveState();
             showToast('AI Coach preferences reset');
             renderV3();
@@ -27621,8 +27621,8 @@ body.high-contrast .settings-row-label { font-weight: 800; }
         var rs = document.getElementById('data-resync');
         var cc = document.getElementById('data-clear-cache');
         if (ej) ej.onclick = exportJSON;
-        if (ed) ed.onclick = function(){ exportCSV('debts', (window.appState && appState.debts) || []); };
-        if (et) et.onclick = function(){ exportCSV('transactions', (window.appState && appState.transactions) || []); };
+        if (ed) ed.onclick = function(){ exportCSV('debts', (appState && appState.debts) || []); };
+        if (et) et.onclick = function(){ exportCSV('transactions', (appState && appState.transactions) || []); };
         if (im && imf) im.onclick = function(){ imf.click(); };
         if (imf) imf.onchange = function(){
             var f = imf.files && imf.files[0]; if (!f) return;
@@ -27632,10 +27632,10 @@ body.high-contrast .settings-row-label { font-weight: 800; }
                     var data = JSON.parse(ev.target.result);
                     if (!confirm('Merge backup into current data? This cannot be undone.')) return;
                     Object.keys(data||{}).forEach(function(k){
-                        if (Array.isArray(data[k]) && Array.isArray(window.appState[k])) {
-                            window.appState[k] = window.appState[k].concat(data[k]);
+                        if (Array.isArray(data[k]) && Array.isArray(appState[k])) {
+                            appState[k] = appState[k].concat(data[k]);
                         } else {
-                            window.appState[k] = data[k];
+                            appState[k] = data[k];
                         }
                     });
                     if (typeof saveState==='function') saveState();
@@ -27654,7 +27654,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
     }
     function exportJSON(){
         try {
-            var blob = new Blob([JSON.stringify(window.appState||{}, null, 2)], { type:'application/json' });
+            var blob = new Blob([JSON.stringify(appState||{}, null, 2)], { type:'application/json' });
             var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'wjp-backup-'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
             showToast('Backup downloaded');
         } catch(e){ showToast('Export failed: '+e.message); }
