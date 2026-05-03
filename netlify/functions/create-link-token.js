@@ -77,8 +77,26 @@ exports.handler = async (event) => {
       //   and we get APR + min-payment data. Banks WITHOUT (pure checking/
       //   savings like some online banks) are still allowed to link instead
       //   of being rejected with "No liability accounts".
+      // P18: Tier-aware Plaid products.
+      // - Free + Pro: transactions only (saves Liabilities subscription cost).
+      //   Users add APR/balance via Statement OCR upload.
+      // - Pro Plus: includes liabilities for real-time APR + min payment.
+      let userTier = 'free';
+      try {
+        const db = getFirestore();
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          const u = userDoc.data() || {};
+          userTier = (u.tier || u.subscriptionTier || 'free').toLowerCase();
+        }
+      } catch (e) { /* default to free */ }
+      console.log('[create-link-token] uid=%s tier=%s', uid, userTier);
+
       linkPayload.products = ['transactions'];
-      linkPayload.optional_products = ['liabilities'];
+      // Only Pro Plus gets Plaid Liabilities (paid product).
+      if (userTier === 'plus' || userTier === 'pro_plus' || userTier === 'proplus') {
+        linkPayload.optional_products = ['liabilities'];
+      }
     }
     if (webhookUrl) linkPayload.webhook = webhookUrl;
 
