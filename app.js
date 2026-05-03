@@ -25049,7 +25049,7 @@ window.showPrivacyHint = function showPrivacyHint() {
         bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99998;background:var(--card,#0e1422);border:1px solid var(--border,#1a2434);border-radius:14px;padding:14px 16px;box-shadow:0 12px 40px rgba(0,0,0,0.45);display:flex;gap:14px;align-items:center;flex-wrap:wrap;max-width:760px;margin:0 auto;';
         bar.innerHTML = '<div style="flex:1;min-width:220px;font-size:12px;line-height:1.5;color:var(--text-2,#94a3b8);">'
             + '<strong style="color:var(--text,#fff);">We use cookies and local storage</strong> to keep you signed in, sync your data across devices, and remember your settings. No advertising trackers. '
-            + '<a href="/intro.html#privacy" style="color:var(--accent,#00d4a8);text-decoration:none;">Learn more</a>.'
+            + '<a href="/privacy.html#cookies" style="color:var(--accent,#00d4a8);text-decoration:none;">Learn more</a>.'
             + '</div>'
             + '<div style="display:flex;gap:8px;flex-shrink:0;">'
             +   '<button id="wjp-cookie-accept" class="btn btn-primary" style="font-size:12px;padding:8px 16px;font-weight:700;">Got it</button>'
