@@ -27721,3 +27721,58 @@ body.high-contrast .settings-row-label { font-weight: 800; }
 })();
 
 /* P17_SETTINGS_V3 module sentinel marker */
+
+
+/* PHASE 17e.5 — avatar in sidebar circle (sentinel: P17_AVATAR_SIDEBAR_V1) */
+(function(){
+    if (window._wjpAvatarSidebarV1) return;
+    window._wjpAvatarSidebarV1 = true;
+
+    function paintAvatar() {
+        try {
+            var avatar = (typeof appState !== 'undefined' && appState && appState.profile && appState.profile.avatar) || '';
+            var els = [];
+            var s1 = document.getElementById('sidebar-user-initials'); if (s1) els.push(s1);
+            var s2 = document.getElementById('settings-user-avatar'); if (s2) els.push(s2);
+            // any other .user-avatar surfaces (chat etc.) — but skip the chat-message AI avatar bubble
+            document.querySelectorAll('.user-avatar:not(.ai-avatar)').forEach(function(el){
+                if (els.indexOf(el) === -1) els.push(el);
+            });
+            els.forEach(function(el){
+                if (avatar) {
+                    el.style.backgroundImage = 'url("' + avatar.replace(/"/g, '\\"') + '")';
+                    el.style.backgroundSize = 'cover';
+                    el.style.backgroundPosition = 'center center';
+                    el.style.backgroundRepeat = 'no-repeat';
+                    el.style.color = 'transparent';
+                    el.classList.add('has-avatar-image');
+                } else {
+                    el.style.backgroundImage = '';
+                    el.style.color = '';
+                    el.classList.remove('has-avatar-image');
+                }
+            });
+        } catch(_) {}
+    }
+
+    // Wrap renderUserIdentity so every identity refresh repaints the avatar
+    function attach() {
+        var orig = window.renderUserIdentity;
+        if (typeof orig !== 'function') { setTimeout(attach, 200); return; }
+        if (orig.__wjpAvatarWrapped) return;
+        var wrapped = function() {
+            try { orig.apply(this, arguments); } catch(e){ console.warn('[id]', e); }
+            paintAvatar();
+            setTimeout(paintAvatar, 250);
+        };
+        wrapped.__wjpAvatarWrapped = true;
+        window.renderUserIdentity = wrapped;
+        // Initial paint
+        paintAvatar();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+    else attach();
+
+    // Also expose so other code can manually trigger a repaint after avatar change
+    window.repaintAvatarSurfaces = paintAvatar;
+})();
