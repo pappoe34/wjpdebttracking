@@ -413,6 +413,129 @@ html, body {
   .heatmap { gap: 2px; }
 }
 </style>
+
+<!-- P21_DARK_TOGGLE: dark-mode override layer (additive, doesn't touch original light styles) -->
+<style id="wjp-admin-dark-css">
+  body.dark { background: #0b0d10 !important; color: #e7eaee !important; }
+  body.dark .wrap, body.dark .top-bar { background: transparent !important; }
+  body.dark .brand h1 { color: #e7eaee !important; }
+  body.dark .brand .sub { color: #aab1bc !important; }
+  body.dark .seg, body.dark .tabs { background: #161a20 !important; border-color: rgba(255,255,255,0.07) !important; }
+  body.dark .tabs button { color: #aab1bc !important; }
+  body.dark .tabs button.active { color: #fff !important; }
+  body.dark .tabs button:hover:not(.active) { color: #e7eaee !important; }
+  body.dark .seg button { color: #aab1bc !important; }
+  body.dark .seg button.active { color: #fff !important; background: linear-gradient(135deg, #1f7a4a, #2b9b72) !important; }
+  body.dark .btn { background: #161a20 !important; color: #e7eaee !important; border-color: rgba(255,255,255,0.10) !important; }
+  body.dark .btn:hover { background: #1d2128 !important; border-color: rgba(255,255,255,0.20) !important; }
+  body.dark .btn.primary { background: linear-gradient(135deg, #1f7a4a, #2b9b72) !important; color: #fff !important; border-color: transparent !important; }
+
+  /* Surface panels, cards, KPIs */
+  body.dark .kpi, body.dark .panel, body.dark .panel-card, body.dark .card {
+    background: #161a20 !important; border-color: rgba(255,255,255,0.07) !important; color: #e7eaee !important;
+  }
+  body.dark .panel h2, body.dark .kpi .label, body.dark .panel .count {
+    color: #aab1bc !important;
+  }
+  body.dark .kpi .val { color: #e7eaee !important; }
+  body.dark .kpi .sub { color: #aab1bc !important; }
+  body.dark .panel .count { background: #1d2128 !important; color: #aab1bc !important; }
+  body.dark .delta.up { color: #34d399 !important; background: rgba(52,211,153,0.10) !important; }
+  body.dark .delta.down { color: #fb7185 !important; background: rgba(251,113,133,0.10) !important; }
+
+  /* Tables */
+  body.dark table, body.dark .cohort-table { color: #e7eaee !important; }
+  body.dark table th, body.dark .cohort-table th { background: #1d2128 !important; color: #aab1bc !important; border-color: rgba(255,255,255,0.07) !important; }
+  body.dark table td, body.dark .cohort-table td { border-color: rgba(255,255,255,0.05) !important; color: #e7eaee !important; }
+  body.dark table tbody tr:hover { background: #1d2128 !important; }
+
+  /* Cohort heatmap shades */
+  body.dark .cohort-table td[data-pct="0"] { background: #14171c !important; color: #6f7682 !important; }
+  body.dark .cohort-table td.initial { background: #161a20 !important; color: #e7eaee !important; }
+
+  /* Bars, charts */
+  body.dark .bar-track { background: #1d2128 !important; }
+  body.dark .status-line { color: #aab1bc !important; }
+
+  /* Input + select */
+  body.dark input, body.dark select, body.dark textarea {
+    background: #14171c !important; color: #e7eaee !important; border-color: rgba(255,255,255,0.10) !important;
+  }
+  body.dark input::placeholder { color: #6f7682 !important; }
+
+  /* Locked / loading screens */
+  body.dark #locked-title, body.dark .gate h2 { color: #e7eaee !important; }
+  body.dark .gate { background: #161a20 !important; border-color: rgba(255,255,255,0.07) !important; }
+  body.dark .gate p { color: #aab1bc !important; }
+
+  /* SVG paths inside charts (best-effort — leaves accent green visible) */
+  body.dark svg text { fill: #aab1bc !important; }
+  body.dark svg .grid { stroke: rgba(255,255,255,0.06) !important; }
+
+  /* P21_DARK_TOGGLE additions: theme button, health dots, ext links, auto-refresh */
+  .theme-btn {
+    background: transparent; border: 1px solid #e5e7eb; color: #0b0f1a;
+    width: 36px; height: 36px; border-radius: 9px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: background 0.14s, border-color 0.14s;
+  }
+  .theme-btn:hover { background: #f0f1f4; }
+  body.dark .theme-btn { background: #161a20; border-color: rgba(255,255,255,0.10); color: #e7eaee; }
+  body.dark .theme-btn:hover { background: #1d2128; }
+
+  .ext-links { display: inline-flex; gap: 6px; margin-right: 8px; }
+  .ext-link {
+    text-decoration: none; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 6px 10px; border-radius: 7px;
+    background: #fff; border: 1px solid #e5e7eb; color: #6b7280;
+    transition: all 0.14s;
+  }
+  .ext-link:hover { color: #0b0f1a; border-color: #1f7a4a; }
+  body.dark .ext-link { background: #161a20; border-color: rgba(255,255,255,0.10); color: #aab1bc; }
+  body.dark .ext-link:hover { color: #fff; border-color: #1f7a4a; }
+
+  /* System health strip */
+  .health-strip {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 10px 14px; margin: 12px 0 18px;
+    font-size: 12px; color: #4b5563;
+  }
+  body.dark .health-strip { background: #161a20; border-color: rgba(255,255,255,0.07); color: #aab1bc; }
+  .health-item { display: inline-flex; align-items: center; gap: 7px; }
+  .health-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .health-dot.ok   { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+  .health-dot.warn { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.6); }
+  .health-dot.fail { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.6); }
+  .health-dot.unknown { background: #94a3b8; }
+  .health-spacer { flex: 1; }
+  .auto-refresh {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; color: #6b7280; cursor: pointer; user-select: none;
+  }
+  body.dark .auto-refresh { color: #aab1bc; }
+  .ar-toggle {
+    width: 30px; height: 16px; border-radius: 99px; background: #d1d5db; position: relative;
+    transition: background 0.18s;
+  }
+  body.dark .ar-toggle { background: #2d3138; }
+  .ar-toggle::after {
+    content: ""; position: absolute; top: 1px; left: 1px;
+    width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    transition: transform 0.18s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .auto-refresh.on .ar-toggle { background: #1f7a4a; }
+  .auto-refresh.on .ar-toggle::after { transform: translateX(14px); }
+
+  .build-footer {
+    margin-top: 60px; padding-top: 18px; border-top: 1px solid #e5e7eb;
+    font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.6;
+  }
+  body.dark .build-footer { border-color: rgba(255,255,255,0.07); color: #6f7682; }
+  .build-footer a { color: inherit; text-decoration: underline; }
+  .build-footer code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; }
+</style>
+
 </head>
 <body>
 
@@ -445,11 +568,29 @@ html, body {
         <button data-range="30" type="button">30d</button>
         <button data-range="90" type="button">90d</button>
       </div>
+      <div class="ext-links" role="group" aria-label="External dashboards">
+        <a class="ext-link" href="https://dashboard.stripe.com" target="_blank" rel="noopener" title="Stripe dashboard">Stripe</a>
+        <a class="ext-link" href="https://app.netlify.com" target="_blank" rel="noopener" title="Netlify deploys + functions">Netlify</a>
+        <a class="ext-link" href="https://console.firebase.google.com" target="_blank" rel="noopener" title="Firebase console">Firebase</a>
+        <a class="ext-link" href="https://dashboard.plaid.com" target="_blank" rel="noopener" title="Plaid dashboard">Plaid</a>
+        <a class="ext-link" href="https://github.com/pappoe34/wjpdebttracking" target="_blank" rel="noopener" title="GitHub repo">GitHub</a>
+      </div>
       <button class="btn" id="btn-refresh" type="button">↻ Refresh</button>
       <button class="btn primary" id="btn-export" type="button">Export CSV</button>
+      <button class="theme-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode (T)">🌙</button>
     </div>
   </div>
   <p class="status-line"><span class="dot"></span> <span id="status-text">Idle</span></p>
+
+  <!-- System health + auto-refresh (P21_DARK_TOGGLE) -->
+  <div class="health-strip">
+    <div class="health-item"><span class="health-dot unknown" id="hd-stripe"></span><span>Stripe</span><span id="hd-stripe-meta" style="opacity:0.7;">checking</span></div>
+    <div class="health-item"><span class="health-dot unknown" id="hd-plaid"></span><span>Plaid</span><span id="hd-plaid-meta" style="opacity:0.7;">checking</span></div>
+    <div class="health-item"><span class="health-dot unknown" id="hd-firebase"></span><span>Firebase</span><span id="hd-firebase-meta" style="opacity:0.7;">checking</span></div>
+    <div class="health-item"><span class="health-dot unknown" id="hd-groq"></span><span>Groq AI</span><span id="hd-groq-meta" style="opacity:0.7;">checking</span></div>
+    <div class="health-spacer"></div>
+    <label class="auto-refresh" id="auto-refresh-toggle"><span class="ar-toggle"></span><span>Auto-refresh 60s</span></label>
+  </div>
 
   <!-- TAB NAV -->
   <div class="tabs">
@@ -1649,5 +1790,116 @@ html, body {
   }
 </script>
 <script defer src="./wjp-analytics.js?v=1"></script>
+
+  <!-- Build / version footer (P21_DARK_TOGGLE) -->
+  <div class="build-footer">
+    WJP admin · <code id="build-host">—</code> · <span id="build-time">loading…</span>
+    · <a href="https://github.com/pappoe34/wjpdebttracking/commits/main" target="_blank" rel="noopener">latest commits</a>
+    · keyboard: <code>T</code> theme · <code>R</code> refresh
+  </div>
+
+
+<script>
+  /* P21_DARK_TOGGLE controller */
+  (function(){
+    if (window._wjpAdminDarkToggleInit) return;
+    window._wjpAdminDarkToggleInit = true;
+
+    /* ---- Theme ---- */
+    function getStored() {
+      try { return localStorage.getItem('wjp_admin_theme'); } catch(_){ return null; }
+    }
+    function setTheme(t) {
+      document.body.classList.toggle('dark', t === 'dark');
+      var btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = (t === 'dark') ? '☀️' : '🌙';
+      try { localStorage.setItem('wjp_admin_theme', t); } catch(_){}
+    }
+    var saved = getStored();
+    if (saved === 'dark' || saved === 'light') {
+      setTheme(saved);
+    } else {
+      // System preference fallback
+      var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefers ? 'dark' : 'light');
+    }
+
+    function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+    ready(function(){
+      var btn = document.getElementById('theme-toggle');
+      if (btn) btn.onclick = function(){
+        var isDark = document.body.classList.contains('dark');
+        setTheme(isDark ? 'light' : 'dark');
+      };
+
+      /* ---- Keyboard shortcuts ---- */
+      document.addEventListener('keydown', function(e){
+        var tag = (e.target && e.target.tagName) || '';
+        if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+        if (e.key === 't' || e.key === 'T') {
+          var isDark = document.body.classList.contains('dark');
+          setTheme(isDark ? 'light' : 'dark');
+        } else if (e.key === 'r' || e.key === 'R') {
+          var b = document.getElementById('btn-refresh'); if (b) b.click();
+        }
+      });
+
+      /* ---- Auto-refresh ---- */
+      var ar = document.getElementById('auto-refresh-toggle');
+      var arOn = false, arT = null;
+      function tickAr(){ var b = document.getElementById('btn-refresh'); if (b) b.click(); }
+      if (ar) {
+        var stored = false;
+        try { stored = localStorage.getItem('wjp_admin_autorefresh') === '1'; } catch(_){}
+        if (stored) { ar.classList.add('on'); arOn = true; arT = setInterval(tickAr, 60000); }
+        ar.onclick = function(){
+          arOn = !arOn;
+          ar.classList.toggle('on', arOn);
+          if (arT) { clearInterval(arT); arT = null; }
+          if (arOn) arT = setInterval(tickAr, 60000);
+          try { localStorage.setItem('wjp_admin_autorefresh', arOn ? '1' : '0'); } catch(_){}
+        };
+      }
+
+      /* ---- Build/version info ---- */
+      var bh = document.getElementById('build-host');
+      var bt = document.getElementById('build-time');
+      if (bh) bh.textContent = location.hostname;
+      if (bt) bt.textContent = 'loaded ' + new Date().toLocaleTimeString();
+
+      /* ---- System health checks ---- */
+      function setHealth(id, state, meta) {
+        var dot = document.getElementById('hd-' + id);
+        var m   = document.getElementById('hd-' + id + '-meta');
+        if (dot) { dot.classList.remove('ok','warn','fail','unknown'); dot.classList.add(state); }
+        if (m && meta) m.textContent = meta;
+      }
+      function pingHealth() {
+        // Firebase Auth: try fetching its config endpoint (cached/CORS-friendly)
+        fetch('https://identitytoolkit.googleapis.com/v1/projects/wjp-debt-tracking/config?key=AIzaSyBgER192G91tmCfcWgBCSap01oV0cZjPZg', { mode:'cors' })
+          .then(function(r){ setHealth('firebase', r.ok ? 'ok' : 'warn', r.ok ? 'auth ok' : 'auth ' + r.status); })
+          .catch(function(){ setHealth('firebase', 'fail', 'unreachable'); });
+
+        // Plaid: ping the create-link-token function with a HEAD-ish call (POST will reject auth-less but at least responds)
+        fetch('/.netlify/functions/create-link-token', { method:'OPTIONS' })
+          .then(function(r){ setHealth('plaid', r.ok || r.status === 204 ? 'ok' : 'warn', 'fn responding'); })
+          .catch(function(){ setHealth('plaid', 'fail', 'fn down'); });
+
+        // Stripe: ping the checkout-create function with OPTIONS
+        fetch('/.netlify/functions/stripe-checkout-create', { method:'OPTIONS' })
+          .then(function(r){ setHealth('stripe', r.ok || r.status === 204 ? 'ok' : 'warn', 'fn responding'); })
+          .catch(function(){ setHealth('stripe', 'fail', 'fn down'); });
+
+        // Groq: ping the ai-cloud function with OPTIONS — returns 405 (method not allowed) which still means alive
+        fetch('/.netlify/functions/ai-cloud', { method:'OPTIONS' })
+          .then(function(r){ setHealth('groq', (r.status === 405 || r.ok) ? 'ok' : 'warn', 'fn responding'); })
+          .catch(function(){ setHealth('groq', 'fail', 'fn down'); });
+      }
+      pingHealth();
+      setInterval(pingHealth, 5 * 60 * 1000);  // re-check every 5 min
+    });
+  })();
+</script>
+
 </body>
 </html>
