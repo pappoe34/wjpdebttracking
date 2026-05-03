@@ -17,7 +17,7 @@
  *   invoice.payment_failed
  *   checkout.session.completed
  */
-const { getStripe, tierFromLookupKey } = require('./_shared/stripe');
+const { getStripe, tierFromLookupKey } = require('./_shared/stripe-client');
 const { getFirestore } = require('./_shared/firebase');
 
 const RESPOND = (status, text) => ({ statusCode: status, headers: { 'Content-Type': 'text/plain' }, body: text });

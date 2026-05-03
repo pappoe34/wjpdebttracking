@@ -9,7 +9,7 @@
  * method, switch plans, or cancel — all self-serve, no support needed.
  */
 const { verifyIdToken, getFirestore } = require('./_shared/firebase');
-const { getStripe } = require('./_shared/stripe');
+const { getStripe } = require('./_shared/stripe-client');
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

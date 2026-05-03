@@ -9,7 +9,7 @@
  * session for the requested subscription tier. Trial days come from PRICE_CONFIG.
  */
 const { verifyIdToken, getFirestore } = require('./_shared/firebase');
-const { getStripe, PRICE_CONFIG, getPriceIdForLookup } = require('./_shared/stripe');
+const { getStripe, PRICE_CONFIG, getPriceIdForLookup } = require('./_shared/stripe-client');
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
