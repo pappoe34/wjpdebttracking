@@ -28826,10 +28826,20 @@ body.high-contrast .settings-row-label { font-weight: 800; }
                 var method = (appState.strategy && appState.strategy.method) || 'avalanche';
                 var contribution = (appState.budget && appState.budget.contribution) || totalMin;
                 var result = calculateDebtPayoff(debts, contribution, method);
-                if (result && result.totalMonths) {
-                    monthsToZero = result.totalMonths;
-                    var now = new Date();
-                    debtFreeDate = new Date(now.getFullYear(), now.getMonth() + monthsToZero, 1);
+                // P20.5 fix: returns {debtId: {months, ...}}, not {totalMonths}.
+                // Overall debt-free month = max months across all debts.
+                if (result && typeof result === 'object') {
+                    var keys = Object.keys(result);
+                    var maxMonths = 0;
+                    keys.forEach(function(k){
+                        var m = result[k] && result[k].months;
+                        if (typeof m === 'number' && m > maxMonths) maxMonths = m;
+                    });
+                    if (maxMonths > 0) {
+                        monthsToZero = maxMonths;
+                        var now = new Date();
+                        debtFreeDate = new Date(now.getFullYear(), now.getMonth() + monthsToZero, 1);
+                    }
                 }
             }
         } catch(e){ console.warn('[onboard] calc failed', e); }
