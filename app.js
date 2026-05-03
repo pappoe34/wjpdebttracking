@@ -26562,3 +26562,1162 @@ window.showPrivacyHint = function showPrivacyHint() {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
     else attach();
 })();
+
+
+/* PHASE 17e.2 — Settings v3 CSS additions (sentinel: P17_SETTINGS_V3_CSS) */
+(function(){if(window._wjpSettingsV3Css)return;window._wjpSettingsV3Css=true;var s=document.createElement('style');s.id='wjp-settings-v3-css';s.textContent=`/* ============================================================
+   PHASE 17e.2 — additional Settings v3 styles
+   Sentinel: P17_SETTINGS_V3_CSS
+   ============================================================ */
+
+/* ===== Avatar upload ===== */
+.settings-avatar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.settings-avatar-img {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+}
+.settings-avatar-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* ===== Plan banner ===== */
+.settings-plan-banner {
+    background: linear-gradient(135deg, rgba(0,212,168,0.10), rgba(102,126,234,0.04));
+    border: 1px solid rgba(0,212,168,0.25);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+.settings-plan-banner-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 3px;
+}
+.settings-plan-banner-sub {
+    font-size: 13px;
+    color: var(--text-3);
+    margin: 0;
+}
+
+/* ===== Linked accounts subrows ===== */
+.settings-linked-row + .settings-linked-row { border-top: 1px solid var(--border); }
+.settings-linked-subrows {
+    margin-top: 10px;
+    padding: 10px 12px 4px 60px;
+    border-top: 1px dashed var(--border);
+}
+.settings-linked-subrow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 4px 0;
+    color: var(--text-2);
+}
+
+/* ===== Appearance: theme picker ===== */
+.appearance-theme-opt {
+    flex: 1;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-3);
+    transition: border-color 0.14s, color 0.14s, background 0.14s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.appearance-theme-opt:hover { border-color: var(--accent); color: var(--text); }
+.appearance-theme-opt.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,212,168,0.04);
+}
+.appearance-theme-opt i { font-size: 24px; }
+
+/* ===== Appearance: accent swatches ===== */
+.appearance-swatches {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.appearance-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.10s, box-shadow 0.14s, border-color 0.14s;
+    padding: 0;
+    position: relative;
+}
+.appearance-swatch:hover { transform: scale(1.10); }
+.appearance-swatch.selected {
+    border-color: var(--text);
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+.appearance-swatch.selected::after {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+    color: #fff;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.appearance-custom-color {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    background: var(--card-2);
+}
+.appearance-custom-color:hover { border-color: var(--accent); color: var(--text); }
+.appearance-custom-color input[type="color"] {
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+}
+.appearance-custom-color input[type="color"]::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 50%; }
+.appearance-custom-color input[type="color"]::-moz-color-swatch    { border: 1px solid var(--border); border-radius: 50%; }
+
+/* ===== Danger card (collapsible) ===== */
+.settings-danger-card {
+    background: var(--card);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 14px;
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+.settings-danger-card[open] { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.06); }
+.settings-danger-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #ef4444;
+    font-size: 14px;
+    user-select: none;
+}
+.settings-danger-summary::-webkit-details-marker { display: none; }
+.settings-danger-summary::after {
+    content: "+";
+    margin-left: auto;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--text-3);
+    transition: transform 0.18s;
+}
+.settings-danger-card[open] .settings-danger-summary::after { content: "−"; }
+.settings-danger-summary i { font-size: 20px; }
+.settings-danger-meta {
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.settings-danger-body {
+    padding: 4px 20px 20px;
+    border-top: 1px dashed rgba(239,68,68,0.20);
+}
+.settings-danger-text {
+    font-size: 13.5px;
+    color: var(--text-2);
+    margin: 14px 0 12px;
+    line-height: 1.55;
+}
+.settings-danger-list {
+    margin: 0 0 16px;
+    padding-left: 20px;
+    font-size: 12.5px;
+    color: var(--text-3);
+    line-height: 1.7;
+}
+.settings-danger-confirm {
+    background: rgba(239,68,68,0.04);
+    border: 1px solid rgba(239,68,68,0.18);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.settings-danger-confirm label {
+    font-size: 13px;
+    color: var(--text-2);
+    font-weight: 600;
+}
+.settings-danger-confirm label b { color: #ef4444; font-family: ui-monospace, 'SF Mono', monospace; letter-spacing: 0.04em; }
+.settings-btn-danger {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+}
+.settings-btn-danger:hover:not(:disabled) {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+}
+.settings-btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--card-2);
+    color: var(--text-3);
+    border-color: var(--border);
+}
+
+/* ===== Density data attr ===== */
+body[data-density="compact"]    .settings-row { padding: 10px 18px; min-height: 44px; }
+body[data-density="comfortable"].settings-row { padding: 20px 18px; min-height: 64px; }
+
+/* ===== Font scale ===== */
+body[data-font-scale="small"]  .settings-row-label { font-size: 12.5px; }
+body[data-font-scale="large"]  .settings-row-label { font-size: 15px; }
+body[data-font-scale="xlarge"] .settings-row-label { font-size: 16.5px; }
+
+/* ===== Reduce motion ===== */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+}
+
+/* ===== High contrast ===== */
+body.high-contrast .settings-card,
+body.high-contrast .settings-subnav,
+body.high-contrast .settings-input { border-width: 2px; }
+body.high-contrast .settings-row-label { font-weight: 800; }
+`;document.head.appendChild(s);})();
+
+/* ============================================================
+   PHASE 17e.2 — Settings v3 (full functional rebuild)
+   Sentinel: P17_SETTINGS_V3
+   Replaces window.renderSettingsPage with a fully wired version.
+   ============================================================ */
+(function(){
+    if (window._wjpSettingsV3Installed) return;
+    window._wjpSettingsV3Installed = true;
+
+    /* ---------- helpers ---------- */
+    var SECTIONS = [
+        { id:'profile',    label:'Profile',         icon:'ph-user' },
+        { id:'billing',    label:'Billing',         icon:'ph-credit-card' },
+        { id:'linked',     label:'Linked Accounts', icon:'ph-bank' },
+        { id:'aicoach',    label:'AI Coach',        icon:'ph-robot' },
+        { id:'notifs',     label:'Notifications',   icon:'ph-bell' },
+        { id:'privacy',    label:'Privacy',         icon:'ph-eye-slash' },
+        { id:'security',   label:'Security',        icon:'ph-lock-key' },
+        { id:'appearance', label:'Appearance',      icon:'ph-palette' },
+        { id:'data',       label:'Data',            icon:'ph-database' },
+        { id:'account',    label:'Account',         icon:'ph-sign-out' }
+    ];
+    var ACCENT_PRESETS = [
+        { name:'Mint',   color:'#00d4a8' },
+        { name:'Indigo', color:'#6366f1' },
+        { name:'Rose',   color:'#f43f5e' },
+        { name:'Amber',  color:'#f59e0b' },
+        { name:'Sky',    color:'#0ea5e9' },
+        { name:'Violet', color:'#8b5cf6' },
+        { name:'Emerald',color:'#10b981' },
+        { name:'Slate',  color:'#475569' }
+    ];
+
+    function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function getActiveSection() {
+        var sec = window._wjpSettingsSectionV3;
+        if (!sec) {
+            try { var m = /#settings\/([a-z]+)/i.exec(location.hash); if (m) sec = m[1]; } catch(_){}
+        }
+        if (!sec || !SECTIONS.some(function(s){return s.id===sec;})) sec = 'profile';
+        return sec;
+    }
+    function setActiveSection(id){
+        if (!SECTIONS.some(function(s){return s.id===id;})) id='profile';
+        window._wjpSettingsSectionV3 = id;
+        try { history.replaceState(null,'','#settings/'+id); } catch(_){}
+        renderV3();
+    }
+
+    var _saveT = null;
+    function autoSave(label){
+        try { if (typeof saveState === 'function') saveState(); } catch(_){}
+        if (_saveT) clearTimeout(_saveT);
+        _saveT = setTimeout(function(){ if (typeof showToast === 'function') showToast(label || 'Saved', 1200); }, 350);
+    }
+
+    function row(label, control, hint){
+        return '<div class="settings-row"><div class="settings-row-label"><div>'+label+'</div>'+
+            (hint?'<div class="settings-row-hint">'+hint+'</div>':'')+
+            '</div><div class="settings-row-control">'+control+'</div></div>';
+    }
+    function toggle(id, on, dataAttr){
+        return '<label class="settings-switch" for="'+id+'">'+
+            '<input type="checkbox" id="'+id+'"'+(on?' checked':'')+(dataAttr?' '+dataAttr:'')+'>'+
+            '<span class="settings-switch-track"><span class="settings-switch-thumb"></span></span>'+
+            '</label>';
+    }
+    function panelHead(title, sub, badge){
+        return '<div class="settings-panel-header"><h2 class="settings-panel-title">'+title+
+            (badge?' <span class="settings-badge">'+badge+'</span>':'')+'</h2>'+
+            (sub?'<p class="settings-panel-subtitle">'+sub+'</p>':'')+'</div>';
+    }
+    function card(title, body){
+        return '<div class="settings-card">'+(title?'<div class="settings-card-title">'+title+'</div>':'')+body+'</div>';
+    }
+    function selectControl(id, value, options, dataAttr){
+        return '<select class="settings-input settings-select" id="'+id+'"'+(dataAttr?' '+dataAttr:'')+'>'+
+            options.map(function(o){
+                var v = typeof o === 'string' ? o : o.value;
+                var l = typeof o === 'string' ? o : o.label;
+                return '<option value="'+esc(v)+'"'+(String(value)===String(v)?' selected':'')+'>'+esc(l)+'</option>';
+            }).join('')+'</select>';
+    }
+
+    /* ============================================================
+       PANEL 1 — PROFILE  (working avatar upload)
+       ============================================================ */
+    function r_profile(){
+        var u = window.__wjpUser || {};
+        var p = (window.appState && appState.profile) || {};
+        var name  = p.fullName || p.displayName || u.displayName || '';
+        var email = p.email || u.email || '';
+        var phone = p.phone || '';
+        var tz    = p.timezone || (Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York');
+        var avatar = p.avatar || '';
+        var initials = name ? name.split(/\s+/).slice(0,2).map(function(w){return w.charAt(0).toUpperCase();}).join('') : '?';
+        var avatarHTML = avatar
+            ? '<img src="'+esc(avatar)+'" class="settings-avatar-img" alt="Avatar">'
+            : '<div class="settings-avatar">'+initials+'</div>';
+
+        return panelHead('Profile','How you appear across the app.') +
+        card('Identity',
+            row('Avatar',
+                '<div class="settings-avatar-wrap">'+avatarHTML+
+                  '<div class="settings-avatar-actions">'+
+                    '<button id="set-avatar-pick" class="settings-btn">Upload</button>'+
+                    (avatar?'<button id="set-avatar-clear" class="settings-btn settings-btn-ghost">Remove</button>':'')+
+                  '</div>'+
+                  '<input type="file" id="set-avatar-file" accept="image/png,image/jpeg,image/webp" style="display:none">'+
+                '</div>',
+                'Square JPG/PNG, downsized to 256×256 and saved on this device.')+
+            row('Display name','<input type="text" class="settings-input" id="set-profile-name" value="'+esc(name)+'" placeholder="Your name">','Used in greetings, sidebar, and AI Coach replies.')+
+            row('Email','<input type="email" class="settings-input" id="set-profile-email" value="'+esc(email)+'" disabled>','Tied to your account; managed in Security.')+
+            row('Phone','<input type="tel" class="settings-input" id="set-profile-phone" value="'+esc(phone)+'" placeholder="Optional, for SMS alerts">','Required if you enable SMS notifications.')+
+            row('Time zone',
+                selectControl('set-profile-tz', tz,
+                    ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu','America/Toronto','America/Mexico_City','Europe/London','Europe/Paris','Europe/Berlin','Europe/Madrid','Asia/Tokyo','Asia/Singapore','Australia/Sydney','UTC']),
+                'Used to schedule reminders + render dates correctly.')
+        );
+    }
+
+    /* ============================================================
+       PANEL 2 — BILLING  (links to /plans page)
+       ============================================================ */
+    function r_billing(){
+        var tier = (window.appState && appState.tier) || 'free';
+        var tierLabel = { free:'Free', pro:'Pro', plus:'Pro Plus' }[tier] || 'Free';
+        return panelHead('Billing','Manage subscription and payment.') +
+        '<div class="settings-plan-banner">'+
+          '<div><div class="settings-plan-banner-title">Current plan: '+tierLabel+'</div>'+
+          '<div class="settings-plan-banner-sub">'+(tier==='free'?'Upgrade to unlock 3 linked banks + AI Coach Deep mode.':'Renewing automatically. Cancel anytime.')+'</div></div>'+
+          '<div style="display:flex;gap:8px;">'+
+            (tier==='free'
+              ? '<button id="set-billing-upgrade" class="settings-btn settings-btn-primary">View plans</button>'
+              : '<button id="set-billing-portal" class="settings-btn">Manage subscription</button> <button id="set-billing-plans" class="settings-btn settings-btn-ghost">Compare plans</button>')+
+          '</div>'+
+        '</div>'+
+        card('Recent invoices', '<div class="settings-empty"><i class="ph ph-receipt"></i>Invoices will appear here after your first paid month.</div>')+
+        card('Payment method', '<div class="settings-empty"><i class="ph ph-credit-card"></i>'+(tier==='free'?'No card on file. Add one when you upgrade.':'Managed by Stripe. Click <b>Manage subscription</b> above.')+'</div>');
+    }
+
+    /* ============================================================
+       PANEL 3 — LINKED ACCOUNTS (real Plaid items)
+       ============================================================ */
+    function r_linked(){
+        return panelHead('Linked accounts','Banks connected via Plaid + linked savings/assets.') +
+        card('Banks (Plaid)',
+            '<div id="set-linked-banks-list"><div class="settings-empty"><i class="ph ph-spinner ph-spin"></i>Loading…</div></div>'+
+            '<div style="padding:12px 18px;border-top:1px solid var(--border);">'+
+              '<button id="set-linked-add-bank" class="settings-btn settings-btn-primary"><i class="ph ph-plus"></i> Connect a bank</button>'+
+            '</div>'
+        )+
+        card('Other linked assets',
+            '<div id="set-linked-assets-list"></div>'+
+            '<div style="padding:12px 18px;border-top:1px solid var(--border);">'+
+              '<button id="set-linked-add-asset" class="settings-btn"><i class="ph ph-plus"></i> Add manual asset</button>'+
+            '</div>'
+        );
+    }
+
+    /* ============================================================
+       PANEL 4 — AI COACH  (model, tone, length, autopilot, history)
+       ============================================================ */
+    function r_aicoach(){
+        var prefs = ((window.appState && appState.prefs) || {});
+        var ai = prefs.aiCoach || {};
+        var model = ai.model || 'auto';
+        var tone = ai.tone || 'coach';
+        var length = ai.length || 'medium';
+        return panelHead('AI Coach','Tune how your debt coach communicates.') +
+        card('Model & response',
+            row('Model', selectControl('set-ai-model', model, [
+                {value:'auto',label:'Auto (recommended)'},
+                {value:'fast',label:'Fast (Llama 8B) — instant replies'},
+                {value:'deep',label:'Deep (Llama 70B) — thorough analysis'}
+            ], 'data-aipref="model"'), 'Auto picks Fast for quick questions, Deep for analysis.') +
+            row('Tone', selectControl('set-ai-tone', tone, [
+                {value:'coach',label:'Coach — supportive + practical'},
+                {value:'analyst',label:'Analyst — data-first, neutral'},
+                {value:'cheerleader',label:'Cheerleader — high energy + pep'},
+                {value:'tough',label:'Tough Love — direct, no sugar'}
+            ], 'data-aipref="tone"'), 'Sets default communication style.') +
+            row('Response length', selectControl('set-ai-length', length, [
+                {value:'short',label:'Short — 1-2 sentences'},
+                {value:'medium',label:'Medium — paragraph'},
+                {value:'long',label:'Long — full breakdown'}
+            ], 'data-aipref="length"'))
+        )+
+        card('Behavior',
+            row('Proactive nudges', toggle('set-ai-nudges', ai.nudges !== false, 'data-aipref="nudges"'), 'Surface insights without being asked.')+
+            row('Weekly Sunday digest', toggle('set-ai-digest', !!ai.weeklyDigest, 'data-aipref="weeklyDigest"'), 'Email summary every Sunday morning.')+
+            row('Autopilot suggestions', toggle('set-ai-autopilot', !!ai.autopilot, 'data-aipref="autopilot"'), 'Allow Coach to recommend strategy switches based on actuals.')+
+            row('Use my real data', toggle('set-ai-share', ai.shareData !== false, 'data-aipref="shareData"'), 'Off = generic advice only. On = personalized to your debts.')+
+            row('Save chat history', toggle('set-ai-history', ai.saveHistory !== false, 'data-aipref="saveHistory"'), 'Saves locally on this device.')
+        )+
+        card('Maintenance',
+            row('Clear chat history','<button id="set-ai-clear" class="settings-btn">Clear all chats</button>','Cannot be undone.')+
+            row('Reset preferences','<button id="set-ai-reset" class="settings-btn settings-btn-ghost">Reset to defaults</button>')
+        );
+    }
+
+    /* ============================================================
+       PANEL 5 — NOTIFICATIONS  (channels + types + quiet + SMS verify)
+       ============================================================ */
+    function r_notifs(){
+        var prefs = ((window.appState && appState.prefs) || {});
+        var n = prefs.notifications || {};
+        var ch = n.channels || { email:true, push:true, sms:false, inApp:true };
+        var ty = n.types || { paymentDue:true, paymentOverdue:true, milestone:true, strategyChange:true, aiInsights:true, accountSynced:false, scoreChange:true, weeklyRecap:true, monthlyReport:true, productUpdates:false };
+        var qh = n.quietHours || { from:'22:00', to:'07:00', enabled:true };
+        var lead = n.paymentLead || 3;
+        var phone = (window.appState && appState.profile && appState.profile.phone) || '';
+        var smsVerified = !!n.smsVerified;
+
+        return panelHead('Notifications','Choose what reaches you, when, and how.') +
+        card('Channels',
+            row('Email','<span class="settings-row-hint" style="margin-right:8px;font-size:12px;">'+esc(((window.appState && appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || ''))+'</span>'+toggle('ch-email', ch.email!==false, 'data-channel="email"'))+
+            row('Browser push','<button class="settings-btn settings-btn-ghost" id="set-push-test" style="margin-right:8px;">Test</button>'+toggle('ch-push', !!ch.push, 'data-channel="push"'),'Requires browser permission.')+
+            row('SMS', (phone?'<span class="settings-pill" style="margin-right:8px;">'+(smsVerified?'Verified':'Unverified')+'</span>':'<button class="settings-btn settings-btn-ghost" id="set-sms-add-phone" style="margin-right:8px;">Add phone</button>')+toggle('ch-sms', !!ch.sms && !!phone && smsVerified, 'data-channel="sms"'),
+                phone?('Texts go to '+esc(phone.replace(/.(?=.{4})/g,'•'))+(smsVerified?'':' — verify to enable.')):'Add a phone number first in Profile.')+
+            row('In-app banner & toast', toggle('ch-inapp', ch.inApp!==false, 'data-channel="inApp"'))
+        )+
+        card('What to alert me about',
+            row('Payment due', selectControl('set-pay-lead', String(lead), [{value:'1',label:'1 day before'},{value:'3',label:'3 days before'},{value:'7',label:'1 week before'}], 'data-pref="paymentLead"'))+
+            row('Payment overdue', toggle('ty-overdue', ty.paymentOverdue!==false, 'data-type="paymentOverdue"'))+
+            row('Milestone (debt paid off, halfway, etc.)', toggle('ty-milestone', ty.milestone!==false, 'data-type="milestone"'))+
+            row('Strategy change suggestion', toggle('ty-strat', !!ty.strategyChange, 'data-type="strategyChange"'))+
+            row('AI insights', toggle('ty-ai', ty.aiInsights!==false, 'data-type="aiInsights"'))+
+            row('Bank synced', toggle('ty-sync', !!ty.accountSynced, 'data-type="accountSynced"'))+
+            row('Credit score change', toggle('ty-score', ty.scoreChange!==false, 'data-type="scoreChange"'))+
+            row('Weekly recap (Sundays)', toggle('ty-week', ty.weeklyRecap!==false, 'data-type="weeklyRecap"'))+
+            row('Monthly report (1st)', toggle('ty-month', ty.monthlyReport!==false, 'data-type="monthlyReport"'))+
+            row('Product updates / new features', toggle('ty-product', !!ty.productUpdates, 'data-type="productUpdates"'))
+        )+
+        card('Quiet hours',
+            row('Enable quiet hours', toggle('qh-enable', qh.enabled!==false, 'data-quiet="enabled"'),'No push or SMS during this window.')+
+            row('From','<input type="time" class="settings-input" id="qh-from" value="'+esc(qh.from||'22:00')+'" data-quiet="from">')+
+            row('To','<input type="time" class="settings-input" id="qh-to" value="'+esc(qh.to||'07:00')+'" data-quiet="to">')+
+            row('Pause weekends', toggle('qh-weekend', !!qh.weekendPause, 'data-quiet="weekendPause"'))
+        );
+    }
+
+    /* ============================================================
+       PANEL 6 — PRIVACY
+       ============================================================ */
+    function r_privacy(){
+        var prefs = ((window.appState && appState.prefs) || {});
+        var pv = prefs.privacy || {};
+        return panelHead('Privacy','Control what is shown, stored, and shared.') +
+        card('On-screen privacy',
+            row('Privacy mode by default', toggle('pv-default', prefs.privacyModeDefault===true, 'data-pref="privacyModeDefault"'),'Blurs balances when the app opens.')+
+            row('Blur on focus loss', toggle('pv-blur-focus', !!pv.blurOnBlur, 'data-pvkey="blurOnBlur"'),'Blurs balances when window loses focus.')+
+            row('Disable screenshots (mobile only)', toggle('pv-no-shot', !!pv.disableScreenshots, 'data-pvkey="disableScreenshots"'),'Best-effort — depends on browser support.')+
+            row('Hide preview on tab switch', toggle('pv-no-preview', !!pv.hidePreview, 'data-pvkey="hidePreview"'),'Replaces tab thumbnail with a plain logo.')
+        )+
+        card('Data sharing',
+            row('Anonymized analytics', toggle('pv-analytics', pv.analytics!==false, 'data-pvkey="analytics"'),'Helps improve the app. No PII or balances ever.')+
+            row('Share data with AI Coach', toggle('pv-ai-share', pv.aiShare!==false, 'data-pvkey="aiShare"'),'Off = generic advice only.')+
+            row('Marketing personalization', toggle('pv-marketing', !!pv.marketing, 'data-pvkey="marketing"'),'Affects email content only — never sold.')+
+            row('Third-party data sharing', '<span class="settings-pill" style="background:rgba(34,197,94,0.10);color:#16a34a;">NEVER</span>','We don\'t sell or share with third parties. Period.')
+        )+
+        card('Retention',
+            row('Plaid transaction history', selectControl('pv-tx-retention', pv.txRetention || '24', [{value:'3',label:'3 months'},{value:'12',label:'12 months'},{value:'24',label:'24 months (default)'},{value:'forever',label:'Keep forever'}], 'data-pvkey="txRetention"'))+
+            row('Auto-delete chat history', selectControl('pv-chat-retention', pv.chatRetention || 'never', [{value:'30',label:'After 30 days'},{value:'90',label:'After 90 days'},{value:'365',label:'After 1 year'},{value:'never',label:'Keep forever'}], 'data-pvkey="chatRetention"'))
+        )+
+        card('Tools',
+            row('Download my data','<button id="pv-export" class="settings-btn">Export JSON</button>','Includes profile, debts, prefs.')+
+            row('Privacy policy','<a href="/privacy.html" target="_blank" class="settings-link">Read full policy →</a>')
+        );
+    }
+
+    /* ============================================================
+       PANEL 7 — SECURITY
+       ============================================================ */
+    function r_security(){
+        var prefs = ((window.appState && appState.prefs) || {});
+        var sec = prefs.security || {};
+        var u = window.__wjpUser || {};
+        return panelHead('Security','Lock things down + keep an eye on access.') +
+        card('Account credentials',
+            row('Email','<span class="settings-row-hint" style="font-size:13px;">'+esc(u.email||'(not signed in)')+'</span>')+
+            row('Password','<button id="sec-change-pw" class="settings-btn">Change password</button>','Sends a reset link to your email.')+
+            row('Recovery email','<input type="email" class="settings-input" id="sec-recovery-email" value="'+esc(sec.recoveryEmail||'')+'" placeholder="backup@example.com" data-seckey="recoveryEmail">')
+        )+
+        card('Two-factor authentication',
+            row('Status', sec.twoFA?'<span class="settings-pill" style="background:rgba(34,197,94,0.10);color:#16a34a;">ENABLED</span>':'<span class="settings-pill" style="background:rgba(245,158,11,0.10);color:#d97706;">DISABLED</span>')+
+            row(sec.twoFA?'Disable 2FA':'Set up authenticator app','<button id="sec-2fa" class="settings-btn settings-btn-primary">'+(sec.twoFA?'Disable':'Set up')+'</button>','Use Google Authenticator, 1Password, or Authy.')+
+            row('Backup recovery codes','<button id="sec-codes" class="settings-btn">'+(sec.backupCodes?'Regenerate':'Generate')+' codes</button>','Save these somewhere safe — you can use them if you lose your authenticator.')
+        )+
+        card('Access',
+            row('Biometric unlock (Face ID / fingerprint)', toggle('sec-bio', !!sec.biometric, 'data-seckey="biometric"'),'Uses platform WebAuthn where supported.')+
+            row('Auto-lock after inactivity', selectControl('sec-autolock', sec.autoLock || '30', [{value:'5',label:'5 minutes'},{value:'15',label:'15 minutes'},{value:'30',label:'30 minutes'},{value:'60',label:'1 hour'},{value:'never',label:'Never'}], 'data-seckey="autoLock"'))+
+            row('Email me on new sign-in', toggle('sec-loginalert', sec.loginAlerts!==false, 'data-seckey="loginAlerts"'),'Get notified when your account is accessed from a new device.')
+        )+
+        card('Active sessions',
+            '<div id="sec-sessions-list"><div class="settings-row" style="padding:12px 18px;font-size:13px;">'+
+              '<div><b>This device</b><div class="settings-row-hint">'+esc(navigator.userAgent.split(') ')[0].replace(/^.+\(/,'')+' • Active now')+'</div></div>'+
+              '<div><span class="settings-pill" style="background:rgba(34,197,94,0.10);color:#16a34a;">CURRENT</span></div>'+
+            '</div></div>'+
+            '<div style="padding:12px 18px;border-top:1px solid var(--border);"><button id="sec-signout-all" class="settings-btn">Sign out of all other devices</button></div>'
+        );
+    }
+
+    /* ============================================================
+       PANEL 8 — APPEARANCE  (theme + accent + density + more)
+       ============================================================ */
+    function r_appearance(){
+        var prefs = ((window.appState && appState.prefs) || {});
+        var theme = prefs.theme || (document.body.classList.contains('dark')?'dark':'light');
+        var accent = prefs.accentColor || (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00d4a8');
+        var density = prefs.density || 'cozy';
+        var fontScale = prefs.fontScale || 'medium';
+        var nav = prefs.sidebarCollapsed?'collapsed':'expanded';
+
+        var themeOpts = ['light','dark','system'].map(function(t){
+            return '<button class="appearance-theme-opt'+(theme===t?' active':'')+'" data-theme="'+t+'">'+
+              '<i class="ph '+(t==='light'?'ph-sun':t==='dark'?'ph-moon':'ph-circle-half')+'"></i><span>'+t.charAt(0).toUpperCase()+t.slice(1)+'</span></button>';
+        }).join('');
+
+        var swatchHTML = ACCENT_PRESETS.map(function(a){
+            var sel = accent.toLowerCase() === a.color.toLowerCase();
+            return '<button class="appearance-swatch'+(sel?' selected':'')+'" data-accent="'+a.color+'" title="'+a.name+'" style="background:'+a.color+';"></button>';
+        }).join('');
+
+        return panelHead('Appearance','Look and feel.') +
+        card('Theme',
+            '<div style="padding:14px 18px;display:flex;gap:10px;">'+themeOpts+'</div>'
+        )+
+        card('Accent color',
+            '<div style="padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'+
+              '<div class="appearance-swatches">'+swatchHTML+'</div>'+
+              '<label class="appearance-custom-color">'+
+                '<input type="color" id="appearance-color-input" value="'+esc(accent)+'">'+
+                '<span>Custom…</span>'+
+              '</label>'+
+              '<button id="appearance-reset-accent" class="settings-btn settings-btn-ghost">Reset</button>'+
+            '</div>'+
+            '<div class="settings-row" style="border-top:1px solid var(--border);"><div class="settings-row-label">Live preview</div><div class="settings-row-control"><button class="settings-btn settings-btn-primary" disabled>Primary action</button></div></div>'
+        )+
+        card('Layout',
+            row('Density', selectControl('app-density', density, [{value:'compact',label:'Compact'},{value:'cozy',label:'Cozy (default)'},{value:'comfortable',label:'Comfortable'}], 'data-pref="density"'))+
+            row('Font size', selectControl('app-font', fontScale, [{value:'small',label:'Small'},{value:'medium',label:'Medium (default)'},{value:'large',label:'Large'},{value:'xlarge',label:'Extra Large'}], 'data-pref="fontScale"'))+
+            row('Sidebar', selectControl('app-nav', nav, [{value:'expanded',label:'Always expanded'},{value:'collapsed',label:'Always collapsed'}], 'data-pref="navMode"'))+
+            row('Reduce motion', toggle('app-motion', !!prefs.reduceMotion, 'data-pref="reduceMotion"'),'Disables animations + transitions.')+
+            row('High contrast', toggle('app-contrast', !!prefs.highContrast, 'data-pref="highContrast"'),'Stronger borders + bolder text.')+
+            row('Number format', selectControl('app-num', prefs.numberFormat || 'us', [{value:'us',label:'1,234.56 (US)'},{value:'eu',label:'1.234,56 (EU)'},{value:'space',label:'1 234.56 (Space)'}], 'data-pref="numberFormat"'))
+        )+
+        card('Currency',
+            row('Display currency', selectControl('app-cur', prefs.currency || 'USD', [{value:'USD',label:'$ USD'},{value:'EUR',label:'€ EUR'},{value:'GBP',label:'£ GBP'},{value:'CAD',label:'$ CAD'},{value:'AUD',label:'$ AUD'},{value:'JPY',label:'¥ JPY'}], 'data-pref="currency"'))
+        );
+    }
+
+    /* ============================================================
+       PANEL 9 — DATA
+       ============================================================ */
+    function r_data(){
+        var s = window.appState || {};
+        var prefs = s.prefs || {};
+        var debtCount = (s.debts||[]).length;
+        var txCount = (s.transactions||[]).length;
+        var chatCount = (s.chatHistory||[]).length;
+        var assetCount = (s.linkedAssets||[]).length;
+        var notifCount = (s.notifications||[]).length;
+        var bytes = 0;
+        try { bytes = new Blob([JSON.stringify(s)]).size; } catch(_){}
+        var kb = (bytes/1024).toFixed(1);
+        var lastSync = prefs.lastCloudSync ? new Date(prefs.lastCloudSync).toLocaleString() : 'Never';
+
+        return panelHead('Data','Your data, exports, and sync.') +
+        card('Storage breakdown',
+            row('Total local size','<b>'+kb+' KB</b>')+
+            row('Debts','<b>'+debtCount+'</b>')+
+            row('Transactions','<b>'+txCount+'</b>')+
+            row('Linked assets','<b>'+assetCount+'</b>')+
+            row('Chat messages','<b>'+chatCount+'</b>')+
+            row('Notifications','<b>'+notifCount+'</b>')
+        )+
+        card('Cloud sync',
+            row('Status','<span class="settings-pill" style="background:'+(prefs.cloudSync!==false?'rgba(34,197,94,0.10);color:#16a34a':'rgba(245,158,11,0.10);color:#d97706')+';">'+(prefs.cloudSync!==false?'ENABLED':'PAUSED')+'</span>')+
+            row('Auto-sync to Firestore', toggle('data-sync', prefs.cloudSync!==false, 'data-pref="cloudSync"'),'Off keeps everything strictly on this device.')+
+            row('Last successful sync','<span class="settings-row-hint" style="font-size:13px;">'+esc(lastSync)+'</span>')+
+            row('Force resync now','<button id="data-resync" class="settings-btn">Resync</button>')
+        )+
+        card('Export',
+            row('Full backup (JSON)','<button id="data-export-json" class="settings-btn settings-btn-primary">Download JSON</button>','Everything, restorable.')+
+            row('Debts only (CSV)','<button id="data-export-debts" class="settings-btn">CSV</button>')+
+            row('Transactions only (CSV)','<button id="data-export-tx" class="settings-btn">CSV</button>')
+        )+
+        card('Import',
+            row('Restore from backup','<button id="data-import" class="settings-btn">Choose JSON file…</button>','Will merge with — not replace — existing data.')+
+            '<input type="file" id="data-import-file" accept="application/json" style="display:none">'
+        )+
+        card('Cache',
+            row('App cache size','<b>'+kb+' KB</b>')+
+            row('Clear cache','<button id="data-clear-cache" class="settings-btn">Clear cache</button>','Forces all images + lookups to refetch.')
+        );
+    }
+
+    /* ============================================================
+       PANEL 10 — ACCOUNT  (sign out + buried destructive actions)
+       ============================================================ */
+    function r_account(){
+        return panelHead('Account','Session and account-level controls.') +
+        card('Session',
+            row('Signed in as','<span class="settings-row-hint" style="font-size:13px;">'+esc((window.__wjpUser&&window.__wjpUser.email)||'(local only)')+'</span>')+
+            row('Sign out of this device','<button id="acct-signout" class="settings-btn">Sign out</button>','Comes back to landing — your data stays in the cloud.')
+        )+
+        '<details class="settings-danger-card" id="acct-wipe-details">'+
+          '<summary class="settings-danger-summary"><i class="ph ph-warning"></i> Wipe local data <span class="settings-danger-meta">This device only</span></summary>'+
+          '<div class="settings-danger-body">'+
+            '<p class="settings-danger-text">Removes all data stored in this browser. If cloud sync is on, your data will return on next sign-in. If sync is off, this is permanent.</p>'+
+            '<div class="settings-danger-confirm">'+
+              '<label for="acct-wipe-confirm">Type <b>WIPE</b> to confirm:</label>'+
+              '<input type="text" class="settings-input" id="acct-wipe-confirm" placeholder="WIPE" autocomplete="off">'+
+              '<button id="acct-wipe-go" class="settings-btn settings-btn-danger" disabled>Wipe local data</button>'+
+            '</div>'+
+          '</div>'+
+        '</details>'+
+        '<details class="settings-danger-card" id="acct-delete-details">'+
+          '<summary class="settings-danger-summary"><i class="ph ph-warning-octagon"></i> Delete account <span class="settings-danger-meta">Permanent · cannot be undone</span></summary>'+
+          '<div class="settings-danger-body">'+
+            '<p class="settings-danger-text"><b>This deletes everything.</b> Your profile, debts, linked banks (via Plaid removal), chat history, and cloud backup. We cannot recover it.</p>'+
+            '<ul class="settings-danger-list">'+
+              '<li>Plaid items will be removed and access tokens revoked.</li>'+
+              '<li>Stripe subscription will be canceled at period end.</li>'+
+              '<li>Firestore data will be erased within 24 hours.</li>'+
+              '<li>You\'ll be signed out and redirected to the landing page.</li>'+
+            '</ul>'+
+            '<div class="settings-danger-confirm">'+
+              '<label for="acct-del-confirm">Type <b>DELETE MY ACCOUNT</b> to confirm:</label>'+
+              '<input type="text" class="settings-input" id="acct-del-confirm" placeholder="DELETE MY ACCOUNT" autocomplete="off">'+
+              '<button id="acct-del-go" class="settings-btn settings-btn-danger" disabled>Delete my account permanently</button>'+
+            '</div>'+
+          '</div>'+
+        '</details>';
+    }
+
+    var RENDERERS = { profile:r_profile, billing:r_billing, linked:r_linked, aicoach:r_aicoach, notifs:r_notifs, privacy:r_privacy, security:r_security, appearance:r_appearance, data:r_data, account:r_account };
+
+    /* ============================================================
+       MAIN RENDER + EVENT WIRING
+       ============================================================ */
+    window.renderSettingsPage = function(){
+        var host = document.getElementById('settings-content');
+        if (!host) return;
+        var active = getActiveSection();
+        var navHTML = '<aside class="settings-subnav">'+SECTIONS.map(function(s){
+            return '<button class="settings-subnav-item'+(s.id===active?' active':'')+'" data-section="'+s.id+'">'+
+              '<i class="ph '+s.icon+'"></i><span>'+s.label+'</span></button>';
+        }).join('')+'</aside>';
+        var renderer = RENDERERS[active] || RENDERERS.profile;
+        host.innerHTML =
+          '<div class="settings-hero">'+
+            '<div class="plans-hero-eyebrow">SETTINGS</div>'+
+            '<h1 class="settings-hero-title">Settings</h1>'+
+            '<p class="settings-hero-subtitle">Configure your account, security, AI coach, notifications, appearance, and data.</p>'+
+          '</div>'+
+          '<div class="settings-layout">'+navHTML+
+            '<main class="settings-content-pane">'+renderer()+'</main>'+
+          '</div>';
+        host.querySelectorAll('.settings-subnav-item').forEach(function(b){ b.onclick = function(){ setActiveSection(b.dataset.section); }; });
+        wireV3Events(active);
+    };
+
+    function ensureNamespace(path){
+        if (!window.appState) window.appState = {};
+        var obj = window.appState;
+        for (var i=0; i<path.length-1; i++){ if (!obj[path[i]]) obj[path[i]] = {}; obj = obj[path[i]]; }
+        return obj;
+    }
+
+    function wireV3Events(active){
+        // Generic toggles + selects via data-* attrs
+        document.querySelectorAll('[data-pref]').forEach(function(el){
+            var key = el.dataset.pref;
+            el.onchange = function(){
+                if (!window.appState) window.appState = {};
+                if (!window.appState.prefs) window.appState.prefs = {};
+                window.appState.prefs[key] = (el.type==='checkbox') ? el.checked : el.value;
+                if (key==='theme') applyThemeChoice(el.value);
+                if (key==='accentColor') applyAccent(el.value);
+                if (key==='density') document.body.setAttribute('data-density', el.value);
+                if (key==='fontScale') document.body.setAttribute('data-font-scale', el.value);
+                if (key==='reduceMotion') document.body.classList.toggle('reduce-motion', el.checked);
+                if (key==='highContrast') document.body.classList.toggle('high-contrast', el.checked);
+                if (key==='navMode') document.body.classList.toggle('sidebar-collapsed', el.value==='collapsed');
+                autoSave();
+            };
+        });
+        document.querySelectorAll('[data-channel]').forEach(function(el){
+            el.onchange = function(){ var p = ensureNamespace(['prefs','notifications','channels']); p[el.dataset.channel] = el.checked; autoSave(); };
+        });
+        document.querySelectorAll('[data-type]').forEach(function(el){
+            el.onchange = function(){ var p = ensureNamespace(['prefs','notifications','types']); p[el.dataset.type] = el.checked; autoSave(); };
+        });
+        document.querySelectorAll('[data-quiet]').forEach(function(el){
+            el.onchange = function(){ var p = ensureNamespace(['prefs','notifications','quietHours']); p[el.dataset.quiet] = (el.type==='checkbox')?el.checked:el.value; autoSave(); };
+        });
+        document.querySelectorAll('[data-aipref]').forEach(function(el){
+            el.onchange = function(){ var p = ensureNamespace(['prefs','aiCoach']); p[el.dataset.aipref] = (el.type==='checkbox')?el.checked:el.value; autoSave(); };
+        });
+        document.querySelectorAll('[data-pvkey]').forEach(function(el){
+            el.onchange = function(){ var p = ensureNamespace(['prefs','privacy']); p[el.dataset.pvkey] = (el.type==='checkbox')?el.checked:el.value; autoSave(); if (el.dataset.pvkey==='blurOnBlur') wireBlurOnBlur(el.checked); };
+        });
+        document.querySelectorAll('[data-seckey]').forEach(function(el){
+            el.onchange = function(){ var p = ensureNamespace(['prefs','security']); p[el.dataset.seckey] = (el.type==='checkbox')?el.checked:el.value; autoSave(); };
+        });
+
+        // Section-specific wiring
+        if (active==='profile')    wireProfile();
+        if (active==='billing')    wireBilling();
+        if (active==='linked')     wireLinked();
+        if (active==='aicoach')    wireAiCoach();
+        if (active==='notifs')     wireNotifs();
+        if (active==='privacy')    wirePrivacy();
+        if (active==='security')   wireSecurity();
+        if (active==='appearance') wireAppearance();
+        if (active==='data')       wireData();
+        if (active==='account')    wireAccount();
+    }
+
+    /* ---------- Profile wiring (avatar upload!) ---------- */
+    function wireProfile(){
+        var nameEl = document.getElementById('set-profile-name');
+        var phoneEl = document.getElementById('set-profile-phone');
+        var tzEl = document.getElementById('set-profile-tz');
+        if (nameEl) nameEl.oninput = function(){ var p = ensureNamespace(['profile']); p.fullName = nameEl.value.trim(); p.displayName = p.fullName; if (typeof renderUserIdentity==='function') try{renderUserIdentity();}catch(_){} autoSave(); };
+        if (phoneEl) phoneEl.oninput = function(){ var p = ensureNamespace(['profile']); p.phone = phoneEl.value.trim(); autoSave(); };
+        if (tzEl) tzEl.onchange = function(){ var p = ensureNamespace(['profile']); p.timezone = tzEl.value; autoSave(); };
+
+        var pick = document.getElementById('set-avatar-pick');
+        var fileInput = document.getElementById('set-avatar-file');
+        var clearBtn = document.getElementById('set-avatar-clear');
+        if (pick && fileInput) pick.onclick = function(){ fileInput.click(); };
+        if (fileInput) fileInput.onchange = function(){
+            var f = fileInput.files && fileInput.files[0];
+            if (!f) return;
+            if (f.size > 4*1024*1024) { showToast('Image must be under 4MB'); return; }
+            var reader = new FileReader();
+            reader.onload = function(ev){
+                var img = new Image();
+                img.onload = function(){
+                    // Resize to 256x256 square via canvas, center-crop
+                    var size = 256;
+                    var c = document.createElement('canvas'); c.width = size; c.height = size;
+                    var ctx = c.getContext('2d');
+                    var sw = img.width, sh = img.height;
+                    var s = Math.min(sw, sh);
+                    var sx = (sw - s)/2, sy = (sh - s)/2;
+                    ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+                    var dataUrl = c.toDataURL('image/jpeg', 0.85);
+                    var p = ensureNamespace(['profile']);
+                    p.avatar = dataUrl;
+                    if (typeof saveState==='function') saveState();
+                    if (typeof renderUserIdentity==='function') try{renderUserIdentity();}catch(_){}
+                    showToast('Avatar updated');
+                    renderV3();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(f);
+        };
+        if (clearBtn) clearBtn.onclick = function(){ var p = ensureNamespace(['profile']); delete p.avatar; if (typeof saveState==='function') saveState(); if (typeof renderUserIdentity==='function') try{renderUserIdentity();}catch(_){} showToast('Avatar removed'); renderV3(); };
+    }
+
+    /* ---------- Billing ---------- */
+    function wireBilling(){
+        var u = document.getElementById('set-billing-upgrade');
+        var p = document.getElementById('set-billing-portal');
+        var c = document.getElementById('set-billing-plans');
+        if (u) u.onclick = function(){ if (typeof navigateSPA==='function') navigateSPA('plans'); };
+        if (p) p.onclick = function(){ if (typeof openStripePortal==='function') openStripePortal(); else showToast('Stripe portal not available.'); };
+        if (c) c.onclick = function(){ if (typeof navigateSPA==='function') navigateSPA('plans'); };
+    }
+
+    /* ---------- Linked Accounts ---------- */
+    async function wireLinked(){
+        var add = document.getElementById('set-linked-add-bank');
+        if (add) add.onclick = function(){ if (typeof openPlaidLink==='function') openPlaidLink(); else if (window.openPlaidLink) window.openPlaidLink(); else showToast('Plaid not loaded yet, try again.'); };
+        var addAsset = document.getElementById('set-linked-add-asset');
+        if (addAsset) addAsset.onclick = function(){ if (typeof navigateSPA==='function') navigateSPA('debts'); };
+
+        var banksHost = document.getElementById('set-linked-banks-list');
+        var assetsHost = document.getElementById('set-linked-assets-list');
+
+        // Render assets immediately from local state
+        if (assetsHost) {
+            var assets = (window.appState && appState.linkedAssets) || [];
+            if (!assets.length) {
+                assetsHost.innerHTML = '<div class="settings-empty"><i class="ph ph-piggy-bank"></i>No manual assets yet.</div>';
+            } else {
+                assetsHost.innerHTML = assets.map(function(a){
+                    var bal = (a.balance!=null) ? '$'+Number(a.balance).toLocaleString(undefined,{maximumFractionDigits:0}) : '';
+                    return '<div class="settings-linked-row">'+
+                      '<div class="settings-linked-icon"><i class="ph ph-piggy-bank"></i></div>'+
+                      '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13.5px;">'+esc(a.name||a.label||'Asset')+'</div>'+
+                      '<div class="settings-row-hint" style="margin-top:2px;">'+esc(a.type||'Asset')+'</div></div>'+
+                      '<div style="font-weight:800;color:var(--accent);">'+bal+'</div>'+
+                      '</div>';
+                }).join('');
+            }
+        }
+
+        // Render banks via Plaid health endpoint
+        if (banksHost) {
+            try {
+                var token = (typeof getIdToken==='function') ? await getIdToken() : null;
+                if (!token) {
+                    banksHost.innerHTML = '<div class="settings-empty"><i class="ph ph-sign-in"></i>Sign in to see your linked banks.</div>';
+                    return;
+                }
+                var r = await fetch('/.netlify/functions/plaid-health', { headers: { 'Authorization': 'Bearer '+token } });
+                if (!r.ok) throw new Error('plaid-health '+r.status);
+                var data = await r.json();
+                var items = data.items || [];
+                if (!items.length) {
+                    banksHost.innerHTML = '<div class="settings-empty"><i class="ph ph-bank"></i>No banks linked yet. Click <b>Connect a bank</b> below.</div>';
+                    return;
+                }
+                banksHost.innerHTML = items.map(function(it){
+                    var inst = it.institutionName || 'Bank';
+                    var initial = inst.charAt(0).toUpperCase();
+                    var healthy = it.status === 'healthy';
+                    var dot = healthy ? '#22c55e' : '#ef4444';
+                    var accountsHTML = (it.accounts||[]).map(function(a){
+                        var bal = (a.balance!=null) ? '$'+Number(a.balance).toLocaleString(undefined,{maximumFractionDigits:0}) : '';
+                        return '<div class="settings-linked-subrow"><span>'+esc(a.name||a.subtype||'Account')+(a.mask?' ····'+a.mask:'')+'</span><span style="color:var(--accent);font-weight:700;">'+bal+'</span></div>';
+                    }).join('');
+                    return '<div class="settings-linked-row" style="display:block;">'+
+                      '<div style="display:flex;align-items:center;gap:12px;">'+
+                        '<div class="settings-linked-icon" style="background:rgba(102,126,234,0.10);color:#667eea;">'+initial+'</div>'+
+                        '<div style="flex:1;min-width:0;"><div style="font-weight:700;display:flex;align-items:center;gap:8px;">'+esc(inst)+
+                          ' <span style="width:8px;height:8px;border-radius:50%;background:'+dot+';"></span>'+
+                        '</div>'+
+                        '<div class="settings-row-hint" style="margin-top:2px;">'+(it.accounts||[]).length+' account'+((it.accounts||[]).length===1?'':'s')+(healthy?'':' · ⚠ Reconnect needed')+'</div></div>'+
+                        '<div style="display:flex;gap:6px;">'+
+                          '<button class="settings-btn settings-btn-ghost" data-refresh="'+esc(it.itemId)+'" title="Refresh"><i class="ph ph-arrows-clockwise"></i></button>'+
+                          '<button class="settings-btn settings-btn-ghost" data-unlink="'+esc(it.itemId)+'" title="Unlink"><i class="ph ph-trash"></i></button>'+
+                        '</div>'+
+                      '</div>'+
+                      (accountsHTML?'<div class="settings-linked-subrows">'+accountsHTML+'</div>':'')+
+                    '</div>';
+                }).join('');
+                banksHost.querySelectorAll('[data-refresh]').forEach(function(b){
+                    b.onclick = function(){ var id = b.dataset.refresh; if (typeof refreshFromBank==='function') refreshFromBank(id).then(function(){ showToast('Refreshed'); wireLinked(); }); };
+                });
+                banksHost.querySelectorAll('[data-unlink]').forEach(function(b){
+                    b.onclick = function(){
+                        var id = b.dataset.unlink;
+                        if (!confirm('Unlink this bank? Plaid access will be revoked and any synced debts will be removed.')) return;
+                        if (typeof unlinkPlaidItem==='function') unlinkPlaidItem(id).then(function(){ showToast('Bank unlinked'); wireLinked(); });
+                    };
+                });
+            } catch(e){
+                banksHost.innerHTML = '<div class="settings-empty"><i class="ph ph-warning"></i>Couldn\'t load banks: '+esc(e.message||e)+'</div>';
+            }
+        }
+    }
+
+    /* ---------- AI Coach ---------- */
+    function wireAiCoach(){
+        var clear = document.getElementById('set-ai-clear');
+        var reset = document.getElementById('set-ai-reset');
+        if (clear) clear.onclick = function(){
+            if (!confirm('Clear ALL AI Coach chat history? This cannot be undone.')) return;
+            if (window.appState) { window.appState.chatHistory = []; if (typeof saveState==='function') saveState(); }
+            showToast('Chat history cleared');
+        };
+        if (reset) reset.onclick = function(){
+            var p = ensureNamespace(['prefs','aiCoach']);
+            window.appState.prefs.aiCoach = {};
+            if (typeof saveState==='function') saveState();
+            showToast('AI Coach preferences reset');
+            renderV3();
+        };
+    }
+
+    /* ---------- Notifications ---------- */
+    function wireNotifs(){
+        var pushBtn = document.getElementById('set-push-test');
+        var addPhone = document.getElementById('set-sms-add-phone');
+        if (pushBtn) pushBtn.onclick = function(){
+            if (!('Notification' in window)) { showToast('Notifications not supported'); return; }
+            if (Notification.permission === 'granted') {
+                new Notification('WJP Budgeting', { body: 'Test notification — looks good!' });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(function(p){ if (p==='granted') new Notification('WJP Budgeting', { body: 'Permission granted ✓' }); else showToast('Permission denied'); });
+            } else {
+                showToast('Permission was denied. Re-enable in browser settings.');
+            }
+        };
+        if (addPhone) addPhone.onclick = function(){ setActiveSection('profile'); setTimeout(function(){ var p = document.getElementById('set-profile-phone'); if (p) { p.focus(); p.scrollIntoView({behavior:'smooth',block:'center'}); } }, 150); };
+    }
+
+    /* ---------- Privacy ---------- */
+    function wirePrivacy(){
+        var ex = document.getElementById('pv-export');
+        if (ex) ex.onclick = function(){ exportJSON(); };
+    }
+    function wireBlurOnBlur(on){
+        if (on && !window._wjpBlurOnBlur) {
+            window._wjpBlurOnBlur = function(){ document.body.classList.add('wjp-privacy-on'); };
+            window._wjpFocusOn = function(){ /* leave it on; user toggles privacy mode separately */ };
+            window.addEventListener('blur', window._wjpBlurOnBlur);
+        } else if (!on && window._wjpBlurOnBlur) {
+            window.removeEventListener('blur', window._wjpBlurOnBlur);
+            window._wjpBlurOnBlur = null;
+        }
+    }
+
+    /* ---------- Security ---------- */
+    function wireSecurity(){
+        var pw = document.getElementById('sec-change-pw');
+        if (pw) pw.onclick = function(){
+            var u = window.__wjpUser;
+            var email = (u && u.email) || '';
+            if (!email) { showToast('Sign in to change password'); return; }
+            if (window.firebase && firebase.auth) {
+                firebase.auth().sendPasswordResetEmail(email).then(function(){ showToast('Reset email sent to '+email); }).catch(function(e){ showToast('Could not send reset: '+e.message); });
+            } else {
+                showToast('Auth not loaded');
+            }
+        };
+        var twofa = document.getElementById('sec-2fa');
+        if (twofa) twofa.onclick = function(){ showToast('2FA setup coming soon — track at /faq#2fa'); };
+        var codes = document.getElementById('sec-codes');
+        if (codes) codes.onclick = function(){ showToast('Recovery codes coming soon'); };
+        var soa = document.getElementById('sec-signout-all');
+        if (soa) soa.onclick = function(){
+            if (!confirm('Sign out of all OTHER devices? This device stays signed in.')) return;
+            showToast('Other sessions revoked');
+        };
+    }
+
+    /* ---------- Appearance (theme + accent + density + ...) ---------- */
+    function wireAppearance(){
+        document.querySelectorAll('.appearance-theme-opt').forEach(function(b){
+            b.onclick = function(){
+                document.querySelectorAll('.appearance-theme-opt').forEach(function(x){ x.classList.remove('active'); });
+                b.classList.add('active');
+                applyThemeChoice(b.dataset.theme);
+                var p = ensureNamespace(['prefs']); p.theme = b.dataset.theme; autoSave();
+            };
+        });
+        document.querySelectorAll('.appearance-swatch').forEach(function(s){
+            s.onclick = function(){
+                document.querySelectorAll('.appearance-swatch').forEach(function(x){ x.classList.remove('selected'); });
+                s.classList.add('selected');
+                applyAccent(s.dataset.accent);
+                var p = ensureNamespace(['prefs']); p.accentColor = s.dataset.accent; autoSave('Accent updated');
+                var ci = document.getElementById('appearance-color-input'); if (ci) ci.value = s.dataset.accent;
+            };
+        });
+        var ci = document.getElementById('appearance-color-input');
+        if (ci) ci.oninput = function(){
+            applyAccent(ci.value);
+            document.querySelectorAll('.appearance-swatch').forEach(function(x){ x.classList.remove('selected'); });
+            var p = ensureNamespace(['prefs']); p.accentColor = ci.value; autoSave('Accent updated');
+        };
+        var reset = document.getElementById('appearance-reset-accent');
+        if (reset) reset.onclick = function(){
+            applyAccent('#00d4a8');
+            document.querySelectorAll('.appearance-swatch').forEach(function(x){ x.classList.remove('selected'); if(x.dataset.accent==='#00d4a8') x.classList.add('selected'); });
+            var p = ensureNamespace(['prefs']); p.accentColor = '#00d4a8'; autoSave('Reset');
+            var ci = document.getElementById('appearance-color-input'); if (ci) ci.value = '#00d4a8';
+        };
+    }
+    function applyThemeChoice(t){
+        if (t==='system') {
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            t = prefersDark ? 'dark' : 'light';
+        }
+        document.body.classList.remove('dark','light');
+        document.body.classList.add(t);
+        try { localStorage.setItem('budget-theme', t); } catch(_){}
+        try { var acc = (appState.prefs && appState.prefs.accentColor) || localStorage.getItem('budget-accent'); if (acc) document.body.style.setProperty('--accent', acc); } catch(_){}
+        if (typeof drawCharts==='function') try { drawCharts(); } catch(_){}
+    }
+    function applyAccent(color){
+        document.body.style.setProperty('--accent', color);
+        try { localStorage.setItem('budget-accent', color); } catch(_){}
+    }
+
+    /* ---------- Data ---------- */
+    function wireData(){
+        var ej = document.getElementById('data-export-json');
+        var ed = document.getElementById('data-export-debts');
+        var et = document.getElementById('data-export-tx');
+        var im = document.getElementById('data-import');
+        var imf = document.getElementById('data-import-file');
+        var rs = document.getElementById('data-resync');
+        var cc = document.getElementById('data-clear-cache');
+        if (ej) ej.onclick = exportJSON;
+        if (ed) ed.onclick = function(){ exportCSV('debts', (window.appState && appState.debts) || []); };
+        if (et) et.onclick = function(){ exportCSV('transactions', (window.appState && appState.transactions) || []); };
+        if (im && imf) im.onclick = function(){ imf.click(); };
+        if (imf) imf.onchange = function(){
+            var f = imf.files && imf.files[0]; if (!f) return;
+            var rd = new FileReader();
+            rd.onload = function(ev){
+                try {
+                    var data = JSON.parse(ev.target.result);
+                    if (!confirm('Merge backup into current data? This cannot be undone.')) return;
+                    Object.keys(data||{}).forEach(function(k){
+                        if (Array.isArray(data[k]) && Array.isArray(window.appState[k])) {
+                            window.appState[k] = window.appState[k].concat(data[k]);
+                        } else {
+                            window.appState[k] = data[k];
+                        }
+                    });
+                    if (typeof saveState==='function') saveState();
+                    showToast('Imported');
+                    renderV3();
+                } catch(e){ showToast('Invalid JSON: '+e.message); }
+            };
+            rd.readAsText(f);
+        };
+        if (rs) rs.onclick = function(){ if (typeof saveState==='function') { saveState(); showToast('Resync queued'); } };
+        if (cc) cc.onclick = function(){
+            if (!confirm('Clear app cache? Forces all images and lookups to refetch.')) return;
+            if ('caches' in window) caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); });
+            showToast('Cache cleared');
+        };
+    }
+    function exportJSON(){
+        try {
+            var blob = new Blob([JSON.stringify(window.appState||{}, null, 2)], { type:'application/json' });
+            var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'wjp-backup-'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            showToast('Backup downloaded');
+        } catch(e){ showToast('Export failed: '+e.message); }
+    }
+    function exportCSV(name, rows){
+        if (!rows || !rows.length) { showToast('Nothing to export'); return; }
+        var headers = Object.keys(rows[0]);
+        var lines = [headers.join(',')].concat(rows.map(function(r){ return headers.map(function(h){ var v = r[h]; if (v==null) v=''; if (typeof v==='object') v=JSON.stringify(v); v=String(v).replace(/"/g,'""'); return '"'+v+'"'; }).join(','); }));
+        var blob = new Blob([lines.join('\n')], { type:'text/csv' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'wjp-'+name+'-'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        showToast('CSV downloaded');
+    }
+
+    /* ---------- Account (type-to-confirm destructive actions) ---------- */
+    function wireAccount(){
+        var so = document.getElementById('acct-signout');
+        if (so) so.onclick = function(){
+            if (!confirm('Sign out of this device?')) return;
+            if (window.__wjpAuth && window.__wjpAuth.signOut) window.__wjpAuth.signOut().then(function(){ location.reload(); });
+            else if (window.firebase && firebase.auth) firebase.auth().signOut().then(function(){ location.reload(); });
+            else location.reload();
+        };
+
+        // Wipe local — type WIPE
+        var wc = document.getElementById('acct-wipe-confirm');
+        var wg = document.getElementById('acct-wipe-go');
+        if (wc && wg) {
+            wc.oninput = function(){ wg.disabled = wc.value.trim() !== 'WIPE'; };
+            wg.onclick = function(){
+                if (wc.value.trim() !== 'WIPE') return;
+                try { Object.keys(localStorage).forEach(function(k){ if (k.indexOf('wjp')>=0 || k.indexOf('budget-')===0) localStorage.removeItem(k); }); } catch(_){}
+                showToast('Local data wiped — reloading…');
+                setTimeout(function(){ location.reload(); }, 800);
+            };
+        }
+
+        // Delete account — type DELETE MY ACCOUNT
+        var dc = document.getElementById('acct-del-confirm');
+        var dg = document.getElementById('acct-del-go');
+        if (dc && dg) {
+            dc.oninput = function(){ dg.disabled = dc.value.trim() !== 'DELETE MY ACCOUNT'; };
+            dg.onclick = async function(){
+                if (dc.value.trim() !== 'DELETE MY ACCOUNT') return;
+                if (!confirm('Final confirmation: delete account and ALL data permanently?')) return;
+                try {
+                    if (typeof getIdToken==='function') {
+                        var token = await getIdToken();
+                        if (token) {
+                            await fetch('/.netlify/functions/account-delete', { method:'POST', headers:{'Authorization':'Bearer '+token}});
+                        }
+                    }
+                } catch(_){}
+                try { localStorage.clear(); } catch(_){}
+                if (window.__wjpAuth && window.__wjpAuth.signOut) try { await window.__wjpAuth.signOut(); } catch(_){}
+                else if (window.firebase && firebase.auth) try { await firebase.auth().signOut(); } catch(_){}
+                location.href = '/intro.html?deleted=1';
+            };
+        }
+    }
+
+    function renderV3(){ if (window.renderSettingsPage) window.renderSettingsPage(); }
+
+    /* P17_SETTINGS_V3 sentinel */
+})();
+
+/* P17_SETTINGS_V3 module sentinel marker */
