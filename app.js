@@ -15299,56 +15299,46 @@ function initAdvisorPageLogic() {
                 id: 'free', name: 'Free', price: '$0', billing: 'forever',
                 color: '#94a3b8', icon: 'ph-circle-half',
                 features: [
-                    {label:'Manual debt + transaction entry', inc:true},
-                    {label:'All payoff strategies (Snowball / Avalanche / Hybrid)', inc:true},
-                    {label:'Standard rule-based AI advisor', inc:true},
+                    {label:'Unlimited manual debt + transaction entry', inc:true},
+                    {label:'Snowball + Avalanche payoff strategies', inc:true},
+                    {label:'Bill-due alerts in Inbox', inc:true},
+                    {label:'Calendar view', inc:true},
                     {label:'Bank sync via Plaid', inc:false},
-                    {label:'Cloud Mode AI (Llama 70B)', inc:false},
-                    {label:'Recurring detection + alerts', inc:false}
-                ]
-            },
-            {
-                id: 'starter', name: 'Starter',
-                price: billingCycle === 'annual' ? '$3.25' : '$4.99',
-                billing: billingCycle === 'annual' ? '/mo · billed $39/yr' : '/mo · cancel anytime',
-                color: '#fbbf24', icon: 'ph-sprout',
-                features: [
-                    {label:'Everything in Free', inc:true},
-                    {label:'Up to 2 linked bank accounts', inc:true},
-                    {label:'Weekly auto-sync from Plaid', inc:true},
-                    {label:'Cloud Mode AI advisor', inc:true},
-                    {label:'Recurring auto-detection', inc:true},
-                    {label:'Household Mode (Pro Plus only)', inc:false}
+                    {label:'AI Coach (Cloud Mode)', inc:false},
+                    {label:'Hybrid strategy + CSV export', inc:false}
                 ]
             },
             {
                 id: 'pro', name: 'Pro',
-                price: billingCycle === 'annual' ? '$6.58' : '$9.99',
-                billing: billingCycle === 'annual' ? '/mo · billed $79/yr' : '/mo · cancel anytime',
+                price: billingCycle === 'annual' ? '$8.25' : '$11.99',
+                billing: billingCycle === 'annual' ? '/mo · billed $99/yr (17% off)' : '/mo · 14-day free trial',
+                lookupKey: billingCycle === 'annual' ? 'pro_yearly' : 'pro_monthly',
                 color: '#667eea', icon: 'ph-lightning',
                 features: [
-                    {label:'Everything in Starter', inc:true},
-                    {label:'Up to 6 linked bank accounts', inc:true},
-                    {label:'2x/week auto-sync', inc:true},
-                    {label:'Bills calendar + payment alerts', inc:true},
-                    {label:'AI spending insights', inc:true},
-                    {label:'Custom payoff strategies + export', inc:true},
-                    {label:'Household Mode (Pro Plus only)', inc:false}
+                    {label:'Everything in Free', inc:true},
+                    {label:'Up to 3 linked bank accounts via Plaid', inc:true},
+                    {label:'AI Coach Cloud Mode (50 questions/mo)', inc:true},
+                    {label:'Hybrid payoff strategy', inc:true},
+                    {label:'All 8 Inbox alert generators', inc:true},
+                    {label:'CSV export', inc:true},
+                    {label:'Credit score snapshot', inc:true},
+                    {label:'Email support', inc:true},
+                    {label:'Household / partner mode (Pro Plus only)', inc:false}
                 ]
             },
             {
                 id: 'pro-plus', name: 'Pro Plus',
-                price: billingCycle === 'annual' ? '$10.75' : '$14.99',
-                billing: billingCycle === 'annual' ? '/mo · billed $129/yr' : '/mo · cancel anytime',
+                price: billingCycle === 'annual' ? '$16.58' : '$24.99',
+                billing: billingCycle === 'annual' ? '/mo · billed $199/yr (17% off)' : '/mo · cancel anytime',
+                lookupKey: billingCycle === 'annual' ? 'plus_yearly' : 'plus_monthly',
                 color: '#00d4a8', icon: 'ph-medal',
                 features: [
                     {label:'Everything in Pro', inc:true},
                     {label:'Unlimited linked bank accounts', inc:true},
-                    {label:'Daily auto-sync', inc:true},
-                    {label:'Household Mode — up to 5 family members', inc:true, note:'Pro Plus exclusive'},
-                    {label:'Investment account tracking', inc:true},
-                    {label:'Priority email support', inc:true},
-                    {label:'White-glove import help', inc:true}
+                    {label:'Unlimited AI Coach Cloud Mode', inc:true},
+                    {label:'Household / partner mode', inc:true, note:'Pro Plus exclusive'},
+                    {label:'Monthly credit-score history', inc:true},
+                    {label:'Priority email support', inc:true}
                 ]
             }
         ];
@@ -15383,7 +15373,7 @@ function initAdvisorPageLogic() {
                 </div>
                 <div style="text-align:right;">
                   <div style="font-size:22px;font-weight:900;color:${isActive?'var(--accent)':'var(--text)'};">${t.price}</div>
-                  ${isActive ? `<div class="badge badge-primary" style="font-size:8px;margin-top:2px;">CURRENT PLAN</div>` : `<button class="sub-upgrade-btn" data-tier="${t.id}" data-name="${t.name}" data-price="${t.price}${t.billing}" style="background:none;border:1px solid ${t.color};border-radius:6px;color:${t.color};font-size:9px;font-weight:700;padding:3px 8px;cursor:pointer;margin-top:2px;">${t.id==='trial'?'CURRENT TRIAL':'UPGRADE'}</button>`}
+                  ${isActive ? `<div class="badge badge-primary" style="font-size:8px;margin-top:2px;">CURRENT PLAN</div>` : `<button class="sub-upgrade-btn" data-tier="${t.id}" data-name="${t.name}" data-price="${t.price}${t.billing}" data-lookup-key="${t.lookupKey || ''}" style="background:none;border:1px solid ${t.color};border-radius:6px;color:${t.color};font-size:9px;font-weight:700;padding:3px 8px;cursor:pointer;margin-top:2px;">${t.id==='trial'?'CURRENT TRIAL':'UPGRADE'}</button>`}
                 </div>
               </div>
               <!-- Features -->
@@ -15448,39 +15438,40 @@ function initAdvisorPageLogic() {
         // Wire upgrade + cancel after the drawer renders
         setTimeout(() => {
             const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
+            // P17d: real Stripe Checkout instead of mailto
             document.querySelectorAll('.sub-upgrade-btn').forEach(btn => {
-                btn.onclick = () => {
+                btn.onclick = async () => {
                     const tier = btn.dataset.tier;
                     const name = btn.dataset.name;
-                    const price = btn.dataset.price;
-                    // Until billing infra ships, route upgrades through email so
-                    // we can manually onboard early adopters and capture their
-                    // requested plan + email together.
-                    const subj = encodeURIComponent(`WJP upgrade request: ${name}`);
-                    const body = encodeURIComponent(
-                        `Hi WJP team,\n\nI'd like to upgrade to ${name} (${price}).\n\n` +
-                        `Account email: ${profileEmail || '(my signed-in email)'}\n\n` +
-                        `Thanks!`
-                    );
-                    window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
-                    showToast(`Opening email to request ${name} upgrade…`);
+                    const lookupKey = btn.dataset.lookupKey;
+                    if (!lookupKey) {
+                        showToast('Plan price not configured. Refresh and try again.');
+                        return;
+                    }
+                    if (typeof openStripeCheckout === 'function') {
+                        await openStripeCheckout(lookupKey, name);
+                    } else {
+                        showToast('Stripe checkout not loaded.');
+                    }
                 };
             });
+            // P17d: real Stripe Customer Portal instead of mailto
             const cancelBtn = document.getElementById('sub-cancel-btn');
-            if (cancelBtn) cancelBtn.onclick = () => {
-                if (ACTIVE_PLAN === 'free' || isAdmin) {
-                    showToast(isAdmin ? "Admin accounts have nothing to cancel." : "You're on the Free tier — nothing to cancel.");
-                    return;
-                }
-                if (!confirm("Cancel your WJP subscription? You'll keep access until the end of the current billing period.")) return;
-                const subj = encodeURIComponent('WJP cancellation request');
-                const body = encodeURIComponent(
-                    `Hi WJP team,\n\nPlease cancel my subscription.\n\n` +
-                    `Account email: ${profileEmail || '(my signed-in email)'}\n\n` +
-                    `Thanks.`
-                );
-                window.location.href = `mailto:pappoe34@gmail.com?subject=${subj}&body=${body}`;
-            };
+            if (cancelBtn) {
+                // Repurpose as "Manage in Stripe" -- handles cancel, payment update, plan switch
+                cancelBtn.textContent = (ACTIVE_PLAN === 'free' || isAdmin) ? 'NOTHING TO MANAGE' : 'MANAGE IN STRIPE';
+                cancelBtn.onclick = async () => {
+                    if (ACTIVE_PLAN === 'free' || isAdmin) {
+                        showToast(isAdmin ? "Admin accounts have nothing to manage." : "You're on the Free tier — nothing to manage.");
+                        return;
+                    }
+                    if (typeof openStripePortal === 'function') {
+                        await openStripePortal();
+                    } else {
+                        showToast('Stripe portal not loaded.');
+                    }
+                };
+            }
             // Toggle billing cycle (monthly ↔ annual) — re-renders the drawer with new prices
             const cycleBtn = document.getElementById('sub-toggle-cycle');
             if (cycleBtn) cycleBtn.onclick = () => {
@@ -25066,4 +25057,168 @@ window.showPrivacyHint = function showPrivacyHint() {
     } else {
         setTimeout(show, 800);
     }
+})();
+
+
+/* ============================================================
+   PHASE 17d - Stripe helpers + tier-gate utility (sentinel: P17_TIER_GATE)
+   ============================================================ */
+(function(){
+    if (window._wjpTierGateInstalled) return;
+    window._wjpTierGateInstalled = true;
+
+    var STRIPE_FN_BASE = '/.netlify/functions';
+
+    // ----- Tier helpers -----
+    window.getTier = function() {
+        if (window.WJP_IS_ADMIN) return 'admin';
+        var sub = (window.appState && appState.subscription) || {};
+        if (sub.isAdmin) return 'admin';
+        var tier = String(sub.tier || 'free').toLowerCase();
+        // Treat 'pro-plus' (legacy) and 'plus' as the same
+        if (tier === 'pro-plus') tier = 'plus';
+        if (['admin', 'plus', 'pro', 'free'].indexOf(tier) === -1) tier = 'free';
+        return tier;
+    };
+    window.isPremium = function() {
+        var t = getTier();
+        return t === 'pro' || t === 'plus' || t === 'admin';
+    };
+    window.isPlus = function() {
+        var t = getTier();
+        return t === 'plus' || t === 'admin';
+    };
+    window.isOnTrial = function() {
+        var sub = (window.appState && appState.subscription) || {};
+        return sub.status === 'trialing';
+    };
+
+    // ----- Stripe Checkout: redirect user to Stripe-hosted payment page -----
+    window.openStripeCheckout = async function(lookupKey, displayName) {
+        if (typeof showToast === 'function') showToast('Opening secure checkout…');
+        try {
+            var auth = window.__wjpAuth;
+            var u = (auth && auth.currentUser) || window.__wjpUser;
+            if (!u || typeof u.getIdToken !== 'function') {
+                if (typeof showToast === 'function') showToast('Sign in to upgrade.');
+                return;
+            }
+            var idToken = await u.getIdToken();
+            var resp = await fetch(STRIPE_FN_BASE + '/stripe-checkout-create', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + idToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lookup_key: lookupKey })
+            });
+            if (!resp.ok) {
+                var err = {}; try { err = await resp.json(); } catch(_){}
+                console.error('[stripe-checkout] failed:', resp.status, err);
+                if (typeof showToast === 'function') showToast('Checkout error: ' + (err.error || resp.status));
+                return;
+            }
+            var data = await resp.json();
+            if (data.url) {
+                window.location.href = data.url;  // Stripe-hosted page
+            } else {
+                if (typeof showToast === 'function') showToast('No checkout URL returned.');
+            }
+        } catch (e) {
+            console.error('[stripe-checkout] threw:', e);
+            if (typeof showToast === 'function') showToast('Network error opening checkout.');
+        }
+    };
+
+    // ----- Stripe Customer Portal: lets user cancel, update card, switch plans -----
+    window.openStripePortal = async function() {
+        if (typeof showToast === 'function') showToast('Opening billing portal…');
+        try {
+            var auth = window.__wjpAuth;
+            var u = (auth && auth.currentUser) || window.__wjpUser;
+            if (!u || typeof u.getIdToken !== 'function') {
+                if (typeof showToast === 'function') showToast('Sign in to manage billing.');
+                return;
+            }
+            var idToken = await u.getIdToken();
+            var resp = await fetch(STRIPE_FN_BASE + '/stripe-portal', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + idToken, 'Content-Type': 'application/json' },
+                body: '{}'
+            });
+            if (!resp.ok) {
+                var err = {}; try { err = await resp.json(); } catch(_){}
+                console.error('[stripe-portal] failed:', resp.status, err);
+                if (typeof showToast === 'function') showToast('Portal error: ' + (err.error || resp.status));
+                return;
+            }
+            var data = await resp.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                if (typeof showToast === 'function') showToast('No portal URL returned.');
+            }
+        } catch (e) {
+            console.error('[stripe-portal] threw:', e);
+            if (typeof showToast === 'function') showToast('Network error opening portal.');
+        }
+    };
+
+    // ----- Firestore subscription listener: syncs appState.subscription with the webhook-written doc -----
+    async function startSubscriptionListener() {
+        try {
+            var auth = window.__wjpAuth;
+            var u = (auth && auth.currentUser) || window.__wjpUser;
+            if (!u || !u.uid) return;
+            var fsMod = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+            var fbAppMod = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
+            var apps = fbAppMod.getApps();
+            if (!apps.length) return;
+            var db = fsMod.getFirestore(apps[0]);
+            var ref = fsMod.doc(db, 'users', u.uid, 'billing', 'subscription');
+            fsMod.onSnapshot(ref, function(snap) {
+                if (!snap.exists()) return;
+                var data = snap.data();
+                if (!appState.subscription) appState.subscription = {};
+                Object.assign(appState.subscription, {
+                    tier: (data.tier === 'plus' ? 'pro-plus' : data.tier) || 'free',
+                    billingCycle: data.currentPriceLookupKey && data.currentPriceLookupKey.indexOf('yearly') !== -1 ? 'annual' : 'monthly',
+                    status: data.status,
+                    stripeCustomerId: data.stripeCustomerId,
+                    stripeSubscriptionId: data.stripeSubscriptionId,
+                    currentPeriodEnd: data.currentPeriodEnd,
+                    trialEnd: data.trialEnd,
+                    cancelAtPeriodEnd: !!data.cancelAtPeriodEnd
+                });
+                try { saveState(); } catch(_){}
+                try { if (typeof renderSettingsTierCard === 'function') renderSettingsTierCard(); } catch(_){}
+                console.log('[sub-listener] tier =', appState.subscription.tier, 'status =', appState.subscription.status);
+            });
+        } catch (e) {
+            console.warn('[sub-listener] failed to start:', e.message);
+        }
+    }
+
+    // Start the listener once auth is ready
+    if (window.__wjpUser && window.__wjpAuth && window.__wjpAuth.currentUser) {
+        startSubscriptionListener();
+    } else {
+        window.addEventListener('wjp-auth-ready', startSubscriptionListener);
+    }
+
+    // ----- After Stripe Checkout redirect: detect ?upgrade=success and confirm -----
+    try {
+        var params = new URLSearchParams(location.search);
+        if (params.get('upgrade') === 'success') {
+            setTimeout(function(){
+                if (typeof showToast === 'function') showToast('🎉 Welcome to Pro! Your tier will activate momentarily.');
+            }, 800);
+            // Clean URL
+            var clean = location.pathname + location.hash;
+            history.replaceState(null, '', clean);
+        } else if (params.get('upgrade') === 'cancel') {
+            setTimeout(function(){
+                if (typeof showToast === 'function') showToast('Checkout canceled. You can upgrade anytime from Settings.');
+            }, 500);
+            var clean2 = location.pathname + location.hash;
+            history.replaceState(null, '', clean2);
+        }
+    } catch (_) {}
 })();
