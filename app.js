@@ -27295,7 +27295,7 @@ body.high-contrast .settings-row-label { font-weight: 800; }
     function ensureNamespace(path){
         if (!window.appState) window.appState = {};
         var obj = window.appState;
-        for (var i=0; i<path.length-1; i++){ if (!obj[path[i]]) obj[path[i]] = {}; obj = obj[path[i]]; }
+        for (var i=0; i<path.length; i++){ if (!obj[path[i]]) obj[path[i]] = {}; obj = obj[path[i]]; } /* P17e.3 fix */
         return obj;
     }
 
