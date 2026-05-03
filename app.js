@@ -525,7 +525,8 @@ const titles = {
     'advisor': 'AI Coach',
     'activity': 'Activity',
     'budgets': 'Budget',
-    'settings': 'Settings'
+    'settings': 'Settings',
+    'plans': 'Plans & Billing'
 };
 
 function navigateSPA(target) {
@@ -601,6 +602,11 @@ function navigateSPA(target) {
         // Calendar: re-render with live event data
         if (target === 'calendar' && typeof renderMainCalendar === 'function') {
             setTimeout(() => renderMainCalendar(), 50);
+        }
+
+        // Plans: render the full-page plans + billing UI (P17d.1)
+        if (target === 'plans' && typeof renderPlansPage === 'function') {
+            setTimeout(() => renderPlansPage(), 50);
         }
 
         // Redraw charts
@@ -15279,211 +15285,13 @@ function initAdvisorPageLogic() {
 
     // ── 4. Manage Subscription — Phase 3A tier rollout ──────────
     document.getElementById('btn-settings-subscription')?.addEventListener('click', () => {
-        // Phase 3 tier structure: Free / Starter / Pro / Pro Plus.
-        // Admin accounts auto-bypass into the equivalent of Pro Plus + no billing.
-        if (!appState.subscription) {
-            appState.subscription = {
-                tier: 'free',
-                billingCycle: 'monthly', // 'monthly' | 'annual'
-                isAdmin: false,
-                invoices: []
-            };
-            saveState();
+        // P17d.1: redirect to the dedicated full-page Plans tab (was a drawer before)
+        if (typeof navigateSPA === 'function') {
+            navigateSPA('plans');
+        } else {
+            location.hash = '#plans';
         }
-        const sub = appState.subscription;
-        const isAdmin = !!(window.WJP_IS_ADMIN || sub.isAdmin);
-        const ACTIVE_PLAN = isAdmin ? 'admin' : (sub.tier || 'free');
-        const billingCycle = sub.billingCycle || 'monthly';
-        const tiers = [
-            {
-                id: 'free', name: 'Free', price: '$0', billing: 'forever',
-                color: '#94a3b8', icon: 'ph-circle-half',
-                features: [
-                    {label:'Unlimited manual debt + transaction entry', inc:true},
-                    {label:'Snowball + Avalanche payoff strategies', inc:true},
-                    {label:'Bill-due alerts in Inbox', inc:true},
-                    {label:'Calendar view', inc:true},
-                    {label:'Bank sync via Plaid', inc:false},
-                    {label:'AI Coach (Cloud Mode)', inc:false},
-                    {label:'Hybrid strategy + CSV export', inc:false}
-                ]
-            },
-            {
-                id: 'pro', name: 'Pro',
-                price: billingCycle === 'annual' ? '$8.25' : '$11.99',
-                billing: billingCycle === 'annual' ? '/mo · billed $99/yr (17% off)' : '/mo · 14-day free trial',
-                lookupKey: billingCycle === 'annual' ? 'pro_yearly' : 'pro_monthly',
-                color: '#667eea', icon: 'ph-lightning',
-                features: [
-                    {label:'Everything in Free', inc:true},
-                    {label:'Up to 3 linked bank accounts via Plaid', inc:true},
-                    {label:'AI Coach Cloud Mode (50 questions/mo)', inc:true},
-                    {label:'Hybrid payoff strategy', inc:true},
-                    {label:'All 8 Inbox alert generators', inc:true},
-                    {label:'CSV export', inc:true},
-                    {label:'Credit score snapshot', inc:true},
-                    {label:'Email support', inc:true},
-                    {label:'Household / partner mode (Pro Plus only)', inc:false}
-                ]
-            },
-            {
-                id: 'pro-plus', name: 'Pro Plus',
-                price: billingCycle === 'annual' ? '$16.58' : '$24.99',
-                billing: billingCycle === 'annual' ? '/mo · billed $199/yr (17% off)' : '/mo · cancel anytime',
-                lookupKey: billingCycle === 'annual' ? 'plus_yearly' : 'plus_monthly',
-                color: '#00d4a8', icon: 'ph-medal',
-                features: [
-                    {label:'Everything in Pro', inc:true},
-                    {label:'Unlimited linked bank accounts', inc:true},
-                    {label:'Unlimited AI Coach Cloud Mode', inc:true},
-                    {label:'Household / partner mode', inc:true, note:'Pro Plus exclusive'},
-                    {label:'Monthly credit-score history', inc:true},
-                    {label:'Priority email support', inc:true}
-                ]
-            }
-        ];
-
-        // Admin tier — only shown when account has admin flag
-        if (isAdmin) {
-            tiers.unshift({
-                id: 'admin', name: 'Admin · Pro Plus Unlocked', price: '—', billing: 'admin · all features · no billing',
-                color: '#a855f7', icon: 'ph-crown',
-                features: [
-                    {label:'All Pro Plus features unlocked', inc:true},
-                    {label:'Household Mode + unlimited members', inc:true},
-                    {label:'No billing · admin override', inc:true},
-                    {label:'Manage admin invite list (10 slots)', inc:true, note:'admin.html'}
-                ]
-            });
-        }
-
-        const tierHTML = tiers.map(t => {
-            const isActive = t.id === ACTIVE_PLAN;
-            return `<div style="border:2px solid ${isActive?'var(--accent)':'var(--border)'};border-radius:12px;overflow:hidden;background:${isActive?'rgba(0,212,168,0.04)':'var(--card-2)'};transition:border 0.2s;">
-              <!-- Header -->
-              <div style="padding:16px 18px;border-bottom:1px solid ${isActive?'rgba(0,212,168,0.15)':'var(--border)'};display:flex;justify-content:space-between;align-items:center;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">
-                    <i class="ph-fill ${t.icon}" style="color:${t.color};font-size:16px;"></i>
-                  </div>
-                  <div>
-                    <div style="font-size:14px;font-weight:900;color:${isActive?'var(--accent)':'var(--text)'};">${t.name}</div>
-                    <div style="font-size:10px;font-weight:700;color:var(--text-3);">${t.billing}</div>
-                  </div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-size:22px;font-weight:900;color:${isActive?'var(--accent)':'var(--text)'};">${t.price}</div>
-                  ${isActive ? `<div class="badge badge-primary" style="font-size:8px;margin-top:2px;">CURRENT PLAN</div>` : `<button class="sub-upgrade-btn" data-tier="${t.id}" data-name="${t.name}" data-price="${t.price}${t.billing}" data-lookup-key="${t.lookupKey || ''}" style="background:none;border:1px solid ${t.color};border-radius:6px;color:${t.color};font-size:9px;font-weight:700;padding:3px 8px;cursor:pointer;margin-top:2px;">${t.id==='trial'?'CURRENT TRIAL':'UPGRADE'}</button>`}
-                </div>
-              </div>
-              <!-- Features -->
-              <div style="padding:12px 18px;display:flex;flex-direction:column;gap:7px;">
-                ${t.features.map(f=>`<div style="display:flex;align-items:center;gap:8px;">
-                  <i class="ph-fill ph-${f.inc?'check-circle':'x-circle'}" style="color:${f.inc?'var(--accent)':'var(--text-3)'};font-size:13px;flex-shrink:0;"></i>
-                  <span style="font-size:10px;color:${f.inc?'var(--text)':'var(--text-3)'};">${f.label}${f.note?` <span style="color:${f.inc?'var(--accent)':'var(--text-3)'};font-weight:700;">(${f.note})</span>`:''}</span>
-                </div>`).join('')}
-              </div>
-              <!-- Active plan billing info -->
-              ${isActive && t.nextPayment ? `<div style="margin:0 18px 14px;background:rgba(0,0,0,0.2);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                  <div style="font-size:8px;color:var(--text-3);text-transform:uppercase;font-weight:700;">Next Payment</div>
-                  <div style="font-size:12px;font-weight:700;margin-top:1px;">${t.nextPayment}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-size:8px;color:var(--text-3);text-transform:uppercase;font-weight:700;">Method</div>
-                  <div style="font-size:12px;font-weight:700;margin-top:1px;">${t.paymentMethod}</div>
-                </div>
-              </div>` : ''}
-            </div>`;
-        }).join('');
-
-        const subtitleText = isAdmin
-            ? '👑 Admin account — every feature unlocked, no billing. Manage your admin invite list at /admin.html.'
-            : ACTIVE_PLAN === 'free' ? 'You\'re on Free. Upgrade to Starter for Plaid sync, Pro for full AI, or Pro Plus for Household Mode.'
-            : ACTIVE_PLAN === 'starter' ? 'You\'re on Starter. Upgrade to Pro for more bank links + alerts, or Pro Plus for Household Mode.'
-            : ACTIVE_PLAN === 'pro' ? 'You\'re on Pro. Upgrade to Pro Plus for Household Mode and unlimited bank links.'
-            : 'You\'re on Pro Plus — every feature unlocked. Thanks for supporting WJP.';
-        openSettingsDrawer({
-            icon: 'ph-medal',
-            badge: 'MEMBERSHIP',
-            title: 'Subscription Plans',
-            subtitle: subtitleText,
-            body: `
-              <div style="display:flex;flex-direction:column;gap:12px;">
-                ${tierHTML}
-                <div style="height:1px;background:var(--border);margin:4px 0;"></div>
-                <div>
-                  <div style="font-size:11px;font-weight:700;margin-bottom:8px;">Recent Invoices</div>
-                  ${(sub.invoices || []).length === 0
-                    ? `<div style="background:var(--card-2);border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text-3);">
-                         <i class="ph ph-receipt" style="font-size:18px;display:block;margin-bottom:6px;opacity:0.5;"></i>
-                         No invoices yet. You're on the free trial.
-                       </div>`
-                    : (sub.invoices || []).map(inv=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
-                        <div style="font-size:11px;font-weight:600;">${new Date(inv.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
-                        <div style="font-size:11px;font-weight:700;">$${(inv.amount||0).toFixed(2)}</div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                          <span class="badge ${inv.status==='Paid'?'badge-primary':'badge-warning'}" style="font-size:8px;">${inv.status||'Pending'}</span>
-                        </div>
-                      </div>`).join('')}
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    <button id="sub-toggle-cycle" class="btn btn-ghost" style="padding:10px;font-size:10px;border-color:var(--border);color:var(--accent);">
-                        ${billingCycle === 'annual' ? 'SWITCH TO MONTHLY BILLING' : 'SAVE 30% — SWITCH TO ANNUAL'}
-                    </button>
-                    <button id="sub-cancel-btn" class="btn btn-ghost" style="padding:10px;font-size:10px;border-color:var(--border);color:#ff4d6d;">${ACTIVE_PLAN === 'free' || isAdmin ? 'NOTHING TO CANCEL' : 'CANCEL SUBSCRIPTION'}</button>
-                </div>
-              </div>`
-        });
-        // Wire upgrade + cancel after the drawer renders
-        setTimeout(() => {
-            const profileEmail = (appState.profile && appState.profile.email) || (window.__wjpUser && window.__wjpUser.email) || '';
-            // P17d: real Stripe Checkout instead of mailto
-            document.querySelectorAll('.sub-upgrade-btn').forEach(btn => {
-                btn.onclick = async () => {
-                    const tier = btn.dataset.tier;
-                    const name = btn.dataset.name;
-                    const lookupKey = btn.dataset.lookupKey;
-                    if (!lookupKey) {
-                        showToast('Plan price not configured. Refresh and try again.');
-                        return;
-                    }
-                    if (typeof openStripeCheckout === 'function') {
-                        await openStripeCheckout(lookupKey, name);
-                    } else {
-                        showToast('Stripe checkout not loaded.');
-                    }
-                };
-            });
-            // P17d: real Stripe Customer Portal instead of mailto
-            const cancelBtn = document.getElementById('sub-cancel-btn');
-            if (cancelBtn) {
-                // Repurpose as "Manage in Stripe" -- handles cancel, payment update, plan switch
-                cancelBtn.textContent = (ACTIVE_PLAN === 'free' || isAdmin) ? 'NOTHING TO MANAGE' : 'MANAGE IN STRIPE';
-                cancelBtn.onclick = async () => {
-                    if (ACTIVE_PLAN === 'free' || isAdmin) {
-                        showToast(isAdmin ? "Admin accounts have nothing to manage." : "You're on the Free tier — nothing to manage.");
-                        return;
-                    }
-                    if (typeof openStripePortal === 'function') {
-                        await openStripePortal();
-                    } else {
-                        showToast('Stripe portal not loaded.');
-                    }
-                };
-            }
-            // Toggle billing cycle (monthly ↔ annual) — re-renders the drawer with new prices
-            const cycleBtn = document.getElementById('sub-toggle-cycle');
-            if (cycleBtn) cycleBtn.onclick = () => {
-                if (!appState.subscription) appState.subscription = { tier: 'free', billingCycle: 'monthly', invoices: [] };
-                appState.subscription.billingCycle = appState.subscription.billingCycle === 'annual' ? 'monthly' : 'annual';
-                saveState();
-                document.getElementById('settings-drawer-overlay')?.remove();
-                setTimeout(() => document.getElementById('btn-settings-subscription')?.click(), 80);
-            };
-        }, 60);
     });
-
     // ── 5. Linked Accounts — live management view ───────────────
     document.getElementById('btn-settings-link-account')?.addEventListener('click', () => {
         openSettingsDrawer({
@@ -25222,3 +25030,301 @@ window.showPrivacyHint = function showPrivacyHint() {
         }
     } catch (_) {}
 })();
+
+/* ============================================================
+   PHASE 17d.1 - Full-page Plans renderer (sentinel: P17_PLANS_PAGE)
+   Replaces the old Subscription drawer with a dedicated tab.
+   ============================================================ */
+(function(){
+    if (window._wjpPlansPageInstalled) return;
+    window._wjpPlansPageInstalled = true;
+
+    var TIER_DEFS = {
+        free: {
+            name: 'Free', tagline: 'Good for getting started.', icon: 'ph-circle-half',
+            color: '#94a3b8', glow: 'rgba(148,163,184,0.18)',
+            priceMonthly: 0, priceYearly: 0, monthlyEquivalent: 0,
+            features: [
+                {l:'Unlimited manual debt + transaction entry', i:true},
+                {l:'Snowball + Avalanche payoff strategies',     i:true},
+                {l:'Bill-due alerts in Inbox',                   i:true},
+                {l:'Calendar view',                              i:true},
+                {l:'Bank sync via Plaid',                        i:false},
+                {l:'AI Coach (Cloud Mode)',                      i:false},
+                {l:'Hybrid strategy + CSV export',               i:false}
+            ],
+            cta: 'You\'re on Free',
+            ctaCurrent: true
+        },
+        pro: {
+            name: 'Pro', tagline: 'For people serious about getting out of debt.', icon: 'ph-lightning',
+            color: '#667eea', glow: 'rgba(102,126,234,0.22)',
+            priceMonthly: 11.99, priceYearly: 99, monthlyEquivalent: 8.25,
+            recommended: true, trialDays: 14,
+            features: [
+                {l:'Everything in Free',                         i:true},
+                {l:'Up to 3 linked bank accounts via Plaid',     i:true},
+                {l:'AI Coach Cloud Mode (50 questions / month)', i:true},
+                {l:'Hybrid payoff strategy',                     i:true},
+                {l:'All 8 Inbox alert generators',               i:true},
+                {l:'CSV export',                                 i:true},
+                {l:'Credit score snapshot',                      i:true},
+                {l:'Email support',                              i:true},
+                {l:'Household / partner mode',                   i:false, note:'Pro Plus only'}
+            ],
+            cta: 'Start 14-day trial',
+            lookupKeys: { monthly: 'pro_monthly', yearly: 'pro_yearly' }
+        },
+        plus: {
+            name: 'Pro Plus', tagline: 'For households + power users.', icon: 'ph-medal',
+            color: '#00d4a8', glow: 'rgba(0,212,168,0.22)',
+            priceMonthly: 24.99, priceYearly: 199, monthlyEquivalent: 16.58,
+            features: [
+                {l:'Everything in Pro',                          i:true},
+                {l:'Unlimited linked bank accounts',             i:true},
+                {l:'Unlimited AI Coach Cloud Mode',              i:true},
+                {l:'Household / partner mode',                   i:true, note:'Pro Plus exclusive'},
+                {l:'Monthly credit-score history',               i:true},
+                {l:'Priority email support',                     i:true}
+            ],
+            cta: 'Upgrade to Pro Plus',
+            lookupKeys: { monthly: 'plus_monthly', yearly: 'plus_yearly' }
+        }
+    };
+
+    function getCycle() {
+        return window._planCycle || 'yearly';  // default annual
+    }
+    function setCycle(c) {
+        window._planCycle = c;
+        renderPlansPage();
+    }
+
+    function renderTierCard(tierKey) {
+        var t = TIER_DEFS[tierKey];
+        var cycle = getCycle();
+        var currentTier = (typeof getTier === 'function') ? getTier() : 'free';
+        var isCurrent = (currentTier === 'pro-plus' && tierKey === 'plus') ||
+                        (currentTier === tierKey) ||
+                        (tierKey === 'free' && currentTier === 'free');
+        var isAdmin = currentTier === 'admin';
+
+        var price = cycle === 'yearly' ? t.monthlyEquivalent : t.priceMonthly;
+        var billed = tierKey === 'free' ? 'forever' :
+                     cycle === 'yearly' ? '/mo · billed $' + t.priceYearly + '/yr' :
+                     '/mo · billed monthly';
+
+        var ctaHTML;
+        if (isAdmin && tierKey !== 'free') {
+            ctaHTML = '<button class="plan-cta plan-cta-current" disabled>👑 Admin override</button>';
+        } else if (isCurrent) {
+            ctaHTML = '<button class="plan-cta plan-cta-current" disabled>Current plan</button>';
+        } else if (tierKey === 'free') {
+            ctaHTML = '<button class="plan-cta plan-cta-current" disabled>You\'re on Free</button>';
+        } else {
+            var lookupKey = t.lookupKeys[cycle];
+            ctaHTML = '<button class="plan-cta plan-upgrade-btn" data-lookup-key="' + lookupKey + '" data-tier-name="' + t.name + '">' +
+                      (t.trialDays ? 'Start ' + t.trialDays + '-day free trial' : 'Upgrade to ' + t.name) +
+                      '</button>';
+        }
+
+        var trialBadge = (t.trialDays && !isCurrent) ?
+            '<div class="plan-trial-badge">' + t.trialDays + '-day free trial · cancel anytime</div>' : '';
+        var recBadge = t.recommended ?
+            '<div class="plan-rec-badge">RECOMMENDED</div>' : '';
+
+        var featuresHTML = t.features.map(function(f){
+            var icon = f.i ? 'ph-check-circle' : 'ph-x-circle';
+            var color = f.i ? t.color : 'var(--text-3)';
+            var note = f.note ? ' <span class="plan-feature-note">(' + f.note + ')</span>' : '';
+            return '<li><i class="ph-fill ' + icon + '" style="color:' + color + ';"></i><span>' + f.l + note + '</span></li>';
+        }).join('');
+
+        return '<div class="plan-card ' + (t.recommended ? 'recommended' : '') + ' ' + (isCurrent ? 'is-current' : '') + '" style="--tier-color:' + t.color + '; --tier-glow:' + t.glow + ';">' +
+            recBadge +
+            '<div class="plan-card-header">' +
+              '<div class="plan-icon"><i class="ph-fill ' + t.icon + '"></i></div>' +
+              '<div>' +
+                '<div class="plan-name">' + t.name + '</div>' +
+                '<div class="plan-tagline">' + t.tagline + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="plan-price-row">' +
+              '<span class="plan-price-dollar">$</span>' +
+              '<span class="plan-price-int">' + Math.floor(price) + '</span>' +
+              '<span class="plan-price-cents">.' + String(Math.round((price - Math.floor(price)) * 100)).padStart(2,'0') + '</span>' +
+            '</div>' +
+            '<div class="plan-billing">' + billed + '</div>' +
+            trialBadge +
+            ctaHTML +
+            '<ul class="plan-features">' + featuresHTML + '</ul>' +
+        '</div>';
+    }
+
+    function renderCostBreakdown() {
+        var cycle = getCycle();
+        var price = cycle === 'yearly' ? 8.25 : 11.99;
+        var label = cycle === 'yearly' ? '$8.25/mo (annual)' : '$11.99/mo';
+        // Stripe fee scales with price
+        var stripe = +(price * 0.029 + 0.30).toFixed(2);
+        var plaid  = 0.90;  // 3 banks × $0.30 transactions only
+        var groq   = 0.30;  // capped at 50 questions/mo
+        var infra  = 0.10;
+        var totalCost = +(stripe + plaid + groq + infra).toFixed(2);
+        var margin = +(price - totalCost).toFixed(2);
+
+        return '<section class="cost-breakdown reveal reveal-3">' +
+            '<div class="cost-breakdown-header">' +
+              '<div class="cost-breakdown-eyebrow">RADICAL TRANSPARENCY</div>' +
+              '<h2>Where your ' + label + ' goes</h2>' +
+              '<p>Most fintech hides this. We don\'t. Here\'s exactly how every dollar of your Pro subscription gets spent.</p>' +
+            '</div>' +
+            '<div class="cost-table">' +
+              '<div class="cost-row"><div><i class="ph ph-bank" style="color:#667eea;"></i> Bank sync (Plaid)</div><div class="cost-amt">$' + plaid.toFixed(2) + '</div><div class="cost-note">3 banks · daily transactions</div></div>' +
+              '<div class="cost-row"><div><i class="ph ph-credit-card" style="color:#fbbf24;"></i> Payment processing (Stripe)</div><div class="cost-amt">$' + stripe.toFixed(2) + '</div><div class="cost-note">2.9% + $0.30 per charge</div></div>' +
+              '<div class="cost-row"><div><i class="ph ph-robot" style="color:#a855f7;"></i> AI Coach (Groq Llama)</div><div class="cost-amt">$' + groq.toFixed(2) + '</div><div class="cost-note">capped at 50 questions / month</div></div>' +
+              '<div class="cost-row"><div><i class="ph ph-cloud" style="color:#94a3b8;"></i> Hosting + storage</div><div class="cost-amt">$' + infra.toFixed(2) + '</div><div class="cost-note">Netlify + Firebase, encrypted</div></div>' +
+              '<div class="cost-row cost-row-total"><div>Total cost to deliver</div><div class="cost-amt">$' + totalCost.toFixed(2) + '</div><div></div></div>' +
+              '<div class="cost-row cost-row-margin"><div><i class="ph-fill ph-heart" style="color:var(--accent);"></i> Funds product + support</div><div class="cost-amt cost-amt-positive">$' + margin.toFixed(2) + '</div><div class="cost-note">keeps us independent of investors</div></div>' +
+            '</div>' +
+            '<div class="cost-footer">No advertising. No data sales. Your subscription is the only way we make money — that keeps our incentives aligned with yours.</div>' +
+        '</section>';
+    }
+
+    function renderComparison() {
+        var rows = [
+            ['Manual debt + transaction entry',     '✓', '✓', '✓'],
+            ['Payoff strategies',                   'Snowball + Avalanche', 'Snowball + Avalanche + Hybrid', 'Snowball + Avalanche + Hybrid'],
+            ['Calendar view + bill alerts',         '✓', '✓', '✓'],
+            ['Linked bank accounts (Plaid)',        '—', 'Up to 3', 'Unlimited'],
+            ['AI Coach Cloud Mode (Groq Llama)',    '—', '50 questions/mo', 'Unlimited'],
+            ['Inbox alert generators',              'Bills only', 'All 8', 'All 8 + custom'],
+            ['CSV export',                          '—', '✓', '✓'],
+            ['Credit score',                        '—', 'Snapshot',  'Monthly history'],
+            ['Household / partner mode',            '—', '—', '✓ up to 4 members'],
+            ['Support',                             'Community', 'Email', 'Priority email'],
+            ['Free trial',                          '—', '14 days', '—']
+        ];
+        return '<section class="feature-compare reveal reveal-4">' +
+            '<h2>Compare features</h2>' +
+            '<div class="compare-table-wrap">' +
+              '<table class="compare-table">' +
+                '<thead><tr><th></th><th>Free</th><th class="th-pro">Pro</th><th>Pro Plus</th></tr></thead>' +
+                '<tbody>' +
+                  rows.map(function(r){
+                    return '<tr><td class="td-feat">' + r[0] + '</td><td>' + r[1] + '</td><td class="td-pro">' + r[2] + '</td><td>' + r[3] + '</td></tr>';
+                  }).join('') +
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+        '</section>';
+    }
+
+    function renderFAQ() {
+        var qa = [
+            ['Can I cancel anytime?', 'Yes, cancel in one click from the Manage in Stripe button. You keep access until the end of your billing period — no clawback. We never auto-charge after cancellation.'],
+            ['What happens after the 14-day trial?', 'On day 14 your card is charged for the next month (or year, if you picked annual). We email you 3 days before so you have time to cancel if you change your mind. No surprise charges.'],
+            ['Can I switch between Pro and Pro Plus?', 'Yes — use Manage in Stripe to upgrade or downgrade anytime. Stripe prorates the difference automatically: you only pay the gap.'],
+            ['What if I want a refund?', 'Email pappoe34@gmail.com within 30 days of any charge and we\'ll refund it, no questions asked. Just be honest — if it didn\'t work for you, that\'s on us.'],
+            ['Do you sell my data?', 'Never. We don\'t serve ads. We don\'t share data with brokers. Your subscription is our only revenue source — read our privacy policy for the full breakdown.'],
+            ['Can I downgrade back to Free?', 'Yes. Cancel your subscription and at the end of the billing period you\'ll be moved back to Free. All your manually-entered debts and transactions stay; only Plaid syncs and AI Coach Cloud Mode get disabled.']
+        ];
+        return '<section class="billing-faq reveal reveal-5">' +
+            '<h2>Common questions</h2>' +
+            '<div class="faq-grid">' +
+              qa.map(function(item){
+                return '<details class="faq-item"><summary>' + item[0] + '</summary><p>' + item[1] + '</p></details>';
+              }).join('') +
+            '</div>' +
+        '</section>';
+    }
+
+    function renderCurrentPlanBanner() {
+        var sub = (window.appState && appState.subscription) || {};
+        var tier = (typeof getTier === 'function') ? getTier() : 'free';
+        if (tier === 'free') return '';
+        var label = tier === 'admin' ? '👑 Admin · Pro Plus unlocked' :
+                    tier === 'plus' ? 'Pro Plus' : 'Pro';
+        var status = sub.status === 'trialing' ? 'Free trial active' :
+                     sub.status === 'active'   ? 'Active subscription' :
+                     sub.status === 'past_due' ? 'Payment failed — please update' :
+                     sub.status === 'canceled' ? 'Canceled · access ends soon' : '';
+        var nextDate = '';
+        if (sub.currentPeriodEnd) {
+            var d = new Date(sub.currentPeriodEnd);
+            nextDate = (sub.cancelAtPeriodEnd ? 'Access ends ' : 'Renews ') + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        return '<div class="plans-current-banner reveal">' +
+            '<div>' +
+              '<div class="banner-eyebrow">YOUR CURRENT PLAN</div>' +
+              '<div class="banner-tier">' + label + '</div>' +
+              (status ? '<div class="banner-status">' + status + (nextDate ? ' · ' + nextDate : '') + '</div>' : '') +
+            '</div>' +
+            (tier !== 'admin' ? '<button class="btn btn-ghost" id="btn-plans-portal" style="padding:10px 18px;font-weight:700;font-size:12px;">Manage in Stripe →</button>' : '') +
+        '</div>';
+    }
+
+    function renderTrustStrip() {
+        return '<div class="plans-trust-strip reveal reveal-6">' +
+            '<div class="trust-item"><i class="ph-fill ph-lock"></i> Stripe-secured payments</div>' +
+            '<div class="trust-item"><i class="ph-fill ph-x-circle"></i> No long-term contracts</div>' +
+            '<div class="trust-item"><i class="ph-fill ph-thumbs-up"></i> Cancel in one click</div>' +
+            '<div class="trust-item"><i class="ph-fill ph-clock-counter-clockwise"></i> 30-day money-back</div>' +
+        '</div>';
+    }
+
+    window.renderPlansPage = function() {
+        var host = document.getElementById('plans-content');
+        if (!host) return;
+
+        var cycle = getCycle();
+        var savings = 17;  // annual savings %
+
+        var html =
+            renderCurrentPlanBanner() +
+            '<div class="plans-hero reveal">' +
+              '<div class="plans-hero-eyebrow">PLANS</div>' +
+              '<h1 class="plans-hero-title">Choose your plan</h1>' +
+              '<p class="plans-hero-subtitle">Honest pricing. Transparent breakdown. Cancel anytime.</p>' +
+              '<div class="billing-toggle reveal reveal-1">' +
+                '<button class="cycle-btn ' + (cycle === 'monthly' ? 'active' : '') + '" data-cycle="monthly">Monthly</button>' +
+                '<button class="cycle-btn ' + (cycle === 'yearly' ? 'active' : '') + '" data-cycle="yearly">Yearly <span class="save-badge">SAVE ' + savings + '%</span></button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="plans-grid reveal reveal-2">' +
+              renderTierCard('free') +
+              renderTierCard('pro') +
+              renderTierCard('plus') +
+            '</div>' +
+            renderCostBreakdown() +
+            renderComparison() +
+            renderFAQ() +
+            renderTrustStrip();
+
+        host.innerHTML = html;
+
+        // Wire interactions
+        host.querySelectorAll('.cycle-btn').forEach(function(btn){
+            btn.onclick = function(){ setCycle(btn.dataset.cycle); };
+        });
+        host.querySelectorAll('.plan-upgrade-btn').forEach(function(btn){
+            btn.onclick = function(){
+                var key = btn.dataset.lookupKey;
+                var name = btn.dataset.tierName;
+                if (typeof openStripeCheckout === 'function') {
+                    openStripeCheckout(key, name);
+                } else if (typeof showToast === 'function') {
+                    showToast('Stripe checkout not loaded.');
+                }
+            };
+        });
+        var portalBtn = document.getElementById('btn-plans-portal');
+        if (portalBtn) portalBtn.onclick = function(){
+            if (typeof openStripePortal === 'function') openStripePortal();
+        };
+    };
+})();
+
+
+/* PHASE 17d.1 - inject Plans page CSS (sentinel: P17_PLANS_CSS) */
+(function(){if(window._wjpPlansCss)return;window._wjpPlansCss=true;var s=document.createElement('style');s.id='wjp-plans-css';s.textContent='/* PHASE 17d.1 - Plans page styles */\n#page-plans { padding: 24px 32px 96px; max-width: 1200px; margin: 0 auto; }\n.plans-current-banner {\n  display:flex; align-items:center; justify-content:space-between; gap:20px;\n  background: linear-gradient(135deg, rgba(0,212,168,0.12), rgba(102,126,234,0.08));\n  border: 1px solid rgba(0,212,168,0.3); border-radius: 14px; padding: 18px 22px; margin-bottom: 28px;\n}\n.banner-eyebrow { font-size:9px; color:var(--text-3); letter-spacing:0.12em; font-weight:800; margin-bottom:4px; }\n.banner-tier    { font-size:22px; font-weight:900; color:var(--accent); margin-bottom:2px; }\n.banner-status  { font-size:12px; color:var(--text-2); }\n\n.plans-hero { text-align:center; padding: 12px 0 32px; }\n.plans-hero-eyebrow { font-size:10px; letter-spacing:0.18em; color:var(--accent); font-weight:800; margin-bottom:10px; }\n.plans-hero-title { font-size: clamp(32px, 5vw, 48px); font-weight: 900; letter-spacing:-0.02em; margin: 0 0 12px; line-height:1.05; }\n.plans-hero-subtitle { font-size:15px; color:var(--text-2); max-width:540px; margin: 0 auto 28px; line-height:1.5; }\n\n.billing-toggle {\n  display:inline-flex; padding:5px; background: var(--card-2); border:1px solid var(--border);\n  border-radius: 999px; gap:4px; align-self:center;\n}\n.cycle-btn {\n  background:none; border:none; padding:10px 22px; border-radius:999px; font-size:13px;\n  font-weight:700; color:var(--text-2); cursor:pointer; transition:all 0.18s; display:inline-flex; align-items:center; gap:8px;\n}\n.cycle-btn.active { background: var(--accent); color: var(--bg); }\n.cycle-btn:not(.active):hover { color: var(--text); }\n.save-badge {\n  background: rgba(255,77,109,0.18); color: #ff4d6d; font-size: 9px; font-weight:900;\n  padding: 3px 7px; border-radius: 4px; letter-spacing:0.06em;\n}\n.cycle-btn.active .save-badge { background: rgba(255,255,255,0.22); color:#fff; }\n\n.plans-grid {\n  display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin: 36px 0 56px;\n  align-items: start;\n}\n@media (max-width: 900px) { .plans-grid { grid-template-columns: 1fr; max-width:440px; margin-left:auto; margin-right:auto; } }\n\n.plan-card {\n  position:relative; background: var(--card); border: 1px solid var(--border);\n  border-radius: 18px; padding: 28px 24px; display:flex; flex-direction:column; gap:14px;\n  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;\n}\n.plan-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px var(--tier-glow, rgba(0,0,0,0.4)); }\n.plan-card.recommended {\n  border-color: var(--tier-color);\n  background: linear-gradient(180deg, var(--tier-glow, rgba(102,126,234,0.08)), transparent 60%), var(--card);\n  box-shadow: 0 8px 32px var(--tier-glow);\n  transform: scale(1.02);\n}\n.plan-card.is-current { border-color: var(--accent); }\n.plan-rec-badge {\n  position:absolute; top:-12px; left:50%; transform:translateX(-50%);\n  background: var(--tier-color); color:#fff; font-size:10px; font-weight:900;\n  letter-spacing:0.12em; padding:5px 14px; border-radius:99px;\n}\n.plan-card-header { display:flex; align-items:center; gap:14px; }\n.plan-icon {\n  width:46px; height:46px; border-radius:12px;\n  background: var(--tier-glow, rgba(255,255,255,0.05));\n  display:grid; place-items:center; flex-shrink:0;\n}\n.plan-icon i { font-size: 22px; color: var(--tier-color); }\n.plan-name { font-size:18px; font-weight:900; color:var(--text); }\n.plan-tagline { font-size:11px; color:var(--text-3); margin-top:2px; line-height:1.3; }\n\n.plan-price-row { display:flex; align-items:baseline; gap:2px; margin: 6px 0 0; }\n.plan-price-dollar { font-size:18px; font-weight:700; color:var(--text-2); align-self:flex-start; margin-top:8px; }\n.plan-price-int    { font-size:48px; font-weight:900; color:var(--text); line-height:1; letter-spacing:-0.03em; }\n.plan-price-cents  { font-size:18px; font-weight:700; color:var(--text-2); }\n.plan-billing { font-size:11px; color:var(--text-3); margin-top:-4px; font-weight:600; }\n\n.plan-trial-badge {\n  display:inline-block; background: rgba(0,212,168,0.12); color: var(--accent);\n  font-size:10px; font-weight:800; padding: 5px 10px; border-radius:6px; letter-spacing:0.04em;\n}\n\n.plan-cta {\n  width:100%; padding: 13px; border-radius:10px; font-size:13px; font-weight:800;\n  letter-spacing:0.02em; cursor:pointer; transition: all 0.18s; border: none;\n  background: var(--tier-color); color:#fff;\n}\n.plan-cta:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }\n.plan-cta-current { background: var(--card-2); color: var(--text-3); cursor: default; border: 1px solid var(--border); }\n\n.plan-features { list-style:none; padding:0; margin: 8px 0 0; display:flex; flex-direction:column; gap:9px; }\n.plan-features li { display:flex; align-items:flex-start; gap:9px; font-size:12px; color:var(--text-2); line-height:1.45; }\n.plan-features li i { font-size:14px; flex-shrink:0; margin-top:1px; }\n.plan-feature-note { color: var(--text-3); font-weight:700; font-size:10px; }\n\n/* Cost breakdown */\n.cost-breakdown {\n  background: linear-gradient(135deg, rgba(0,212,168,0.06), rgba(0,0,0,0));\n  border: 1px solid rgba(0,212,168,0.18); border-radius: 18px;\n  padding: 36px 36px 28px; margin: 24px 0;\n}\n.cost-breakdown-eyebrow { font-size:10px; letter-spacing:0.18em; color:var(--accent); font-weight:900; margin-bottom:8px; }\n.cost-breakdown-header h2 { font-size: clamp(24px, 3.5vw, 34px); font-weight:900; margin: 0 0 10px; letter-spacing:-0.02em; }\n.cost-breakdown-header p  { font-size:13px; color:var(--text-2); max-width: 640px; line-height:1.55; margin: 0 0 24px; }\n.cost-table { display:flex; flex-direction:column; gap:1px; background: var(--border); border-radius: 12px; overflow:hidden; margin-bottom: 18px; }\n.cost-row {\n  display:grid; grid-template-columns: 1fr auto 1.4fr; gap: 18px; padding: 14px 18px;\n  background: var(--card); align-items:center;\n}\n.cost-row > div:first-child { font-size:13px; font-weight:700; display:flex; align-items:center; gap:10px; }\n.cost-row > div:first-child i { font-size:16px; }\n.cost-amt { font-family: \'JetBrains Mono\', ui-monospace, monospace; font-size:14px; font-weight:800; text-align:right; color:var(--text); }\n.cost-amt-positive { color: var(--accent); }\n.cost-note { font-size:11px; color:var(--text-3); text-align:right; }\n.cost-row-total { background: var(--card-2); font-weight:900; }\n.cost-row-margin { background: rgba(0,212,168,0.08); }\n.cost-footer { font-size:12px; color:var(--text-3); line-height:1.5; padding-top:8px; }\n@media (max-width: 600px) {\n  .cost-row { grid-template-columns: 1fr auto; }\n  .cost-note { grid-column: 1 / -1; text-align:left; padding-left:26px; margin-top: -4px; }\n}\n\n/* Comparison table */\n.feature-compare { margin: 56px 0 24px; }\n.feature-compare h2 { font-size: clamp(24px, 3.5vw, 32px); font-weight:900; margin: 0 0 22px; }\n.compare-table-wrap { overflow-x:auto; border-radius:14px; border:1px solid var(--border); }\n.compare-table { width:100%; min-width: 640px; border-collapse: collapse; background: var(--card); }\n.compare-table th, .compare-table td { padding: 14px 18px; text-align: center; font-size: 12px; border-bottom: 1px solid var(--border); }\n.compare-table thead th { background: var(--card-2); font-size:13px; font-weight:900; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text); }\n.compare-table .th-pro, .compare-table .td-pro { background: rgba(102,126,234,0.05); border-left: 1px solid rgba(102,126,234,0.18); border-right: 1px solid rgba(102,126,234,0.18); }\n.compare-table .th-pro { color: #667eea; }\n.compare-table .td-feat { text-align: left; font-weight:700; color: var(--text-2); }\n.compare-table tbody tr:hover { background: var(--card-2); }\n.compare-table tbody tr:last-child td { border-bottom:none; }\n\n/* Billing FAQ */\n.billing-faq { margin: 56px 0 24px; }\n.billing-faq h2 { font-size: clamp(24px, 3.5vw, 32px); font-weight:900; margin: 0 0 22px; }\n.faq-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }\n@media (max-width: 700px) { .faq-grid { grid-template-columns: 1fr; } }\n.faq-item {\n  background: var(--card); border: 1px solid var(--border); border-radius: 12px;\n  padding: 18px 22px; cursor: pointer; transition: border-color 0.18s;\n}\n.faq-item:hover { border-color: rgba(0,212,168,0.3); }\n.faq-item summary {\n  font-size: 14px; font-weight: 800; color: var(--text); cursor: pointer; list-style: none;\n  display:flex; justify-content:space-between; align-items:center; gap: 12px;\n}\n.faq-item summary::-webkit-details-marker { display: none; }\n.faq-item summary::after {\n  content: "+"; font-size: 22px; font-weight: 400; color: var(--text-3);\n  transition: transform 0.2s;\n}\n.faq-item[open] summary::after { content: "−"; }\n.faq-item p { font-size: 13px; color: var(--text-2); line-height: 1.6; margin: 12px 0 0; }\n\n/* Trust strip */\n.plans-trust-strip {\n  display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin: 40px 0 0;\n  padding: 22px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;\n}\n.trust-item { display:flex; align-items:center; gap:10px; font-size:12px; font-weight:700; color:var(--text-2); }\n.trust-item i { font-size:18px; color: var(--accent); }\n@media (max-width: 700px) { .plans-trust-strip { grid-template-columns: 1fr 1fr; } }\n@media (max-width: 400px) { .plans-trust-strip { grid-template-columns: 1fr; } }\n';document.head.appendChild(s);})();
