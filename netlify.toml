@@ -30,3 +30,9 @@
   for = "/fonts/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+
+# P26: welcome email sequence — run daily at 13:00 UTC (9 AM ET).
+# Function checks each user's account age and sends Day 0 / Day 3 / Day 7 emails.
+[functions."email-cron"]
+  schedule = "0 13 * * *"
