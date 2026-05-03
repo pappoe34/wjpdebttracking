@@ -136,6 +136,18 @@ exports.handler = async (event) => {
     // Tier free = users with no sub doc (signed up, never opened Stripe Checkout)
     kpis.tierFree += (kpis.totalUsers - kpis.withSubscription);
 
+    // ---- Daily signup buckets (last 30 days, oldest -> newest) ----
+    const dailySignups = new Array(30).fill(0);
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    allUsers.forEach(u => {
+      const created = u.metadata && u.metadata.creationTime ? new Date(u.metadata.creationTime).getTime() : null;
+      if (!created) return;
+      const daysAgo = Math.floor((todayStart.getTime() - created) / DAY);
+      if (daysAgo >= 0 && daysAgo < 30) {
+        dailySignups[29 - daysAgo]++;  // bucket 29 = today
+      }
+    });
+
     // ---- Recent signups (last 30 days, max 50) ----
     const recent = allUsers
       .map(u => ({
@@ -180,7 +192,8 @@ exports.handler = async (event) => {
       generatedAt: now,
       kpis,
       recent,
-      subs
+      subs,
+      dailySignups  // [n0, n1, ..., n29] oldest -> today
     });
   } catch (e) {
     console.error('[admin-stats] error:', e.message);

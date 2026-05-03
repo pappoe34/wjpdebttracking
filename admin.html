@@ -7,164 +7,288 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="canonical" href="https://wjpdebttracking.com/admin.html">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 
 <link rel="preload" as="font" href="/fonts/inter-var.woff2" type="font/woff2" crossorigin>
 <style>
   @font-face { font-family:'Inter'; font-weight:100 900; font-style:normal; font-display:swap;
     src:url('/fonts/inter-var.woff2') format('woff2-variations'); }
 </style>
-<link rel="stylesheet" href="./landing.css?v=phase2-15">
 
 <style>
-  body { background:#fafaf7; }
-  .admin-wrap { max-width:1280px; margin:0 auto; padding:90px 24px 64px; }
-  .admin-head {
+  /* ============================================================
+     Admin v2 — dark, dense, Stripe/Linear vibe
+     ============================================================ */
+  :root {
+    --bg:        #0b0d10;
+    --bg-2:      #14171c;
+    --card:      #161a20;
+    --card-2:    #1d2128;
+    --border:    rgba(255,255,255,0.07);
+    --border-h:  rgba(255,255,255,0.14);
+    --text:      #e7eaee;
+    --text-2:    #aab1bc;
+    --text-3:    #6f7682;
+    --accent:    #00d4a8;
+    --indigo:    #818cf8;
+    --rose:      #fb7185;
+    --amber:     #fbbf24;
+    --green:     #34d399;
+    --shadow:    0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px rgba(0,0,0,0.30);
+    --mono:      'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:
+      radial-gradient(900px 500px at 90% -10%, rgba(0,212,168,0.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(129,140,248,0.05), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', system-ui, -apple-system, sans-serif;
+    font-size:13.5px;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    min-height:100vh;
+  }
+
+  .topbar {
+    height:54px; padding:0 24px;
     display:flex; align-items:center; justify-content:space-between;
-    gap:16px; flex-wrap:wrap; margin-bottom:28px;
+    border-bottom:1px solid var(--border);
+    background:rgba(11,13,16,0.70);
+    backdrop-filter:blur(20px) saturate(140%); -webkit-backdrop-filter:blur(20px) saturate(140%);
+    position:sticky; top:0; z-index:50;
   }
-  .admin-eyebrow { font-size:11px; letter-spacing:0.20em; color:var(--accent); font-weight:800; }
-  .admin-title { font-family:var(--sans); font-size:clamp(28px,4vw,40px); font-weight:800; letter-spacing:-0.025em; color:var(--ink); margin:6px 0 0; }
-  .admin-meta { font-size:12px; color:var(--ink-faint); display:flex; gap:14px; flex-wrap:wrap; }
-  .admin-meta span::before { content:"·"; margin-right:10px; color:var(--accent); }
-  .admin-meta span:first-child::before { content:none; }
-
-  /* Auth gate */
-  .gate {
-    max-width:480px; margin:160px auto; padding:36px 32px;
-    background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:18px;
-    backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    box-shadow:var(--glass-shadow); text-align:center;
+  .topbar-left { display:flex; align-items:center; gap:14px; }
+  .brand-mark {
+    width:28px; height:28px; border-radius:7px;
+    background:linear-gradient(135deg,var(--accent),var(--indigo));
+    display:grid; place-items:center; color:#0a1714; font-weight:900; font-size:12px;
   }
-  .gate h2 { font-size:22px; font-weight:800; color:var(--ink); margin:0 0 8px; letter-spacing:-0.02em; }
-  .gate p { font-size:13.5px; color:var(--ink-dim); margin:0 0 18px; line-height:1.55; }
-  .gate-btn { background:var(--ink); color:#fff; border:none; padding:11px 20px; border-radius:10px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit; }
-  .gate-btn:hover { filter:brightness(1.10); }
-  .gate-err { color:#ef4444; font-size:12.5px; margin-top:10px; }
-
-  /* KPI cards grid */
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:14px; margin-bottom:32px; }
-  .kpi {
-    background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px;
-    padding:18px 20px; backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    box-shadow:var(--glass-shadow);
-  }
-  .kpi-label { font-size:10.5px; letter-spacing:0.10em; color:var(--ink-faint); font-weight:800; text-transform:uppercase; margin-bottom:8px; }
-  .kpi-value { font-size:30px; font-weight:800; color:var(--ink); letter-spacing:-0.02em; line-height:1; font-family:var(--sans); }
-  .kpi-sub   { font-size:12px; color:var(--ink-dim); margin-top:4px; line-height:1.4; }
-  .kpi-accent .kpi-value { color:var(--accent); }
-  .kpi-warn  .kpi-value { color:#dc2626; }
-  .kpi-amber .kpi-value { color:#d97706; }
-
-  /* Section */
-  .sec-head { display:flex; align-items:baseline; justify-content:space-between; margin:36px 0 14px; flex-wrap:wrap; gap:12px; }
-  .sec-head h2 { font-size:20px; font-weight:800; color:var(--ink); letter-spacing:-0.02em; }
-  .sec-head .sec-meta { font-size:12px; color:var(--ink-faint); }
-
-  /* Tables */
-  .tbl-wrap {
-    background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px;
-    backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    overflow:hidden; box-shadow:var(--glass-shadow);
-  }
-  table.admin-tbl { width:100%; border-collapse:collapse; }
-  table.admin-tbl th, table.admin-tbl td {
-    padding:11px 16px; text-align:left; font-size:12.5px; border-bottom:1px solid var(--rule);
-  }
-  table.admin-tbl th {
-    background:rgba(0,0,0,0.03); font-weight:800; font-size:11px; color:var(--ink-faint);
-    text-transform:uppercase; letter-spacing:0.05em;
-  }
-  table.admin-tbl tbody tr:hover { background:rgba(31,122,74,0.04); }
-  table.admin-tbl tbody tr:last-child td { border-bottom:none; }
-  table.admin-tbl td.email { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:12px; color:var(--ink-dim); }
-  table.admin-tbl td.uid   { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:11px; color:var(--ink-faint); }
-  table.admin-tbl .empty   { text-align:center; padding:36px 16px; color:var(--ink-faint); font-size:13px; }
-
-  .pill-status { font-size:10px; font-weight:800; letter-spacing:0.04em; padding:3px 8px; border-radius:99px; text-transform:uppercase; display:inline-block; }
-  .pill-trialing { background:rgba(0,212,168,0.14); color:#16a34a; }
-  .pill-active   { background:rgba(102,126,234,0.14); color:#4f46e5; }
-  .pill-canceled { background:rgba(148,163,184,0.20); color:#475569; }
-  .pill-past_due { background:rgba(220,38,38,0.14); color:#dc2626; }
-  .pill-tier { font-family:var(--mono); font-size:10.5px; }
+  .brand-text { font-weight:700; letter-spacing:-0.01em; }
+  .brand-text small { color:var(--text-3); font-weight:500; margin-left:8px; font-size:11.5px; }
+  .topbar-right { display:flex; align-items:center; gap:12px; font-size:12px; color:var(--text-3); }
+  .topbar-right .who { color:var(--text-2); }
+  .topbar-right .live-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:0.55;} 50%{opacity:1;} }
 
   .reload-btn {
-    background:var(--accent); color:#fff; border:none; padding:9px 16px; border-radius:9px;
-    font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;
+    background:var(--card-2); color:var(--text); border:1px solid var(--border);
+    padding:6px 12px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;
     display:inline-flex; align-items:center; gap:6px;
+    transition:background 0.14s, border-color 0.14s;
   }
-  .reload-btn:hover { filter:brightness(1.10); }
+  .reload-btn:hover { background:var(--card); border-color:var(--border-h); }
   .reload-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
-  .skeleton {
-    background:linear-gradient(90deg, rgba(0,0,0,0.04), rgba(0,0,0,0.08), rgba(0,0,0,0.04));
-    background-size:200% 100%; animation:skel 1.4s infinite;
-    border-radius:6px; height:16px;
+  .wrap { max-width:1320px; margin:0 auto; padding:24px; }
+
+  /* ===== Auth gate (centered card, dark) ===== */
+  .gate-wrap {
+    min-height:calc(100vh - 54px); display:flex; align-items:center; justify-content:center; padding:24px;
   }
+  .gate {
+    max-width:420px; width:100%; padding:32px 28px;
+    background:var(--card); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow);
+    text-align:center;
+  }
+  .gate h2 { margin:0 0 8px; font-size:20px; font-weight:800; letter-spacing:-0.02em; }
+  .gate p { margin:0 0 18px; color:var(--text-3); font-size:13px; line-height:1.55; }
+  .gate-btn { background:var(--text); color:var(--bg); border:none; padding:11px 18px; border-radius:9px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .gate-btn:hover { filter:brightness(1.10); }
+  .gate-err { color:var(--rose); font-size:12.5px; margin-top:10px; }
+
+  /* ===== KPIs ===== */
+  .kpi-row {
+    display:grid; grid-template-columns:repeat(5, 1fr); gap:0;
+    background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;
+    margin-bottom:24px;
+  }
+  .kpi {
+    padding:16px 20px;
+    border-right:1px solid var(--border);
+    position:relative;
+  }
+  .kpi:last-child { border-right:none; }
+  .kpi-label { font-size:10.5px; letter-spacing:0.10em; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:8px; }
+  .kpi-value { font-family:var(--mono); font-size:26px; font-weight:700; color:var(--text); letter-spacing:-0.02em; line-height:1; }
+  .kpi-delta { font-size:11px; color:var(--text-3); margin-top:4px; }
+  .kpi-delta.up    { color:var(--green); }
+  .kpi-delta.down  { color:var(--rose); }
+  .kpi-spark { margin-top:8px; height:28px; }
+  .kpi-spark svg { width:100%; height:100%; }
+  .kpi-spark path.line  { fill:none; stroke:var(--accent); stroke-width:1.5; }
+  .kpi-spark path.area  { fill:rgba(0,212,168,0.10); stroke:none; }
+  .kpi-accent .kpi-value { color:var(--accent); }
+
+  @media (max-width:1100px) { .kpi-row { grid-template-columns:repeat(3, 1fr); } .kpi:nth-child(3n) { border-right:none; } .kpi { border-bottom:1px solid var(--border); } .kpi:nth-last-child(-n+2) { border-bottom:none; } }
+  @media (max-width:600px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } .kpi { border-right:none; border-bottom:1px solid var(--border); } .kpi:nth-child(2n) { border-right:none; } }
+
+  /* ===== Conversion funnel ===== */
+  .funnel {
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:18px 22px; margin-bottom:24px;
+  }
+  .funnel-title { font-size:11px; letter-spacing:0.12em; color:var(--text-3); font-weight:700; text-transform:uppercase; margin-bottom:14px; }
+  .funnel-steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+  .funnel-step { padding:12px 14px; background:var(--card-2); border:1px solid var(--border); border-radius:9px; }
+  .funnel-step-label { font-size:11px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
+  .funnel-step-value { font-family:var(--mono); font-size:22px; font-weight:700; color:var(--text); letter-spacing:-0.02em; }
+  .funnel-step-meta { font-size:11px; color:var(--text-3); margin-top:4px; }
+  .funnel-step.h-active .funnel-step-value { color:var(--accent); }
+  @media (max-width:760px) { .funnel-steps { grid-template-columns:repeat(2, 1fr); } }
+
+  /* ===== Section header ===== */
+  .sec-head {
+    display:flex; align-items:center; justify-content:space-between;
+    margin:8px 0 12px; gap:14px; flex-wrap:wrap;
+  }
+  .sec-head h2 { margin:0; font-size:15px; font-weight:700; color:var(--text); letter-spacing:-0.005em; }
+  .sec-head .sec-meta { font-size:12px; color:var(--text-3); }
+
+  .filter-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { background:var(--card-2); border:1px solid var(--border); color:var(--text-2); padding:5px 11px; border-radius:99px; font-size:11.5px; font-weight:600; cursor:pointer; transition:all 0.12s; font-family:inherit; }
+  .chip:hover { border-color:var(--border-h); color:var(--text); }
+  .chip.active { background:var(--accent); border-color:var(--accent); color:var(--bg); }
+  .chip-count { opacity:0.7; margin-left:4px; }
+
+  /* ===== Tables ===== */
+  .tbl-wrap {
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    overflow:hidden; margin-bottom:24px;
+  }
+  table.tbl { width:100%; border-collapse:collapse; }
+  table.tbl th, table.tbl td {
+    padding:9px 16px; text-align:left; font-size:12.5px; border-bottom:1px solid var(--border);
+  }
+  table.tbl th {
+    background:var(--card-2); font-weight:700; font-size:10.5px; color:var(--text-3);
+    text-transform:uppercase; letter-spacing:0.08em; padding-top:10px; padding-bottom:10px;
+    user-select:none;
+  }
+  table.tbl tbody tr { transition:background 0.10s; }
+  table.tbl tbody tr:hover { background:var(--card-2); }
+  table.tbl tbody tr:last-child td { border-bottom:none; }
+  table.tbl td.email, table.tbl td.uid { font-family:var(--mono); font-size:11.5px; color:var(--text-2); }
+  table.tbl td.uid { color:var(--text-3); font-size:11px; }
+  table.tbl td.num { font-family:var(--mono); text-align:right; }
+  table.tbl .empty { text-align:center; padding:28px 16px; color:var(--text-3); font-size:13px; }
+
+  .pill { font-size:9.5px; font-weight:700; letter-spacing:0.06em; padding:2px 7px; border-radius:99px; text-transform:uppercase; display:inline-block; line-height:1.5; }
+  .pill-trialing { background:rgba(0,212,168,0.18); color:var(--accent); }
+  .pill-active   { background:rgba(129,140,248,0.18); color:var(--indigo); }
+  .pill-canceled { background:rgba(170,177,188,0.18); color:var(--text-2); }
+  .pill-past_due { background:rgba(251,113,133,0.18); color:var(--rose); }
+  .pill-tier { background:var(--card-2); color:var(--text-2); border:1px solid var(--border); font-family:var(--mono); }
+
+  .checkmark { color:var(--green); font-size:11px; }
+  .danger    { color:var(--rose); font-weight:700; }
+
+  /* Skeleton */
+  .skel-block { background:linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04)); background-size:200% 100%; animation:skel 1.4s infinite; border-radius:6px; height:14px; }
   @keyframes skel { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
 
-  @media (max-width:720px) {
-    .admin-wrap { padding:60px 16px 40px; }
-    .kpi-value  { font-size:24px; }
-    table.admin-tbl th, table.admin-tbl td { padding:9px 12px; font-size:11.5px; }
+  .table-toolbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; background:var(--card-2); border-bottom:1px solid var(--border);
+    flex-wrap:wrap; gap:10px;
   }
+  .csv-btn {
+    background:transparent; color:var(--text-2); border:1px solid var(--border);
+    padding:5px 11px; border-radius:7px; font-size:11.5px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .csv-btn:hover { color:var(--text); border-color:var(--border-h); }
 </style>
 </head>
 <body>
 
 <!-- AUTH GATE (rendered before stats load) -->
-<div id="gate" class="gate" style="display:none;">
-  <h2 id="gate-title">Admin only.</h2>
-  <p id="gate-msg">Sign in with the admin account to access this dashboard.</p>
-  <button id="gate-google" class="gate-btn">Sign in with Google</button>
-  <div id="gate-err" class="gate-err" style="display:none;"></div>
+<div id="gate-wrap" class="gate-wrap" style="display:none;">
+  <div class="gate">
+    <h2 id="gate-title">Admin only.</h2>
+    <p id="gate-msg">Sign in with the admin account to access this dashboard.</p>
+    <button id="gate-google" class="gate-btn">Sign in with Google</button>
+    <div id="gate-err" class="gate-err" style="display:none;"></div>
+  </div>
 </div>
 
-<!-- LOADING SHELL -->
-<div id="loading" class="admin-wrap" style="display:none;">
-  <div class="admin-eyebrow">ADMIN</div>
-  <h1 class="admin-title">Loading dashboard…</h1>
-  <div class="kpis" style="margin-top:32px;">
-    <div class="kpi"><div class="skeleton" style="width:60%;"></div><div class="skeleton" style="margin-top:10px;width:40%;"></div></div>
-    <div class="kpi"><div class="skeleton" style="width:60%;"></div><div class="skeleton" style="margin-top:10px;width:40%;"></div></div>
-    <div class="kpi"><div class="skeleton" style="width:60%;"></div><div class="skeleton" style="margin-top:10px;width:40%;"></div></div>
-    <div class="kpi"><div class="skeleton" style="width:60%;"></div><div class="skeleton" style="margin-top:10px;width:40%;"></div></div>
+<!-- LOADING -->
+<div id="loading" class="wrap" style="display:none;">
+  <div style="display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12.5px;">
+    <span class="live-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s ease-in-out infinite;"></span>
+    Loading dashboard…
   </div>
 </div>
 
 <!-- DASHBOARD -->
-<main id="dash" class="admin-wrap" style="display:none;">
-  <div class="admin-head">
-    <div>
-      <div class="admin-eyebrow">ADMIN · WJP DEBT TRACKER</div>
-      <h1 class="admin-title">Founder dashboard</h1>
-      <div class="admin-meta">
-        <span id="dash-user">—</span>
-        <span id="dash-when">—</span>
-      </div>
+<div id="dash" style="display:none;">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="brand-mark">W</div>
+      <div class="brand-text">WJP Admin <small>founder dashboard</small></div>
     </div>
-    <button class="reload-btn" id="btn-reload">↻ Refresh</button>
+    <div class="topbar-right">
+      <span class="live-dot"></span>
+      <span class="who" id="dash-user">—</span>
+      <span id="dash-when">—</span>
+      <button class="reload-btn" id="btn-reload">↻ Refresh</button>
+    </div>
   </div>
 
-  <div id="kpis-host"></div>
+  <main class="wrap">
 
-  <div class="sec-head">
-    <h2>Recent signups</h2>
-    <div class="sec-meta" id="recent-meta">last 30 days</div>
-  </div>
-  <div class="tbl-wrap"><table class="admin-tbl" id="recent-tbl"></table></div>
+    <!-- KPI strip (5 cards) -->
+    <div id="kpi-row-host"></div>
 
-  <div class="sec-head">
-    <h2>Subscriptions</h2>
-    <div class="sec-meta" id="subs-meta">all users with billing records</div>
-  </div>
-  <div class="tbl-wrap"><table class="admin-tbl" id="subs-tbl"></table></div>
+    <!-- Conversion funnel -->
+    <div id="funnel-host"></div>
 
-  <p style="margin-top:36px; font-size:11px; color:var(--ink-faint); text-align:center;">
-    Internal tooling. Counts pulled live from Firebase Auth + Firestore <code>users/&#123;uid&#125;/billing/subscription</code>.
-    MRR estimate uses active (non-trial) subs × monthly price equivalent.
-  </p>
-</main>
+    <!-- Recent signups -->
+    <div class="sec-head">
+      <h2>Recent signups</h2>
+      <div class="sec-meta" id="recent-meta">last 30 days</div>
+    </div>
+    <div class="tbl-wrap">
+      <div class="table-toolbar">
+        <div class="filter-row">
+          <button class="chip active" data-recent-filter="all">All</button>
+          <button class="chip" data-recent-filter="paying">Paying</button>
+          <button class="chip" data-recent-filter="trial">Trialing</button>
+          <button class="chip" data-recent-filter="free">Free / no sub</button>
+        </div>
+        <button class="csv-btn" id="recent-csv">Export CSV</button>
+      </div>
+      <table class="tbl" id="recent-tbl"></table>
+    </div>
+
+    <!-- Subscriptions -->
+    <div class="sec-head">
+      <h2>Subscriptions</h2>
+      <div class="sec-meta" id="subs-meta">all billing records</div>
+    </div>
+    <div class="tbl-wrap">
+      <div class="table-toolbar">
+        <div class="filter-row">
+          <button class="chip active" data-sub-filter="all">All</button>
+          <button class="chip" data-sub-filter="trialing">Trialing</button>
+          <button class="chip" data-sub-filter="active">Active</button>
+          <button class="chip" data-sub-filter="past_due">Past due</button>
+          <button class="chip" data-sub-filter="canceled">Canceled</button>
+          <button class="chip" data-sub-filter="cancel_scheduled">Cancel scheduled</button>
+        </div>
+        <button class="csv-btn" id="subs-csv">Export CSV</button>
+      </div>
+      <table class="tbl" id="subs-tbl"></table>
+    </div>
+
+    <p style="margin-top:24px; font-size:11px; color:var(--text-3); text-align:center;">
+      Live data from Firebase Auth + Firestore <code>users/&#123;uid&#125;/billing/subscription</code>.
+      MRR sums active (non-trial) subs at their monthly equivalent. <code>noindex,nofollow</code> · admin-only.
+    </p>
+  </main>
+</div>
 
 <script type="module">
   import { initializeApp }
@@ -186,104 +310,224 @@
   setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
   const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-  function show(id) { ['gate','loading','dash'].forEach(x => { $('#'+x).style.display = (x===id) ? 'block' : 'none'; }); }
-  function err(msg) {
-    const el = $('#gate-err'); el.textContent = msg; el.style.display = 'block';
+  function show(id) {
+    ['gate-wrap','loading','dash'].forEach(x => { $('#'+x).style.display = (x === id) ? 'block' : 'none'; });
   }
+  function err(msg) { const el = $('#gate-err'); el.textContent = msg; el.style.display = 'block'; }
 
   $('#gate-google').onclick = async () => {
     err('');
-    try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (e) {
-      err('Sign-in failed: ' + (e.message || e));
-    }
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+    catch (e) { err('Sign-in failed: ' + (e.message || e)); }
   };
 
   function fmtDate(ms) {
     if (!ms) return '—';
     const d = new Date(ms);
-    return d.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+    return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
   }
   function fmtRelative(ms) {
     if (!ms) return '—';
     const diff = Date.now() - ms;
     const m = Math.floor(diff / 60000);
-    if (m < 1)   return 'just now';
-    if (m < 60)  return m + 'm ago';
-    if (m < 1440) return Math.floor(m/60) + 'h ago';
-    return Math.floor(m/1440) + 'd ago';
+    if (m < 1)    return 'just now';
+    if (m < 60)   return m + 'm';
+    if (m < 1440) return Math.floor(m/60) + 'h';
+    return Math.floor(m/1440) + 'd';
   }
-
   function statusPill(s) {
-    s = (s || '').toLowerCase();
-    return '<span class="pill-status pill-' + (s.replace(/[^a-z_]/g,'') || 'unknown') + '">' + s + '</span>';
+    s = (s || '').toLowerCase().replace(/[^a-z_]/g,'') || 'unknown';
+    return '<span class="pill pill-' + s + '">' + s + '</span>';
+  }
+  function tierPill(t, isAdmin) {
+    if (isAdmin) return '<span class="pill" style="background:rgba(168,85,247,0.18);color:#c084fc;">admin</span>';
+    return '<span class="pill pill-tier">' + (t || 'free') + '</span>';
   }
 
-  function renderKpis(k) {
+  /* ===== Sparkline SVG ===== */
+  function sparklinePath(values, w, h) {
+    if (!values || !values.length) return { line:'', area:'', max:0 };
+    const max = Math.max(1, ...values);
+    const stepX = w / Math.max(values.length - 1, 1);
+    const points = values.map((v, i) => {
+      const x = i * stepX;
+      const y = h - 2 - (v / max) * (h - 4);
+      return [x, y];
+    });
+    const line = 'M ' + points.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L ');
+    const area = line + ' L ' + (w).toFixed(1) + ' ' + h + ' L 0 ' + h + ' Z';
+    return { line, area, max };
+  }
+  function sparklineSVG(values) {
+    const w = 130, h = 28;
+    const p = sparklinePath(values, w, h);
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
+         + '<path class="area" d="' + p.area + '"></path>'
+         + '<path class="line" d="' + p.line + '"></path>'
+         + '</svg>';
+  }
+
+  /* ===== Render functions ===== */
+  function renderKpis(k, dailySignups) {
+    const totalLast30 = (dailySignups || []).reduce((s,n) => s+n, 0);
+    const totalPrev30 = 0;  // we don't have prev period yet — placeholder
     const cards = [
-      { lbl:'Total users',   val:k.totalUsers,   sub:k.signups7d + ' new this week · ' + k.signups30d + ' this month' },
-      { lbl:'Trialing',      val:k.trialing,     sub:'14-day Pro Plus trial', cls:'kpi-accent' },
-      { lbl:'Paying (active)', val:k.active,     sub:k.tierPro + ' Pro · ' + k.tierPlus + ' Pro Plus', cls:'kpi-accent' },
-      { lbl:'MRR (est.)',    val:'$' + k.mrrEstimate.toFixed(2), sub:'monthly equivalent of active subs', cls:'kpi-accent' },
-      { lbl:'Past due',      val:k.pastDue,      sub:'card declined / payment retry', cls: k.pastDue > 0 ? 'kpi-warn' : '' },
-      { lbl:'Cancel scheduled', val:k.cancelAtPeriodEnd, sub:'will drop to Free at period end', cls: k.cancelAtPeriodEnd > 0 ? 'kpi-amber' : '' },
-      { lbl:'Canceled',      val:k.canceled,     sub:'subscription ended' },
-      { lbl:'Free / no sub', val:k.tierFree,     sub:'never opened Stripe Checkout' },
-      { lbl:'Email verified', val:k.verifiedEmail, sub:k.totalUsers ? Math.round(100 * k.verifiedEmail / k.totalUsers) + '% of total' : '0%' },
-      { lbl:'Admins',        val:k.tierAdmin,    sub:'no billing · all features' }
+      { lbl:'Total users',   val:k.totalUsers, sub:totalLast30 + ' new in 30d', spark:sparklineSVG(dailySignups) },
+      { lbl:'Trialing',      val:k.trialing,   sub:'14-day Pro Plus trial', cls:'kpi-accent' },
+      { lbl:'Paying',        val:k.active,     sub:k.tierPro + ' Pro · ' + k.tierPlus + ' Pro Plus', cls:'kpi-accent' },
+      { lbl:'MRR',           val:'$' + k.mrrEstimate.toFixed(2), sub:'monthly equivalent', cls:'kpi-accent' },
+      { lbl:'Past due',      val:k.pastDue,    sub:k.pastDue > 0 ? 'card declined' : 'all good' }
     ];
-    $('#kpis-host').innerHTML = '<div class="kpis">' + cards.map(c =>
+    $('#kpi-row-host').innerHTML = '<div class="kpi-row">' + cards.map(c =>
       '<div class="kpi ' + (c.cls || '') + '">'
         + '<div class="kpi-label">' + c.lbl + '</div>'
         + '<div class="kpi-value">' + c.val + '</div>'
-        + '<div class="kpi-sub">' + c.sub + '</div>'
+        + '<div class="kpi-delta">' + c.sub + '</div>'
+        + (c.spark ? '<div class="kpi-spark">' + c.spark + '</div>' : '')
       + '</div>'
     ).join('') + '</div>';
   }
 
-  function renderRecent(rows) {
+  function renderFunnel(k) {
+    const total = k.totalUsers || 0;
+    const trialed = k.trialing + k.active + k.canceled + k.cancelAtPeriodEnd; // anyone who ever entered Stripe
+    const paying = k.active;
+    const churned = k.canceled;
+    const trialPct  = total ? Math.round(100 * trialed / total) : 0;
+    const payPct    = trialed ? Math.round(100 * paying / trialed) : 0;
+    const churnPct  = (paying + churned) ? Math.round(100 * churned / (paying + churned)) : 0;
+
+    $('#funnel-host').innerHTML = ''
+      + '<div class="funnel">'
+        + '<div class="funnel-title">CONVERSION FUNNEL</div>'
+        + '<div class="funnel-steps">'
+          + '<div class="funnel-step h-active"><div class="funnel-step-label">Signups</div><div class="funnel-step-value">' + total + '</div><div class="funnel-step-meta">100% baseline</div></div>'
+          + '<div class="funnel-step"><div class="funnel-step-label">Started trial</div><div class="funnel-step-value">' + trialed + '</div><div class="funnel-step-meta">' + trialPct + '% of signups</div></div>'
+          + '<div class="funnel-step h-active"><div class="funnel-step-label">Paying now</div><div class="funnel-step-value">' + paying + '</div><div class="funnel-step-meta">' + payPct + '% of trials → paid</div></div>'
+          + '<div class="funnel-step"><div class="funnel-step-label">Churned</div><div class="funnel-step-value">' + churned + '</div><div class="funnel-step-meta">' + churnPct + '% of total billed</div></div>'
+        + '</div>'
+      + '</div>';
+  }
+
+  /* ===== Recent signups + filter ===== */
+  let _recent = [];
+  let _recentFilter = 'all';
+  function passRecent(r) {
+    if (_recentFilter === 'all') return true;
+    if (!r.sub) return _recentFilter === 'free';
+    if (_recentFilter === 'paying') return r.sub.status === 'active';
+    if (_recentFilter === 'trial')  return r.sub.status === 'trialing';
+    if (_recentFilter === 'free')   return r.sub.status === 'canceled' || !r.sub.tier;
+    return true;
+  }
+  function renderRecent() {
     const head = '<thead><tr>'
       + '<th>Email</th><th>Name</th><th>Provider</th><th>Created</th><th>Last sign-in</th><th>Sub</th>'
       + '</tr></thead>';
+    const rows = _recent.filter(passRecent);
     if (!rows.length) {
-      $('#recent-tbl').innerHTML = head + '<tbody><tr><td class="empty" colspan="6">No signups in the last 30 days yet.</td></tr></tbody>';
+      $('#recent-tbl').innerHTML = head + '<tbody><tr><td class="empty" colspan="6">No matching signups.</td></tr></tbody>';
+      $('#recent-meta').textContent = '0 of ' + _recent.length;
       return;
     }
     const body = rows.map(r => {
-      const subBit = r.sub ? statusPill(r.sub.status) + ' <span class="pill-status pill-tier">' + (r.sub.tier || 'free') + '</span>' : '<span class="pill-status pill-canceled">no sub</span>';
+      const subBit = r.sub ? statusPill(r.sub.status) + ' ' + tierPill(r.sub.tier, r.sub.isAdmin) : '<span class="pill pill-canceled">no sub</span>';
       return '<tr>'
-        + '<td class="email">' + r.email + (r.emailVerified ? ' ✓' : '') + '</td>'
+        + '<td class="email">' + r.email + (r.emailVerified ? ' <span class="checkmark">✓</span>' : '') + '</td>'
         + '<td>' + (r.displayName || '—') + '</td>'
-        + '<td>' + r.provider + '</td>'
-        + '<td>' + fmtRelative(r.created) + '</td>'
-        + '<td>' + fmtRelative(r.lastSignIn) + '</td>'
+        + '<td><span class="pill pill-tier">' + r.provider + '</span></td>'
+        + '<td>' + fmtRelative(r.created) + ' ago</td>'
+        + '<td>' + (r.lastSignIn ? fmtRelative(r.lastSignIn) + ' ago' : '—') + '</td>'
         + '<td>' + subBit + '</td>'
-        + '</tr>';
+      + '</tr>';
     }).join('');
     $('#recent-tbl').innerHTML = head + '<tbody>' + body + '</tbody>';
-    $('#recent-meta').textContent = rows.length + ' user' + (rows.length===1?'':'s') + ' · last 30 days';
+    $('#recent-meta').textContent = rows.length + ' of ' + _recent.length;
   }
 
-  function renderSubs(rows) {
+  /* ===== Subs + filter ===== */
+  let _subs = [];
+  let _subFilter = 'all';
+  function passSub(r) {
+    if (_subFilter === 'all') return true;
+    if (_subFilter === 'cancel_scheduled') return r.cancelAtPeriodEnd;
+    return r.status === _subFilter;
+  }
+  function renderSubs() {
     const head = '<thead><tr>'
       + '<th>Email</th><th>Tier</th><th>Status</th><th>Trial ends</th><th>Period ends</th><th>Cancel?</th>'
       + '</tr></thead>';
+    const rows = _subs.filter(passSub);
     if (!rows.length) {
-      $('#subs-tbl').innerHTML = head + '<tbody><tr><td class="empty" colspan="6">No billing records yet — first paid signup will appear here.</td></tr></tbody>';
+      $('#subs-tbl').innerHTML = head + '<tbody><tr><td class="empty" colspan="6">No subscriptions in this filter.</td></tr></tbody>';
+      $('#subs-meta').textContent = '0 of ' + _subs.length;
       return;
     }
     const body = rows.map(r => '<tr>'
       + '<td class="email">' + r.email + '</td>'
-      + '<td>' + (r.isAdmin ? '👑 admin' : '<span class="pill-status pill-tier">' + r.tier + '</span>') + '</td>'
+      + '<td>' + tierPill(r.tier, r.isAdmin) + '</td>'
       + '<td>' + statusPill(r.status) + '</td>'
       + '<td>' + fmtDate(r.trialEnd) + '</td>'
       + '<td>' + fmtDate(r.currentPeriodEnd) + '</td>'
-      + '<td>' + (r.cancelAtPeriodEnd ? '⚠ yes' : '—') + '</td>'
+      + '<td>' + (r.cancelAtPeriodEnd ? '<span class="danger">scheduled</span>' : '—') + '</td>'
     + '</tr>').join('');
     $('#subs-tbl').innerHTML = head + '<tbody>' + body + '</tbody>';
-    $('#subs-meta').textContent = rows.length + ' subscription record' + (rows.length===1?'':'s');
+    $('#subs-meta').textContent = rows.length + ' of ' + _subs.length;
+  }
+
+  /* ===== CSV export ===== */
+  function downloadCsv(filename, rows) {
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(',')].concat(rows.map(r =>
+      headers.map(h => {
+        let v = r[h]; if (v == null) v = '';
+        if (typeof v === 'object') v = JSON.stringify(v);
+        v = String(v).replace(/"/g, '""');
+        return '"' + v + '"';
+      }).join(',')
+    )).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  /* ===== Wire filters + export ===== */
+  function wire() {
+    $$('[data-recent-filter]').forEach(b => b.onclick = () => {
+      $$('[data-recent-filter]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      _recentFilter = b.dataset.recentFilter;
+      renderRecent();
+    });
+    $$('[data-sub-filter]').forEach(b => b.onclick = () => {
+      $$('[data-sub-filter]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      _subFilter = b.dataset.subFilter;
+      renderSubs();
+    });
+    $('#recent-csv').onclick = () => downloadCsv('wjp-recent-signups.csv', _recent.map(r => ({
+      email: r.email, name: r.displayName, provider: r.provider,
+      created: new Date(r.created).toISOString(),
+      lastSignIn: r.lastSignIn ? new Date(r.lastSignIn).toISOString() : '',
+      verified: r.emailVerified,
+      status: r.sub ? r.sub.status : '', tier: r.sub ? r.sub.tier : ''
+    })));
+    $('#subs-csv').onclick = () => downloadCsv('wjp-subs.csv', _subs.map(r => ({
+      email: r.email, tier: r.tier, status: r.status,
+      trial_end: r.trialEnd ? new Date(r.trialEnd).toISOString() : '',
+      period_end: r.currentPeriodEnd ? new Date(r.currentPeriodEnd).toISOString() : '',
+      cancel_at_period_end: r.cancelAtPeriodEnd,
+      price_lookup_key: r.priceLookupKey || '',
+      uid: r.uid
+    })));
+    $('#btn-reload').onclick = () => {
+      if (auth.currentUser) loadStats(auth.currentUser);
+    };
   }
 
   async function loadStats(user) {
@@ -294,36 +538,33 @@
         headers: { 'Authorization': 'Bearer ' + tok }
       });
       if (r.status === 403) {
-        err('Forbidden — your account is not an admin. Sign in with pappoe34@gmail.com or have a seed admin add you.');
-        show('gate');
+        err('Forbidden — your account is not an admin. Sign in with the seed admin email.');
+        show('gate-wrap');
         return;
       }
       if (!r.ok) throw new Error('admin-stats ' + r.status + ': ' + await r.text());
       const data = await r.json();
-      renderKpis(data.kpis);
-      renderRecent(data.recent);
-      renderSubs(data.subs);
+      _recent = data.recent || [];
+      _subs   = data.subs   || [];
+      renderKpis(data.kpis, data.dailySignups);
+      renderFunnel(data.kpis);
+      renderRecent();
+      renderSubs();
       $('#dash-user').textContent = user.email || user.uid;
-      $('#dash-when').textContent = 'Updated ' + fmtRelative(data.generatedAt);
+      $('#dash-when').textContent = 'updated ' + fmtRelative(data.generatedAt) + ' ago';
       show('dash');
     } catch (e) {
       console.error(e);
       err('Failed to load stats: ' + (e.message || e));
-      show('gate');
+      show('gate-wrap');
     }
   }
 
-  $('#btn-reload').onclick = () => {
-    if (auth.currentUser) loadStats(auth.currentUser);
-  };
-
-  // Auth gate flow
+  // Initial flow
+  wire();
   show('loading');
   onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      show('gate');
-      return;
-    }
+    if (!user) { show('gate-wrap'); return; }
     loadStats(user);
   });
 </script>
