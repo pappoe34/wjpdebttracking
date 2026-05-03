@@ -526,7 +526,8 @@ const titles = {
     'activity': 'Activity',
     'budgets': 'Budget',
     'settings': 'Settings',
-    'plans': 'Plans & Billing'
+    'plans': 'Plans & Billing',
+    'support': 'Support'
 };
 
 function navigateSPA(target) {
@@ -25328,3 +25329,1214 @@ window.showPrivacyHint = function showPrivacyHint() {
 
 /* PHASE 17d.1 - inject Plans page CSS (sentinel: P17_PLANS_CSS) */
 (function(){if(window._wjpPlansCss)return;window._wjpPlansCss=true;var s=document.createElement('style');s.id='wjp-plans-css';s.textContent='/* PHASE 17d.1 - Plans page styles */\n#page-plans { padding: 24px 32px 96px; max-width: 1200px; margin: 0 auto; }\n.plans-current-banner {\n  display:flex; align-items:center; justify-content:space-between; gap:20px;\n  background: linear-gradient(135deg, rgba(0,212,168,0.12), rgba(102,126,234,0.08));\n  border: 1px solid rgba(0,212,168,0.3); border-radius: 14px; padding: 18px 22px; margin-bottom: 28px;\n}\n.banner-eyebrow { font-size:9px; color:var(--text-3); letter-spacing:0.12em; font-weight:800; margin-bottom:4px; }\n.banner-tier    { font-size:22px; font-weight:900; color:var(--accent); margin-bottom:2px; }\n.banner-status  { font-size:12px; color:var(--text-2); }\n\n.plans-hero { text-align:center; padding: 12px 0 32px; }\n.plans-hero-eyebrow { font-size:10px; letter-spacing:0.18em; color:var(--accent); font-weight:800; margin-bottom:10px; }\n.plans-hero-title { font-size: clamp(32px, 5vw, 48px); font-weight: 900; letter-spacing:-0.02em; margin: 0 0 12px; line-height:1.05; }\n.plans-hero-subtitle { font-size:15px; color:var(--text-2); max-width:540px; margin: 0 auto 28px; line-height:1.5; }\n\n.billing-toggle {\n  display:inline-flex; padding:5px; background: var(--card-2); border:1px solid var(--border);\n  border-radius: 999px; gap:4px; align-self:center;\n}\n.cycle-btn {\n  background:none; border:none; padding:10px 22px; border-radius:999px; font-size:13px;\n  font-weight:700; color:var(--text-2); cursor:pointer; transition:all 0.18s; display:inline-flex; align-items:center; gap:8px;\n}\n.cycle-btn.active { background: var(--accent); color: var(--bg); }\n.cycle-btn:not(.active):hover { color: var(--text); }\n.save-badge {\n  background: rgba(255,77,109,0.18); color: #ff4d6d; font-size: 9px; font-weight:900;\n  padding: 3px 7px; border-radius: 4px; letter-spacing:0.06em;\n}\n.cycle-btn.active .save-badge { background: rgba(255,255,255,0.22); color:#fff; }\n\n.plans-grid {\n  display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin: 36px 0 56px;\n  align-items: start;\n}\n@media (max-width: 900px) { .plans-grid { grid-template-columns: 1fr; max-width:440px; margin-left:auto; margin-right:auto; } }\n\n.plan-card {\n  position:relative; background: var(--card); border: 1px solid var(--border);\n  border-radius: 18px; padding: 28px 24px; display:flex; flex-direction:column; gap:14px;\n  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;\n}\n.plan-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px var(--tier-glow, rgba(0,0,0,0.4)); }\n.plan-card.recommended {\n  border-color: var(--tier-color);\n  background: linear-gradient(180deg, var(--tier-glow, rgba(102,126,234,0.08)), transparent 60%), var(--card);\n  box-shadow: 0 8px 32px var(--tier-glow);\n  transform: scale(1.02);\n}\n.plan-card.is-current { border-color: var(--accent); }\n.plan-rec-badge {\n  position:absolute; top:-12px; left:50%; transform:translateX(-50%);\n  background: var(--tier-color); color:#fff; font-size:10px; font-weight:900;\n  letter-spacing:0.12em; padding:5px 14px; border-radius:99px;\n}\n.plan-card-header { display:flex; align-items:center; gap:14px; }\n.plan-icon {\n  width:46px; height:46px; border-radius:12px;\n  background: var(--tier-glow, rgba(255,255,255,0.05));\n  display:grid; place-items:center; flex-shrink:0;\n}\n.plan-icon i { font-size: 22px; color: var(--tier-color); }\n.plan-name { font-size:18px; font-weight:900; color:var(--text); }\n.plan-tagline { font-size:11px; color:var(--text-3); margin-top:2px; line-height:1.3; }\n\n.plan-price-row { display:flex; align-items:baseline; gap:2px; margin: 6px 0 0; }\n.plan-price-dollar { font-size:18px; font-weight:700; color:var(--text-2); align-self:flex-start; margin-top:8px; }\n.plan-price-int    { font-size:48px; font-weight:900; color:var(--text); line-height:1; letter-spacing:-0.03em; }\n.plan-price-cents  { font-size:18px; font-weight:700; color:var(--text-2); }\n.plan-billing { font-size:11px; color:var(--text-3); margin-top:-4px; font-weight:600; }\n\n.plan-trial-badge {\n  display:inline-block; background: rgba(0,212,168,0.12); color: var(--accent);\n  font-size:10px; font-weight:800; padding: 5px 10px; border-radius:6px; letter-spacing:0.04em;\n}\n\n.plan-cta {\n  width:100%; padding: 13px; border-radius:10px; font-size:13px; font-weight:800;\n  letter-spacing:0.02em; cursor:pointer; transition: all 0.18s; border: none;\n  background: var(--tier-color); color:#fff;\n}\n.plan-cta:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }\n.plan-cta-current { background: var(--card-2); color: var(--text-3); cursor: default; border: 1px solid var(--border); }\n\n.plan-features { list-style:none; padding:0; margin: 8px 0 0; display:flex; flex-direction:column; gap:9px; }\n.plan-features li { display:flex; align-items:flex-start; gap:9px; font-size:12px; color:var(--text-2); line-height:1.45; }\n.plan-features li i { font-size:14px; flex-shrink:0; margin-top:1px; }\n.plan-feature-note { color: var(--text-3); font-weight:700; font-size:10px; }\n\n/* Cost breakdown */\n.cost-breakdown {\n  background: linear-gradient(135deg, rgba(0,212,168,0.06), rgba(0,0,0,0));\n  border: 1px solid rgba(0,212,168,0.18); border-radius: 18px;\n  padding: 36px 36px 28px; margin: 24px 0;\n}\n.cost-breakdown-eyebrow { font-size:10px; letter-spacing:0.18em; color:var(--accent); font-weight:900; margin-bottom:8px; }\n.cost-breakdown-header h2 { font-size: clamp(24px, 3.5vw, 34px); font-weight:900; margin: 0 0 10px; letter-spacing:-0.02em; }\n.cost-breakdown-header p  { font-size:13px; color:var(--text-2); max-width: 640px; line-height:1.55; margin: 0 0 24px; }\n.cost-table { display:flex; flex-direction:column; gap:1px; background: var(--border); border-radius: 12px; overflow:hidden; margin-bottom: 18px; }\n.cost-row {\n  display:grid; grid-template-columns: 1fr auto 1.4fr; gap: 18px; padding: 14px 18px;\n  background: var(--card); align-items:center;\n}\n.cost-row > div:first-child { font-size:13px; font-weight:700; display:flex; align-items:center; gap:10px; }\n.cost-row > div:first-child i { font-size:16px; }\n.cost-amt { font-family: \'JetBrains Mono\', ui-monospace, monospace; font-size:14px; font-weight:800; text-align:right; color:var(--text); }\n.cost-amt-positive { color: var(--accent); }\n.cost-note { font-size:11px; color:var(--text-3); text-align:right; }\n.cost-row-total { background: var(--card-2); font-weight:900; }\n.cost-row-margin { background: rgba(0,212,168,0.08); }\n.cost-footer { font-size:12px; color:var(--text-3); line-height:1.5; padding-top:8px; }\n@media (max-width: 600px) {\n  .cost-row { grid-template-columns: 1fr auto; }\n  .cost-note { grid-column: 1 / -1; text-align:left; padding-left:26px; margin-top: -4px; }\n}\n\n/* Comparison table */\n.feature-compare { margin: 56px 0 24px; }\n.feature-compare h2 { font-size: clamp(24px, 3.5vw, 32px); font-weight:900; margin: 0 0 22px; }\n.compare-table-wrap { overflow-x:auto; border-radius:14px; border:1px solid var(--border); }\n.compare-table { width:100%; min-width: 640px; border-collapse: collapse; background: var(--card); }\n.compare-table th, .compare-table td { padding: 14px 18px; text-align: center; font-size: 12px; border-bottom: 1px solid var(--border); }\n.compare-table thead th { background: var(--card-2); font-size:13px; font-weight:900; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text); }\n.compare-table .th-pro, .compare-table .td-pro { background: rgba(102,126,234,0.05); border-left: 1px solid rgba(102,126,234,0.18); border-right: 1px solid rgba(102,126,234,0.18); }\n.compare-table .th-pro { color: #667eea; }\n.compare-table .td-feat { text-align: left; font-weight:700; color: var(--text-2); }\n.compare-table tbody tr:hover { background: var(--card-2); }\n.compare-table tbody tr:last-child td { border-bottom:none; }\n\n/* Billing FAQ */\n.billing-faq { margin: 56px 0 24px; }\n.billing-faq h2 { font-size: clamp(24px, 3.5vw, 32px); font-weight:900; margin: 0 0 22px; }\n.faq-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }\n@media (max-width: 700px) { .faq-grid { grid-template-columns: 1fr; } }\n.faq-item {\n  background: var(--card); border: 1px solid var(--border); border-radius: 12px;\n  padding: 18px 22px; cursor: pointer; transition: border-color 0.18s;\n}\n.faq-item:hover { border-color: rgba(0,212,168,0.3); }\n.faq-item summary {\n  font-size: 14px; font-weight: 800; color: var(--text); cursor: pointer; list-style: none;\n  display:flex; justify-content:space-between; align-items:center; gap: 12px;\n}\n.faq-item summary::-webkit-details-marker { display: none; }\n.faq-item summary::after {\n  content: "+"; font-size: 22px; font-weight: 400; color: var(--text-3);\n  transition: transform 0.2s;\n}\n.faq-item[open] summary::after { content: "−"; }\n.faq-item p { font-size: 13px; color: var(--text-2); line-height: 1.6; margin: 12px 0 0; }\n\n/* Trust strip */\n.plans-trust-strip {\n  display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin: 40px 0 0;\n  padding: 22px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;\n}\n.trust-item { display:flex; align-items:center; gap:10px; font-size:12px; font-weight:700; color:var(--text-2); }\n.trust-item i { font-size:18px; color: var(--accent); }\n@media (max-width: 700px) { .plans-trust-strip { grid-template-columns: 1fr 1fr; } }\n@media (max-width: 400px) { .plans-trust-strip { grid-template-columns: 1fr; } }\n';document.head.appendChild(s);})();
+
+
+/* ============================================================
+   PHASE 17e -- Settings rebuild + Support page (sentinel: P17_SETTINGS_REBUILD)
+   ============================================================ */
+(function(){if(window._wjpSettingsRebuildCss)return;window._wjpSettingsRebuildCss=true;var s=document.createElement('style');s.id='wjp-settings-rebuild-css';s.textContent=`/* ============================================================
+   PHASE 17e -- Settings + Support page styling
+   Sentinel: P17_SETTINGS_REBUILD_CSS
+   ============================================================ */
+
+/* ===== Settings shell layout ===== */
+.settings-shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 8px 0 64px;
+}
+@media (max-width: 880px) {
+    .settings-shell {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+/* ===== Sub-nav ===== */
+.settings-subnav {
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 16px;
+    padding: 8px;
+    align-self: start;
+    position: sticky;
+    top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.settings-subnav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text-muted, #a1a8b3);
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+}
+.settings-subnav-item:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--text, #ffffff);
+}
+.settings-subnav-item.active {
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--accent, #818cf8);
+}
+.settings-subnav-item i {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+@media (max-width: 880px) {
+    .settings-subnav {
+        flex-direction: row;
+        overflow-x: auto;
+        position: static;
+        padding: 6px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .settings-subnav-item { flex-shrink: 0; }
+    .settings-subnav-item span { white-space: nowrap; }
+}
+
+/* ===== Settings content area ===== */
+.settings-content { min-width: 0; }
+.settings-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding: 0 4px;
+}
+.settings-panel-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text, #fff);
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.settings-panel-subtitle {
+    font-size: 13.5px;
+    color: var(--text-muted, #a1a8b3);
+    margin: 0;
+    line-height: 1.5;
+}
+.settings-badge {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* ===== Card containers ===== */
+.settings-card {
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+.settings-card-section-title {
+    padding: 16px 20px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted, #a1a8b3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+}
+
+/* ===== Row layout ===== */
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+    min-height: 56px;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    color: var(--text, #fff);
+    font-weight: 500;
+}
+.settings-row-hint {
+    font-size: 12.5px;
+    color: var(--text-muted, #a1a8b3);
+    font-weight: 400;
+    margin-top: 2px;
+    line-height: 1.4;
+}
+.settings-row-control {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+@media (max-width: 600px) {
+    .settings-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .settings-row-control {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+/* ===== Inputs ===== */
+.settings-input, .settings-select, .settings-textarea {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border, rgba(255,255,255,0.10));
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: var(--text, #fff);
+    font-size: 13.5px;
+    min-width: 220px;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+}
+.settings-input:focus, .settings-select:focus, .settings-textarea:focus {
+    outline: none;
+    border-color: var(--accent, #6366f1);
+    background: rgba(99,102,241,0.04);
+}
+.settings-input:disabled { opacity: 0.55; cursor: not-allowed; }
+.settings-textarea {
+    min-height: 80px;
+    resize: vertical;
+    width: 100%;
+}
+
+/* ===== Toggle switch ===== */
+.settings-switch {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    user-select: none;
+}
+.settings-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.settings-switch-track {
+    display: block;
+    width: 40px;
+    height: 22px;
+    background: rgba(255,255,255,0.10);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.18s;
+}
+.settings-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.18s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.settings-switch input:checked ~ .settings-switch-track {
+    background: var(--accent, #6366f1);
+}
+.settings-switch input:checked ~ .settings-switch-track .settings-switch-thumb {
+    transform: translateX(18px);
+}
+
+/* ===== Buttons ===== */
+.settings-btn {
+    background: var(--accent, #6366f1);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.05s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+}
+.settings-btn:hover { filter: brightness(1.1); }
+.settings-btn:active { transform: scale(0.98); }
+.settings-btn-ghost {
+    background: rgba(255,255,255,0.05);
+    color: var(--text, #fff);
+}
+.settings-btn-ghost:hover { background: rgba(255,255,255,0.10); }
+.settings-btn-danger {
+    background: rgba(239,68,68,0.12);
+    color: #fca5a5;
+}
+.settings-btn-danger:hover {
+    background: rgba(239,68,68,0.20);
+    color: #fecaca;
+}
+
+/* ===== Pill / status ===== */
+.settings-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: rgba(99,102,241,0.12);
+    color: var(--pill-color, var(--accent, #818cf8));
+}
+
+/* ===== Avatar ===== */
+.settings-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* ===== Linked accounts list ===== */
+.settings-linked-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+.settings-linked-item:last-child { margin-bottom: 0; }
+.settings-linked-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(99,102,241,0.12);
+    color: var(--accent, #818cf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.settings-linked-name {
+    flex: 1;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text, #fff);
+}
+.settings-linked-meta {
+    font-size: 12px;
+    color: var(--text-muted, #a1a8b3);
+    margin-top: 2px;
+}
+
+/* ===== Plan summary banner ===== */
+.settings-plan-banner {
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.06));
+    border: 1px solid rgba(99,102,241,0.20);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+.settings-plan-banner-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text, #fff);
+    margin: 0 0 2px;
+}
+.settings-plan-banner-sub {
+    font-size: 12.5px;
+    color: var(--text-muted, #a1a8b3);
+    margin: 0;
+}
+
+/* ===== Danger zone ===== */
+.settings-danger-zone {
+    border: 1px solid rgba(239,68,68,0.25);
+    background: rgba(239,68,68,0.04);
+}
+.settings-danger-zone .settings-row { border-color: rgba(239,68,68,0.10); }
+
+/* ============================================================
+   SUPPORT PAGE
+   ============================================================ */
+
+.support-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 8px 0 64px;
+}
+
+.support-hero {
+    background: linear-gradient(135deg, rgba(99,102,241,0.10), rgba(139,92,246,0.04));
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 20px;
+    padding: 36px 32px;
+    text-align: center;
+    margin-bottom: 28px;
+}
+.support-hero-title {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text, #fff);
+    margin: 0 0 8px;
+    letter-spacing: -0.02em;
+}
+.support-hero-sub {
+    font-size: 15px;
+    color: var(--text-muted, #a1a8b3);
+    margin: 0 0 24px;
+    line-height: 1.55;
+}
+.support-search-wrap {
+    max-width: 540px;
+    margin: 0 auto;
+    position: relative;
+}
+.support-search {
+    width: 100%;
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.10));
+    border-radius: 12px;
+    padding: 14px 16px 14px 44px;
+    color: var(--text, #fff);
+    font-size: 14.5px;
+    font-family: inherit;
+    transition: border-color 0.15s;
+}
+.support-search:focus {
+    outline: none;
+    border-color: var(--accent, #6366f1);
+}
+.support-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted, #a1a8b3);
+    font-size: 18px;
+    pointer-events: none;
+}
+
+/* ===== Topics grid ===== */
+.support-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-muted, #a1a8b3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 28px 0 14px;
+    padding: 0 4px;
+}
+.support-topics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}
+.support-topic-card {
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 14px;
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.support-topic-card:hover {
+    border-color: var(--accent, #6366f1);
+    transform: translateY(-1px);
+}
+.support-topic-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(99,102,241,0.12);
+    color: var(--accent, #818cf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+.support-topic-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text, #fff);
+    margin: 0 0 4px;
+}
+.support-topic-desc {
+    font-size: 12.5px;
+    color: var(--text-muted, #a1a8b3);
+    margin: 0;
+    line-height: 1.45;
+}
+
+/* ===== Contact cards ===== */
+.support-contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 28px;
+}
+@media (max-width: 720px) {
+    .support-contact-grid { grid-template-columns: 1fr; }
+}
+.support-contact-card {
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 14px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+}
+.support-contact-card.primary {
+    border-color: rgba(99,102,241,0.30);
+    background: linear-gradient(135deg, rgba(99,102,241,0.06), transparent);
+}
+.support-contact-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(99,102,241,0.12);
+    color: var(--accent, #818cf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 14px;
+}
+.support-contact-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text, #fff);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.support-contact-desc {
+    font-size: 13px;
+    color: var(--text-muted, #a1a8b3);
+    margin: 0 0 16px;
+    line-height: 1.55;
+    flex: 1;
+}
+.support-contact-action {
+    background: var(--accent, #6366f1);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: filter 0.15s;
+    font-family: inherit;
+}
+.support-contact-action:hover { filter: brightness(1.10); }
+.support-contact-action.disabled {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted, #a1a8b3);
+    cursor: not-allowed;
+}
+.support-contact-meta {
+    font-size: 12px;
+    color: var(--text-muted, #a1a8b3);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.support-coming-soon-pill {
+    background: rgba(245,158,11,0.12);
+    color: #fbbf24;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* ===== System status banner ===== */
+.support-status {
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 14px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+}
+.support-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 12px rgba(34,197,94,0.5);
+    flex-shrink: 0;
+}
+.support-status-text {
+    flex: 1;
+    font-size: 13.5px;
+    color: var(--text, #fff);
+}
+.support-status-meta {
+    font-size: 12px;
+    color: var(--text-muted, #a1a8b3);
+    margin-top: 2px;
+}
+
+/* ===== Resources ===== */
+.support-resources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+.support-resource-link {
+    background: var(--card, #11141A);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--text, #fff);
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: border-color 0.15s, background 0.15s;
+}
+.support-resource-link:hover {
+    border-color: var(--accent, #6366f1);
+    background: rgba(99,102,241,0.04);
+}
+.support-resource-link i {
+    color: var(--accent, #818cf8);
+    font-size: 18px;
+    flex-shrink: 0;
+}
+`;document.head.appendChild(s);})();
+
+/* ============================================================
+   PHASE 17e - Settings rebuild (sub-nav + inline panels) + Support page
+   Sentinels: P17_SETTINGS_REBUILD, P17_SUPPORT_PAGE
+   ============================================================ */
+(function(){
+    if (window._wjpSettingsRebuildInstalled) return;
+    window._wjpSettingsRebuildInstalled = true;
+
+    // ============== SECTION REGISTRY ==============
+    var SECTIONS = [
+        { id: 'profile',   label: 'Profile',         icon: 'ph-user' },
+        { id: 'billing',   label: 'Billing',         icon: 'ph-credit-card' },
+        { id: 'linked',    label: 'Linked Accounts', icon: 'ph-bank' },
+        { id: 'aicoach',   label: 'AI Coach',        icon: 'ph-robot' },
+        { id: 'notifs',    label: 'Notifications',   icon: 'ph-bell' },
+        { id: 'privacy',   label: 'Privacy',         icon: 'ph-eye-slash' },
+        { id: 'security',  label: 'Security',        icon: 'ph-lock-key' },
+        { id: 'appearance',label: 'Appearance',      icon: 'ph-palette' },
+        { id: 'data',      label: 'Data',            icon: 'ph-database' },
+        { id: 'account',   label: 'Account',         icon: 'ph-sign-out' }
+    ];
+    function getActiveSection() { return window._wjpSettingsSection || 'profile'; }
+    function setActiveSection(id) {
+        if (!SECTIONS.some(function(s){return s.id===id;})) id = 'profile';
+        window._wjpSettingsSection = id;
+        try { history.replaceState(null, '', '#settings/' + id); } catch(_){}
+        renderSettingsPage();
+    }
+    // Pick up section from URL hash if present (e.g. #settings/billing)
+    try {
+        var m = /#settings\/([a-z]+)/i.exec(location.hash);
+        if (m) window._wjpSettingsSection = m[1];
+    } catch(_){}
+
+    // ============== AUTO-SAVE TOAST (debounced) ==============
+    var _saveDebounce = null;
+    function autoSave() {
+        try { if (typeof saveState === 'function') saveState(); } catch(_){}
+        if (_saveDebounce) clearTimeout(_saveDebounce);
+        _saveDebounce = setTimeout(function(){
+            if (typeof showToast === 'function') showToast('Saved', 1200);
+        }, 350);
+    }
+
+    // ============== SHARED HELPERS ==============
+    function panelHeader(title, subtitle, opts) {
+        opts = opts || {};
+        var badge = opts.badge ? '<span class="settings-badge">' + opts.badge + '</span>' : '';
+        return '<div class="settings-panel-header">' +
+                  '<div><h2 class="settings-panel-title">' + title + badge + '</h2>' +
+                  (subtitle ? '<p class="settings-panel-subtitle">' + subtitle + '</p>' : '') +
+                  '</div></div>';
+    }
+    function row(label, control, hint) {
+        return '<div class="settings-row">' +
+                 '<div class="settings-row-label"><div>' + label + '</div>' +
+                   (hint ? '<div class="settings-row-hint">' + hint + '</div>' : '') +
+                 '</div>' +
+                 '<div class="settings-row-control">' + control + '</div>' +
+               '</div>';
+    }
+    function toggle(id, on, dataAttr) {
+        return '<label class="settings-switch" for="' + id + '">' +
+                 '<input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') +
+                 (dataAttr ? ' ' + dataAttr : '') + '>' +
+                 '<span class="settings-switch-track"><span class="settings-switch-thumb"></span></span>' +
+               '</label>';
+    }
+    function btn(id, text, opts) {
+        opts = opts || {};
+        var cls = 'settings-btn ' + (opts.style || '');
+        return '<button id="' + id + '" class="' + cls + '">' +
+                 (opts.icon ? '<i class="ph ' + opts.icon + '"></i> ' : '') + text +
+               '</button>';
+    }
+    function pill(text, color) {
+        return '<span class="settings-pill" style="--pill-color:' + (color || 'var(--accent)') + ';">' + text + '</span>';
+    }
+
+    // ============== SECTION RENDERERS ==============
+    function r_profile() {
+        var u = window.__wjpUser || {};
+        var p = (window.appState && appState.profile) || {};
+        var name = p.name || u.displayName || '';
+        var email = p.email || u.email || '';
+        return panelHeader('Profile', 'Personal details we use across the app.') +
+            '<div class="settings-card">' +
+              row('Display name',
+                  '<input type="text" class="settings-input" id="set-profile-name" value="' + (name || '').replace(/"/g, '&quot;') + '" placeholder="Your name">',
+                  'Shown in greetings and AI Coach replies.') +
+              row('Email',
+                  '<input type="email" class="settings-input" id="set-profile-email" value="' + (email || '').replace(/"/g, '&quot;') + '" disabled>',
+                  'Tied to your account; managed in Security.') +
+              row('Avatar',
+                  '<div style="display:flex;align-items:center;gap:14px;">' +
+                    '<div class="settings-avatar">' + (name ? name.charAt(0).toUpperCase() : '?') + '</div>' +
+                    '<button id="set-profile-photo" class="settings-btn settings-btn-ghost"><i class="ph ph-upload-simple"></i> Upload photo</button>' +
+                  '</div>',
+                  'Square JPG/PNG, ~200kb max.') +
+            '</div>';
+    }
+
+    function r_billing() {
+        var sub = (window.appState && appState.subscription) || {};
+        var tier = (typeof getTier === 'function') ? getTier() : 'free';
+        var label = tier === 'admin' ? 'Admin (Pro Plus unlocked)' :
+                    tier === 'plus' ? 'Pro Plus' : tier === 'pro' ? 'Pro' : 'Free';
+        var status = sub.status === 'trialing' ? 'Free trial' :
+                     sub.status === 'active' ? 'Active' :
+                     sub.status === 'past_due' ? 'Payment failed' :
+                     sub.status === 'canceled' ? 'Canceled' : (tier === 'free' ? 'No subscription' : '');
+        var renews = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : null;
+        var cycleHint = '';
+        if (sub.cancelAtPeriodEnd && renews) cycleHint = 'Access ends ' + renews;
+        else if (renews) cycleHint = 'Renews ' + renews;
+
+        return panelHeader('Billing', 'Manage your subscription, payment, and invoices.') +
+            '<div class="settings-card">' +
+              row('Current plan',
+                  '<div style="display:flex;align-items:center;gap:10px;">' +
+                    pill(label, tier === 'free' ? '#94a3b8' : tier === 'plus' ? '#00d4a8' : '#667eea') +
+                    (status ? '<span class="settings-row-hint" style="margin:0;">' + status + '</span>' : '') +
+                  '</div>',
+                  cycleHint) +
+              row('Compare plans',
+                  btn('set-billing-plans', 'View all plans', {style:'settings-btn-primary', icon:'ph-medal'}),
+                  'Side-by-side feature comparison + transparent cost breakdown.') +
+              (tier !== 'free' && tier !== 'admin' ?
+                row('Manage subscription',
+                    btn('set-billing-portal', 'Open Stripe portal', {style:'settings-btn-ghost', icon:'ph-arrow-square-out'}),
+                    'Update payment, switch plans, cancel, download invoices.') : '') +
+            '</div>';
+    }
+
+    function r_linked() {
+        var debts = (window.appState && appState.debts) || [];
+        var assets = (window.appState && appState.linkedAssets) || [];
+        var plaidDebts = debts.filter(function(d){ return d && d.source === 'plaid'; });
+        var byItem = {};
+        plaidDebts.forEach(function(d){
+            if (!byItem[d.itemId]) byItem[d.itemId] = { itemId: d.itemId, name: d.institutionName || 'Bank', accounts: [] };
+            byItem[d.itemId].accounts.push(d);
+        });
+        assets.filter(function(a){return a && a.source === 'plaid';}).forEach(function(a){
+            if (!byItem[a.itemId]) byItem[a.itemId] = { itemId: a.itemId, name: a.institutionName || 'Bank', accounts: [] };
+            byItem[a.itemId].accounts.push(a);
+        });
+        var items = Object.keys(byItem).map(function(k){return byItem[k];});
+
+        var listHTML = items.length === 0 ?
+            '<div class="settings-empty"><i class="ph ph-bank" style="font-size:28px;color:var(--text-3);"></i>' +
+            '<p>No banks linked yet.</p>' +
+            '<button id="set-linked-add" class="settings-btn settings-btn-primary"><i class="ph ph-plus"></i> Connect a bank</button></div>' :
+            items.map(function(it){
+              return '<div class="settings-linked-row">' +
+                       '<div class="settings-linked-icon"><i class="ph-fill ph-bank"></i></div>' +
+                       '<div style="flex:1;">' +
+                         '<div style="font-weight:800;">' + it.name + '</div>' +
+                         '<div class="settings-row-hint" style="margin:0;">' + it.accounts.length + ' account' + (it.accounts.length === 1 ? '' : 's') + ' synced</div>' +
+                       '</div>' +
+                       '<button class="settings-btn settings-btn-ghost set-linked-unlink" data-item-id="' + it.itemId + '"><i class="ph ph-trash"></i></button>' +
+                     '</div>';
+            }).join('') +
+            '<div style="display:flex;justify-content:flex-end;margin-top:12px;">' +
+              '<button id="set-linked-add" class="settings-btn settings-btn-primary"><i class="ph ph-plus"></i> Add another bank</button>' +
+            '</div>';
+
+        return panelHeader('Linked Accounts', items.length + ' bank' + (items.length === 1 ? '' : 's') + ' currently connected via Plaid.') +
+            '<div class="settings-card">' + listHTML + '</div>';
+    }
+
+    function r_aicoach() {
+        var prefs = (window.appState && appState.prefs) || {};
+        var cloudOn = prefs.cloudMode !== false;
+        var sub = (window.appState && appState.subscription) || {};
+        var tier = (typeof getTier === 'function') ? getTier() : 'free';
+        var capLabel = tier === 'plus' || tier === 'admin' ? 'Unlimited' : tier === 'pro' ? '50 questions / month' : '0 / month (upgrade to use Cloud Mode)';
+
+        return panelHeader('AI Coach', 'Configure how the AI Coach answers your questions.') +
+            '<div class="settings-card">' +
+              row('Cloud Mode',
+                  toggle('set-ai-cloud', cloudOn, 'data-pref="cloudMode"'),
+                  'Use Llama 70B via Groq for richer, more personalized answers. Standard Mode is rule-based and runs entirely on your device.') +
+              row('Monthly cap',
+                  pill(capLabel, tier === 'free' ? '#94a3b8' : 'var(--accent)'),
+                  tier === 'free' ? 'Upgrade to Pro for 50 cloud questions/mo, Pro Plus for unlimited.' : 'Resets the 1st of each month.') +
+              row('Privacy in AI',
+                  '<a href="/privacy.html#ai-coach-data-flow" class="settings-link">What data gets sent to Groq?</a>',
+                  'We send a snapshot of your portfolio (no raw transactions, no credentials) only when Cloud Mode is on.') +
+            '</div>';
+    }
+
+    function r_notifs() {
+        var prefs = ((window.appState && appState.prefs) || {}).notifications || { channels: {}, types: {}, quietHours: {} };
+        var ch = prefs.channels || {};
+        var ty = prefs.types || {};
+        var q  = prefs.quietHours || {};
+        return panelHeader('Notifications', 'Choose how and when WJP reaches out.') +
+            '<div class="settings-card">' +
+              '<h3 class="settings-card-title">Channels</h3>' +
+              row('Email',  toggle('set-notif-email', ch.email !== false, 'data-channel="email"')) +
+              row('Push',   toggle('set-notif-push',  ch.push  !== false, 'data-channel="push"')) +
+              row('SMS',    toggle('set-notif-sms',   ch.sms === true,    'data-channel="sms"'), 'Carrier rates may apply.') +
+              row('In-app', toggle('set-notif-inapp',ch.inApp !== false,  'data-channel="inApp"')) +
+            '</div>' +
+            '<div class="settings-card">' +
+              '<h3 class="settings-card-title">What to notify me about</h3>' +
+              row('Payment due reminders',  toggle('set-notif-paydue',  ty.paymentDue     !== false, 'data-type="paymentDue"')) +
+              row('Overdue alerts',          toggle('set-notif-overdue', ty.paymentOverdue !== false, 'data-type="paymentOverdue"')) +
+              row('Milestones (debt paid off)', toggle('set-notif-milestone', ty.milestone !== false, 'data-type="milestone"')) +
+              row('AI insights',             toggle('set-notif-ai', ty.aiInsights !== false, 'data-type="aiInsights"')) +
+              row('Credit-score changes',    toggle('set-notif-score', ty.scoreChange !== false, 'data-type="scoreChange"')) +
+              row('Account synced',          toggle('set-notif-acct', ty.accountSynced === true, 'data-type="accountSynced"')) +
+            '</div>' +
+            '<div class="settings-card">' +
+              '<h3 class="settings-card-title">Quiet hours</h3>' +
+              row('Enabled', toggle('set-notif-quiet-on', q.enabled !== false, 'data-quiet="enabled"'), 'Suppress non-urgent notifications during these hours.') +
+              row('From', '<input type="time" class="settings-input" id="set-notif-quiet-from" value="' + (q.from || '22:00') + '" data-quiet="from">') +
+              row('To',   '<input type="time" class="settings-input" id="set-notif-quiet-to"   value="' + (q.to   || '07:00') + '" data-quiet="to">') +
+            '</div>';
+    }
+
+    function r_privacy() {
+        var prefs = (window.appState && appState.prefs) || {};
+        var pmDefault = prefs.privacyModeDefault === true;
+        var consent = false;
+        try { consent = localStorage.getItem('wjp_cookie_consent_v1') === 'accepted'; } catch(_){}
+        return panelHeader('Privacy', 'Control how your data is shown and shared.') +
+            '<div class="settings-card">' +
+              row('Privacy Mode default',
+                  toggle('set-privacy-default', pmDefault, 'data-pref="privacyModeDefault"'),
+                  'Blur sensitive numbers by default when you open the app.') +
+              row('Cookie consent',
+                  pill(consent ? 'Accepted' : 'Pending', consent ? 'var(--accent)' : '#fbbf24'),
+                  '<a href="/privacy.html#cookies" class="settings-link">What we store locally</a>') +
+              row('Privacy policy',
+                  '<a href="/privacy.html" target="_blank" class="settings-link">View policy <i class="ph ph-arrow-up-right"></i></a>') +
+              row('Terms of service',
+                  '<a href="/terms.html" target="_blank" class="settings-link">View terms <i class="ph ph-arrow-up-right"></i></a>') +
+            '</div>';
+    }
+
+    function r_security() {
+        var u = window.__wjpUser || {};
+        var providers = (u.providerData || []).map(function(p){return p.providerId;});
+        var hasGoogle = providers.indexOf('google.com') !== -1;
+        var hasPwd    = providers.indexOf('password') !== -1;
+        return panelHeader('Security', 'Protect your account and data.') +
+            '<div class="settings-card">' +
+              row('Sign-in method',
+                  pill(hasGoogle ? 'Google OAuth' : hasPwd ? 'Email + password' : 'Unknown', '#667eea'),
+                  hasGoogle ? 'Manage Google account security at myaccount.google.com.' : 'Use the password reset email to change.') +
+              row('Two-factor authentication',
+                  hasGoogle ? pill('Enabled via Google', 'var(--accent)') : btn('set-security-2fa', 'Enable 2FA', {style:'settings-btn-primary', icon:'ph-shield-check'}),
+                  '2FA is required for production accounts to keep your bank-linked data safe.') +
+              row('Active session',
+                  pill('This device', 'var(--accent)'),
+                  'Sign out from any device by signing out below.') +
+              (hasPwd ? row('Reset password',
+                  btn('set-security-pwreset', 'Send reset email', {style:'settings-btn-ghost', icon:'ph-envelope'}),
+                  "We'll email you a one-time link.") : '') +
+            '</div>';
+    }
+
+    function r_appearance() {
+        var prefs = (window.appState && appState.prefs) || {};
+        var theme = prefs.theme || 'auto';
+        var density = prefs.density || 'cozy';
+        var motion = prefs.reduceMotion === true;
+        return panelHeader('Appearance', 'Make WJP look the way you want.') +
+            '<div class="settings-card">' +
+              row('Theme',
+                  '<select class="settings-input" id="set-appearance-theme" data-pref="theme">' +
+                    '<option value="auto"' + (theme==='auto'?' selected':'') + '>Match device</option>' +
+                    '<option value="dark"' + (theme==='dark'?' selected':'') + '>Dark</option>' +
+                    '<option value="light"' + (theme==='light'?' selected':'') + '>Light</option>' +
+                  '</select>') +
+              row('Density',
+                  '<select class="settings-input" id="set-appearance-density" data-pref="density">' +
+                    '<option value="cozy"' + (density==='cozy'?' selected':'') + '>Cozy (default)</option>' +
+                    '<option value="compact"' + (density==='compact'?' selected':'') + '>Compact</option>' +
+                  '</select>',
+                  'Compact reduces padding and font sizes for power users.') +
+              row('Reduce motion',
+                  toggle('set-appearance-motion', motion, 'data-pref="reduceMotion"'),
+                  'Disable smooth transitions and chart animations.') +
+            '</div>';
+    }
+
+    function r_data() {
+        return panelHeader('Data', 'Export, import, and review what we store.') +
+            '<div class="settings-card">' +
+              row('Export everything',
+                  btn('set-data-export', 'Download CSV', {style:'settings-btn-primary', icon:'ph-download-simple'}),
+                  'A ZIP with debts, transactions, and goals.') +
+              row('Import',
+                  btn('set-data-import', 'Upload backup', {style:'settings-btn-ghost', icon:'ph-upload-simple'}),
+                  'Restore a previous WJP export.') +
+              row('Storage usage',
+                  pill('< 1 MB', 'var(--accent)'),
+                  'Your data lives encrypted in Firestore (synced across devices).') +
+            '</div>';
+    }
+
+    function r_account() {
+        return panelHeader('Account', 'Sign out, wipe local data, or delete permanently.') +
+            '<div class="settings-card">' +
+              row('Sign out',
+                  btn('set-account-signout', 'Sign out of this device', {style:'settings-btn-ghost', icon:'ph-sign-out'}),
+                  'Your data stays in the cloud; you can sign back in anytime.') +
+              row('Wipe local data',
+                  btn('set-account-wipe', 'Wipe data on this device', {style:'settings-btn-ghost', icon:'ph-broom'}),
+                  'Clears the local cache. Cloud data is untouched.') +
+            '</div>' +
+            '<div class="settings-card settings-danger-card">' +
+              '<h3 class="settings-card-title" style="color:#ff4d6d;">Danger zone</h3>' +
+              row('Delete account',
+                  btn('set-account-delete', 'Delete my account', {style:'settings-btn-danger', icon:'ph-trash'}),
+                  'Removes all your data from our servers. Plaid items are unlinked. Irreversible.') +
+            '</div>';
+    }
+
+    var RENDERERS = {
+        profile: r_profile, billing: r_billing, linked: r_linked, aicoach: r_aicoach,
+        notifs: r_notifs, privacy: r_privacy, security: r_security,
+        appearance: r_appearance, data: r_data, account: r_account
+    };
+
+    // ============== EVENT WIRING (delegated) ==============
+    function wireSettingsEvents() {
+        var host = document.getElementById('settings-content');
+        if (!host) return;
+
+        // Toggle pref bindings
+        host.querySelectorAll('input[type="checkbox"][data-pref]').forEach(function(el){
+            el.addEventListener('change', function(){
+                if (!appState.prefs) appState.prefs = {};
+                appState.prefs[el.dataset.pref] = el.checked;
+                autoSave();
+            });
+        });
+
+        // Notification channels
+        host.querySelectorAll('input[type="checkbox"][data-channel]').forEach(function(el){
+            el.addEventListener('change', function(){
+                if (!appState.prefs) appState.prefs = {};
+                if (!appState.prefs.notifications) appState.prefs.notifications = {};
+                if (!appState.prefs.notifications.channels) appState.prefs.notifications.channels = {};
+                appState.prefs.notifications.channels[el.dataset.channel] = el.checked;
+                autoSave();
+            });
+        });
+        host.querySelectorAll('input[type="checkbox"][data-type]').forEach(function(el){
+            el.addEventListener('change', function(){
+                if (!appState.prefs) appState.prefs = {};
+                if (!appState.prefs.notifications) appState.prefs.notifications = {};
+                if (!appState.prefs.notifications.types) appState.prefs.notifications.types = {};
+                appState.prefs.notifications.types[el.dataset.type] = el.checked;
+                autoSave();
+            });
+        });
+        host.querySelectorAll('[data-quiet]').forEach(function(el){
+            el.addEventListener('change', function(){
+                if (!appState.prefs) appState.prefs = {};
+                if (!appState.prefs.notifications) appState.prefs.notifications = {};
+                if (!appState.prefs.notifications.quietHours) appState.prefs.notifications.quietHours = {};
+                var v = el.type === 'checkbox' ? el.checked : el.value;
+                appState.prefs.notifications.quietHours[el.dataset.quiet] = v;
+                autoSave();
+            });
+        });
+
+        // Selects (theme/density)
+        host.querySelectorAll('select[data-pref]').forEach(function(el){
+            el.addEventListener('change', function(){
+                if (!appState.prefs) appState.prefs = {};
+                appState.prefs[el.dataset.pref] = el.value;
+                autoSave();
+            });
+        });
+
+        // Profile name autosave
+        var nameInput = document.getElementById('set-profile-name');
+        if (nameInput) nameInput.addEventListener('change', function(){
+            if (!appState.profile) appState.profile = {};
+            appState.profile.name = nameInput.value.trim();
+            autoSave();
+        });
+
+        // Buttons that reuse existing app handlers
+        var maps = {
+            'set-billing-plans':    function(){ if (typeof navigateSPA === 'function') navigateSPA('plans'); },
+            'set-billing-portal':   function(){ if (typeof openStripePortal === 'function') openStripePortal(); },
+            'set-linked-add':       function(){ if (typeof openPlaidLink === 'function') openPlaidLink(); else if (typeof showToast === 'function') showToast('Plaid Link unavailable.'); },
+            'set-account-signout':  function(){ if (window.__wjpAuth) window.__wjpAuth.signOut().then(function(){ location.reload(); }); },
+            'set-account-wipe':     function(){ if (confirm('Wipe local data on this device? Cloud data is untouched.')) { try { localStorage.clear(); sessionStorage.clear(); } catch(_){}; location.reload(); } },
+            'set-account-delete':   function(){ if (typeof window.__wjpDeleteAccount === 'function') {
+                if (confirm('Permanently delete your account and all data? This cannot be undone.')) {
+                    window.__wjpDeleteAccount(null).then(function(r){
+                        if (r && r.ok) { showToast('Account deleted.'); setTimeout(function(){location.href='/intro.html';}, 1200); }
+                        else { showToast('Delete failed: ' + ((r && r.error) || 'unknown')); }
+                    });
+                }
+            } },
+            'set-security-pwreset': function(){
+                var em = (window.__wjpUser && window.__wjpUser.email);
+                if (em && window.__wjpAuth && window.__wjpAuth.sendPasswordResetEmail) {
+                    window.__wjpAuth.sendPasswordResetEmail(em).then(function(){ showToast('Password reset email sent to ' + em); });
+                } else { showToast('Reset unavailable.'); }
+            },
+            'set-data-export':      function(){ if (typeof showToast === 'function') showToast('CSV export coming soon.'); },
+            'set-data-import':      function(){ if (typeof showToast === 'function') showToast('Import coming soon.'); },
+            'set-profile-photo':    function(){ if (typeof showToast === 'function') showToast('Photo upload coming soon.'); },
+            'set-security-2fa':     function(){ if (typeof showToast === 'function') showToast('2FA setup coming soon.'); }
+        };
+        Object.keys(maps).forEach(function(id){
+            var el = document.getElementById(id);
+            if (el) el.onclick = maps[id];
+        });
+        host.querySelectorAll('.set-linked-unlink').forEach(function(b){
+            b.onclick = function(){ if (typeof unlinkPlaidItem === 'function') unlinkPlaidItem(b.dataset.itemId); };
+        });
+    }
+
+    // ============== MAIN PAGE RENDERER ==============
+    window.renderSettingsPage = function() {
+        var host = document.getElementById('settings-content');
+        if (!host) return;
+        var active = getActiveSection();
+        var renderer = RENDERERS[active] || RENDERERS.profile;
+
+        var navHTML = '<aside class="settings-subnav">' + SECTIONS.map(function(s){
+            var isActive = s.id === active;
+            return '<button class="settings-subnav-item' + (isActive ? ' active' : '') + '" data-section="' + s.id + '">' +
+                     '<i class="ph ' + s.icon + '"></i>' +
+                     '<span>' + s.label + '</span>' +
+                   '</button>';
+        }).join('') + '</aside>';
+
+        host.innerHTML =
+          '<div class="settings-hero reveal">' +
+            '<div class="plans-hero-eyebrow">SETTINGS</div>' +
+            '<h1 class="settings-hero-title">Settings</h1>' +
+            '<p class="settings-hero-subtitle">Tailor your account, security, AI, notifications, and how WJP works for you.</p>' +
+          '</div>' +
+          '<div class="settings-layout">' +
+            navHTML +
+            '<main class="settings-content-pane reveal reveal-1">' + renderer() + '</main>' +
+          '</div>';
+
+        // Wire sub-nav clicks
+        host.querySelectorAll('.settings-subnav-item').forEach(function(btn){
+            btn.onclick = function(){ setActiveSection(btn.dataset.section); };
+        });
+
+        wireSettingsEvents();
+    };
+
+    // ============== SUPPORT PAGE ==============
+    var SUPPORT_TOPICS = [
+        { icon: 'ph-bank',         title: 'Bank syncing',         desc: 'Connect, refresh, or unlink banks via Plaid.', anchor: 'bank' },
+        { icon: 'ph-credit-card',  title: 'Billing & plans',      desc: 'Pricing, upgrades, refunds, and invoices.',     anchor: 'billing' },
+        { icon: 'ph-user-circle',  title: 'Account & login',      desc: 'Reset password, change email, two-factor auth.', anchor: 'account' },
+        { icon: 'ph-calculator',   title: 'Strategy & math',      desc: 'How payoff dates and allocations work.',         anchor: 'math' },
+        { icon: 'ph-shield-check', title: 'Privacy & security',   desc: 'What we collect, how we protect it.',            anchor: 'privacy' },
+        { icon: 'ph-bug',          title: 'Bug reports',          desc: 'Something acting weird? Tell us.',                anchor: 'bug' }
+    ];
+
+    window.renderSupportPage = function() {
+        var host = document.getElementById('support-content');
+        if (!host) return;
+
+        var topicsHTML = SUPPORT_TOPICS.map(function(t){
+            return '<a class="support-topic" href="/faq.html#' + t.anchor + '">' +
+                     '<div class="support-topic-icon"><i class="ph-fill ' + t.icon + '"></i></div>' +
+                     '<div><div class="support-topic-title">' + t.title + '</div>' +
+                     '<div class="support-topic-desc">' + t.desc + '</div></div>' +
+                     '<i class="ph ph-arrow-up-right support-topic-arrow"></i>' +
+                   '</a>';
+        }).join('');
+
+        var statusHTML = ['App','Bank sync','AI Coach','Authentication'].map(function(name){
+            return '<div class="support-status-pill"><span class="support-status-dot"></span>' + name + '</div>';
+        }).join('');
+
+        host.innerHTML =
+          '<div class="support-hero reveal">' +
+            '<div class="plans-hero-eyebrow">SUPPORT</div>' +
+            '<h1 class="support-hero-title">How can we help?</h1>' +
+            '<p class="support-hero-subtitle">Search our help center, browse common topics, or reach out directly.</p>' +
+            '<div class="support-search-wrap reveal reveal-1">' +
+              '<i class="ph ph-magnifying-glass"></i>' +
+              '<input type="search" id="support-search" placeholder="Search help articles, billing questions, bank issues..." class="support-search">' +
+            '</div>' +
+          '</div>' +
+          '<section class="reveal reveal-2"><h2 class="support-section-title">Common topics</h2>' +
+            '<div class="support-topics-grid">' + topicsHTML + '</div>' +
+          '</section>' +
+          '<section class="reveal reveal-3"><h2 class="support-section-title">Talk to us</h2>' +
+            '<div class="support-contact-grid">' +
+              '<div class="support-contact-card support-contact-primary">' +
+                '<div class="support-contact-icon"><i class="ph-fill ph-envelope-open"></i></div>' +
+                '<div class="support-contact-title">Email support</div>' +
+                '<div class="support-contact-desc">For anything that\'s not in the help center. Real human, no bots, no chatbot triage.</div>' +
+                '<a href="mailto:support@wjpdebttracking.com?subject=WJP%20support%20request" class="support-cta">support@wjpdebttracking.com</a>' +
+                '<div class="support-meta"><i class="ph ph-clock"></i> Avg reply: under 24 hours, Mon-Fri</div>' +
+              '</div>' +
+              '<div class="support-contact-card support-contact-soon">' +
+                '<div class="support-contact-icon"><i class="ph-fill ph-chat-circle-dots"></i></div>' +
+                '<div class="support-contact-title">Live chat <span class="support-soon-pill">Coming soon</span></div>' +
+                '<div class="support-contact-desc">Real-time chat with a real person. We\'re launching this once we have enough volume to staff it well.</div>' +
+                '<a href="mailto:support@wjpdebttracking.com?subject=Live%20chat%20interest" class="support-cta-secondary">Email me when it\'s ready</a>' +
+              '</div>' +
+            '</div>' +
+          '</section>' +
+          '<section class="reveal reveal-4"><h2 class="support-section-title">System status <a href="https://wjpdebttracking.com" target="_blank" class="settings-link" style="font-size:12px;font-weight:700;">View live status →</a></h2>' +
+            '<div class="support-status-grid">' + statusHTML + '</div>' +
+          '</section>' +
+          '<section class="reveal reveal-5"><h2 class="support-section-title">More resources</h2>' +
+            '<div class="support-links-grid">' +
+              '<a href="/faq.html" class="support-link-card"><i class="ph-fill ph-question"></i> Help center / FAQ</a>' +
+              '<a href="/privacy.html" class="support-link-card"><i class="ph-fill ph-shield-check"></i> Privacy policy</a>' +
+              '<a href="/terms.html" class="support-link-card"><i class="ph-fill ph-scroll"></i> Terms of service</a>' +
+              '<a href="/how.html" class="support-link-card"><i class="ph-fill ph-book-open"></i> How it works</a>' +
+            '</div>' +
+          '</section>';
+
+        // Wire search → redirects to FAQ with query
+        var search = document.getElementById('support-search');
+        if (search) {
+            search.addEventListener('keydown', function(e){
+                if (e.key === 'Enter' && search.value.trim()) {
+                    location.href = '/faq.html#search=' + encodeURIComponent(search.value.trim());
+                }
+            });
+        }
+    };
+})();
+
+
+/* P17e -- navigateSPA wrap to trigger renderers */
+(function(){
+    if (window._wjpSettingsNavWrapped) return;
+    window._wjpSettingsNavWrapped = true;
+    function attach() {
+        var origNav = window.navigateSPA;
+        if (typeof origNav !== 'function') { setTimeout(attach, 80); return; }
+        window.navigateSPA = function(target) {
+            try { origNav.call(this, target); } catch(e){ console.warn('[nav]', e); }
+            try {
+                if (target === 'settings' && typeof renderSettingsPage === 'function') {
+                    setTimeout(function(){ renderSettingsPage(); }, 30);
+                }
+                if (target === 'support' && typeof renderSupportPage === 'function') {
+                    setTimeout(function(){ renderSupportPage(); }, 30);
+                }
+            } catch(_){}
+        };
+        // Override the nav-support handler that currently routes to AI Coach
+        function rewireSupport() {
+            var ns = document.getElementById('nav-support');
+            if (!ns) { setTimeout(rewireSupport, 200); return; }
+            ns.onclick = function(e){
+                if (e && e.preventDefault) e.preventDefault();
+                if (typeof window.navigateSPA === 'function') window.navigateSPA('support');
+            };
+            ns.setAttribute('data-page', 'support');
+        }
+        rewireSupport();
+        // Honor URL hash on initial load (e.g. #settings/billing or #support)
+        try {
+            var h = (location.hash || '').toLowerCase();
+            if (/^#settings(\b|\/)/.test(h)) setTimeout(function(){ window.navigateSPA('settings'); }, 400);
+            else if (/^#support(\b|\/)/.test(h)) setTimeout(function(){ window.navigateSPA('support'); }, 400);
+        } catch(_){}
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+    else attach();
+})();
