@@ -84,18 +84,48 @@
 
   function getCurrentTier() {
     try {
-      // Email-based admin override (works even if subscription hasn't loaded yet)
+      // 1) Multiple email sources — admin emails always get unlimited
+      const emailCandidates = [];
       try {
         if (window.firebase && window.firebase.auth) {
           const u = window.firebase.auth().currentUser;
-          if (u && u.email && ADMIN_EMAILS.includes(u.email.toLowerCase())) return 'admin';
+          if (u && u.email) emailCandidates.push(u.email);
         }
       } catch {}
+      try {
+        const a = window.appState;
+        if (a) {
+          if (a.profile && a.profile.email) emailCandidates.push(a.profile.email);
+          if (a.user && a.user.email) emailCandidates.push(a.user.email);
+        }
+      } catch {}
+      try {
+        // Some flows stash the user record in window.__wjpUser
+        if (window.__wjpUser && window.__wjpUser.email) emailCandidates.push(window.__wjpUser.email);
+      } catch {}
+      try {
+        const cached = localStorage.getItem('wjp_user_email') || localStorage.getItem('user_email');
+        if (cached) emailCandidates.push(cached);
+      } catch {}
+      // Sidebar UI shows the name+email — check the DOM as last resort
+      try {
+        const dom = document.querySelector('[data-user-email], .user-email');
+        if (dom) emailCandidates.push(dom.dataset.userEmail || dom.textContent || '');
+      } catch {}
 
+      for (const e of emailCandidates) {
+        if (e && ADMIN_EMAILS.includes(String(e).toLowerCase().trim())) return 'admin';
+      }
+
+      // 2) Manual admin override via localStorage (lets us flip a single account)
+      try {
+        if (localStorage.getItem('wjp.adminOverride') === '1' || localStorage.getItem('wjp.adminOverride') === 'true') return 'admin';
+      } catch {}
+
+      // 3) Subscription-based detection
       const sub = window.appState && window.appState.subscription;
       if (sub) {
         if (sub.isAdmin) return 'admin';
-        // Trial state takes precedence — full access during trial
         const te = sub.trial_end || sub.trialEnd;
         if (te) {
           const teMs = typeof te === 'number' ? (te < 1e12 ? te * 1000 : te) : new Date(te).getTime();
@@ -103,17 +133,30 @@
         }
         if (sub.tier) {
           const t = String(sub.tier).toLowerCase().replace(/[\s_-]/g, '');
-          // Normalize common aliases
           if (t === 'proplus' || t === 'premium' || t === 'plus' || t === 'lifetime' || t === 'paid' || t === 'unlimited') return 'pro_plus';
           if (t === 'pro') return 'pro';
           if (t === 'free') return 'free';
           return t;
         }
       }
-      // Also check appState.tier (fallback alternate location)
+
+      // 4) Fallback: appState.tier
       if (window.appState && window.appState.tier) {
-        return String(window.appState.tier).toLowerCase().replace(/-/g, '_');
+        const t = String(window.appState.tier).toLowerCase().replace(/[\s_-]/g, '');
+        if (t === 'admin' || t === 'unlimited' || t === 'premium') return 'admin';
+        if (t === 'proplus' || t === 'plus' || t === 'lifetime') return 'pro_plus';
+        return t;
       }
+
+      // 5) Sidebar text fallback — looks for "Premium Tier" or "Admin" badge
+      try {
+        const sidebar = document.querySelector('.sidebar, .nav-sidebar, .left-sidebar, [class*="sidebar"]');
+        if (sidebar) {
+          const text = sidebar.textContent || '';
+          if (/admin/i.test(text)) return 'admin';
+          if (/premium tier|pro plus/i.test(text)) return 'pro_plus';
+        }
+      } catch {}
     } catch {}
     return 'free';
   }
