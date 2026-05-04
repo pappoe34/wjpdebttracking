@@ -173,12 +173,43 @@
     refreshWidget();
   }
 
+  // SECURITY: aggressively scrub any admin artifacts off non-admin accounts.
+  // If a session was opened with this localStorage set, clear it.
+  function purgeIfNotAdmin() {
+    try {
+      if (isAdmin()) return false;  // legit admin — leave alone
+      let purged = false;
+      if (localStorage.getItem('wjp.adminTierOverride')) {
+        localStorage.removeItem('wjp.adminTierOverride');
+        purged = true;
+      }
+      if (localStorage.getItem('wjp.adminOverride')) {
+        localStorage.removeItem('wjp.adminOverride');
+        purged = true;
+      }
+      // Remove the sidebar widget if it ever rendered
+      const w = document.getElementById('wjp-admin-tier-widget');
+      if (w) { w.remove(); purged = true; }
+      // Restore any test-tier mutation back to the real subscription tier
+      try {
+        const sub = window.appState && window.appState.subscription;
+        if (sub && sub._realTier !== undefined) {
+          sub.tier = sub._realTier;
+          sub.isAdmin = !!sub._realIsAdmin;
+        }
+      } catch {}
+      if (purged) console.log('[admin-tier-switcher] non-admin session — purged stale admin artifacts');
+    } catch {}
+    return true;
+  }
+
   function init() {
     // Wait for ChatCore (which loads admin detection) before deciding whether to render
     let polls = 0;
     const t = setInterval(() => {
       polls++;
       if (window.WJP_ChatCore) {
+        purgeIfNotAdmin();
         if (isAdmin()) {
           buildWidget();
           applyOverrideToAppState();
@@ -191,14 +222,36 @@
       }
     }, 200);
 
-    // If sidebar gets re-rendered, re-mount the widget
+    // If sidebar gets re-rendered, re-mount the widget — but ONLY for real admins
     const obs = new MutationObserver(() => {
       if (isAdmin() && !document.getElementById('wjp-admin-tier-widget')) {
         buildWidget();
         applyOverrideToAppState();
+      } else if (!isAdmin()) {
+        purgeIfNotAdmin();
       }
     });
     obs.observe(document.body, { childList: true, subtree: true });
+
+    // SECURITY: on any auth change, re-evaluate admin status and purge if needed
+    function setupAuthGuard() {
+      if (!window.firebase || !window.firebase.auth) return false;
+      try {
+        window.firebase.auth().onAuthStateChanged(() => {
+          if (!isAdmin()) {
+            purgeIfNotAdmin();
+          } else if (!document.getElementById('wjp-admin-tier-widget')) {
+            buildWidget();
+            applyOverrideToAppState();
+          }
+        });
+        return true;
+      } catch { return false; }
+    }
+    if (!setupAuthGuard()) {
+      let p = 0;
+      const t2 = setInterval(() => { p++; if (setupAuthGuard() || p > 50) clearInterval(t2); }, 200);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

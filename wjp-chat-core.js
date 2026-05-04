@@ -112,7 +112,7 @@
     'unlimited':    Infinity,
   };
   // Admin email fallback — these accounts always get unlimited access regardless of tier
-  const ADMIN_EMAILS = ['winstonpappoe01@gmail.com', 'pappoe34@gmail.com'];
+  const ADMIN_EMAILS = ['pappoe34@gmail.com'];  // SECURITY: do not add other emails. Admin grants global tier override + unlimited AI.
 
   function todayKey() {
     const d = new Date();
@@ -147,9 +147,9 @@
       try {
         if (window.appState && window.appState.subscription && window.appState.subscription.isAdmin) return true;
       } catch {}
-      try {
-        if (localStorage.getItem('wjp.adminOverride') === '1' || localStorage.getItem('wjp.adminOverride') === 'true') return true;
-      } catch {}
+      // SECURITY: localStorage 'wjp.adminOverride' is NO LONGER honored — it was a
+      // backdoor that anyone could set from devtools. Real admin must come from
+      // email allowlist or server-set subscription.isAdmin.
     } catch {}
     return false;
   }
@@ -210,10 +210,7 @@
         if (e && ADMIN_EMAILS.includes(String(e).toLowerCase().trim())) return 'admin';
       }
 
-      // 2) Manual admin override via localStorage (lets us flip a single account)
-      try {
-        if (localStorage.getItem('wjp.adminOverride') === '1' || localStorage.getItem('wjp.adminOverride') === 'true') return 'admin';
-      } catch {}
+      // 2) (REMOVED) localStorage backdoor was unsafe.
 
       // 3) Subscription-based detection
       const sub = window.appState && window.appState.subscription;
@@ -241,15 +238,7 @@
         return t;
       }
 
-      // 5) Sidebar text fallback — looks for "Premium Tier" or "Admin" badge
-      try {
-        const sidebar = document.querySelector('.sidebar, .nav-sidebar, .left-sidebar, [class*="sidebar"]');
-        if (sidebar) {
-          const text = sidebar.textContent || '';
-          if (/admin/i.test(text)) return 'admin';
-          if (/premium tier|pro plus/i.test(text)) return 'pro_plus';
-        }
-      } catch {}
+      // 5) (REMOVED) Sidebar DOM scan fallback was easily spoofable.
     } catch {}
     return 'free';
   }
