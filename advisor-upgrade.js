@@ -437,6 +437,80 @@
     });
   }
 
+
+
+  // -------------- Length selector (Short / Medium / Long) ---------------
+  // Maps to backend length: brief / standard / detailed.
+  // Persists to appState.prefs.aiLength via saveState.
+  const LENGTH_OPTIONS = [
+    { key: 'brief',    label: 'Short',  hint: '1-3 sentences'   },
+    { key: 'standard', label: 'Medium', hint: '~250 words'      },
+    { key: 'detailed', label: 'Long',   hint: 'Full breakdown'  },
+  ];
+
+  function getCurrentLength() {
+    try {
+      return (window.appState && window.appState.prefs && window.appState.prefs.aiLength) || 'standard';
+    } catch { return 'standard'; }
+  }
+
+  function setCurrentLength(key) {
+    try {
+      if (!window.appState) return;
+      if (!window.appState.prefs) window.appState.prefs = {};
+      window.appState.prefs.aiLength = key;
+      if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+    } catch {}
+    // Refresh all length toggles on screen
+    document.querySelectorAll('.wjp-length-toggle').forEach(refreshLengthToggle);
+  }
+
+  function refreshLengthToggle(toggle) {
+    const cur = getCurrentLength();
+    toggle.querySelectorAll('.wjp-length-opt').forEach(b => {
+      const active = b.dataset.length === cur;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function buildLengthToggle() {
+    const wrap = document.createElement('div');
+    wrap.className = 'wjp-length-toggle';
+    wrap.setAttribute('role', 'group');
+    wrap.setAttribute('aria-label', 'Response length');
+    LENGTH_OPTIONS.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wjp-length-opt';
+      btn.dataset.length = opt.key;
+      btn.title = `${opt.label} — ${opt.hint}`;
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => setCurrentLength(opt.key));
+      wrap.appendChild(btn);
+    });
+    refreshLengthToggle(wrap);
+    return wrap;
+  }
+
+  function injectLengthToggles() {
+    // Advisor page header — to the LEFT of the model badge
+    const advisorHeaderRight = document.querySelector('#page-advisor .advisor-header-right');
+    if (advisorHeaderRight && !advisorHeaderRight.querySelector('.wjp-length-toggle')) {
+      const t = buildLengthToggle();
+      advisorHeaderRight.insertBefore(t, advisorHeaderRight.firstChild);
+    }
+    // FAB side panel header — to the LEFT of the action buttons
+    const aimHeader = document.querySelector('#ai-chat-panel .aim-header');
+    if (aimHeader && !aimHeader.querySelector('.wjp-length-toggle')) {
+      const actions = aimHeader.querySelector('.aim-header-actions');
+      if (actions) {
+        const t = buildLengthToggle();
+        actions.parentNode.insertBefore(t, actions);
+      }
+    }
+  }
+
   // -------------- Init -------------------------------------------------
 
   // ---------------------------------------------------------------------
@@ -688,6 +762,10 @@
     installContextOverride();
     forceCloudMode();
     polishHeader();
+    injectLengthToggles();
+    // Re-inject after a short delay in case header DOM mounts late
+    setTimeout(injectLengthToggles, 500);
+    setTimeout(injectLengthToggles, 1500);
     // Render from shared ChatCore history if any, else hero
     POLL(() => {
       if (!window.WJP_ChatCore) return false;
