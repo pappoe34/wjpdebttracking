@@ -554,3 +554,130 @@
   background: #a855f7;
   color: #fff;
 }
+
+/* ============================================================================
+   Admin global tier switcher widget (P27v) — sidebar mount
+   Visible only when admin-tier-switcher.js builds it (admin-only).
+   ============================================================================ */
+.wats {
+  position: relative;
+  margin: 8px 14px 0;
+  padding: 0;
+  font-family: inherit;
+  --wats-purple: #a855f7;
+  --wats-purple-dim: rgba(168, 85, 247, 0.14);
+  --wats-purple-bd: rgba(168, 85, 247, 0.35);
+}
+.wats-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--wats-purple-dim);
+  border: 1px dashed var(--wats-purple-bd);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.wats-toggle:hover {
+  border-style: solid;
+  background: rgba(168, 85, 247, 0.20);
+}
+.wats-icon { color: var(--wats-purple); font-size: 13px; }
+.wats-label { flex: 1; text-align: left; color: var(--text); font-size: 11px; }
+.wats-current-pill {
+  background: var(--wats-purple);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.wats.wats-active .wats-toggle {
+  border-style: solid;
+  background: rgba(168, 85, 247, 0.20);
+  box-shadow: 0 0 0 1px var(--wats-purple-bd);
+}
+
+.wats-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.20);
+  padding: 12px;
+  z-index: 9000;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity 0.18s, transform 0.18s;
+}
+.wats-popover.wats-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.wats-popover-header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--text);
+  margin-bottom: 4px;
+}
+.wats-popover-header i { color: var(--wats-purple); }
+.wats-popover-hint {
+  font-size: 11px; color: var(--text-3); line-height: 1.45;
+  margin-bottom: 10px;
+}
+.wats-options {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.wats-opt {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text);
+  transition: all 0.13s;
+}
+.wats-opt:hover {
+  background: var(--card-2);
+  border-color: var(--border);
+}
+.wats-opt.active {
+  background: var(--wats-purple-dim);
+  border-color: var(--wats-purple-bd);
+}
+.wats-opt-pill {
+  flex: 0 0 28px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--wats-purple-dim);
+  color: var(--wats-purple);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 11px;
+}
+.wats-opt.active .wats-opt-pill {
+  background: var(--wats-purple);
+  color: #fff;
+}
+.wats-opt-text { display: flex; flex-direction: column; gap: 1px; }
+.wats-opt-label { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.wats-opt-hint  { font-size: 10.5px; color: var(--text-3); }
+
+@media (max-width: 880px) {
+  .wats { display: none; }   /* hide on mobile sidebar */
+}
