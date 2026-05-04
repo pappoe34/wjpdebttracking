@@ -58,14 +58,22 @@
   // ---- Usage tracking (per-day cloud-AI quota) ----------------------------
   const USAGE_PREFIX = 'wjp.aiUsage.';
   const TIER_LIMITS = {
-    'free':         5,
+    'free':         25,                  // generous trial-quality access
     'trial':        Infinity,
-    'pro':          50,
+    'pro':          100,
     'pro-plus':     Infinity,
     'pro_plus':     Infinity,
+    'proplus':      Infinity,
     'proPlus':      Infinity,
+    'premium':      Infinity,
+    'plus':         Infinity,
+    'lifetime':     Infinity,
+    'paid':         Infinity,
     'admin':        Infinity,
+    'unlimited':    Infinity,
   };
+  // Admin email fallback — these accounts always get unlimited access regardless of tier
+  const ADMIN_EMAILS = ['winstonpappoe01@gmail.com', 'pappoe34@gmail.com'];
 
   function todayKey() {
     const d = new Date();
@@ -76,16 +84,35 @@
 
   function getCurrentTier() {
     try {
+      // Email-based admin override (works even if subscription hasn't loaded yet)
+      try {
+        if (window.firebase && window.firebase.auth) {
+          const u = window.firebase.auth().currentUser;
+          if (u && u.email && ADMIN_EMAILS.includes(u.email.toLowerCase())) return 'admin';
+        }
+      } catch {}
+
       const sub = window.appState && window.appState.subscription;
       if (sub) {
+        if (sub.isAdmin) return 'admin';
         // Trial state takes precedence — full access during trial
         const te = sub.trial_end || sub.trialEnd;
         if (te) {
           const teMs = typeof te === 'number' ? (te < 1e12 ? te * 1000 : te) : new Date(te).getTime();
           if (teMs > Date.now()) return 'trial';
         }
-        if (sub.tier) return String(sub.tier).toLowerCase().replace(/-/g, '_');
-        if (sub.isAdmin) return 'admin';
+        if (sub.tier) {
+          const t = String(sub.tier).toLowerCase().replace(/[\s_-]/g, '');
+          // Normalize common aliases
+          if (t === 'proplus' || t === 'premium' || t === 'plus' || t === 'lifetime' || t === 'paid' || t === 'unlimited') return 'pro_plus';
+          if (t === 'pro') return 'pro';
+          if (t === 'free') return 'free';
+          return t;
+        }
+      }
+      // Also check appState.tier (fallback alternate location)
+      if (window.appState && window.appState.tier) {
+        return String(window.appState.tier).toLowerCase().replace(/-/g, '_');
       }
     } catch {}
     return 'free';

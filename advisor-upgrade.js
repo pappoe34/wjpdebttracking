@@ -614,6 +614,22 @@
     });
     // Refresh once per minute so the bar reflects rollover at midnight
     setInterval(() => document.querySelectorAll('.wjp-usage-host').forEach(renderUsageBar), 60000);
+    // Re-render aggressively in the first 30s — subscription + firebase.auth load asynchronously,
+    // so the tier may flip from "free" to "pro_plus" or "admin" after the initial paint.
+    let polls = 0;
+    const t = setInterval(() => {
+      polls++;
+      document.querySelectorAll('.wjp-usage-host').forEach(renderUsageBar);
+      if (polls > 30) clearInterval(t);
+    }, 1000);
+    // Also listen for firebase auth-state changes (signs in / loads user record)
+    try {
+      if (window.firebase && window.firebase.auth) {
+        window.firebase.auth().onAuthStateChanged(() => {
+          document.querySelectorAll('.wjp-usage-host').forEach(renderUsageBar);
+        });
+      }
+    } catch {}
   }
 
   // -------------- Init -------------------------------------------------
