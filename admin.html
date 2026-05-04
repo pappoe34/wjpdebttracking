@@ -587,6 +587,7 @@ html, body {
         <a class="ext-link" href="https://app.netlify.com" target="_blank" rel="noopener" title="Netlify deploys + functions">Netlify</a>
         <a class="ext-link" href="https://console.firebase.google.com" target="_blank" rel="noopener" title="Firebase console">Firebase</a>
         <a class="ext-link" href="https://dashboard.plaid.com" target="_blank" rel="noopener" title="Plaid dashboard">Plaid</a>
+        <a class="ext-link" href="https://resend.com/domains" target="_blank" rel="noopener" title="Resend (transactional email)">Resend</a>
         <a class="ext-link" href="https://github.com/pappoe34/wjpdebttracking" target="_blank" rel="noopener" title="GitHub repo">GitHub</a>
       </div>
       <button class="btn" id="btn-refresh" type="button">↻ Refresh</button>
@@ -602,6 +603,7 @@ html, body {
     <div class="health-item"><span class="health-dot unknown" id="hd-plaid"></span><span>Plaid</span><span id="hd-plaid-meta" style="opacity:0.7;">checking</span></div>
     <div class="health-item"><span class="health-dot unknown" id="hd-firebase"></span><span>Firebase</span><span id="hd-firebase-meta" style="opacity:0.7;">checking</span></div>
     <div class="health-item"><span class="health-dot unknown" id="hd-groq"></span><span>Groq AI</span><span id="hd-groq-meta" style="opacity:0.7;">checking</span></div>
+    <div class="health-item"><span class="health-dot unknown" id="hd-resend"></span><span>Resend</span><span id="hd-resend-meta" style="opacity:0.7;">checking</span></div>
     <div class="health-spacer"></div>
     <label class="auto-refresh" id="auto-refresh-toggle"><span class="ar-toggle"></span><span>Auto-refresh 60s</span></label>
   </div>
@@ -1906,14 +1908,4 @@ html, body {
 
         // Groq: ping the ai-cloud function with OPTIONS — returns 405 (method not allowed) which still means alive
         fetch('/.netlify/functions/ai-cloud', { method:'OPTIONS' })
-          .then(function(r){ setHealth('groq', (r.status === 405 || r.ok) ? 'ok' : 'warn', 'fn responding'); })
-          .catch(function(){ setHealth('groq', 'fail', 'fn down'); });
-      }
-      pingHealth();
-      setInterval(pingHealth, 5 * 60 * 1000);  // re-check every 5 min
-    });
-  })();
-</script>
-
-</body>
-</html>
+          .t
