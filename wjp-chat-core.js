@@ -70,8 +70,15 @@
 
     const ctx = (window.WJP_CloudAI && window.WJP_CloudAI._buildContext) ? window.WJP_CloudAI._buildContext() : '';
     const tone = (window.appState && window.appState.prefs && window.appState.prefs.aiTone) || 'friendly';
-    const length = (window.appState && window.appState.prefs && window.appState.prefs.aiLength) || 'standard';
+    // Length: localStorage is canonical (set by the toggle), fall back to appState pref, then default.
+    let length = 'standard';
+    try {
+      const ls = localStorage.getItem('wjp.aiLength');
+      if (ls && (ls === 'brief' || ls === 'standard' || ls === 'detailed')) length = ls;
+      else if (window.appState && window.appState.prefs && window.appState.prefs.aiLength) length = window.appState.prefs.aiLength;
+    } catch {}
     const history = conv.slice(0, -1).slice(-MAX_TURNS * 2);
+    console.log('[wjp-chat-core] sending with length=' + length);
 
     let reply = '';
     let model = '';
