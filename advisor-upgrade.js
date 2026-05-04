@@ -530,7 +530,41 @@
 
     // Also keep badge fresh
     setInterval(polishHeader, 4000);
+
+    // Poll appState until debts are loaded, then re-render hero with smart cards.
+    // The chat panel mounts before the user state finishes loading, so the first
+    // render hits the "no debts" branch even when the user has 14 debts.
+    let polls = 0;
+    const ready = setInterval(() => {
+      polls++;
+      const a = window.appState;
+      const debtsReady = a && Array.isArray(a.debts);
+      if (debtsReady) {
+        renderHero();
+        renderChips();
+        fixIcons();
+        clearInterval(ready);
+      } else if (polls > 30) {
+        // Give up after ~6s; the empty-state fallback will be visible.
+        fixIcons();
+        clearInterval(ready);
+      }
+    }, 200);
   }
+
+  // Replace any ph-robot calendar icon with the sparkle icon directly on the
+  // <i> element. CSS pseudo-element overrides don't work reliably for icon
+  // fonts because the codepoint is set via the class itself.
+  function fixIcons() {
+    document.querySelectorAll('#page-advisor .chat-avatar.ai-avatar i, #ai-chat-panel .aim-avatar i').forEach(i => {
+      if (!i.classList.contains('ph-sparkle')) {
+        i.className = 'ph-fill ph-sparkle';
+      }
+    });
+    // Re-run periodically so newly-added bubbles get the right icon
+    setTimeout(fixIcons, 1500);
+  }
+
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

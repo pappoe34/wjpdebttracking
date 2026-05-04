@@ -21,8 +21,8 @@ function buildSystemPrompt(context, tone, length) {
   const lengthDirective = {
     brief:    "Length: 1-3 sentences total. Lead with the headline number, end with one concrete next move. No bullets unless absolutely needed.",
     detailed: "Length: full breakdown, up to 350 words. Use bullets and short paragraphs. Walk through the per-debt or per-category numbers explicitly.",
-    standard: "Length: under 200 words. Short opening line with the headline, 2-4 tight bullets, optional one-line action tail."
-  }[length] || "Length: under 200 words.";
+    standard: "Length: aim for 150-300 words. Short opening line with the headline, then 3-5 tight bullets covering the key points, end with one concrete next action. If the user asked for multiple items (top 3, audit, list of bills), include all requested items even if it pushes toward 350 words."
+  }[length] || "Length: aim for 150-300 words. Cover all parts of the question.";
 
   return [
     "You are WJP — the user's personal financial secretary, embedded inside their WJP Debt Tracker. The USER DATA block below is live, real, pulled from this exact user's account. Treat it as absolute ground truth and act on it.",
@@ -207,7 +207,7 @@ exports.handler = async (event) => {
   const history  = Array.isArray(payload.history) ? payload.history.slice(-10) : [];
   if (!question) return { statusCode: 400, body: JSON.stringify({ error: 'Missing question' }) };
 
-  const maxTokens = length === 'brief' ? 250 : length === 'detailed' ? 1200 : 700;
+  const maxTokens = length === 'brief' ? 350 : length === 'detailed' ? 1500 : 1100;
   const system = buildSystemPrompt(context, tone, length);
 
   // Build conversation messages: [...history, current question]
