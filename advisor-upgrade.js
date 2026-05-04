@@ -1,15 +1,19 @@
 /* ============================================================================
-   AI Advisor Page Upgrade (P27d) — extends ai-coach-v2 to the full-page
-   #page-advisor surface. Forces all chat through Claude (ai-cloud.js).
-   Renders markdown, modernizes bubble look via attribute hook, and replaces
-   the "Standard / Deep Mode" badge with the live Claude model name.
+   AI Coach (advisor) page premium upgrade (P27f)
+   - Theme-aware, light + dark mode
+   - Hero empty state with sample question cards (replaces the bland welcome bubble)
+   - Markdown rendering in bubbles via DOM observer
+   - Copy button on AI messages
+   - Live "Claude Haiku 4.5" badge
+   - Smart, data-aware question cards using user's actual debts
+   - Cleaner header microcopy
    ============================================================================ */
 (function () {
   'use strict';
   if (window.__WJP_ADVISOR_UPGRADE__) return;
   window.__WJP_ADVISOR_UPGRADE__ = true;
 
-  // -------- markdown helpers (same subset as ai-coach-v2) --------
+  // -------------- markdown subset (same as ai-coach-v2) ----------------
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -34,74 +38,212 @@
     return out.join('');
   }
 
-  // -------- Force Cloud Mode (so all chat goes through Claude) --------
+  // -------------- Force Cloud Mode (route to Claude) -------------------
   function forceCloudMode() {
     try {
       if (window.appState && window.appState.prefs) {
         if (!window.appState.prefs.cloudMode) {
           window.appState.prefs.cloudMode = true;
-          if (typeof window.saveState === 'function') {
-            try { window.saveState(); } catch {}
-          }
-          console.log('[advisor-upgrade] Cloud Mode enabled — routing through Claude');
+          if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
         }
       }
       if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = true;
     } catch {}
   }
 
-  // -------- Badge override: show Claude model --------
-  function overrideBadge() {
+  // -------------- Header polish ----------------------------------------
+  function polishHeader() {
     const badge = document.getElementById('advisor-mode-badge');
-    const hint  = document.getElementById('advisor-mode-hint');
     if (badge) {
-      badge.textContent = '✨ Claude Haiku 4.5';
-      badge.style.cssText = `
-        background: linear-gradient(135deg, rgba(0,212,168,0.18), rgba(102,126,234,0.18));
-        color: #5fe6c3;
-        border: 1px solid rgba(0,212,168,0.35);
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.01em;
-        text-transform: none;
-      `;
+      badge.innerHTML = '<i class="ph-fill ph-sparkle" style="font-size:11px;"></i> Claude Haiku 4.5';
     }
-    if (hint) {
-      hint.textContent = "Powered by Anthropic Claude · works only with your live in-app data.";
+    const hint  = document.getElementById('advisor-mode-hint');
+    if (hint) hint.textContent = "Powered by Anthropic Claude · uses only your live in-app data.";
+    const title = document.querySelector('.advisor-title');
+    if (title && title.textContent === 'Ask anything about your money') {
+      title.textContent = 'How can I help with your money today?';
     }
-    // Also tag side-panel badge if present
+    const sub = document.querySelector('.advisor-sub');
+    if (sub) sub.textContent = 'Specific answers tied to your real numbers. Stays private.';
+    // Side-panel badge sync
     const sideBadge = document.getElementById('aim-model-badge');
     if (sideBadge) sideBadge.textContent = 'Haiku 4.5';
   }
 
-  // -------- MutationObserver: render markdown in any new advisor bubble --------
-  // The legacy setupChatInstance writes plain text to .ai-bubble. We watch for
-  // new .ai-bubble elements and convert their text content to rendered HTML.
+  // -------------- Hero empty state with question cards ------------------
+  function smartCards() {
+    const cards = [];
+    try {
+      const debts = (window.appState && window.appState.debts) || [];
+      const recurring = (window.appState && window.appState.recurring || []).filter(r => r.category !== 'income');
+      const sortedByApr = debts.slice().sort((a,b)=>(b.apr||0)-(a.apr||0));
+      const highest = sortedByApr[0];
+
+      if (debts.length) {
+        if (highest && highest.name) {
+          cards.push({
+            icon: '🎯',
+            title: `Smartest move on my ${highest.name}?`,
+            sub: `Highest APR — ${(highest.apr||0).toFixed(2)}%`,
+            q: `What's the smartest next move on my ${highest.name}?`
+          });
+        }
+        cards.push({
+          icon: '📅',
+          title: 'Which bills are due this week?',
+          sub: 'Show me dates + amounts',
+          q: 'Which bills are due in the next 7 days? Give me a list with the amount and exact day each one is due.'
+        });
+        cards.push({
+          icon: '⏱',
+          title: "When am I debt-free?",
+          sub: 'At my current pace',
+          q: "At my current pace, when will I be debt-free? Walk me through the calculation."
+        });
+      }
+      if (recurring.length) {
+        cards.push({
+          icon: '✂',
+          title: 'Where can I cut $50/mo?',
+          sub: 'From my recurring bills',
+          q: 'Looking at my recurring bills, where could I realistically cut about $50/month? Suggest 2-3 candidates and explain why.'
+        });
+      } else {
+        cards.push({
+          icon: '💳',
+          title: "What's my credit utilization?",
+          sub: 'And how to improve it',
+          q: "What's my current credit utilization? Tell me which cards are highest and what to pay down first to improve my score."
+        });
+      }
+      cards.push({
+        icon: '💡',
+        title: 'What if I add $200/mo extra?',
+        sub: 'Show me the timeline diff',
+        q: "What if I added an extra $200/month toward debt? Show me how much sooner I'd be debt-free and how much interest I'd save."
+      });
+      cards.push({
+        icon: '📊',
+        title: 'Audit my whole financial picture',
+        sub: 'Top 3 things to fix',
+        q: "Look at my whole financial picture — debts, bills, savings, spending — and tell me the top 3 things to fix in priority order."
+      });
+    } catch {}
+
+    if (!cards.length) {
+      // No debts yet — fallback educational cards
+      cards.push(
+        { icon: '🎓', title: "How does the avalanche strategy work?", sub: "Explain it like I'm new", q: "How does the avalanche strategy work? Explain it simply with an example." },
+        { icon: '⚔', title: "Snowball vs avalanche?", sub: "Which should I pick", q: "What's the difference between snowball and avalanche, and which one is better for me?" },
+        { icon: '🚀', title: "Help me get started", sub: "What do I add first", q: "I'm new here. What should I add first to start getting useful answers from you?" },
+        { icon: '🔒', title: "What data do you read?", sub: "And what stays private", q: "What data do you actually have access to, and what stays private?" }
+      );
+    }
+    return cards.slice(0, 6);
+  }
+
+  function renderHero() {
+    const scroll = document.getElementById('advisor-chat-scroll');
+    if (!scroll) return;
+
+    // If there are existing chat messages (other than the legacy welcome),
+    // skip rendering the hero — user has been chatting.
+    const existingMsgs = scroll.querySelectorAll('.chat-msg');
+    if (existingMsgs.length > 1) return;
+
+    // Wipe legacy welcome + render hero
+    scroll.innerHTML = '';
+    const hero = document.createElement('div');
+    hero.className = 'advisor-hero';
+    const debts = (window.appState && window.appState.debts) || [];
+    const firstName = (window.appState && window.appState.profile && (window.appState.profile.firstName || (window.appState.profile.fullName || '').split(/\s+/)[0])) || '';
+    hero.innerHTML = `
+      <div class="advisor-hero-icon"><i class="ph-fill ph-sparkle"></i></div>
+      <div class="advisor-hero-title">${firstName ? `Hi ${escHtml(firstName)} — what's on your mind?` : "What can I help you with today?"}</div>
+      <div class="advisor-hero-sub">${debts.length
+        ? "I've got your live numbers. Try one of these or ask anything specific about your debts, bills, or strategy."
+        : "Add some debts and bills first, then ask me anything specific. For now, here are a few things I can explain."}</div>
+      <div class="advisor-hero-grid" id="advisor-hero-grid"></div>
+    `;
+    scroll.appendChild(hero);
+
+    const grid = hero.querySelector('#advisor-hero-grid');
+    smartCards().forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'advisor-hero-card';
+      btn.type = 'button';
+      btn.innerHTML = `
+        <span class="advisor-hero-card-icon">${c.icon}</span>
+        <span class="advisor-hero-card-text">
+          <span class="advisor-hero-card-title">${escHtml(c.title)}</span>
+          <span class="advisor-hero-card-sub">${escHtml(c.sub)}</span>
+        </span>
+      `;
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('advisor-page-input');
+        const sendBtn = document.getElementById('advisor-page-send');
+        if (!input || !sendBtn) return;
+        input.value = c.q;
+        sendBtn.click();
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  // -------------- Chip rail (tighter, smarter) -------------------------
+  function renderChips() {
+    const rail = document.getElementById('advisor-quick-rail');
+    if (!rail) return;
+    let prompts = [];
+    try {
+      const debts = (window.appState && window.appState.debts) || [];
+      const highest = debts.slice().sort((a,b)=>(b.apr||0)-(a.apr||0))[0];
+      if (highest && highest.name) prompts.push({ label: `🎯 ${highest.name}`, q: `What should I do about my ${highest.name}?` });
+      prompts.push({ label: '📅 Due this week', q: 'Which bills are due in the next 7 days?' });
+      prompts.push({ label: '⏱ Debt-free date', q: "When will I be debt-free at my current pace?" });
+      prompts.push({ label: '✂ Cut $50', q: 'Where can I cut $50/mo from recurring bills?' });
+      prompts.push({ label: '💡 +$200/mo', q: 'What if I added $200 extra per month toward debt?' });
+      prompts.push({ label: '📊 Audit me', q: 'Audit my whole financial picture and tell me the top 3 things to fix.' });
+    } catch {}
+    if (!prompts.length) return;
+    rail.innerHTML = '';
+    prompts.slice(0, 6).forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'advisor-chip';
+      btn.dataset.q = p.q;
+      btn.textContent = p.label;
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('advisor-page-input');
+        const sendBtn = document.getElementById('advisor-page-send');
+        if (!input || !sendBtn) return;
+        input.value = p.q;
+        sendBtn.click();
+      });
+      rail.appendChild(btn);
+    });
+  }
+
+  // -------------- MutationObserver: render markdown + copy btn ----------
   function startBubbleObserver() {
     const target = document.getElementById('advisor-chat-scroll');
     if (!target) return;
     const obs = new MutationObserver(() => {
       target.querySelectorAll('.ai-bubble:not([data-md-rendered])').forEach(b => {
-        // Skip "thinking" placeholders
         if (b.querySelector('.wjp-thinking') || b.querySelector('.typing-cursor')) return;
         const txt = b.textContent.trim();
         if (!txt) return;
-        // Only render once content is final (not while streaming)
         b.setAttribute('data-md-rendered', '1');
         b.innerHTML = md(txt);
         b.style.lineHeight = '1.55';
-        // Add copy button
         if (!b.parentElement.querySelector('.advisor-copy')) {
           const copy = document.createElement('button');
           copy.className = 'advisor-copy';
           copy.title = 'Copy';
-          copy.innerHTML = '<i class="ph ph-copy"></i>';
+          copy.innerHTML = '<i class="ph ph-copy"></i> Copy';
           copy.addEventListener('click', () => {
             navigator.clipboard.writeText(txt).then(() => {
-              copy.innerHTML = '<i class="ph ph-check"></i>';
-              setTimeout(() => copy.innerHTML = '<i class="ph ph-copy"></i>', 1500);
+              copy.innerHTML = '<i class="ph ph-check"></i> Copied';
+              setTimeout(() => copy.innerHTML = '<i class="ph ph-copy"></i> Copy', 1500);
             });
           });
           b.parentElement.appendChild(copy);
@@ -111,81 +253,36 @@
     obs.observe(target, { childList: true, subtree: true, characterData: true });
   }
 
-  // -------- Personalized chip suggestions (data-aware) --------
-  function refreshAdvisorChips() {
-    const rail = document.getElementById('advisor-quick-rail');
-    if (!rail) return;
-    let prompts = [];
-    try {
-      const debts = (window.appState && window.appState.debts) || [];
-      const recurring = (window.appState && window.appState.recurring || []).filter(r => r.category !== 'income');
-      if (debts.length) {
-        const highest = debts.slice().sort((a,b)=>(b.apr||0)-(a.apr||0))[0];
-        if (highest && highest.name) prompts.push({ icon: '🎯', q: `What's the smartest move on my ${highest.name}?`, label: `Focus: ${highest.name}` });
-        prompts.push({ icon: '📅', q: 'Which bills are due in the next 7 days?', label: 'Due this week' });
-        prompts.push({ icon: '⏱', q: "How long until I'm debt-free at this pace?", label: 'Debt-free date' });
-      }
-      if (recurring.length) {
-        prompts.push({ icon: '✂', q: 'Where can I cut $50 from recurring bills?', label: 'Cut $50' });
-      }
-      prompts.push({ icon: '💡', q: "If I add an extra $200/mo, when am I debt-free?", label: 'What-if $200' });
-      prompts.push({ icon: '📊', q: "What's my credit utilization right now?", label: 'Credit util' });
-    } catch {}
-    if (!prompts.length) return;
-    rail.innerHTML = '';
-    prompts.slice(0, 6).forEach(p => {
-      const btn = document.createElement('button');
-      btn.className = 'advisor-chip';
-      btn.dataset.q = p.q;
-      btn.textContent = `${p.icon} ${p.label}`;
-      rail.appendChild(btn);
-    });
-    // Re-wire chips to send via existing #advisor-page-input/#advisor-page-send
-    const input = document.getElementById('advisor-page-input');
-    const sendBtn = document.getElementById('advisor-page-send');
-    rail.querySelectorAll('.advisor-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        if (!input || !sendBtn) return;
-        input.value = chip.dataset.q || chip.textContent;
-        sendBtn.click();
-      });
-    });
+  // -------------- Wire clear button to re-render hero ------------------
+  function wireClear() {
+    const clearBtn = document.getElementById('advisor-clear-btn');
+    if (!clearBtn) return;
+    clearBtn.addEventListener('click', () => {
+      // Existing handler clears + adds a placeholder bubble. We override: re-render hero.
+      setTimeout(() => renderHero(), 50);
+    }, true);
   }
 
-  // -------- Welcome message override --------
-  function refreshWelcome() {
-    const scroll = document.getElementById('advisor-chat-scroll');
-    if (!scroll) return;
-    const firstAi = scroll.querySelector('.chat-msg.ai .ai-bubble');
-    if (!firstAi) return;
-    const hasDebts = !!(window.appState && window.appState.debts && window.appState.debts.length);
-    if (firstAi.textContent.trim().startsWith('Hi — ready when you are.')) {
-      firstAi.textContent = hasDebts
-        ? "Hi — I read your live debts, bills, and spending. Try asking specific things: which bill is due next, smartest move on a particular card, or what-if scenarios."
-        : "Hi — once you add some debts I can give you specific answers tied to your numbers. For now I can explain payoff strategies and how the math works.";
-      firstAi.setAttribute('data-md-rendered', '1');
-    }
-  }
-
-  // -------- Init --------
+  // -------------- Init -------------------------------------------------
   function init() {
     forceCloudMode();
-    overrideBadge();
-    refreshWelcome();
-    refreshAdvisorChips();
+    polishHeader();
+    renderHero();
+    renderChips();
     startBubbleObserver();
+    wireClear();
 
-    // Re-apply when navigating into the advisor page (re-renders DOM in some flows)
+    // Re-apply when navigating to the advisor page
     document.querySelectorAll('[data-page="advisor"]').forEach(el => {
       el.addEventListener('click', () => setTimeout(() => {
-        overrideBadge();
-        refreshWelcome();
-        refreshAdvisorChips();
+        polishHeader();
+        renderHero();
+        renderChips();
       }, 150));
     });
 
-    // Re-tag side-panel badge whenever it's swapped
-    setInterval(overrideBadge, 4000);
+    // Also keep badge fresh
+    setInterval(polishHeader, 4000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
