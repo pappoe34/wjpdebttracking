@@ -224,7 +224,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-</head>
+<link rel="stylesheet" href="/ai-coach-v2.css?v=27a">
+  </head>
 <body class="light">
 <a class="wjp-skip-link" href="#page-dashboard">Skip to main content</a>
 <div id="wjp-aria-live" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></div>
@@ -3528,37 +3529,40 @@
       <i class="ph-fill ph-sparkle"></i>
     </div>
 
-    <div class="ai-chat-panel" id="ai-chat-panel">
-      <div class="chat-header">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div class="ai-icon" style="background:var(--accent); color:#0b0f1a; width:32px; height:32px;"><i class="ph ph-robot"></i></div>
-          <div>
-            <div style="font-size:14px; font-weight:800;display:flex;align-items:center;gap:6px;">AI Coach <span id="ai-chat-mode-badge" style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.08);color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;">Standard</span></div>
-            <div style="font-size:9px; color:var(--text-3); text-transform:uppercase;" id="ai-chat-mode-sub">Private · never shared</div>
+    <div class="ai-chat-panel aim-panel" id="ai-chat-panel">
+      <div class="aim-header">
+        <div class="aim-header-left">
+          <div class="aim-brand">
+            <i class="ph-fill ph-sparkle"></i>
+          </div>
+          <div class="aim-header-meta">
+            <div class="aim-title">AI Coach <span class="aim-badge" id="aim-model-badge">Haiku 4.5</span></div>
+            <div class="aim-sub">Reads your live data · Private</div>
           </div>
         </div>
-        <button class="chat-close" id="ai-chat-close" aria-label="Close chat"><i class="ph ph-x"></i></button>
-      </div>
-
-      <div class="chat-messages" id="chat-messages">
-        <div class="chat-msg ai" style="background:rgba(0,212,168,0.1); border-color:var(--accent); color:var(--accent);">
-          <i class="ph ph-shield-check"></i> Hi — I'm your AI coach. I work only with the data you've added to this app. I don't read external files or share anything with anyone. What would you like to talk through?
+        <div class="aim-header-actions">
+          <button class="aim-icon-btn" id="aim-clear-btn" title="New conversation" aria-label="New conversation"><i class="ph ph-arrows-clockwise"></i></button>
+          <button class="aim-icon-btn" id="ai-chat-close-v2" title="Close" aria-label="Close chat"><i class="ph ph-x"></i></button>
         </div>
       </div>
 
-      <div class="chat-input-area">
-        <div class="chat-prompts">
-          <div class="chat-prompt">"When are my next payments due?"</div>
-          <div class="chat-prompt">"How's my credit utilization?"</div>
-          <div class="chat-prompt">"What's the best payoff strategy?"</div>
-          <div class="chat-prompt">"Where am I spending this month?"</div>
+      <div class="aim-messages" id="chat-messages-v2"></div>
+
+      <div class="aim-input-area">
+        <div class="aim-prompts" id="aim-prompts"></div>
+        <div class="aim-input-wrap">
+          <textarea id="chat-input-v2" placeholder="Ask about your debts, bills, or strategy..." rows="1"></textarea>
+          <button id="chat-send-v2" aria-label="Send" disabled><i class="ph-fill ph-arrow-up"></i></button>
         </div>
-        <div class="chat-input-wrap">
-          <input type="text" id="chat-input" placeholder="Ask about your strategy...">
-          <button id="chat-send" aria-label="Send message"><i class="ph-fill ph-paper-plane-right"></i></button>
-        </div>
+        <div class="aim-foot">Powered by Anthropic Claude · Replies use only your live in-app data</div>
       </div>
     </div>
+
+    <!-- Hidden legacy chat shell — kept for compatibility with old listeners -->
+    <div class="chat-messages" id="chat-messages" style="display:none;"></div>
+    <input type="text" id="chat-input" style="display:none;">
+    <button id="chat-send" style="display:none;"></button>
+    <button id="ai-chat-close" style="display:none;"></button>
 
   </div><!-- end app-wrapper -->
 
@@ -4388,6 +4392,7 @@
   })();
   </script>
 
+<script src="/ai-coach-v2.js?v=27a" defer></script>
 </body>
 </html>
 
