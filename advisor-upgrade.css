@@ -73,15 +73,19 @@
 /* ---------- Scroll area ---------- */
 .advisor-chat-scroll {
   flex: 1 1 auto !important;
-  padding: 28px 28px 8px !important;
-  min-height: 280px !important;
-  max-height: calc(100vh - 360px) !important;
+  padding: 24px 28px 8px !important;
+  min-height: 480px !important;
+  max-height: calc(100vh - 230px) !important;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 @media (max-width: 720px) {
-  .advisor-chat-scroll { padding: 20px 16px 8px !important; }
+  .advisor-chat-scroll {
+    padding: 20px 16px 8px !important;
+    min-height: 380px !important;
+    max-height: calc(100vh - 200px) !important;
+  }
 }
 
 /* ---------- Empty state hero (injected by JS) ---------- */

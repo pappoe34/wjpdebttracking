@@ -663,6 +663,28 @@
   // recent transactions, subscription/trial status, full credit profile,
   // and pending inbox items so Claude can act as a real secretary.
   // ---------------------------------------------------------------------
+  function loadStateFromLocalStorage() {
+    // The user-specific key takes precedence; fall back to the legacy/anon key.
+    const candidates = [];
+    try {
+      if (window.firebase && window.firebase.auth) {
+        const u = window.firebase.auth().currentUser;
+        if (u && u.uid) candidates.push('wjp_budget_state_u_' + u.uid);
+      }
+    } catch {}
+    candidates.push('wjp_budget_state');
+    for (const key of candidates) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data && typeof data === 'object') return data;
+        }
+      } catch {}
+    }
+    return null;
+  }
+
   function buildFullContext() {
     const lines = [];
     const now = new Date();
@@ -671,7 +693,17 @@
     const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const ms = (d) => Math.ceil((new Date(d) - now) / 86400000);
     const fmt = (n) => `$${Math.round(n).toLocaleString()}`;
-    const a = window.appState || {};
+    // Source: appState if populated, else fall back to localStorage state (the
+    // legacy code path doesn't always rehydrate appState correctly).
+    let a = window.appState || {};
+    const looksEmpty = !((a.debts && a.debts.length) || (a.transactions && a.transactions.length) || (a.recurring && a.recurring.length) || (a.recurringPayments && a.recurringPayments.length));
+    if (looksEmpty) {
+      const ls = loadStateFromLocalStorage();
+      if (ls) {
+        console.log('[advisor-upgrade] appState empty in memory — falling back to localStorage state for AI context (debts:' + (ls.debts?.length || 0) + ', txns:' + (ls.transactions?.length || 0) + ')');
+        a = Object.assign({}, ls);  // shallow copy so we don't mutate localStorage parse
+      }
+    }
     const p = a.profile || {};
     const firstName = (p.fullName || '').split(/\s+/)[0] || 'the user';
 
@@ -778,7 +810,7 @@
     } catch (_) {}
 
     // --- Recurring bills (UNCAPPED) ---
-    const recurringAll = (a.recurring || []).concat(a.recurringPayments || []);
+    const recurringAll = (a.recurring || []).concat(a.recurringPayments || []);  // localStorage uses recurringPayments; runtime appState uses recurring
     // Dedupe by id+name+amount
     const seen = new Set();
     const recurring = recurringAll.filter(r => {
