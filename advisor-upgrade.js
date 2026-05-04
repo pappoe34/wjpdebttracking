@@ -264,7 +264,254 @@
   }
 
   // -------------- Init -------------------------------------------------
+
+  // ---------------------------------------------------------------------
+  // P27g — Comprehensive context override.
+  // Replaces window.WJP_CloudAI._buildContext with a fuller version that
+  // includes linked bank accounts, ALL bills (no cap), upcoming paydays,
+  // recent transactions, subscription/trial status, full credit profile,
+  // and pending inbox items so Claude can act as a real secretary.
+  // ---------------------------------------------------------------------
+  function buildFullContext() {
+    const lines = [];
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const dom = now.getDate();
+    const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const ms = (d) => Math.ceil((new Date(d) - now) / 86400000);
+    const fmt = (n) => `$${Math.round(n).toLocaleString()}`;
+    const a = window.appState || {};
+    const p = a.profile || {};
+    const firstName = (p.fullName || '').split(/\s+/)[0] || 'the user';
+
+    // --- Identity & timestamps ---
+    lines.push(`Today: ${today} (day ${dom} of ${dim})`);
+    lines.push(`User first name: ${firstName}`);
+    if (p.fullName) lines.push(`Full name: ${p.fullName}`);
+    if (p.email) lines.push(`Email: ${p.email}`);
+
+    // --- Subscription / trial ---
+    const sub = a.subscription || {};
+    if (sub.tier) {
+      let s = `Plan tier: ${sub.tier}`;
+      if (sub.status) s += ` (${sub.status})`;
+      if (sub.trial_end || sub.trialEnd) {
+        const te = sub.trial_end || sub.trialEnd;
+        const teDate = typeof te === 'number' ? new Date(te * (te < 1e12 ? 1000 : 1)) : new Date(te);
+        const daysLeft = Math.ceil((teDate - now) / 86400000);
+        s += ` · trial ends ${teDate.toISOString().slice(0,10)} (in ${daysLeft}d)`;
+      }
+      lines.push(s);
+    }
+
+    // --- Income & cashflow ---
+    const income = (a.budget && a.budget.monthlyIncome) || (a.balances && a.balances.monthlyIncome) || 0;
+    if (income) lines.push(`Monthly income: ${fmt(income)}`);
+    const cashOnHand = (a.balances && a.balances.cash) || 0;
+    if (cashOnHand) lines.push(`Cash on hand (manual): ${fmt(cashOnHand)}`);
+
+    // --- Linked bank accounts (via Plaid) ---
+    const linkedAssets = a.linkedAssets || a.assets || [];
+    if (linkedAssets.length) {
+      const totalAssets = linkedAssets.reduce((sum, x) => sum + (x.balance || x.value || 0), 0);
+      lines.push(`\nLinked accounts (${linkedAssets.length}, total ${fmt(totalAssets)}):`);
+      linkedAssets.slice(0, 10).forEach(x => {
+        const name = x.name || x.officialName || x.institutionName || 'Account';
+        const type = x.subtype || x.type || '';
+        const bal = x.balance || x.available || x.value || 0;
+        lines.push(`- ${name}${type ? ` (${type})` : ''}: ${fmt(bal)}`);
+      });
+    }
+
+    // --- Emergency fund ---
+    const ef = (a.savingsGoals || []).find(g => /emergency/i.test(g.name || ''));
+    if (ef) lines.push(`Emergency fund: ${fmt(ef.current||0)} of ${fmt(ef.target||0)} target (${ef.target ? Math.round((ef.current||0)/ef.target*100) : 0}%)`);
+
+    // --- Debts (full detail) ---
+    const debts = a.debts || [];
+    if (debts.length) {
+      lines.push(`\nDebts (${debts.length}):`);
+      debts.forEach(d => {
+        const dueDom = d.dueDate || d.dueDay;
+        let daysUntil = '';
+        if (dueDom) {
+          let due = new Date(now.getFullYear(), now.getMonth(), dueDom);
+          if (due < now) due = new Date(now.getFullYear(), now.getMonth() + 1, dueDom);
+          daysUntil = Math.ceil((due - now) / 86400000);
+        }
+        const monthlyInt = ((d.balance || 0) * (d.apr || 0) / 100 / 12).toFixed(2);
+        const util = (d.creditLimit && d.balance) ? Math.round(d.balance / d.creditLimit * 100) : null;
+        lines.push(
+          `- ${d.name}: ${fmt(d.balance||0)} balance, ${d.apr||0}% APR, ` +
+          `${fmt(d.minPayment||0)}/mo min, ` +
+          (dueDom ? `due ${dueDom}${daysUntil!=='' ? ` (in ${daysUntil}d)` : ''}, ` : '') +
+          `interest cost $${monthlyInt}/mo` +
+          (d.creditLimit ? `, limit ${fmt(d.creditLimit)}` : '') +
+          (util !== null ? `, util ${util}%` : '') +
+          (d.type ? `, type ${d.type}` : '') +
+          (d.lastPayment ? `, last paid ${d.lastPayment}` : '')
+        );
+      });
+      const totalDebt = debts.reduce((s, d) => s + (d.balance || 0), 0);
+      const totalMin = debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+      const totalInt = debts.reduce((s, d) => s + ((d.balance || 0) * (d.apr || 0) / 100 / 12), 0);
+      const avgApr = debts.reduce((s, d) => s + (d.apr || 0), 0) / debts.length;
+      const ccs = debts.filter(d => d.creditLimit > 0);
+      const ccUtil = ccs.length
+        ? Math.round(ccs.reduce((s, d) => s + (d.balance || 0), 0) / ccs.reduce((s, d) => s + (d.creditLimit || 0), 0) * 100)
+        : null;
+      lines.push(`Totals: ${fmt(totalDebt)} debt, ${fmt(totalMin)}/mo min, $${totalInt.toFixed(0)}/mo interest, avg ${avgApr.toFixed(1)}% APR`);
+      if (ccUtil !== null) lines.push(`Aggregate credit utilization: ${ccUtil}%`);
+      if (income) lines.push(`Debt-to-income (DTI): ${Math.round(totalMin / income * 100)}%`);
+    }
+
+    // --- Strategy + engine projection ---
+    const strategy = (a.settings && a.settings.strategy) || 'avalanche';
+    const extra = (a.budget && a.budget.contribution) || 0;
+    lines.push(`\nStrategy: ${strategy}${extra ? `, extra ${fmt(extra)}/mo beyond minimums` : ''}`);
+    try {
+      if (typeof getProjection === 'function') {
+        const proj = getProjection(strategy);
+        if (proj && proj.months) {
+          const debtFreeDate = new Date(now.getFullYear(), now.getMonth() + proj.months, 1).toISOString().slice(0, 7);
+          lines.push(`Engine projection: debt-free in ${proj.months} months (${debtFreeDate})${proj.totalInterest ? `, ${fmt(proj.totalInterest)} total interest` : ''}`);
+        }
+      }
+      if (typeof getStrategyOrder === 'function') {
+        const order = getStrategyOrder(strategy);
+        if (order && order.length) {
+          const top3 = order.slice(0, 3).map(d => d.name).join(' → ');
+          lines.push(`Engine target order: ${top3}`);
+        }
+      }
+    } catch (_) {}
+
+    // --- Recurring bills (UNCAPPED) ---
+    const recurringAll = (a.recurring || []).concat(a.recurringPayments || []);
+    // Dedupe by id+name+amount
+    const seen = new Set();
+    const recurring = recurringAll.filter(r => {
+      const k = `${r.id||''}|${r.name||r.description||''}|${r.amount||0}`;
+      if (seen.has(k)) return false; seen.add(k); return true;
+    });
+    const bills = recurring.filter(r => r.category !== 'income' && !r.linkedIncome);
+    const incomeStreams = recurring.filter(r => r.category === 'income' || r.linkedIncome);
+
+    if (bills.length) {
+      const totalRec = bills.reduce((s, r) => s + Math.abs(r.amount || 0), 0);
+      lines.push(`\nAll recurring bills (${bills.length}, ${fmt(totalRec)}/mo total):`);
+      bills.forEach(r => {
+        let daysUntil = '';
+        if (r.nextDate) {
+          const nd = new Date(r.nextDate);
+          if (!isNaN(nd)) daysUntil = Math.ceil((nd - now) / 86400000);
+        }
+        const name = r.name || r.description || '?';
+        const amt = Math.abs(r.amount || 0);
+        lines.push(`- ${name}: ${fmt(amt)}/${r.frequency || 'mo'}${daysUntil !== '' ? ` (next in ${daysUntil}d, ${r.nextDate})` : ''}${r.category ? ` · ${r.category}` : ''}${r.merchant ? ` · ${r.merchant}` : ''}`);
+      });
+    }
+
+    // --- Upcoming income / paydays ---
+    if (incomeStreams.length) {
+      lines.push(`\nIncome streams (${incomeStreams.length}):`);
+      incomeStreams.forEach(r => {
+        let daysUntil = '';
+        if (r.nextDate) {
+          const nd = new Date(r.nextDate);
+          if (!isNaN(nd)) daysUntil = Math.ceil((nd - now) / 86400000);
+        }
+        lines.push(`- ${r.name || 'Income'}: ${fmt(Math.abs(r.amount || 0))}/${r.frequency || 'mo'}${daysUntil !== '' ? ` (next in ${daysUntil}d)` : ''}`);
+      });
+    }
+
+    // --- Other savings goals ---
+    const goals = (a.savingsGoals || []).filter(g => !/emergency/i.test(g.name || ''));
+    if (goals.length) {
+      lines.push(`\nSavings goals:`);
+      goals.forEach(g => {
+        const pct = g.target ? Math.round((g.current || 0) / g.target * 100) : 0;
+        lines.push(`- ${g.name}: ${fmt(g.current||0)} of ${fmt(g.target||0)} (${pct}%)${g.deadline ? `, deadline ${g.deadline}` : ''}`);
+      });
+    }
+
+    // --- Recent transactions (last 30, by date desc) ---
+    const txns = (a.transactions || []).filter(t => !t.synthetic);
+    const cutoff = new Date(now.getTime() - 30 * 86400000);
+    const recent = txns.filter(t => new Date(t.date) >= cutoff).sort((x, y) => new Date(y.date) - new Date(x.date));
+    if (recent.length) {
+      const realSpend = recent.filter(t => t.amount < 0);
+      const total = realSpend.reduce((s, t) => s + Math.abs(t.amount), 0);
+      const byCat = {};
+      realSpend.forEach(t => { const c = t.category || 'Other'; byCat[c] = (byCat[c] || 0) + Math.abs(t.amount); });
+      const top = Object.entries(byCat).sort((x, y) => y[1] - x[1]).slice(0, 8);
+      lines.push(`\nLast 30d spending: ${fmt(total)} across ${realSpend.length} txns. Top categories:`);
+      top.forEach(([c, v]) => lines.push(`- ${c}: ${fmt(v)}`));
+      lines.push(`\nRecent transactions (last ${Math.min(20, recent.length)}):`);
+      recent.slice(0, 20).forEach(t => {
+        const sign = t.amount < 0 ? '-' : '+';
+        lines.push(`- ${t.date} · ${t.merchant || t.name || t.description || '?'} · ${sign}${fmt(Math.abs(t.amount))}${t.category ? ` · ${t.category}` : ''}`);
+      });
+    }
+
+    // --- Credit profile detail ---
+    const cp = a.creditProfile || {};
+    if (cp.score) {
+      let s = `\nCredit score: ${cp.score}`;
+      if (cp.bureau) s += ` (${cp.bureau})`;
+      if (cp.range) s += ` · range ${cp.range}`;
+      if (cp.lastUpdated) s += ` · updated ${cp.lastUpdated}`;
+      lines.push(s);
+    }
+    if (Array.isArray(a.creditScoreHistory) && a.creditScoreHistory.length) {
+      const last = a.creditScoreHistory[a.creditScoreHistory.length - 1];
+      const first = a.creditScoreHistory[0];
+      if (last && first && last.score && first.score) {
+        const delta = last.score - first.score;
+        lines.push(`Credit score trend: ${first.score} → ${last.score} (${delta >= 0 ? '+' : ''}${delta} over ${a.creditScoreHistory.length} reports)`);
+      }
+    }
+
+    // --- Pending inbox / notifications ---
+    const notifs = (a.notifications || []).filter(n => !n.read && !n.dismissed).slice(0, 8);
+    if (notifs.length) {
+      lines.push(`\nPending action items in inbox (${notifs.length}):`);
+      notifs.forEach(n => {
+        const title = n.title || n.message || n.text || '?';
+        lines.push(`- [${n.type || 'note'}] ${title.slice(0, 100)}`);
+      });
+    }
+
+    // --- Household ---
+    try {
+      const hh = a.household;
+      if (hh && hh.inHousehold && hh.household && hh.role === 'owner') {
+        const members = (hh.household.members || []).filter(m => m.status === 'active');
+        const granted = members.filter(m => m.dataAccessGranted);
+        lines.push(`\nHousehold: ${hh.household.name || 'My Household'} · ${members.length} member(s) · ${granted.length} sharing data`);
+      } else if (hh && hh.inHousehold) {
+        lines.push(`\nHousehold member · role: ${hh.role}`);
+      }
+    } catch (_) {}
+
+    return lines.join('\n');
+  }
+
+  // Override _buildContext on WJP_CloudAI
+  function installContextOverride() {
+    if (!window.WJP_CloudAI) {
+      // Try again shortly
+      setTimeout(installContextOverride, 200);
+      return;
+    }
+    if (window.WJP_CloudAI.__contextOverridden) return;
+    window.WJP_CloudAI._buildContext = buildFullContext;
+    window.WJP_CloudAI.__contextOverridden = true;
+    console.log('[advisor-upgrade] Context override installed — Claude now sees full account picture.');
+  }
+
   function init() {
+    installContextOverride();
     forceCloudMode();
     polishHeader();
     renderHero();
