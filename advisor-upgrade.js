@@ -39,16 +39,34 @@
   }
 
   // -------------- Force Cloud Mode (route to Claude) -------------------
+  // appState is loaded from localStorage AFTER DOMContentLoaded fires, so we
+  // poll up to 10s. We also re-force cloudMode every time the user navigates
+  // to advisor or sends a message — covers the case where Settings toggled
+  // cloudMode off.
   function forceCloudMode() {
-    try {
-      if (window.appState && window.appState.prefs) {
-        if (!window.appState.prefs.cloudMode) {
-          window.appState.prefs.cloudMode = true;
-          if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+    let polls = 0;
+    const tryForce = () => {
+      polls++;
+      try {
+        const a = window.appState;
+        if (a && a.prefs) {
+          if (!a.prefs.cloudMode) {
+            a.prefs.cloudMode = true;
+            if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+            console.log('[advisor-upgrade] cloudMode forced ON — chat now routes to Claude.');
+          }
+          if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = true;
+          return true;
         }
-      }
-      if (window.WJP_CloudAI) window.WJP_CloudAI.enabled = true;
-    } catch {}
+      } catch {}
+      return false;
+    };
+    if (tryForce()) return;
+    const timer = setInterval(() => {
+      if (tryForce() || polls > 50) clearInterval(timer);  // 10s max
+    }, 200);
+    // Also re-force every 3s indefinitely so it survives any later state mutation
+    setInterval(tryForce, 3000);
   }
 
   // -------------- Header polish ----------------------------------------
