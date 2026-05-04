@@ -539,6 +539,83 @@
     }
   }
 
+
+
+  // -------------- Usage bar (P27p) -------------------------------------
+  function renderUsageBar(targetEl) {
+    if (!targetEl || !window.WJP_ChatCore) return;
+    const u = window.WJP_ChatCore.getUsageInfo();
+    let bar = targetEl.querySelector('.wjp-usage-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'wjp-usage-bar';
+      targetEl.appendChild(bar);
+    }
+
+    if (u.unlimited) {
+      const label = u.tier === 'trial' ? 'Trial · Unlimited' : 'Pro Plus · Unlimited';
+      bar.innerHTML = `
+        <div class="wjp-usage-text">
+          <i class="ph-fill ph-infinity"></i>
+          <span>${label}</span>
+        </div>
+      `;
+      bar.classList.remove('over-limit');
+      return;
+    }
+
+    const pct = Math.min(100, Math.round(u.used / u.limit * 100));
+    const tierLabel = u.tier === 'pro' ? 'Pro' : 'Free';
+    bar.classList.toggle('over-limit', u.atLimit);
+    bar.innerHTML = `
+      <div class="wjp-usage-text">
+        <span><strong>${u.used}/${u.limit}</strong> ${tierLabel} · cloud requests today</span>
+        ${u.atLimit ? '<span class="wjp-usage-badge">Local AI mode</span>' : `<span class="wjp-usage-remaining">${u.remaining} left</span>`}
+      </div>
+      <div class="wjp-usage-track">
+        <div class="wjp-usage-fill" style="width:${pct}%"></div>
+      </div>
+      ${u.atLimit ? `<div class="wjp-usage-notice">⚠ Daily cloud-AI limit reached. Falling back to local AI (limited capability). <a href="#plans" class="wjp-usage-upgrade">Upgrade to Pro Plus</a> for unlimited.</div>` : ''}
+    `;
+  }
+
+  function injectUsageBars() {
+    if (!window.WJP_ChatCore) { setTimeout(injectUsageBars, 200); return; }
+    // FAB side panel — under header, above messages
+    const fabPanel = document.getElementById('ai-chat-panel');
+    if (fabPanel) {
+      let host = fabPanel.querySelector('.wjp-usage-host-fab');
+      if (!host) {
+        host = document.createElement('div');
+        host.className = 'wjp-usage-host wjp-usage-host-fab';
+        const header = fabPanel.querySelector('.aim-header');
+        if (header && header.nextSibling) header.parentNode.insertBefore(host, header.nextSibling);
+      }
+      renderUsageBar(host);
+    }
+    // Advisor full-page — above the chat scroll
+    const advisor = document.getElementById('page-advisor');
+    if (advisor) {
+      let host = advisor.querySelector('.wjp-usage-host-adv');
+      if (!host) {
+        host = document.createElement('div');
+        host.className = 'wjp-usage-host wjp-usage-host-adv';
+        const shell = advisor.querySelector('.advisor-shell');
+        if (shell) shell.parentNode.insertBefore(host, shell);
+      }
+      renderUsageBar(host);
+    }
+  }
+
+  function wireUsageEvents() {
+    // Refresh on send response (from ChatCore custom event)
+    window.addEventListener('wjp:aichat:usage', () => {
+      document.querySelectorAll('.wjp-usage-host').forEach(renderUsageBar);
+    });
+    // Refresh once per minute so the bar reflects rollover at midnight
+    setInterval(() => document.querySelectorAll('.wjp-usage-host').forEach(renderUsageBar), 60000);
+  }
+
   // -------------- Init -------------------------------------------------
 
   // ---------------------------------------------------------------------
@@ -791,9 +868,11 @@
     forceCloudMode();
     polishHeader();
     injectLengthToggles();
+    injectUsageBars();
+    wireUsageEvents();
     // Re-inject after a short delay in case header DOM mounts late
-    setTimeout(injectLengthToggles, 500);
-    setTimeout(injectLengthToggles, 1500);
+    setTimeout(() => { injectLengthToggles(); injectUsageBars(); }, 500);
+    setTimeout(() => { injectLengthToggles(); injectUsageBars(); }, 1500);
     // Render from shared ChatCore history if any, else hero
     POLL(() => {
       if (!window.WJP_ChatCore) return false;

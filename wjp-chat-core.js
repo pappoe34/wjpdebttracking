@@ -55,9 +55,77 @@
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: [] } })); } catch {}
   }
 
+  // ---- Usage tracking (per-day cloud-AI quota) ----------------------------
+  const USAGE_PREFIX = 'wjp.aiUsage.';
+  const TIER_LIMITS = {
+    'free':         5,
+    'trial':        Infinity,
+    'pro':          50,
+    'pro-plus':     Infinity,
+    'pro_plus':     Infinity,
+    'proPlus':      Infinity,
+    'admin':        Infinity,
+  };
+
+  function todayKey() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${USAGE_PREFIX}${d.getFullYear()}-${m}-${day}`;
+  }
+
+  function getCurrentTier() {
+    try {
+      const sub = window.appState && window.appState.subscription;
+      if (sub) {
+        // Trial state takes precedence — full access during trial
+        const te = sub.trial_end || sub.trialEnd;
+        if (te) {
+          const teMs = typeof te === 'number' ? (te < 1e12 ? te * 1000 : te) : new Date(te).getTime();
+          if (teMs > Date.now()) return 'trial';
+        }
+        if (sub.tier) return String(sub.tier).toLowerCase().replace(/-/g, '_');
+        if (sub.isAdmin) return 'admin';
+      }
+    } catch {}
+    return 'free';
+  }
+
+  function getLimit() {
+    const tier = getCurrentTier();
+    return TIER_LIMITS[tier] != null ? TIER_LIMITS[tier] : 5;
+  }
+
+  function getUsedToday() {
+    try { return parseInt(localStorage.getItem(todayKey()) || '0', 10); }
+    catch { return 0; }
+  }
+
+  function incrementUsage() {
+    try { localStorage.setItem(todayKey(), String(getUsedToday() + 1)); } catch {}
+  }
+
+  function getUsageInfo() {
+    const used = getUsedToday();
+    const limit = getLimit();
+    return {
+      used,
+      limit,
+      remaining: limit === Infinity ? Infinity : Math.max(0, limit - used),
+      tier: getCurrentTier(),
+      unlimited: limit === Infinity,
+      atLimit: limit !== Infinity && used >= limit,
+      msUntilReset: (() => {
+        const t = new Date(); t.setHours(24, 0, 0, 0);
+        return t.getTime() - Date.now();
+      })()
+    };
+  }
+
   /** Send a question to /ai-cloud with shared history, persist updated conv,
    *  and return the assistant reply text. Renderers subscribe via the event
-   *  to display each assistant chunk. */
+   *  to display each assistant chunk. When the daily cloud limit is reached
+   *  for the user's tier, falls back to the local rule-based generator. */
   async function send(question) {
     question = String(question || '').trim();
     if (!question) return null;
@@ -83,26 +151,48 @@
     let reply = '';
     let model = '';
     let provider = '';
-    try {
-      const resp = await fetch('/.netlify/functions/ai-cloud', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, context: ctx, tone, length, history })
-      });
-      if (!resp.ok) {
-        const t = await resp.text().catch(()=>'');
-        throw new Error(`${resp.status}: ${t.slice(0,200)}`);
+    const usage = getUsageInfo();
+
+    if (usage.atLimit) {
+      // Over the daily cloud limit — fall back to local rule-based generator
+      try {
+        if (typeof window.generateAiResponse === 'function') {
+          reply = window.generateAiResponse(question);
+        } else {
+          reply = "You've hit today's AI limit on the free tier. Upgrade to Pro Plus for unlimited access, or come back tomorrow when your limit resets.";
+        }
+      } catch (err) {
+        reply = "Couldn't reach the AI: " + String(err.message || err);
       }
-      const data = await resp.json();
-      reply = data.reply || '(no response)';
-      model = data.model || '';
-      provider = data.provider || '';
-    } catch (err) {
-      reply = `⚠ Couldn't reach the AI. ${String(err.message || err)}`;
+      provider = 'local';
+      model = 'local-rules';
+    } else {
+      try {
+        const resp = await fetch('/.netlify/functions/ai-cloud', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, context: ctx, tone, length, history })
+        });
+        if (!resp.ok) {
+          const t = await resp.text().catch(()=>'');
+          throw new Error(`${resp.status}: ${t.slice(0,200)}`);
+        }
+        const data = await resp.json();
+        reply = data.reply || '(no response)';
+        model = data.model || '';
+        provider = data.provider || '';
+        // Increment counter on successful cloud response
+        incrementUsage();
+      } catch (err) {
+        reply = `⚠ Couldn't reach the AI. ${String(err.message || err)}`;
+        provider = 'error';
+      }
     }
 
     conv.push({ role: 'assistant', content: reply, model, provider });
     saveHistory(conv);
+    // Broadcast usage update so the bar can refresh
+    try { window.dispatchEvent(new CustomEvent('wjp:aichat:usage', { detail: getUsageInfo() })); } catch {}
     return reply;
   }
 
@@ -114,7 +204,9 @@
   window.WJP_ChatCore = {
     HISTORY_KEY, EVENT_NAME, MAX_TURNS,
     loadHistory, saveHistory, clearHistory, send, on,
-    md, escHtml
+    md, escHtml,
+    // Usage tracking
+    getUsageInfo, getCurrentTier, getLimit, getUsedToday, TIER_LIMITS,
   };
   console.log('[wjp-chat-core] ready');
 })();
