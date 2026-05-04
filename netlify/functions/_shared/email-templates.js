@@ -83,13 +83,13 @@ function welcomeTemplate({ firstName }) {
       </td></tr>
     </table>
     <p style="font-size:13px;color:${TEXT_DIM};margin:18px 0 0;line-height:1.55;">
-      Heads up: we'll charge $11.99/month Pro on day 14 unless you cancel. We email a reminder
-      7 days and 1 day before. No surprise.
+      Heads up: on day 14 your trial converts to <b>Pro at $11.99/month</b> unless you cancel.
+      You'll get reminder emails 7 days and 1 day before — no surprise charge.
     </p>`;
   return {
     subject: `Welcome to WJP${firstName ? `, ${firstName}` : ''} — your 14-day Pro Plus trial is active`,
     html: SHELL(inner, 'Three things to do in your first session.'),
-    text: `${greet}\n\nYour 14-day Pro Plus trial is active. Bank sync, AI Coach Cloud Mode, Hybrid strategy, household mode — all unlocked.\n\nThree things to do in your first session:\n1. Add your debts (snap a statement; OCR pulls balance + APR + minimum).\n2. Pick a strategy (Snowball, Avalanche, or Hybrid).\n3. See your debt-free date.\n\nOpen WJP: https://wjpdebttracking.com/index.html\n\nWe'll charge $11.99/month Pro on day 14 unless you cancel. Reminders go out 7 days + 1 day before.`
+    text: `${greet}\n\nYour 14-day Pro Plus trial is active. Bank sync, AI Coach Cloud Mode, Hybrid strategy, household mode — all unlocked.\n\nThree things to do in your first session:\n1. Add your debts (snap a statement; OCR pulls balance + APR + minimum).\n2. Pick a strategy (Snowball, Avalanche, or Hybrid).\n3. See your debt-free date.\n\nOpen WJP: https://wjpdebttracking.com/index.html\n\nOn day 14 your trial converts to Pro at $11.99/month unless you cancel. Reminder emails go out 7 days + 1 day before — no surprise charge.`
   };
 }
 
@@ -150,7 +150,7 @@ function midTrialTemplate({ firstName, debtCount, debtFreeYears }) {
   const inner = `
     <h1 style="font-size:24px;font-weight:800;letter-spacing:-0.02em;color:${TEXT};margin:0 0 12px;line-height:1.2;">${greet}</h1>
     <p style="font-size:15px;color:${TEXT};line-height:1.55;margin:0 0 16px;">
-      You have <b>7 days left</b> of full Pro Plus access. Then your card is charged $11.99/month for Pro &mdash; unless you cancel.
+      You have <b>7 days left</b> of full Pro Plus access. Then your trial converts to <b>Pro at $11.99/month</b> &mdash; unless you cancel.
     </p>
     ${winsHTML}
     <p style="font-size:14px;color:${TEXT};line-height:1.55;margin:20px 0 14px;font-weight:700;">Three Pro Plus things worth trying before day 14:</p>
@@ -180,7 +180,7 @@ function midTrialTemplate({ firstName, debtCount, debtFreeYears }) {
   return {
     subject: `7 days left in your Pro Plus trial — quick wins to try`,
     html: SHELL(inner, '7 days left, 3 Pro Plus things worth trying.'),
-    text: `${greet}\n\nYou have 7 days left of full Pro Plus access. Card gets charged $11.99/month Pro on day 14 unless you cancel.\n\n${wins.length ? 'Where you are: ' + wins.join(' · ').replace(/<[^>]+>/g,'') + '.' : 'Heads up: you have not added a debt yet. Trial does not pause.'}\n\nThree Pro Plus things to try before day 14:\n1. Ask the AI Coach a real question (\"Should I switch to Avalanche?\"). Reads your live debts.\n2. Run a what-if simulation — extra $200/mo and watch your debt-free date jump.\n3. Set up bill alerts (Settings → Notifications).\n\nOpen WJP: https://wjpdebttracking.com/index.html\nManage plan: https://wjpdebttracking.com/index.html#plans\n\nReply with one line about what's working / not. I read every response.`
+    text: `${greet}\n\nYou have 7 days left of full Pro Plus access. Then it converts to Pro at $11.99/month on day 14 unless you cancel.\n\n${wins.length ? 'Where you are: ' + wins.join(' · ').replace(/<[^>]+>/g,'') + '.' : 'Heads up: you have not added a debt yet. Trial does not pause.'}\n\nThree Pro Plus things to try before day 14:\n1. Ask the AI Coach a real question (\"Should I switch to Avalanche?\"). Reads your live debts.\n2. Run a what-if simulation — extra $200/mo and watch your debt-free date jump.\n3. Set up bill alerts (Settings → Notifications).\n\nOpen WJP: https://wjpdebttracking.com/index.html\nManage plan: https://wjpdebttracking.com/index.html#plans\n\nReply with one line about what's working / not. I read every response.`
   };
 }
 
