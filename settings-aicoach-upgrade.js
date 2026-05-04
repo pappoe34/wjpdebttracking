@@ -1,0 +1,174 @@
+/* ============================================================================
+   Settings → AI Coach panel upgrade (P27s)
+   The legacy panel is rendered by Settings v3 (in app.js, function r_aicoach).
+   It still references "Llama 8B/70B" and uses incompatible length values.
+   This module observes Settings DOM mounts and patches the panel to:
+     • Show actual current model (Claude Haiku 4.5)
+     • Show live usage stats (used/limit/tier) tied to ChatCore
+     • Replace length picker with the same Short/Medium/Long control we use
+       in the chat headers — wired to wjp.aiLength localStorage
+     • Fix Clear history to wipe the unified ChatCore history key
+   ============================================================================ */
+(function () {
+  'use strict';
+  if (window.__WJP_SETTINGS_AICOACH_UPGRADE__) return;
+  window.__WJP_SETTINGS_AICOACH_UPGRADE__ = true;
+
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+
+  function patchPanel() {
+    // The panel content is the only one with #set-ai-model on screen.
+    const modelSel = document.getElementById('set-ai-model');
+    if (!modelSel) return false;
+    const panel = modelSel.closest('.settings-panel') || modelSel.closest('[data-section]') || modelSel.closest('section') || document;
+    if (panel.dataset && panel.dataset.aicoachUpgraded === '1') return true;
+    if (panel.dataset) panel.dataset.aicoachUpgraded = '1';
+
+    // 1) Replace model dropdown row with a read-only Model card showing current model + usage.
+    const modelRow = modelSel.closest('.settings-row') || modelSel.closest('[class*="row"]') || modelSel.parentElement;
+    if (modelRow) {
+      const replacement = document.createElement('div');
+      replacement.innerHTML = renderModelInfoCard();
+      modelRow.replaceWith(replacement.firstElementChild);
+    }
+
+    // 2) Patch length dropdown values from short/medium/long → brief/standard/detailed
+    //    and seed from wjp.aiLength localStorage so it matches the in-chat toggle.
+    const lenSel = document.getElementById('set-ai-length');
+    if (lenSel) {
+      const cur = (function () {
+        try { return localStorage.getItem('wjp.aiLength') || 'standard'; }
+        catch { return 'standard'; }
+      })();
+      lenSel.innerHTML = '';
+      [
+        { v: 'brief',    t: 'Short — 1–3 sentences' },
+        { v: 'standard', t: 'Medium — 150–300 words' },
+        { v: 'detailed', t: 'Long — full breakdown (~350 words)' },
+      ].forEach(o => {
+        const op = document.createElement('option');
+        op.value = o.v; op.textContent = o.t;
+        if (o.v === cur) op.selected = true;
+        lenSel.appendChild(op);
+      });
+      lenSel.removeAttribute('data-aipref');  // avoid the legacy handler clobbering
+      lenSel.addEventListener('change', () => {
+        try { localStorage.setItem('wjp.aiLength', lenSel.value); } catch {}
+        // Mirror to appState pref + saveState if available
+        try {
+          if (window.appState) {
+            if (!window.appState.prefs) window.appState.prefs = {};
+            window.appState.prefs.aiLength = lenSel.value;
+            if (typeof window.saveState === 'function') window.saveState();
+          }
+        } catch {}
+        // Refresh in-chat toggles immediately
+        document.querySelectorAll('.wjp-length-toggle').forEach(t => {
+          t.querySelectorAll('.wjp-length-opt').forEach(b => {
+            const active = b.dataset.length === lenSel.value;
+            b.classList.toggle('active', active);
+            b.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+        });
+      });
+    }
+
+    // 3) Patch tone dropdown values to match backend (direct/coach/friendly)
+    const toneSel = document.getElementById('set-ai-tone');
+    if (toneSel) {
+      const cur = toneSel.value || 'friendly';
+      toneSel.innerHTML = '';
+      [
+        { v: 'friendly', t: 'Friendly — warm + supportive' },
+        { v: 'coach',    t: 'Coach — motivating + decisive' },
+        { v: 'direct',   t: 'Direct — terse, lead with the number' },
+      ].forEach(o => {
+        const op = document.createElement('option');
+        op.value = o.v; op.textContent = o.t;
+        if (o.v === cur) op.selected = true;
+        toneSel.appendChild(op);
+      });
+    }
+
+    // 4) Fix Clear history button — also wipe the unified ChatCore key
+    const clearBtn = document.getElementById('set-ai-clear');
+    if (clearBtn && !clearBtn.dataset.upgraded) {
+      clearBtn.dataset.upgraded = '1';
+      const fresh = clearBtn.cloneNode(true);
+      clearBtn.parentNode.replaceChild(fresh, clearBtn);
+      fresh.addEventListener('click', () => {
+        if (!confirm('Clear ALL AI Coach conversation history? This cannot be undone.')) return;
+        try {
+          if (window.WJP_ChatCore) window.WJP_ChatCore.clearHistory();
+          else localStorage.removeItem('wjp.aicoach.history.v1');
+        } catch {}
+        try {
+          if (window.appState) { window.appState.chatHistory = []; if (typeof window.saveState === 'function') window.saveState(); }
+        } catch {}
+        if (typeof window.showToast === 'function') window.showToast('Chat history cleared');
+        // Refresh usage card on this page
+        renderUsageInside();
+      });
+    }
+
+    // Re-run usage render after a moment
+    setTimeout(renderUsageInside, 200);
+    return true;
+  }
+
+  function renderModelInfoCard() {
+    const u = window.WJP_ChatCore ? window.WJP_ChatCore.getUsageInfo() : { unlimited: true, tier: 'free', used: 0, limit: 5 };
+    const tierLabel = u.tier === 'admin' ? 'Admin' :
+                      u.tier === 'trial' ? 'Trial · Pro Plus' :
+                      u.tier === 'pro_plus' ? 'Pro Plus' :
+                      u.tier === 'pro' ? 'Pro' : 'Free';
+    const usageHtml = u.unlimited
+      ? '<span style="color:var(--accent);font-weight:700;"><i class="ph-fill ph-infinity"></i> Unlimited</span>'
+      : `<span><strong>${u.used}/${u.limit}</strong> used today · <span style="opacity:0.7;">${u.remaining} left</span></span>`;
+    return `
+      <div class="settings-row" id="aicoach-model-info-row">
+        <div class="settings-row-label">Current model</div>
+        <div class="settings-row-value" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--accent-dim);color:var(--accent-text,var(--accent));border:1px solid var(--border-accent);font-size:12px;font-weight:700;">
+              <i class="ph-fill ph-sparkle"></i> Claude Haiku 4.5
+            </span>
+            <span style="font-size:11px;color:var(--text-3);">via Anthropic · auto-falls-back to Llama 3.3 70B (Groq)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);">
+            <span style="background:var(--card-2);padding:3px 9px;border-radius:999px;border:1px solid var(--border);font-weight:600;">${tierLabel}</span>
+            ${usageHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderUsageInside() {
+    const row = document.getElementById('aicoach-model-info-row');
+    if (!row) return;
+    row.outerHTML = renderModelInfoCard();
+  }
+
+  // Watch for Settings panel mounts. The Settings page mounts its content
+  // dynamically when navigating there. We poll on body for #set-ai-model.
+  function wireObserver() {
+    if (patchPanel()) return;
+    const obs = new MutationObserver(() => { if (patchPanel()) {} });
+    obs.observe(document.body, { childList: true, subtree: true });
+    // Belt-and-suspenders: also try every 1.5s for the first 30s
+    let polls = 0;
+    const t = setInterval(() => {
+      polls++;
+      patchPanel();
+      if (polls > 20) clearInterval(t);
+    }, 1500);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireObserver);
+  else wireObserver();
+
+  // Refresh usage display when ChatCore broadcasts usage changes
+  window.addEventListener('wjp:aichat:usage', renderUsageInside);
+})();
