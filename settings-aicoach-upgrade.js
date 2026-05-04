@@ -112,9 +112,83 @@
       });
     }
 
+    // Inject Admin Tier Switcher (only for actual admins)
+    injectAdminTierSwitcher(panel);
+
     // Re-run usage render after a moment
     setTimeout(renderUsageInside, 200);
     return true;
+  }
+
+  function injectAdminTierSwitcher(panel) {
+    if (!window.WJP_ChatCore || !window.WJP_ChatCore.isActuallyAdmin()) return;
+    if (panel.querySelector('#aicoach-admin-tier-card')) return;
+
+    const card = document.createElement('div');
+    card.id = 'aicoach-admin-tier-card';
+    card.className = 'settings-card';
+    card.style.cssText = 'border:2px dashed rgba(168, 85, 247, 0.45); background: rgba(168, 85, 247, 0.04); margin-top: 16px;';
+    const cur = (function () { try { return localStorage.getItem('wjp.adminTierOverride') || 'auto'; } catch { return 'auto'; } })();
+    const tiers = [
+      { key: 'auto',     label: 'Auto (real)',  hint: 'Use your actual admin tier' },
+      { key: 'free',     label: 'Free',         hint: '5 cloud requests/day' },
+      { key: 'pro',      label: 'Pro',          hint: '50 cloud requests/day' },
+      { key: 'trial',    label: 'Trial',        hint: 'Pro Plus during 14-day trial · unlimited' },
+      { key: 'pro_plus', label: 'Pro Plus',     hint: 'Unlimited' },
+      { key: 'admin',    label: 'Admin',        hint: 'Unlimited (you)' },
+    ];
+
+    card.innerHTML = `
+      <div class="settings-card-title" style="display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(168,85,247,0.15);color:#a855f7;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;border:1px solid rgba(168,85,247,0.35);">
+          <i class="ph-fill ph-shield-star"></i> Admin only
+        </span>
+        Test as a different tier
+      </div>
+      <div class="settings-card-hint" style="margin-bottom:14px;">
+        Override the tier you experience in the AI Coach so you can verify limits, fallback behavior,
+        and copy at each level. Regular users never see this card.
+      </div>
+      <div class="aicoach-tier-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+        ${tiers.map(t => `
+          <button class="aicoach-tier-btn" data-tier="${t.key}" type="button"
+            style="text-align:left;padding:11px 13px;border-radius:10px;border:2px solid ${cur===t.key?'var(--accent)':'var(--border)'};background:${cur===t.key?'var(--accent-dim)':'var(--card-2)'};cursor:pointer;font-family:inherit;color:var(--text);transition:all 0.15s;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:2px;">${t.label}${cur===t.key?' <span style=\'color:var(--accent-text,var(--accent));\'>●</span>':''}</div>
+            <div style="font-size:11px;color:var(--text-3);line-height:1.4;">${t.hint}</div>
+          </button>
+        `).join('')}
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-3);">
+        ${cur === 'auto' ? '<i class="ph ph-check-circle" style="color:#16a34a;"></i> No override active. You see your real admin tier (unlimited).' : `<i class="ph-fill ph-warning" style="color:#f59e0b;"></i> Currently testing as <strong>${cur}</strong>. Switch to <em>Auto (real)</em> to revert.`}
+      </div>
+    `;
+
+    // Append after the Maintenance card if found, else at the end of panel content
+    const maint = panel.querySelector('button#set-ai-clear');
+    const targetCard = maint ? (maint.closest('.settings-card') || maint.closest('[class*="card"]')) : null;
+    if (targetCard && targetCard.parentNode) targetCard.parentNode.insertBefore(card, targetCard.nextSibling);
+    else panel.appendChild(card);
+
+    // Wire tier buttons
+    card.querySelectorAll('.aicoach-tier-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.tier;
+        if (window.WJP_ChatCore.setAdminTierOverride(t)) {
+          // Toast feedback
+          if (typeof window.showToast === 'function') {
+            window.showToast(t === 'auto' ? 'Reverted to real admin tier' : `Now testing as ${t}`);
+          }
+          // Re-render this card to reflect new active state
+          card.remove();
+          injectAdminTierSwitcher(panel);
+          // Refresh the model info row + every visible usage bar
+          renderUsageInside();
+          document.querySelectorAll('.wjp-usage-host').forEach(h => {
+            try { window.dispatchEvent(new CustomEvent('wjp:aichat:usage')); } catch {}
+          });
+        }
+      });
+    });
   }
 
   function renderModelInfoCard() {

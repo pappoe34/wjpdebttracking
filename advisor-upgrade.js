@@ -579,6 +579,26 @@
     `;
   }
 
+  function renderTierTestBanner(targetEl) {
+    if (!targetEl || !window.WJP_ChatCore) return;
+    const override = window.WJP_ChatCore.getAdminTierOverride && window.WJP_ChatCore.getAdminTierOverride();
+    let banner = targetEl.querySelector('.wjp-tier-test-banner');
+    if (!override) { if (banner) banner.remove(); return; }
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'wjp-tier-test-banner';
+      targetEl.insertBefore(banner, targetEl.firstChild);
+    }
+    banner.innerHTML = `
+      <span class="wjp-tier-test-icon"><i class="ph-fill ph-flask"></i></span>
+      <span class="wjp-tier-test-text">Admin testing as <strong>${override}</strong></span>
+      <button class="wjp-tier-test-clear" type="button" title="Revert to your real admin tier">Revert</button>
+    `;
+    banner.querySelector('.wjp-tier-test-clear').onclick = () => {
+      window.WJP_ChatCore.setAdminTierOverride('auto');
+    };
+  }
+
   function injectUsageBars() {
     if (!window.WJP_ChatCore) { setTimeout(injectUsageBars, 200); return; }
     // FAB side panel — under header, above messages
@@ -592,6 +612,7 @@
         if (header && header.nextSibling) header.parentNode.insertBefore(host, header.nextSibling);
       }
       renderUsageBar(host);
+      renderTierTestBanner(host);
     }
     // Advisor full-page — above the chat scroll
     const advisor = document.getElementById('page-advisor');
@@ -604,6 +625,7 @@
         if (shell) shell.parentNode.insertBefore(host, shell);
       }
       renderUsageBar(host);
+      renderTierTestBanner(host);
     }
   }
 

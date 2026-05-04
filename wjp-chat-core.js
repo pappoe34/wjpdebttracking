@@ -43,11 +43,18 @@
     } catch { return []; }
   }
   function saveHistory(conv) {
+    let persist = true;
     try {
-      const trimmed = conv.slice(-MAX_TURNS * 2);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+      const pref = window.appState && window.appState.prefs && window.appState.prefs.aiCoach;
+      if (pref && pref.saveHistory === false) persist = false;
     } catch {}
-    // Cross-surface sync
+    if (persist) {
+      try {
+        const trimmed = conv.slice(-MAX_TURNS * 2);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+      } catch {}
+    }
+    // Cross-surface sync (always — so both surfaces show the message in this session)
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: conv } })); } catch {}
   }
   function clearHistory() {
@@ -82,7 +89,61 @@
     return `${USAGE_PREFIX}${d.getFullYear()}-${m}-${day}`;
   }
 
+  // ----- Admin detection (without honoring any test-tier override) -----
+  function isActuallyAdmin() {
+    try {
+      const candidates = [];
+      try {
+        if (window.firebase && window.firebase.auth) {
+          const u = window.firebase.auth().currentUser;
+          if (u && u.email) candidates.push(u.email);
+        }
+      } catch {}
+      try {
+        const a = window.appState;
+        if (a) {
+          if (a.profile && a.profile.email) candidates.push(a.profile.email);
+          if (a.user && a.user.email) candidates.push(a.user.email);
+        }
+        if (window.__wjpUser && window.__wjpUser.email) candidates.push(window.__wjpUser.email);
+        const cached = localStorage.getItem('wjp_user_email') || localStorage.getItem('user_email');
+        if (cached) candidates.push(cached);
+      } catch {}
+      for (const e of candidates) {
+        if (e && ADMIN_EMAILS.includes(String(e).toLowerCase().trim())) return true;
+      }
+      try {
+        if (window.appState && window.appState.subscription && window.appState.subscription.isAdmin) return true;
+      } catch {}
+      try {
+        if (localStorage.getItem('wjp.adminOverride') === '1' || localStorage.getItem('wjp.adminOverride') === 'true') return true;
+      } catch {}
+    } catch {}
+    return false;
+  }
+
+  function getAdminTierOverride() {
+    try {
+      const v = localStorage.getItem('wjp.adminTierOverride');
+      if (v && v !== 'auto' && isActuallyAdmin()) return v;
+    } catch {}
+    return null;
+  }
+
+  function setAdminTierOverride(tier) {
+    if (!isActuallyAdmin()) return false;
+    try {
+      if (!tier || tier === 'auto') localStorage.removeItem('wjp.adminTierOverride');
+      else localStorage.setItem('wjp.adminTierOverride', tier);
+      window.dispatchEvent(new CustomEvent('wjp:aichat:usage'));
+      return true;
+    } catch { return false; }
+  }
+
   function getCurrentTier() {
+    // 0) Admin test-tier override (only honored if user IS an actual admin)
+    const override = getAdminTierOverride();
+    if (override) return override;
     try {
       // 1) Multiple email sources — admin emails always get unlimited
       const emailCandidates = [];
@@ -206,7 +267,14 @@
     // Fire a "thinking" event so each surface can show its own typing indicator
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: conv, thinking: true } })); } catch {}
 
-    const ctx = (window.WJP_CloudAI && window.WJP_CloudAI._buildContext) ? window.WJP_CloudAI._buildContext() : '';
+    // Honor 'Use my real data' toggle in Settings → AI Coach
+    let shareData = true;
+    try {
+      const pref = window.appState && window.appState.prefs && window.appState.prefs.aiCoach;
+      if (pref && pref.shareData === false) shareData = false;
+    } catch {}
+    const ctx = shareData && window.WJP_CloudAI && window.WJP_CloudAI._buildContext
+      ? window.WJP_CloudAI._buildContext() : '';
     const tone = (window.appState && window.appState.prefs && window.appState.prefs.aiTone) || 'friendly';
     // Length: localStorage is canonical (set by the toggle), fall back to appState pref, then default.
     let length = 'standard';
@@ -277,6 +345,8 @@
     md, escHtml,
     // Usage tracking
     getUsageInfo, getCurrentTier, getLimit, getUsedToday, TIER_LIMITS,
+    // Admin
+    isActuallyAdmin, getAdminTierOverride, setAdminTierOverride,
   };
   console.log('[wjp-chat-core] ready');
 })();

@@ -518,3 +518,39 @@
   border-bottom: 1px dashed var(--accent);
 }
 .wjp-usage-upgrade:hover { opacity: 0.85; }
+
+/* ============================================================================
+   Admin tier-test banner (P27u) — appears when an admin is testing a sub-tier
+   ============================================================================ */
+.wjp-tier-test-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(168, 85, 247, 0.06));
+  border: 1px solid rgba(168, 85, 247, 0.32);
+  color: #a855f7;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.wjp-tier-test-banner .wjp-tier-test-icon { font-size: 14px; }
+.wjp-tier-test-banner .wjp-tier-test-text { flex: 1; color: var(--text); }
+.wjp-tier-test-banner .wjp-tier-test-text strong { color: #a855f7; text-transform: capitalize; }
+.wjp-tier-test-banner .wjp-tier-test-clear {
+  background: rgba(168, 85, 247, 0.16);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.wjp-tier-test-banner .wjp-tier-test-clear:hover {
+  background: #a855f7;
+  color: #fff;
+}
