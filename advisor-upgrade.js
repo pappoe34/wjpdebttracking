@@ -664,24 +664,38 @@
   // and pending inbox items so Claude can act as a real secretary.
   // ---------------------------------------------------------------------
   function loadStateFromLocalStorage() {
-    // The user-specific key takes precedence; fall back to the legacy/anon key.
-    const candidates = [];
+    // SECURITY: When a user is signed in we ONLY read their own namespaced key.
+    // We never fall back to the legacy 'wjp_budget_state' key when signed in,
+    // because that key may contain a previous account's data and reading it
+    // would leak it into the current user's AI context.
+    let signedInUid = null;
     try {
       if (window.firebase && window.firebase.auth) {
         const u = window.firebase.auth().currentUser;
-        if (u && u.uid) candidates.push('wjp_budget_state_u_' + u.uid);
+        if (u && u.uid) signedInUid = u.uid;
       }
     } catch {}
-    candidates.push('wjp_budget_state');
-    for (const key of candidates) {
+
+    if (signedInUid) {
       try {
-        const raw = localStorage.getItem(key);
+        const raw = localStorage.getItem('wjp_budget_state_u_' + signedInUid);
         if (raw) {
           const data = JSON.parse(raw);
           if (data && typeof data === 'object') return data;
         }
       } catch {}
+      // Signed in but no namespaced data — return null. NEVER leak the anon key.
+      return null;
     }
+
+    // Anonymous: only allowed to read the anon/legacy key.
+    try {
+      const raw = localStorage.getItem('wjp_budget_state');
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data && typeof data === 'object') return data;
+      }
+    } catch {}
     return null;
   }
 
@@ -1027,6 +1041,39 @@
     setTimeout(fixIcons, 1500);
   }
 
+
+  // SECURITY: when the user changes, also nuke the legacy wjp_budget_state key
+  // so subsequent reads can't accidentally pick up the previous user's data.
+  // The legacy code re-saves to wjp_budget_state_u_<uid>, so legacy key is
+  // safe to delete for signed-in users.
+  function wireBudgetStateGuard() {
+    let lastUid = null;
+    function check() {
+      try {
+        if (!window.firebase || !window.firebase.auth) return;
+        const u = window.firebase.auth().currentUser;
+        const uid = (u && u.uid) || null;
+        if (lastUid !== null && lastUid !== uid) {
+          console.log('[advisor-upgrade] auth changed (' + lastUid + ' → ' + uid + ') — wiping legacy wjp_budget_state to prevent cross-user leak');
+          try { localStorage.removeItem('wjp_budget_state'); } catch {}
+        }
+        lastUid = uid;
+      } catch {}
+    }
+    function setup() {
+      if (!window.firebase || !window.firebase.auth) return false;
+      try {
+        window.firebase.auth().onAuthStateChanged(() => check());
+        check();
+        return true;
+      } catch { return false; }
+    }
+    if (!setup()) {
+      let polls = 0;
+      const t = setInterval(() => { polls++; if (setup() || polls > 50) clearInterval(t); }, 200);
+    }
+  }
+  wireBudgetStateGuard();
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

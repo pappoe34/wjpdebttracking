@@ -11,9 +11,29 @@
   'use strict';
   if (window.WJP_ChatCore) return;
 
-  const HISTORY_KEY = 'wjp.aicoach.history.v1';
+  // SECURITY: history key is namespaced by Firebase UID so signed-in users
+  // never see another user's conversation. Anonymous sessions get their own key.
+  const HISTORY_KEY_PREFIX = 'wjp.aicoach.history.v2.';
   const EVENT_NAME = 'wjp:aichat:update';
   const MAX_TURNS = 8;  // 8 turns = 16 messages = ~6KB of conversation history
+
+  function currentUid() {
+    try {
+      if (window.firebase && window.firebase.auth) {
+        const u = window.firebase.auth().currentUser;
+        if (u && u.uid) return u.uid;
+      }
+    } catch {}
+    return 'anon';
+  }
+  function HISTORY_KEY() {
+    return HISTORY_KEY_PREFIX + currentUid();
+  }
+  // Backwards compat: legacy single-key value (only readable in 'anon' context)
+  const LEGACY_KEY = 'wjp.aicoach.history.v1';
+
+  // Track which user's history is currently in memory so we can wipe on switch
+  let _currentLoadedUid = null;
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -36,9 +56,20 @@
 
   function loadHistory() {
     try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (!raw) return [];
-      const arr = JSON.parse(raw);
+      const uid = currentUid();
+      _currentLoadedUid = uid;
+      // For signed-in users, ONLY their namespaced key. Never read the
+      // legacy key (which may contain a previous user's conversation).
+      if (uid !== 'anon') {
+        const raw = localStorage.getItem(HISTORY_KEY());
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      }
+      // Anon: try namespaced anon key, then the legacy single key
+      const rawAnon = localStorage.getItem(HISTORY_KEY()) || localStorage.getItem(LEGACY_KEY);
+      if (!rawAnon) return [];
+      const arr = JSON.parse(rawAnon);
       return Array.isArray(arr) ? arr : [];
     } catch { return []; }
   }
@@ -51,14 +82,15 @@
     if (persist) {
       try {
         const trimmed = conv.slice(-MAX_TURNS * 2);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+        localStorage.setItem(HISTORY_KEY(), JSON.stringify(trimmed));
       } catch {}
     }
     // Cross-surface sync (always — so both surfaces show the message in this session)
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: conv } })); } catch {}
   }
   function clearHistory() {
-    try { localStorage.removeItem(HISTORY_KEY); } catch {}
+    try { localStorage.removeItem(HISTORY_KEY()); } catch {}
+    try { localStorage.removeItem(LEGACY_KEY); } catch {}  // also nuke legacy key
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: [] } })); } catch {}
   }
 
@@ -366,8 +398,59 @@
     return () => window.removeEventListener(EVENT_NAME, handler);
   }
 
+  // SECURITY: watch Firebase auth changes. When the active uid changes (signin,
+  // signout, or signin-as-different-user), reset the in-memory cache and broadcast
+  // a refresh so both AI surfaces drop the previous conversation immediately.
+  function wireAuthGuard() {
+    function setupListener() {
+      if (!window.firebase || !window.firebase.auth) return false;
+      try {
+        window.firebase.auth().onAuthStateChanged((user) => {
+          const newUid = (user && user.uid) ? user.uid : 'anon';
+          if (_currentLoadedUid !== null && _currentLoadedUid !== newUid) {
+            console.log('[wjp-chat-core] auth changed (' + _currentLoadedUid + ' → ' + newUid + ') — wiping legacy key + reloading history');
+            // Wipe the legacy single key — it might still contain previous user's chat
+            try { localStorage.removeItem(LEGACY_KEY); } catch {}
+            // Force every surface to re-render from the new user's history
+            try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: loadHistory() } })); } catch {}
+          }
+          _currentLoadedUid = newUid;
+        });
+        return true;
+      } catch { return false; }
+    }
+    if (!setupListener()) {
+      let polls = 0;
+      const t = setInterval(() => {
+        polls++;
+        if (setupListener() || polls > 50) clearInterval(t);
+      }, 200);
+    }
+  }
+  wireAuthGuard();
+
+  // Migrate any leftover legacy data into the current user's namespaced key,
+  // then wipe the legacy key so it can never leak between users again.
+  function migrateLegacyKeyOnce() {
+    try {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (!legacy) return;
+      const uid = currentUid();
+      if (uid === 'anon') {
+        // Only migrate to anon namespace if the namespaced anon key is empty
+        if (!localStorage.getItem(HISTORY_KEY())) {
+          localStorage.setItem(HISTORY_KEY(), legacy);
+        }
+      }
+      // ALWAYS remove the legacy key (signed-in or anon) — its contents could
+      // belong to a previous user.
+      localStorage.removeItem(LEGACY_KEY);
+    } catch {}
+  }
+  setTimeout(migrateLegacyKeyOnce, 1000);
+
   window.WJP_ChatCore = {
-    HISTORY_KEY, EVENT_NAME, MAX_TURNS,
+    EVENT_NAME, MAX_TURNS, currentUid,
     loadHistory, saveHistory, clearHistory, send, on,
     md, escHtml,
     // Usage tracking
