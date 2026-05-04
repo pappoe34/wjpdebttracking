@@ -58,9 +58,9 @@
   // ---- Usage tracking (per-day cloud-AI quota) ----------------------------
   const USAGE_PREFIX = 'wjp.aiUsage.';
   const TIER_LIMITS = {
-    'free':         25,                  // generous trial-quality access
+    'free':         5,                   // resets daily at local midnight
     'trial':        Infinity,
-    'pro':          100,
+    'pro':          50,
     'pro-plus':     Infinity,
     'pro_plus':     Infinity,
     'proplus':      Infinity,
