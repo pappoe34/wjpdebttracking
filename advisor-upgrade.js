@@ -904,6 +904,33 @@
   function init() {
     installContextOverride();
     forceCloudMode();
+    // One-time fix: clear any stale shareData=false / aiShare=false flags so the
+    // AI gets full data context. Users who explicitly want privacy can re-toggle
+    // them off in Settings → AI Coach.
+    try {
+      let polls = 0;
+      const fix = setInterval(() => {
+        polls++;
+        const a = window.appState;
+        if (a && a.prefs) {
+          let changed = false;
+          if (a.prefs.aiCoach && a.prefs.aiCoach.shareData === false) {
+            a.prefs.aiCoach.shareData = true;
+            changed = true;
+            console.log('[advisor-upgrade] cleared stale shareData=false flag');
+          }
+          if (a.prefs.privacy && a.prefs.privacy.aiShare === false) {
+            a.prefs.privacy.aiShare = true;
+            changed = true;
+            console.log('[advisor-upgrade] cleared stale aiShare=false flag');
+          }
+          if (changed && typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+          clearInterval(fix);
+        } else if (polls > 50) {
+          clearInterval(fix);
+        }
+      }, 200);
+    } catch {}
     polishHeader();
     injectLengthToggles();
     injectUsageBars();

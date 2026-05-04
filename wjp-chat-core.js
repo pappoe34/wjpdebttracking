@@ -267,14 +267,41 @@
     // Fire a "thinking" event so each surface can show its own typing indicator
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: conv, thinking: true } })); } catch {}
 
-    // Honor 'Use my real data' toggle in Settings → AI Coach
+    // Honor 'Use my real data' toggle. ONLY block context when the user
+    // has EXPLICITLY toggled this off in Settings. Default = share.
     let shareData = true;
     try {
-      const pref = window.appState && window.appState.prefs && window.appState.prefs.aiCoach;
-      if (pref && pref.shareData === false) shareData = false;
+      const prefs = (window.appState && window.appState.prefs) || {};
+      const aiCoach = prefs.aiCoach || {};
+      const privacy = prefs.privacy || {};
+      // Only false if EXPLICITLY set to false in either location
+      if (aiCoach.shareData === false) shareData = false;
+      if (privacy.aiShare === false) shareData = false;
     } catch {}
-    const ctx = shareData && window.WJP_CloudAI && window.WJP_CloudAI._buildContext
-      ? window.WJP_CloudAI._buildContext() : '';
+
+    let ctx = '';
+    if (shareData) {
+      try {
+        if (window.WJP_CloudAI && typeof window.WJP_CloudAI._buildContext === 'function') {
+          ctx = window.WJP_CloudAI._buildContext() || '';
+        }
+      } catch (err) {
+        console.warn('[wjp-chat-core] buildContext threw:', err);
+      }
+    }
+    // Diagnostic — visible in browser console
+    try {
+      const a = window.appState || {};
+      console.log('[wjp-chat-core] context built', {
+        shareData,
+        ctxLength: ctx.length,
+        debtsCount: (a.debts || []).length,
+        hasCloudAI: !!window.WJP_CloudAI,
+        hasBuildContext: !!(window.WJP_CloudAI && window.WJP_CloudAI._buildContext),
+        contextOverridden: !!(window.WJP_CloudAI && window.WJP_CloudAI.__contextOverridden),
+        ctxPreview: ctx.slice(0, 200)
+      });
+    } catch {}
     const tone = (window.appState && window.appState.prefs && window.appState.prefs.aiTone) || 'friendly';
     // Length: localStorage is canonical (set by the toggle), fall back to appState pref, then default.
     let length = 'standard';
