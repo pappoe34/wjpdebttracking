@@ -112,12 +112,81 @@
       });
     }
 
+    // Inject Auto-clear chat dropdown (visible to all users)
+    injectAutoClearDropdown(panel);
+
     // Inject Admin Tier Switcher (only for actual admins)
     injectAdminTierSwitcher(panel);
 
     // Re-run usage render after a moment
     setTimeout(renderUsageInside, 200);
     return true;
+  }
+
+  function injectAutoClearDropdown(panel) {
+    if (!window.WJP_ChatCore) return;
+    if (panel.querySelector('#aicoach-autoclear-card')) return;
+
+    const opts = [
+      { v: 0,    label: 'Clear each session', hint: 'Default — fresh chat every time you load the page' },
+      { v: 5,    label: '5 minutes inactive',   hint: 'Clear if no activity for 5 minutes' },
+      { v: 15,   label: '15 minutes inactive',  hint: 'Clear if no activity for 15 minutes' },
+      { v: 30,   label: '30 minutes inactive',  hint: 'Clear if no activity for 30 minutes' },
+      { v: 60,   label: '1 hour inactive',      hint: 'Clear if no activity for 1 hour' },
+      { v: 240,  label: '4 hours inactive',     hint: 'Clear if no activity for 4 hours' },
+      { v: 1440, label: '24 hours inactive',    hint: 'Maximum — chat persists at most 1 day' },
+    ];
+
+    const cur = window.WJP_ChatCore.getAutoClearMinutes();
+
+    const card = document.createElement('div');
+    card.id = 'aicoach-autoclear-card';
+    card.className = 'settings-card';
+    card.style.cssText = 'margin-top: 16px;';
+    card.innerHTML = `
+      <div class="settings-card-title">Privacy: auto-clear chat</div>
+      <div class="settings-card-hint" style="margin-bottom:12px;">
+        For privacy and to prevent stale context, conversations are wiped after a period of inactivity.
+        Default is to clear at the start of every new session.
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">Auto-clear after</div>
+        <div class="settings-row-value">
+          <select id="aicoach-autoclear-select" class="settings-input" style="min-width:230px;">
+            ${opts.map(o => `<option value="${o.v}" ${o.v === cur ? 'selected' : ''}>${o.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="settings-row" style="border-top:none;padding-top:0;">
+        <div style="font-size:11px;color:var(--text-3);font-style:italic;">
+          ${opts.find(o => o.v === cur)?.hint || ''}
+        </div>
+      </div>
+    `;
+
+    // Insert after the model info row at the top, before the Maintenance card
+    const maint = panel.querySelector('button#set-ai-clear');
+    const targetCard = maint ? (maint.closest('.settings-card') || maint.closest('[class*="card"]')) : null;
+    if (targetCard && targetCard.parentNode) {
+      targetCard.parentNode.insertBefore(card, targetCard);
+    } else {
+      panel.appendChild(card);
+    }
+
+    // Wire dropdown
+    const sel = card.querySelector('#aicoach-autoclear-select');
+    if (sel) {
+      sel.addEventListener('change', () => {
+        window.WJP_ChatCore.setAutoClearMinutes(parseInt(sel.value, 10));
+        // Re-render hint line
+        const hint = opts.find(o => o.v === parseInt(sel.value, 10))?.hint || '';
+        const hintEl = card.querySelector('.settings-row[style*="border-top:none"] div');
+        if (hintEl) hintEl.textContent = hint;
+        if (typeof window.showToast === 'function') {
+          window.showToast(`Chat will auto-clear ${opts.find(o => o.v === parseInt(sel.value, 10))?.label.toLowerCase() || ''}`);
+        }
+      });
+    }
   }
 
   function injectAdminTierSwitcher(panel) {

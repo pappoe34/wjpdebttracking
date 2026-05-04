@@ -54,7 +54,73 @@
     return out.join('');
   }
 
+  // Auto-clear settings — minutes of inactivity before chat is wiped on next load.
+  // 0 = clear on every page leave (default — fresh session each time).
+  // Capped at 1440 (24h) — no "never" option for privacy + cost ceiling.
+  const AUTO_CLEAR_OPTIONS = [0, 5, 15, 30, 60, 240, 1440];
+  const AUTO_CLEAR_DEFAULT = 0;
+  const AUTO_CLEAR_LS_KEY = 'wjp.aiAutoClearMin';
+  const LAST_ACTIVITY_KEY = 'wjp.aiLastActivity';
+
+  function getAutoClearMinutes() {
+    try {
+      // Read from appState pref first, then localStorage
+      const a = window.appState && window.appState.prefs && window.appState.prefs.aiCoach;
+      if (a && typeof a.autoClearMinutes === 'number') return Math.min(1440, Math.max(0, a.autoClearMinutes));
+      const ls = localStorage.getItem(AUTO_CLEAR_LS_KEY);
+      if (ls != null) {
+        const n = parseInt(ls, 10);
+        if (!isNaN(n)) return Math.min(1440, Math.max(0, n));
+      }
+    } catch {}
+    return AUTO_CLEAR_DEFAULT;
+  }
+  function setAutoClearMinutes(n) {
+    n = Math.min(1440, Math.max(0, parseInt(n, 10) || 0));
+    try { localStorage.setItem(AUTO_CLEAR_LS_KEY, String(n)); } catch {}
+    try {
+      if (window.appState) {
+        if (!window.appState.prefs) window.appState.prefs = {};
+        if (!window.appState.prefs.aiCoach) window.appState.prefs.aiCoach = {};
+        window.appState.prefs.aiCoach.autoClearMinutes = n;
+        if (typeof window.saveState === 'function') window.saveState();
+      }
+    } catch {}
+  }
+  function bumpActivity() {
+    try { localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now())); } catch {}
+  }
+  function getLastActivity() {
+    try { return parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) || '0', 10); }
+    catch { return 0; }
+  }
+
+  function shouldAutoClear() {
+    const minutes = getAutoClearMinutes();
+    const last = getLastActivity();
+    if (!last) return false;  // first load — nothing to clear
+    if (minutes === 0) {
+      // 'On page leave' — if the load timestamp is even 1ms after lastActivity
+      // and the page was reloaded/navigated, clear. We use a small grace
+      // window (10s) so an in-page hot-reload doesn't blow away the active
+      // conversation.
+      return (Date.now() - last) > 10000;
+    }
+    return (Date.now() - last) > minutes * 60 * 1000;
+  }
+
   function loadHistory() {
+    // Auto-clear on inactivity timeout (per user setting; default = clear each session)
+    try {
+      if (shouldAutoClear()) {
+        const uid = currentUid();
+        const key = HISTORY_KEY_PREFIX + uid;
+        try { localStorage.removeItem(key); } catch {}
+        try { localStorage.removeItem(LEGACY_KEY); } catch {}
+        bumpActivity();  // reset clock so subsequent loads don't keep wiping
+        console.log('[wjp-chat-core] auto-clear fired (inactivity > setting) — fresh chat');
+      }
+    } catch {}
     try {
       const uid = currentUid();
       _currentLoadedUid = uid;
@@ -85,6 +151,7 @@
         localStorage.setItem(HISTORY_KEY(), JSON.stringify(trimmed));
       } catch {}
     }
+    bumpActivity();
     // Cross-surface sync (always — so both surfaces show the message in this session)
     try { window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { conv: conv } })); } catch {}
   }
@@ -446,6 +513,8 @@
     getUsageInfo, getCurrentTier, getLimit, getUsedToday, TIER_LIMITS,
     // Admin
     isActuallyAdmin, getAdminTierOverride, setAdminTierOverride,
+    // Auto-clear
+    AUTO_CLEAR_OPTIONS, getAutoClearMinutes, setAutoClearMinutes, bumpActivity,
   };
   console.log('[wjp-chat-core] ready');
 })();
