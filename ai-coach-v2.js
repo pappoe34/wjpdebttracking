@@ -44,19 +44,12 @@
 
   // ---------- history persistence -----------------------------------------
   function loadHistory() {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (!raw) return [];
-      const arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr.slice(-MAX_HISTORY_TURNS * 2) : [];
-    } catch { return []; }
+    return window.WJP_ChatCore ? window.WJP_ChatCore.loadHistory() : [];
   }
-  function saveHistory() {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(conversation.slice(-MAX_HISTORY_TURNS * 2))); } catch {}
-  }
+  function saveHistory() { /* handled by ChatCore */ }
   function clearHistory() {
+    if (window.WJP_ChatCore) window.WJP_ChatCore.clearHistory();
     conversation = [];
-    saveHistory();
     renderInitial();
   }
 
@@ -151,54 +144,12 @@
     text = (text || '').trim();
     if (!text) return;
     isSending = true;
-
-    // Add user message
-    conversation.push({ role: 'user', content: text });
-    renderMessage('user', text);
-    saveHistory();
-
-    // Clear input + show typing
     const input = document.getElementById('chat-input-v2');
     if (input) input.value = '';
-    renderTyping();
-
-    // Build context using existing helper
-    const ctx = (window.WJP_CloudAI && window.WJP_CloudAI._buildContext) ? window.WJP_CloudAI._buildContext() : '';
-    const tone = (window.appState && window.appState.prefs && window.appState.prefs.aiTone) || 'friendly';
-    const length = (window.appState && window.appState.prefs && window.appState.prefs.aiLength) || 'standard';
-
-    const history = conversation.slice(0, -1).slice(-MAX_HISTORY_TURNS * 2);  // exclude the message we just added
-
-    let reply = '';
-    try {
-      const resp = await fetch('/.netlify/functions/ai-cloud', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: text, context: ctx, tone, length, history })
-      });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => '');
-        throw new Error(`${resp.status}: ${errText.slice(0, 200)}`);
-      }
-      const data = await resp.json();
-      reply = data.reply || '(no response)';
-      // Update model badge if present
-      try {
-        const badge = document.getElementById('aim-model-badge');
-        if (badge && data.provider) badge.textContent = data.provider === 'anthropic' ? 'Haiku 4.5' : data.provider === 'groq' ? 'Llama 3.3' : data.provider;
-      } catch {}
-    } catch (err) {
-      reply = `⚠ Couldn't reach the AI. ${String(err.message || err)}`;
+    // Delegate to shared ChatCore — both surfaces will re-render via event
+    if (window.WJP_ChatCore) {
+      try { await window.WJP_ChatCore.send(text); } catch {}
     }
-
-    clearTyping();
-    conversation.push({ role: 'assistant', content: reply });
-    saveHistory();
-
-    // Render with typewriter animation
-    const body = renderMessage('assistant', '');
-    await typewriter(body, reply);
-
     isSending = false;
   }
 
@@ -261,7 +212,7 @@
   function wirePanel() {
     const sendBtn = document.getElementById('chat-send-v2');
     const input   = document.getElementById('chat-input-v2');
-    const closeBtn = document.getElementById('ai-chat-close-v2');
+    const closeBtn = document.getElementById('aim-minimize-btn') || document.getElementById('ai-chat-close-v2');
     const clearBtn = document.getElementById('aim-clear-btn');
     if (sendBtn) sendBtn.addEventListener('click', () => send(input && input.value));
     if (input) {
@@ -290,6 +241,27 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+
+
+  // Cross-surface sync — re-render whenever ChatCore broadcasts updates
+  function wireSync() {
+    if (!window.WJP_ChatCore) { setTimeout(wireSync, 200); return; }
+    window.WJP_ChatCore.on((e) => {
+      const detail = e.detail || {};
+      conversation = detail.conv || window.WJP_ChatCore.loadHistory();
+      const wrap = getMessagesEl();
+      if (!wrap) return;
+      // Re-render messages
+      wrap.innerHTML = '';
+      if (conversation.length === 0) {
+        renderInitial();
+        return;
+      }
+      conversation.forEach(m => renderMessage(m.role, m.content));
+      if (detail.thinking) renderTyping();
+    });
+  }
+  wireSync();
 
   // Expose for debugging
   window.WJP_AICoachV2 = { send, clearHistory, renderInitial, renderPrompts };

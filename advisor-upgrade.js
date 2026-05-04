@@ -275,10 +275,166 @@
   function wireClear() {
     const clearBtn = document.getElementById('advisor-clear-btn');
     if (!clearBtn) return;
-    clearBtn.addEventListener('click', () => {
-      // Existing handler clears + adds a placeholder bubble. We override: re-render hero.
-      setTimeout(() => renderHero(), 50);
-    }, true);
+    // Replace button to drop legacy handlers
+    const fresh = clearBtn.cloneNode(true);
+    clearBtn.parentNode.replaceChild(fresh, clearBtn);
+    fresh.addEventListener('click', () => {
+      if (!confirm('Clear this conversation?')) return;
+      if (window.WJP_ChatCore) window.WJP_ChatCore.clearHistory();
+      // Re-render hero (event will also fire)
+      setTimeout(renderHero, 60);
+    });
+  }
+
+
+  // --------------------------------------------------------------------
+  // P27l — render advisor chat from shared ChatCore history + hijack send
+  // --------------------------------------------------------------------
+  const POLL = (cb, max=50, ms=200) => {
+    let n = 0;
+    const t = setInterval(() => {
+      n++;
+      if (cb()) clearInterval(t);
+      else if (n > max) clearInterval(t);
+    }, ms);
+  };
+
+  function renderAdvisorFromHistory() {
+    const scroll = document.getElementById('advisor-chat-scroll');
+    if (!scroll || !window.WJP_ChatCore) return;
+    const conv = window.WJP_ChatCore.loadHistory();
+    if (!conv.length) {
+      renderHero();
+      return;
+    }
+    // Render messages
+    scroll.innerHTML = '';
+    conv.forEach(m => renderAdvisorBubble(m.role, m.content));
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  function renderAdvisorBubble(role, content, isStreaming) {
+    const scroll = document.getElementById('advisor-chat-scroll');
+    if (!scroll) return null;
+    const row = document.createElement('div');
+    row.className = `chat-msg ${role === 'assistant' ? 'ai' : 'user'}`;
+    if (role === 'assistant') {
+      row.innerHTML = `
+        <div class="chat-avatar ai-avatar"><i class="ph-fill ph-sparkle"></i></div>
+        <div class="chat-content">
+          <div class="chat-bubble ai-bubble">${window.WJP_ChatCore.md(content)}</div>
+        </div>
+      `;
+      // Add copy button after a tick
+      setTimeout(() => {
+        const bubble = row.querySelector('.ai-bubble');
+        if (bubble && !row.querySelector('.advisor-copy')) {
+          const copy = document.createElement('button');
+          copy.className = 'advisor-copy';
+          copy.title = 'Copy';
+          copy.innerHTML = '<i class="ph ph-copy"></i> Copy';
+          copy.addEventListener('click', () => {
+            navigator.clipboard.writeText(content).then(() => {
+              copy.innerHTML = '<i class="ph ph-check"></i> Copied';
+              setTimeout(() => copy.innerHTML = '<i class="ph ph-copy"></i> Copy', 1500);
+            });
+          });
+          bubble.parentElement.appendChild(copy);
+        }
+      }, 50);
+    } else {
+      row.innerHTML = `
+        <div class="chat-content" style="align-items:flex-end;">
+          <div class="chat-bubble user-bubble">${window.WJP_ChatCore.escHtml(content).replace(/\n/g, '<br>')}</div>
+        </div>
+        <div class="chat-avatar user-avatar-chat"><i class="ph-fill ph-user"></i></div>
+      `;
+    }
+    scroll.appendChild(row);
+    scroll.scrollTop = scroll.scrollHeight;
+    return row;
+  }
+
+  function renderAdvisorThinking() {
+    const scroll = document.getElementById('advisor-chat-scroll');
+    if (!scroll) return;
+    // Avoid duplicate
+    if (document.getElementById('advisor-thinking')) return;
+    const row = document.createElement('div');
+    row.id = 'advisor-thinking';
+    row.className = 'chat-msg ai';
+    row.innerHTML = `
+      <div class="chat-avatar ai-avatar"><i class="ph-fill ph-sparkle"></i></div>
+      <div class="chat-content">
+        <div class="chat-bubble ai-bubble">
+          <div class="wjp-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        </div>
+      </div>
+    `;
+    scroll.appendChild(row);
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+  function clearAdvisorThinking() {
+    const t = document.getElementById('advisor-thinking');
+    if (t) t.remove();
+  }
+
+  function hijackAdvisorSend() {
+    const input = document.getElementById('advisor-page-input');
+    const sendBtn = document.getElementById('advisor-page-send');
+    if (!input || !sendBtn) return;
+    if (sendBtn.dataset.hijacked === '1') return;
+
+    // Replace the send button to discard its existing event listeners
+    const newBtn = sendBtn.cloneNode(true);
+    sendBtn.parentNode.replaceChild(newBtn, sendBtn);
+    newBtn.dataset.hijacked = '1';
+
+    // Replace the textarea similarly so old keydown listeners are gone
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+
+    const doSend = async () => {
+      const txt = (newInput.value || '').trim();
+      if (!txt) return;
+      newInput.value = '';
+      newInput.style.height = 'auto';
+      // ChatCore handles persistence + event broadcast
+      if (window.WJP_ChatCore) {
+        try { await window.WJP_ChatCore.send(txt); } catch {}
+      }
+    };
+    newBtn.addEventListener('click', doSend);
+    newInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+    });
+    newInput.addEventListener('input', () => {
+      newInput.style.height = 'auto';
+      newInput.style.height = Math.min(140, newInput.scrollHeight) + 'px';
+    });
+  }
+
+  function wireAdvisorSync() {
+    if (!window.WJP_ChatCore) { setTimeout(wireAdvisorSync, 200); return; }
+    // Subscribe to cross-surface updates
+    window.WJP_ChatCore.on((e) => {
+      const detail = e.detail || {};
+      const scroll = document.getElementById('advisor-chat-scroll');
+      if (!scroll) return;
+      // If thinking flag set, render a thinking indicator
+      if (detail.thinking) {
+        // First render the conv (which now includes the user message)
+        renderAdvisorFromHistory();
+        renderAdvisorThinking();
+        return;
+      }
+      clearAdvisorThinking();
+      renderAdvisorFromHistory();
+    });
+    // Also re-render on tab nav into advisor
+    document.querySelectorAll('[data-page="advisor"]').forEach(el => {
+      el.addEventListener('click', () => setTimeout(renderAdvisorFromHistory, 200));
+    });
   }
 
   // -------------- Init -------------------------------------------------
@@ -532,9 +688,15 @@
     installContextOverride();
     forceCloudMode();
     polishHeader();
-    renderHero();
+    // Render from shared ChatCore history if any, else hero
+    POLL(() => {
+      if (!window.WJP_ChatCore) return false;
+      renderAdvisorFromHistory();
+      hijackAdvisorSend();
+      wireAdvisorSync();
+      return true;
+    });
     renderChips();
-    startBubbleObserver();
     wireClear();
 
     // Re-apply when navigating to the advisor page
