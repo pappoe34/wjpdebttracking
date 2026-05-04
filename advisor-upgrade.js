@@ -448,21 +448,49 @@
     { key: 'detailed', label: 'Long',   hint: 'Full breakdown'  },
   ];
 
+  // Local fallback storage so the toggle works even before appState loads
+  const LENGTH_LS_KEY = 'wjp.aiLength';
+
   function getCurrentLength() {
     try {
-      return (window.appState && window.appState.prefs && window.appState.prefs.aiLength) || 'standard';
+      // Prefer appState pref (canonical), fall back to localStorage, then default
+      if (window.appState && window.appState.prefs && window.appState.prefs.aiLength) {
+        return window.appState.prefs.aiLength;
+      }
+      const ls = localStorage.getItem(LENGTH_LS_KEY);
+      return ls || 'standard';
     } catch { return 'standard'; }
   }
 
   function setCurrentLength(key) {
+    // Always persist to localStorage so it survives reloads even if appState
+    // hasn't loaded yet
+    try { localStorage.setItem(LENGTH_LS_KEY, key); } catch {}
+
+    // Push to appState if it exists, but DON'T abort if it doesn't
     try {
-      if (!window.appState) return;
-      if (!window.appState.prefs) window.appState.prefs = {};
-      window.appState.prefs.aiLength = key;
-      if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+      if (window.appState) {
+        if (!window.appState.prefs) window.appState.prefs = {};
+        window.appState.prefs.aiLength = key;
+        if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+      }
     } catch {}
-    // Refresh all length toggles on screen
+
+    // Always refresh the visual state of every toggle on the page
     document.querySelectorAll('.wjp-length-toggle').forEach(refreshLengthToggle);
+
+    // Once appState shows up later, sync our preference into it
+    if (!window.appState) {
+      const sync = setInterval(() => {
+        if (window.appState) {
+          if (!window.appState.prefs) window.appState.prefs = {};
+          window.appState.prefs.aiLength = key;
+          if (typeof window.saveState === 'function') { try { window.saveState(); } catch {} }
+          clearInterval(sync);
+        }
+      }, 200);
+      setTimeout(() => clearInterval(sync), 10000);
+    }
   }
 
   function refreshLengthToggle(toggle) {
