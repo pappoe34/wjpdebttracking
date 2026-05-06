@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Help Center — WJP Debt Tracking</title>
+<meta name="description" content="Answers to common questions about WJP Budgeting — banking, billing, AI Coach, privacy, data export, and more." />
+<meta property="og:title" content="WJP Help Center" />
+<meta property="og:description" content="Find answers fast. Or email us — we read every message." />
+<meta property="og:url" content="https://wjpdebttracking.com/help" />
+<meta name="twitter:card" content="summary" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f7f6f2; --bg-tint:#f2efe6;
+    --ink:#141414; --ink-dim:rgba(20,20,20,0.66); --ink-faint:rgba(20,20,20,0.40);
+    --accent:#1f7a4a; --accent-2:#2b9b72;
+    --rule:rgba(20,20,20,0.09);
+    --serif:'Fraunces','Times New Roman',serif;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --radius:18px; --max:780px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;line-height:1.65;font-size:16px}
+  a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  a:hover{color:var(--accent-2)}
+
+  nav.top{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:rgba(255,255,255,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--rule)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1f7a4a,#2b9b72);display:grid;place-items:center;color:#fff;font-family:var(--serif);font-weight:700;font-size:11px;letter-spacing:0.4px}
+  .brand-name{font-family:var(--serif);font-weight:700;font-size:20px;font-style:italic;color:var(--accent);letter-spacing:-0.01em}
+  .nav-back{font-size:14px;color:var(--ink-dim);text-decoration:none}
+  .nav-back:hover{color:var(--ink)}
+
+  main{max-width:var(--max);margin:0 auto;padding:64px 28px 96px}
+  h1{font-family:var(--serif);font-weight:400;font-size:clamp(36px,5vw,52px);letter-spacing:-0.02em;line-height:1.1;margin-bottom:12px}
+  .lede{color:var(--ink-dim);font-size:18px;margin-bottom:20px;max-width:600px}
+
+  .contact-card{
+    margin-top:24px;padding:22px 24px;border-radius:var(--radius);
+    background:linear-gradient(135deg,#f3f9f5,#fdfdf9);
+    border:1px solid rgba(31,122,74,0.18);
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  }
+  .contact-card .icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1f7a4a,#2b9b72);color:#fff;display:grid;place-items:center;font-size:22px;flex-shrink:0}
+  .contact-card .cc-text{flex:1;min-width:200px}
+  .contact-card .cc-title{font-weight:700;font-size:15px;margin-bottom:2px}
+  .contact-card .cc-sub{font-size:13px;color:var(--ink-dim)}
+  .contact-card .cc-email{display:inline-block;padding:9px 16px;border-radius:10px;background:#1f7a4a;color:#fff;font-weight:700;font-size:13px;text-decoration:none;white-space:nowrap}
+  .contact-card .cc-email:hover{background:#2b9b72}
+
+  .toc{
+    margin:36px 0 48px;
+    padding:20px 24px;
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    background:var(--bg-soft);
+  }
+  .toc-title{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:12px}
+  .toc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 18px}
+  .toc-grid a{display:flex;align-items:center;gap:10px;padding:6px 0;color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
+  .toc-grid a:hover{color:var(--accent)}
+  .toc-grid .num{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;background:#fff;border:1px solid var(--rule);font-size:11px;font-weight:700;color:var(--accent)}
+
+  section.help-section{margin-bottom:56px;scroll-margin-top:80px}
+  section.help-section h2{
+    font-family:var(--serif);font-weight:500;font-size:28px;letter-spacing:-0.01em;
+    margin-bottom:6px;display:flex;align-items:baseline;gap:10px;
+  }
+  section.help-section h2 .num{font-size:13px;color:var(--accent);font-weight:700;font-family:var(--sans);letter-spacing:0.06em}
+  section.help-section .sec-sub{color:var(--ink-dim);font-size:14px;margin-bottom:24px}
+
+  details.qa{
+    border-bottom:1px solid var(--rule);
+    padding:14px 0;
+  }
+  details.qa[open]{padding-bottom:18px}
+  details.qa summary{
+    list-style:none;cursor:pointer;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+    font-weight:600;font-size:15.5px;color:var(--ink);
+    padding:4px 0;
+  }
+  details.qa summary::-webkit-details-marker{display:none}
+  details.qa summary::after{
+    content:'+';font-size:22px;line-height:1;color:var(--accent);
+    flex-shrink:0;font-weight:300;transition:transform 0.2s;
+  }
+  details.qa[open] summary::after{content:'\2212'}
+  details.qa summary:hover{color:var(--accent)}
+  details.qa .answer{
+    margin-top:10px;color:var(--ink-dim);font-size:14.5px;line-height:1.7;
+    padding-right:32px;
+  }
+  details.qa .answer p{margin-bottom:10px}
+  details.qa .answer p:last-child{margin-bottom:0}
+  details.qa .answer ul{margin:8px 0 8px 22px}
+  details.qa .answer li{margin-bottom:4px}
+  details.qa .answer code{
+    background:var(--bg-soft);padding:1px 6px;border-radius:4px;
+    font-size:12.5px;font-family:'SF Mono',Menlo,monospace;color:var(--accent)
+  }
+
+  footer{padding:48px 28px 28px;border-top:1px solid var(--rule);background:var(--bg-soft)}
+  footer .wrap{max-width:var(--max);margin:0 auto}
+  .foot-about{font-size:13.5px;color:var(--ink-dim);line-height:1.65;margin-bottom:22px}
+  .foot-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--ink-faint)}
+  .foot-links{display:flex;gap:18px;flex-wrap:wrap}
+  .foot-links a{color:var(--ink-dim);text-decoration:none}
+  .foot-links a:hover{color:var(--accent)}
+
+  @media (max-width:560px){
+    main{padding:40px 22px 64px}
+    h1{font-size:34px}
+    .toc-grid{grid-template-columns:1fr}
+    section.help-section h2{font-size:23px}
+    details.qa summary{font-size:14.5px}
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="/intro" style="text-decoration:none">
+    <div class="brand-mark" aria-hidden="true">WJP</div>
+    <div class="brand-name"><b style="font-weight:700;color:#141414;">WJP</b> <span style="color:#1f7a4a;font-style:italic;">Budgetting</span></div>
+  </a>
+  <a class="nav-back" href="/intro">&larr; Back to home</a>
+</nav>
+
+<main>
+  <h1>Help Center</h1>
+  <p class="lede">Answers to questions our users actually ask. Can't find what you need? Email us — we read every message and reply within 24 hours, usually faster.</p>
+
+  <div class="contact-card">
+    <div class="icon">&#9993;</div>
+    <div class="cc-text">
+      <div class="cc-title">Need a real answer from a real person?</div>
+      <div class="cc-sub">support@wjpdebttracking.com — replies within 24 hours, weekends included.</div>
+    </div>
+    <a class="cc-email" href="mailto:support@wjpdebttracking.com?subject=WJP%20Help%20Request">Email us</a>
+  </div>
+
+  <nav class="toc">
+    <div class="toc-title">Jump to</div>
+    <div class="toc-grid">
+      <a href="#getting-started"><span class="num">1</span> Getting started</a>
+      <a href="#banking"><span class="num">2</span> Banking &amp; Plaid</a>
+      <a href="#billing"><span class="num">3</span> Billing &amp; subscription</a>
+      <a href="#ai-coach"><span class="num">4</span> AI Coach</a>
+      <a href="#privacy"><span class="num">5</span> Privacy &amp; security</a>
+      <a href="#data"><span class="num">6</span> Your data: export &amp; delete</a>
+    </div>
+  </nav>
+
+  <!-- =============== 1. GETTING STARTED =============== -->
+  <section id="getting-started" class="help-section">
+    <h2><span class="num">01</span> Getting started</h2>
+    <p class="sec-sub">First-time setup — what to add, in what order, and what each piece does.</p>
+
+    <details class="qa">
+      <summary>What does WJP Budgeting actually do?</summary>
+      <div class="answer">
+        <p>WJP turns your debts into a single dashboard with a real <b>debt-free date</b>. You add (or sync) your debts, pick a payoff strategy (Avalanche, Snowball, or Hybrid), and the app runs the math: how much you'll pay in interest, when each card disappears, and what changes if you throw an extra $200/mo at it.</p>
+        <p>Beyond the math, you get an AI Coach that knows your numbers, automatic bill detection from linked banks, statement OCR, calendar reminders, and a credit utilization tracker.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How do I add my first debt?</summary>
+      <div class="answer">
+        <p>Three options, fastest first:</p>
+        <ul>
+          <li><b>Sync a bank with Plaid</b> — Settings &rarr; Linked Accounts. Most credit cards and student/auto loans pull in automatically with current balance and APR.</li>
+          <li><b>Snap a statement</b> — Top-right <b>+ Add &rarr; Scan statement</b>. Upload a PDF or photo, OCR fills in balance, APR, and minimum.</li>
+          <li><b>Add manually</b> — Top-right <b>+ Add &rarr; Add debt</b>. Type the name, balance, APR, and minimum. Takes 30 seconds.</li>
+        </ul>
+        <p>You can mix and match. Most people sync their cards, manually add a student loan, and use OCR for older statements.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What's the difference between Avalanche, Snowball, and Hybrid?</summary>
+      <div class="answer">
+        <p><b>Avalanche</b> targets the highest-APR debt first regardless of balance. Mathematically optimal — saves the most interest. Best when you're driven by numbers.</p>
+        <p><b>Snowball</b> targets the smallest-balance debt first regardless of APR. Knocks out wins fast for momentum. Best when you need psychological proof you can do this.</p>
+        <p><b>Hybrid</b> is what we built — pay off any debt under a small threshold first (quick wins), then switch to Avalanche for the rest. Captures the morale boost without the full interest tax of pure Snowball.</p>
+        <p>Switch any time in Settings &rarr; Strategy. The Plans page shows side-by-side comparison so you can see how each affects your debt-free date and total interest paid.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Why isn't my debt-free date updating?</summary>
+      <div class="answer">
+        <p>The date depends on three inputs: balances, APRs, and how much you're paying above the minimums. Check that:</p>
+        <ul>
+          <li>Each debt has a non-zero <b>minimum payment</b> (without it, the math can't run).</li>
+          <li>Each debt has an <b>APR</b> set (use 0% for student loans on pause, etc).</li>
+          <li>Your <b>extra payment / month</b> is set under Settings &rarr; Strategy.</li>
+        </ul>
+        <p>If a debt is missing data, it shows a yellow flag on the Debts page.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Can I use WJP without linking a bank?</summary>
+      <div class="answer">
+        <p>Yes. Plaid is optional. Manually-entered debts and uploaded statements give you the full strategy + AI Coach experience. Linking a bank adds automatic balance updates and bill detection — convenient but not required.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Does WJP work on mobile?</summary>
+      <div class="answer">
+        <p>Yes. WJP is a web app that runs in any modern browser — iOS Safari, Android Chrome, desktop. There's no app to install. Add it to your home screen for one-tap access (Share &rarr; Add to Home Screen on iOS, "Add to Home" in Chrome menu on Android).</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- =============== 2. BANKING & PLAID =============== -->
+  <section id="banking" class="help-section">
+    <h2><span class="num">02</span> Banking &amp; Plaid</h2>
+    <p class="sec-sub">How bank linking works, what we can see, and what we can't.</p>
+
+    <details class="qa">
+      <summary>What is Plaid and why are you using it?</summary>
+      <div class="answer">
+        <p>Plaid is the same secure connector used by Venmo, Robinhood, Chime, and most major fintech apps. They handle the actual bank login — your username and password go to Plaid, never to us. Plaid then sends WJP a read-only stream of your account balances, recent transactions, and loan metadata.</p>
+        <p>This is <b>read-only access</b>. WJP cannot move money, change settings on your bank account, or initiate any transactions.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What data does WJP receive from Plaid?</summary>
+      <div class="answer">
+        <ul>
+          <li>Account names, types, and last-4 digits of account numbers</li>
+          <li>Current balances</li>
+          <li>Loan/credit metadata: APR, minimum payment, due date, statement balance</li>
+          <li>Recent transactions (used to detect bill payments and update debt balances automatically)</li>
+        </ul>
+        <p>WJP <b>never</b> receives your bank login credentials. Those stay with Plaid.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>My bank isn't showing up in the Plaid search.</summary>
+      <div class="answer">
+        <p>Plaid supports 12,000+ U.S. financial institutions but a few small credit unions and brand-new banks are missing. If yours isn't there, you have two options:</p>
+        <ul>
+          <li><b>Add the debt manually</b> — Settings &rarr; Debts &rarr; Add. You'll just type in balance, APR, and minimum.</li>
+          <li><b>Use statement OCR</b> — upload a PDF or photo of a recent statement and let WJP extract the data.</li>
+        </ul>
+        <p>If you want us to request your institution be added to Plaid, email us with the bank's name.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Why do I need to re-authenticate Plaid every few weeks?</summary>
+      <div class="answer">
+        <p>Some banks require periodic re-authentication for security (90-day or 180-day rules). When that happens, WJP shows a yellow banner asking you to reconnect. Click it, complete the bank's login flow inside Plaid, and you're back in sync. Your data isn't lost — just paused until you reconnect.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How do I disconnect a bank?</summary>
+      <div class="answer">
+        <p>Settings &rarr; Linked Accounts &rarr; click the <b>Unlink</b> button next to the institution. This immediately revokes WJP's Plaid access token. Manually-added debts remain. Synced data from that institution is kept (you can delete it manually if you want), but no new transactions will flow in.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Can WJP see my checking and savings accounts?</summary>
+      <div class="answer">
+        <p>Only if you explicitly include them when you link a bank. Plaid lets you pick which accounts to share. WJP only needs liability accounts (credit cards, loans, lines of credit), but checking/savings can be useful for cash-on-hand context. You're in full control of what gets shared.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How often does Plaid sync new data?</summary>
+      <div class="answer">
+        <p>Automatic refresh runs once every 24 hours. You can also trigger a manual refresh anytime via the <b>Sync Bank</b> button in the top-right header. New transactions usually appear within 1-3 business days of clearing your account.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- =============== 3. BILLING =============== -->
+  <section id="billing" class="help-section">
+    <h2><span class="num">03</span> Billing &amp; subscription</h2>
+    <p class="sec-sub">Pricing, trial, refunds, and how to cancel.</p>
+
+    <details class="qa">
+      <summary>What's the pricing?</summary>
+      <div class="answer">
+        <p>One paid plan: <b>Pro at $11.99/month</b>. New users get a <b>14-day free trial of Pro Plus</b> (the highest tier — full features) and after the trial, the subscription auto-converts to Pro at $11.99/mo unless cancelled.</p>
+        <p>The free tier (post-trial, post-cancellation) keeps your existing manually-entered debts and the math engine, but limits AI Coach to 5 questions/day and disables Plaid sync + statement OCR.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How do I cancel my subscription?</summary>
+      <div class="answer">
+        <p>Settings &rarr; Billing &rarr; <b>Manage subscription</b>. You'll be sent to the Stripe customer portal where you can cancel in two clicks. Cancellation takes effect at the end of the current billing period — you keep Pro access until then.</p>
+        <p>You can also email us and we'll cancel for you within 24 hours.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What's your refund policy?</summary>
+      <div class="answer">
+        <p><b>30-day no-questions refund on your first paid charge.</b> If you decide it's not for you within 30 days of your first Pro charge, email <a href="mailto:support@wjpdebttracking.com">support@wjpdebttracking.com</a> and we'll process a full refund the same day.</p>
+        <p>For renewal charges (after your first paid month), refund requests within 7 days of the charge are generally honored. We review case-by-case but err on the side of saying yes.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Will I be charged when my trial ends?</summary>
+      <div class="answer">
+        <p>Yes — unless you cancel before day 14. We send reminder emails 7 days before and 1 day before the trial ends so you're never surprised. The first charge is $11.99 (Pro), not the higher Pro Plus rate. After conversion, you can upgrade back to Pro Plus from Settings &rarr; Billing if you want unlimited AI + 3 bank links.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Do you offer student or hardship discounts?</summary>
+      <div class="answer">
+        <p>Not as a public discount, but if you're in genuine financial difficulty (the people who need this app most are sometimes the people who can least afford a subscription), email us. We've never said no to anyone making a real request.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Where can I see my invoices and update my card?</summary>
+      <div class="answer">
+        <p>Settings &rarr; Billing &rarr; <b>Manage subscription</b> opens the Stripe customer portal where you can download every past invoice, update your payment method, and change billing email. You can also access it directly at <a href="https://billing.stripe.com/p/login/yourportallink" target="_blank" rel="noopener">your Stripe portal</a> after first sign-in.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- =============== 4. AI COACH =============== -->
+  <section id="ai-coach" class="help-section">
+    <h2><span class="num">04</span> AI Coach</h2>
+    <p class="sec-sub">How the AI works, what it sees, and how to get the best answers.</p>
+
+    <details class="qa">
+      <summary>What model powers the AI Coach?</summary>
+      <div class="answer">
+        <p>Anthropic's <b>Claude Haiku 4.5</b> is the primary model. If Anthropic is unreachable, we automatically fall back to <b>Llama 3.3 70B via Groq</b>. Both providers are bound by contract not to train on your data.</p>
+        <p>You can see which model answered in the badge above each chat panel.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What data does the AI Coach see?</summary>
+      <div class="answer">
+        <p>By default, when Cloud Mode is on, every question sends Claude a snapshot of your live in-app state: today's date, your debts (name, balance, APR, minimum, due date, utilization), monthly income, recurring bills, last 30 days of spending categories, savings goals, credit score, and your chosen strategy.</p>
+        <p>Toggle <b>Settings &rarr; AI Coach &rarr; Use my real data</b> off if you want generic advice instead — the AI will still answer but won't see your numbers.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How many questions can I ask per day?</summary>
+      <div class="answer">
+        <ul>
+          <li><b>Free tier:</b> 5 cloud questions/day. After that, the AI falls back to a local rule-based mode (limited but free).</li>
+          <li><b>Pro:</b> 50 cloud questions/day.</li>
+          <li><b>Trial / Pro Plus:</b> Unlimited.</li>
+        </ul>
+        <p>The usage bar above each chat shows how many you've used today. Counter resets at local-time midnight.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>The AI doesn't remember our conversation. Why?</summary>
+      <div class="answer">
+        <p>By default, conversations clear at the start of every new session for privacy and to prevent stale context. Settings &rarr; AI Coach &rarr; <b>Auto-clear chat</b> lets you change this — options range from "clear each session" (default) up to "24 hours inactive" (the maximum, no permanent persistence).</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How do I get better answers from the AI?</summary>
+      <div class="answer">
+        <p>Three tips:</p>
+        <ul>
+          <li><b>Be specific.</b> "What should I do about my Avant card?" beats "What should I do about my debt?"</li>
+          <li><b>Use the length toggle.</b> Short for quick lookups ("when is rent due?"), Long for audits and what-if scenarios.</li>
+          <li><b>Add the data first.</b> The AI is grounded in what you've added. If you haven't added income or recurring bills, it can't help with cashflow questions. Add them under Settings &rarr; Income / Recurring.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>The AI is using my old conversation from another account!</summary>
+      <div class="answer">
+        <p>Fixed in May 2026 — chat history is now namespaced per Firebase user. If you still see this on a shared device, sign out fully, then in DevTools console run <code>localStorage.clear()</code> and reload. Email us if it persists.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- =============== 5. PRIVACY =============== -->
+  <section id="privacy" class="help-section">
+    <h2><span class="num">05</span> Privacy &amp; security</h2>
+    <p class="sec-sub">What we collect, what we never collect, and the controls you have.</p>
+
+    <details class="qa">
+      <summary>Do you sell my data?</summary>
+      <div class="answer">
+        <p>No. We don't sell, rent, or share your data with advertisers, brokers, or any third party that isn't directly required to operate the app (Plaid for bank linking, Firebase for auth/storage, Stripe for payments, Anthropic/Groq for AI Coach when you use it). Each is contractually bound to handle your data per their own privacy commitments.</p>
+        <p>Full details in our <a href="/privacy">Privacy Policy</a>.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How is my data encrypted?</summary>
+      <div class="answer">
+        <p>In transit: TLS 1.2+ on every request. At rest: AES-256 (default for Firestore). Plaid access tokens are stored server-side only and never exposed to the browser. Webhooks are cryptographically verified before processing. Two-factor auth is enforced on all admin accounts.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What is Privacy Mode?</summary>
+      <div class="answer">
+        <p>The <b>Privacy Mode</b> toggle in the top-right header blurs your dollar amounts and account names so you can use the app in public or screen-share without exposing balances. Click any blurred figure to temporarily reveal it. Settings &rarr; Privacy lets you enable Privacy Mode by default + add blur-on-focus-loss.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Can I disable AI Cloud Mode for full privacy?</summary>
+      <div class="answer">
+        <p>Yes. Settings &rarr; AI Coach &rarr; switch from "Use my real data" off, OR from Cloud to Standard Mode. Standard Mode is fully rule-based and runs entirely in your browser — no data leaves your device. You'll get less nuanced answers but absolute privacy.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What happens if I lose my phone or laptop?</summary>
+      <div class="answer">
+        <p>Your data is in Firestore, not on the device — so nothing is lost. To revoke a stolen device's access:</p>
+        <ul>
+          <li>Sign in on a different device, then Settings &rarr; Security &rarr; <b>Sign out all sessions</b>.</li>
+          <li>Change your password (Settings &rarr; Security &rarr; Change password).</li>
+          <li>If linked via Google, revoke WJP's access at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Are you SOC 2 / HIPAA / PCI compliant?</summary>
+      <div class="answer">
+        <p>We rely on certified providers for the parts that matter: <b>Plaid</b> (SOC 2 Type II, ISO 27001), <b>Stripe</b> (PCI DSS Level 1), <b>Google Cloud / Firebase</b> (SOC 1/2/3, ISO 27001/17/18, HIPAA-eligible). We never store payment card numbers ourselves — Stripe handles them entirely. We're not formally SOC 2 certified yet (early stage); that's on the roadmap.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- =============== 6. DATA EXPORT / DELETE =============== -->
+  <section id="data" class="help-section">
+    <h2><span class="num">06</span> Your data: export &amp; delete</h2>
+    <p class="sec-sub">GDPR/CCPA-friendly tools to take your data with you or wipe it permanently.</p>
+
+    <details class="qa">
+      <summary>How do I export all my data?</summary>
+      <div class="answer">
+        <p>Settings &rarr; Data &rarr; <b>Export all data</b>. You'll get a single JSON file containing every debt, transaction, recurring bill, savings goal, AI conversation, settings preference, and audit-log entry — everything we have on your account. Open in any text editor or import into Excel.</p>
+        <p>Exports are generated on-demand and download instantly. We don't keep a copy on our servers.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How do I delete my account?</summary>
+      <div class="answer">
+        <p>Settings &rarr; Account &rarr; <b>Delete account</b>. Type your email to confirm. We immediately:</p>
+        <ul>
+          <li>Wipe your Firestore document (debts, transactions, recurring, settings, AI history)</li>
+          <li>Cancel any active Stripe subscription</li>
+          <li>Revoke all Plaid access tokens</li>
+          <li>Delete your Firebase Auth user</li>
+        </ul>
+        <p>The action is permanent — no undo. Plan to download an export first if you want a record.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>How long do you keep my data after I delete?</summary>
+      <div class="answer">
+        <p>Active data wipes immediately. Server logs and backups containing your data are purged within <b>30 days</b> of account deletion. We retain anonymized aggregate metrics (total signups, retention curves) indefinitely — these contain no personally-identifying information.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>Can I delete just one debt or transaction without deleting my whole account?</summary>
+      <div class="answer">
+        <p>Yes. Click any debt &rarr; <b>Delete</b>. For transactions, Debts page &rarr; pick the debt &rarr; Transactions tab &rarr; delete individual rows. For recurring bills, Settings &rarr; Recurring &rarr; remove. All deletions are immediate and permanent.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>I'm a California / EU resident — what extra rights do I have?</summary>
+      <div class="answer">
+        <p>Under GDPR (EU/UK) and CCPA (California), you have the right to access, correct, port, or delete your personal data. The <b>Export all data</b> button satisfies access + portability. <b>Delete account</b> satisfies deletion. For correction or specific data-subject requests, email <a href="mailto:privacy@wjpdebttracking.com">privacy@wjpdebttracking.com</a>; we respond within 30 days.</p>
+      </div>
+    </details>
+
+    <details class="qa">
+      <summary>What if I get a subpoena or legal request from law enforcement?</summary>
+      <div class="answer">
+        <p>We disclose only what's legally required and only with valid process (court order, subpoena, etc.). We notify the affected user before disclosure unless legally prohibited from doing so. Our full process is documented in the <a href="/privacy">Privacy Policy</a> section 8.</p>
+      </div>
+    </details>
+  </section>
+
+  <div class="contact-card" style="margin-top:48px">
+    <div class="icon">&#9993;</div>
+    <div class="cc-text">
+      <div class="cc-title">Still stuck?</div>
+      <div class="cc-sub">If your question isn't here, email us. We read every message.</div>
+    </div>
+    <a class="cc-email" href="mailto:support@wjpdebttracking.com?subject=WJP%20Help%20Request">Email support</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-about"><b>WJP</b> is a private debt tracker for people doing the quiet work of paying it all off. We're an independent team — not a bank, not a lender, not a BNPL company. The only way we make money is one optional Pro plan. That means our only job is helping you get to zero. When you do, we've done ours.</p>
+    <div class="foot-row">
+      <div>&copy; <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div class="foot-links">
+        <a href="/about">About</a>
+        <a href="/how">How</a>
+        <a href="/features">Features</a>
+        <a href="/help">Help</a>
+        <a href="/faq">FAQ</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>
