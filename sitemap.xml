@@ -11,4 +11,7 @@
   <url><loc>https://wjpdebttracking.com/signin.html</loc><changefreq>yearly</changefreq><priority>0.6</priority></url>
   <url><loc>https://wjpdebttracking.com/terms.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://wjpdebttracking.com/privacy.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://wjpdebttracking.com/vs/mint.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://wjpdebttracking.com/vs/ynab.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://wjpdebttracking.com/vs/rocket-money.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
 </urlset>
