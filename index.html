@@ -4400,7 +4400,7 @@
 <script src="/settings-aicoach-upgrade.js?v=28" defer></script>
 
 
-<!-- Recovery A — 11 safe modules (no MutationObservers, no unconditional auto-render) -->
+<!-- Recovery A — 10 safe modules (custom-strategy stripped — possibly conflicting with strategy engine) (no MutationObservers, no unconditional auto-render) -->
 <script src="/wjp-schema-reconciler.js" defer></script>
 <script src="/wjp-i18n.js" defer></script>
 <script src="/wjp-balance-forecast.js" defer></script>
@@ -4411,15 +4411,6 @@
 <script src="/wjp-referrals.js" defer></script>
 <script src="/wjp-affiliate-cards.js" defer></script>
 <script src="/wjp-notifications.js" defer></script>
-<script src="/wjp-custom-strategy.js" defer></script>
-
-
-<!-- Recovery B — 4 hardened modules (debounced observers + path guards) -->
-<script src="/wjp-settings-collapse.js" defer></script>
-<script src="/wjp-settings-extensions.js" defer></script>
-<script src="/wjp-settings-extensions-w5.js" defer></script>
-<script src="/wjp-proactive-nudges.js" defer></script>
-
 </body>
 </html>
 
