@@ -208,11 +208,62 @@
     }
   }
 
+
+  function annotateDfdHero(d) {
+    try {
+      if (!d) return;
+      var meta = document.getElementById('dfd-meta');
+      if (!meta) return;
+      // Determine which strategy is currently active by reading the hero's text
+      var t = (meta.textContent || '').toLowerCase();
+      var activeStrat = null;
+      if (t.indexOf('avalanche') !== -1) activeStrat = 'avalanche';
+      else if (t.indexOf('snowball') !== -1) activeStrat = 'snowball';
+      else if (t.indexOf('hybrid') !== -1) activeStrat = 'hybrid';
+      if (!activeStrat) return;
+
+      var thisInt = d.interest[activeStrat];
+      if (thisInt == null) return;
+
+      // Find existing annotation and remove it (idempotent)
+      var existing = meta.parentNode.querySelector('.wjp-dfd-savings');
+      if (existing) existing.remove();
+
+      // Build savings note
+      var note = document.createElement('div');
+      note.className = 'wjp-dfd-savings';
+
+      var savingsVsSnowball = (d.interest.snowball || 0) - thisInt;
+      var costMore = thisInt - d.bestInterest;
+
+      var label, color;
+      if (Math.abs(thisInt - d.bestInterest) < 1) {
+        label = '✓ Optimal strategy — saves $' + Math.round(d.interest.snowball - thisInt).toLocaleString() + ' vs Snowball';
+        color = '#1f7a4a';
+      } else if (Math.abs(thisInt - d.worstInterest) < 1) {
+        label = '⚠ Costs $' + Math.round(costMore).toLocaleString() + ' more in interest than Avalanche — switch to save';
+        color = '#c0594a';
+      } else {
+        label = '✓ Saves $' + Math.round(savingsVsSnowball).toLocaleString() + ' vs Snowball — but Avalanche saves $' + Math.round(costMore).toLocaleString() + ' more';
+        color = '#c99a2a';
+      }
+      var rgb = color === '#1f7a4a' ? '31,122,74' : color === '#c0594a' ? '192,89,74' : '201,154,42';
+      note.style.cssText = 'margin-top:10px;padding:8px 12px;background:rgba(' + rgb + ',0.08);' +
+        'border-left:3px solid ' + color + ';border-radius:0 6px 6px 0;' +
+        'font-size:12px;font-weight:700;color:' + color + ';display:inline-block;';
+      note.textContent = label;
+      meta.parentNode.insertBefore(note, meta.nextSibling);
+    } catch(e) {
+      try { console.warn('[wjp-strategy-debug] annotateDfdHero threw', e); } catch(_) {}
+    }
+  }
+
   function run() {
     var d = diagnose();
     if (d) {
       annotateChips(d);
       annotateIndicatorCards(d);
+      annotateDfdHero(d);
       injectBanner(d);
     }
   }
