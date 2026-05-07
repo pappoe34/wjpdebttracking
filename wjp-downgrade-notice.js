@@ -45,9 +45,7 @@
   // Returns the user's current tier — but ONLY if we're confident the auth +
   // subscription state has resolved. Returning 'free' before Firebase auth has
   // loaded would cause a spurious "downgrade" detection for paid/admin users.
-  // We require either a Firebase currentUser OR an appState.subscription doc.
   function readTier() {
-    // Gate: require auth + subscription readiness signal
     var firebaseReady = false;
     try {
       if (window.firebase && window.firebase.auth) {
@@ -56,10 +54,7 @@
       }
     } catch (_) {}
     var subReady = false;
-    try {
-      if (window.appState && window.appState.subscription) subReady = true;
-    } catch (_) {}
-    // Admin allowlist also counts as "ready" — they always resolve correctly
+    try { if (window.appState && window.appState.subscription) subReady = true; } catch (_) {}
     var adminReady = false;
     try { if (window.WJP_IS_ADMIN === true) adminReady = true; } catch (_) {}
 
@@ -123,8 +118,8 @@
     var hwmTier = lsGet(LS.hwmTier) || 'free';
 
     // Self-heal: 'admin' is a session-bound tier (allowlist driven), not a
-    // billable tier. If we ever stored 'admin' as HWM, that's a bug — treat
-    // as Pro Plus equivalent so we don't permanently nag the admin user.
+    // billable tier. Treat as Pro Plus equivalent so we don't permanently
+    // nag the admin user with a downgrade modal.
     if (hwmTier === 'admin') {
       lsSet(LS.hwmTier, 'plus');
       lsSet(LS.hwm, '2');
@@ -284,4 +279,46 @@
       var t = readTier();
       if (!t) return;
       var fromTier, toTier;
-      if (
+      if (force) {
+        fromTier = lsGet(LS.hwmTier) || 'plus';
+        toTier = t;
+      } else {
+        if (!shouldShow(t)) return;
+        fromTier = lsGet(LS.fromTier) || 'plus';
+        toTier = lsGet(LS.toTier) || t;
+      }
+      var modal = buildModal(fromTier, toTier);
+      if (!modal) return;
+      document.body.appendChild(modal);
+      lsSet(LS.shownAt, String(Date.now()));
+    } catch (e) {
+      try { console.warn('[wjp-downgrade-notice] show failed:', e && e.message); } catch (_) {}
+    }
+  }
+
+  function reset() {
+    Object.keys(LS).forEach(function (k) { lsDel(LS[k]); });
+  }
+
+  // Boot — wait for tier readiness, then check
+  var bootAttempts = 0;
+  function tryBoot() {
+    bootAttempts++;
+    var t = readTier();
+    if (!t) {
+      if (bootAttempts < 30) setTimeout(tryBoot, 1000);
+      return;
+    }
+    show(false);
+    // Light periodic re-check (handles tier downgrade mid-session)
+    setInterval(function () { try { show(false); } catch (_) {} }, 60 * 1000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(tryBoot, 1500); });
+  } else {
+    setTimeout(tryBoot, 1500);
+  }
+
+  window.WJP_DowngradeNotice = { show: function () { show(true); }, reset: reset };
+})();
