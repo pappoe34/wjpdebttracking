@@ -158,6 +158,62 @@
   .terms{margin-top:20px;font-size:11.5px;color:var(--ink-faint);line-height:1.55}
   .terms a{color:var(--ink-dim);text-decoration:underline;text-underline-offset:2px}
   .terms a:hover{color:var(--ink)}
+  /* === Plan picker (tier + cycle) ============================== */
+  .plan-picker{margin:6px 0 14px;text-align:left}
+  .plan-picker .pp-label{
+    font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--ink-faint);margin:0 0 8px;
+  }
+  .pp-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .pp-tier{
+    background:#fff;border:1.5px solid var(--rule);border-radius:12px;
+    padding:11px 10px;cursor:pointer;text-align:center;
+    transition:border-color .15s, background .15s, transform .12s;
+    position:relative;
+  }
+  .pp-tier:hover{border-color:rgba(31,122,74,0.32)}
+  .pp-tier.selected{
+    border-color:var(--accent);background:#f6fbf8;
+    box-shadow:0 0 0 3px rgba(31,122,74,0.10);
+  }
+  .pp-tier.selected::after{
+    content:"\2713";position:absolute;top:6px;right:8px;
+    color:var(--accent);font-weight:800;font-size:13px;
+  }
+  .pp-tier .pp-name{font-family:var(--sans);font-weight:700;font-size:13px;color:var(--ink);margin-bottom:2px}
+  .pp-tier .pp-price{font-family:var(--sans);font-size:12px;color:var(--ink-dim);font-weight:500}
+  .pp-tier .pp-tag{
+    font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
+    margin-top:4px;font-weight:700;
+  }
+  .pp-tier.featured{
+    background:linear-gradient(135deg,rgba(31,122,74,0.05),rgba(201,154,42,0.04));
+  }
+  .pp-cycle-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+  .pp-cycle-toggle{
+    display:inline-flex;background:#efeae0;border-radius:999px;padding:3px;
+    transition:opacity .15s;
+  }
+  .pp-cycle-toggle.disabled{opacity:.35;pointer-events:none}
+  .pp-cycle-btn{
+    background:transparent;border:0;cursor:pointer;
+    padding:7px 14px;border-radius:999px;
+    font-family:var(--sans);font-size:11.5px;font-weight:600;color:var(--ink-dim);
+    transition:background .15s, color .15s;letter-spacing:0.02em;
+  }
+  .pp-cycle-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+  .pp-save-badge{
+    background:rgba(31,122,74,0.10);color:var(--accent);
+    padding:2px 8px;border-radius:999px;
+    font-size:10px;font-weight:700;letter-spacing:0.04em;
+  }
+  .pp-trial-note{
+    font-size:11.5px;color:var(--ink-dim);line-height:1.5;
+    margin-top:8px;padding:8px 12px;background:#fbf9f4;
+    border-radius:8px;border-left:3px solid var(--accent);
+  }
+  .pp-trial-note b{color:var(--accent);font-weight:700}
+
 
   /* RIGHT — marketing (warm gradient, themed to intro) */
   .right{
@@ -282,6 +338,39 @@
         <div class="hero-sub">for your first 3 months</div>
         <div class="renew">Free during beta. Lock in founders' pricing for life.</div>
         <p class="pitch">Take control of every dollar you owe — with an AI co-pilot that never sleeps.</p>
+
+        <!-- Plan picker — tier + billing cycle (drives Stripe Checkout after signup) -->
+        <div class="plan-picker" id="plan-picker">
+          <div class="pp-label">Choose your plan after the trial</div>
+          <div class="pp-tier-grid" role="radiogroup" aria-label="Post-trial tier">
+            <div class="pp-tier" role="radio" tabindex="0" data-tier="free" aria-checked="false">
+              <div class="pp-name">Free</div>
+              <div class="pp-price"><span class="pp-tier-cost">$0</span></div>
+              <div class="pp-tag">Forever</div>
+            </div>
+            <div class="pp-tier featured selected" role="radio" tabindex="0" data-tier="pro" aria-checked="true">
+              <div class="pp-name">Pro</div>
+              <div class="pp-price"><span class="pp-tier-cost">$11.99/mo</span></div>
+              <div class="pp-tag">Most Popular</div>
+            </div>
+            <div class="pp-tier" role="radio" tabindex="0" data-tier="plus" aria-checked="false">
+              <div class="pp-name">Pro Plus</div>
+              <div class="pp-price"><span class="pp-tier-cost">$24.99/mo</span></div>
+              <div class="pp-tag">Households</div>
+            </div>
+          </div>
+          <div class="pp-cycle-row" id="pp-cycle-row">
+            <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;">Billing</span>
+            <div class="pp-cycle-toggle" role="radiogroup" aria-label="Billing cycle">
+              <button type="button" class="pp-cycle-btn active" data-cycle="monthly" aria-checked="true">Monthly</button>
+              <button type="button" class="pp-cycle-btn" data-cycle="yearly" aria-checked="false">Yearly <span class="pp-save-badge">Save 31%</span></button>
+            </div>
+          </div>
+          <div class="pp-trial-note">
+            <b>Free Trial Upgrade</b> &mdash; every new account gets <b>14 days at Pro Plus</b> regardless of plan. We collect your card now but never charge during the trial. Day 15 you drop to your chosen plan.
+          </div>
+        </div>
+
 
         <div class="sso">
           <button type="button" aria-label="Continue with Google" onclick="ssoStub('Google')">
@@ -619,5 +708,6 @@
 
 <script src="/wjp-referrals.js" defer></script>
 <script src="/wjp-pwa-install.js" defer></script>
+<script src="/signup-picker.js" defer></script>
 </body>
 </html>

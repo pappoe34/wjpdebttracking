@@ -308,7 +308,7 @@
     <a class='link active' href='/pricing'>Pricing</a>
     <a class='link' href='/faq'>FAQ</a>
     <a class='pill ghost' href='/signin'>Sign in</a>
-    <a class='pill accent' href='/signup'>Start free →</a>
+    <a class='pill accent' href='/signup?tier=pro&cycle=monthly'>Start free →</a>
   </div>
 </nav>
 
@@ -406,7 +406,7 @@
       Free is a real tool, not a teaser. Pro is for when manual stops scaling. Pro Plus is for households running money together.
     </p>
     <div class="hero-cta">
-      <a class='pill accent' href='/signup'>Start free →</a>
+      <a class='pill accent' href='/signup?tier=pro&cycle=monthly'>Start free →</a>
       <a class='pill ghost' href='/'>Open the app</a>
     </div>
   </div>
@@ -474,7 +474,7 @@
 
     <p style="font-size:13px;color:var(--ink-dim,#6b7280);margin:0 0 18px;">14-day Pro Plus trial included with any plan. No charge until day 15. Cancel any time in one click.</p>
 
-    <a href="/signup" class="pill accent" style="display:inline-block;background:#1f7a4a;color:#fff;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;font-size:15px;letter-spacing:-0.01em;">Start free 14-day trial &rarr;</a>
+    <a href="/signup?tier=pro&cycle=yearly" class="pill accent" style="display:inline-block;background:#1f7a4a;color:#fff;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;font-size:15px;letter-spacing:-0.01em;">Start free 14-day trial &rarr;</a>
   </div>
 </section>
 
@@ -508,7 +508,7 @@
     free: {
       name: 'Free', tag: 'After your trial if you cancel.', icon: '○',
       mPrice: 0, yPrice: 0,
-      cta: { label: 'Start free', href: '/signup', kind: 'ghost' },
+      cta: { label: 'Start free', href: '/signup?tier=free', kind: 'ghost' },
       features: [
         ['yes', 'Unlimited manual debts + transactions'],
         ['yes', 'Snowball + Avalanche payoff plans'],
@@ -672,5 +672,33 @@
 <script src="/wjp-schema-reconciler.js" defer></script>
 
 <script src="/wjp-pwa-install.js" defer></script>
+<script>
+  // Tier-aware signup CTAs — append ?tier=X&cycle=Y to all /signup links based on
+  // current cycle toggle and the tier card the link belongs to.
+  (function(){
+    function curCycle(){ var b=document.querySelector('.cycle-btn.active'); return (b && b.dataset.cycle) || 'monthly'; }
+    function patchCtas(){
+      var grid = document.getElementById('tier-grid');
+      if (!grid) return;
+      grid.querySelectorAll('.tier').forEach(function(card){
+        var name = (card.querySelector('.tier-name')||{}).textContent || '';
+        var t = name.toLowerCase().indexOf('plus') !== -1 ? 'plus'
+              : name.toLowerCase().indexOf('pro')  !== -1 ? 'pro'
+              : 'free';
+        var cycle = t === 'free' ? 'monthly' : curCycle();
+        card.querySelectorAll('a[href*="/signup"]').forEach(function(a){
+          a.setAttribute('href', '/signup?tier=' + t + '&cycle=' + cycle);
+        });
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(patchCtas, 200); });
+    else setTimeout(patchCtas, 200);
+    document.addEventListener('click', function(e){
+      if (e.target && (e.target.classList.contains('cycle-btn') || (e.target.parentElement && e.target.parentElement.classList && e.target.parentElement.classList.contains('cycle-btn')))) {
+        setTimeout(patchCtas, 50);
+      }
+    });
+  })();
+</script>
 </body>
 </html>
