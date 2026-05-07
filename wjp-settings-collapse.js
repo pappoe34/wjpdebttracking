@@ -1,24 +1,17 @@
 /* ============================================================================
-   WJP Settings Collapse (W2)
-   Reorganizes the existing 10-panel Settings sub-nav into 5 buckets.
-   Runtime DOM override — does NOT modify the underlying app.js logic.
-   The original 10 panels remain accessible internally; we just relabel and
-   regroup the sub-nav links.
-
-   Mapping (10 → 5):
-     Profile       ← Profile + Appearance
-     Banking       ← Linked Accounts + Data
-     AI            ← AI Coach (unchanged)
-     Privacy & Security ← Privacy + Security + Notifications
-     Billing       ← Billing (unchanged)
-     [Account stays as a separate destructive footer link]
+   WJP Settings Collapse — HARDENED (B-1)
+   Reorganizes existing 10-panel Settings sub-nav into 5 buckets.
+   HARDENING:
+     - Path guard: only activates when location.hash contains 'settings'
+     - Scoped observer: watches the settings panel only, not document.body
+     - Debounced rebuild: 250ms throttle, runs at most once per quiescence window
+     - Idempotent: dataset.collapsed='1' marker prevents re-rebuilds
    ============================================================================ */
 (function () {
   'use strict';
   if (window._wjpSettingsCollapseInstalled) return;
   window._wjpSettingsCollapseInstalled = true;
 
-  // 10-panel → 5-bucket map. Format: [bucket id, bucket label, [member panel ids in order]]
   const BUCKETS = [
     { id: 'profile',  label: 'Profile',            members: ['profile', 'appearance'] },
     { id: 'banking',  label: 'Banking',            members: ['accounts', 'linked', 'data'] },
@@ -27,25 +20,38 @@
     { id: 'billing',  label: 'Billing',            members: ['billing', 'plan', 'subscription'] }
   ];
 
+  function onSettings() {
+    const h = (location.hash || '').toLowerCase();
+    return h.includes('settings') || !!document.querySelector('[data-settings-content]');
+  }
+
   function findSubNav() {
     return document.querySelector('.settings-subnav, [data-settings-subnav], #settings-subnav');
   }
 
+  let rebuildTimer = null;
+  function scheduleRebuild() {
+    if (!onSettings()) return;
+    if (rebuildTimer) clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(rebuild, 250);
+  }
+
   function rebuild() {
+    rebuildTimer = null;
+    if (!onSettings()) return;
     const sn = findSubNav();
     if (!sn || sn.dataset.collapsed === '1') return;
 
     const items = Array.from(sn.querySelectorAll('a, button, [data-panel]'));
     if (!items.length) return;
 
-    // Discover existing panel ids
     const known = {};
     items.forEach(it => {
       const id = (it.dataset.panel || it.getAttribute('href') || '').replace('#', '').toLowerCase();
       if (id) known[id] = it;
     });
 
-    // Build collapsed sub-nav
+    sn.dataset.collapsed = '1'; // mark FIRST so any re-entry bails immediately
     sn.innerHTML = '';
     BUCKETS.forEach(b => {
       const a = document.createElement('a');
@@ -61,18 +67,13 @@
         });
         a.style.background = 'rgba(31,122,74,0.08)';
         a.style.color = 'var(--ink,#0a0a0a)';
-        // Click the first available original panel in this bucket
         for (const mid of b.members) {
-          if (known[mid]) {
-            known[mid].click();
-            return;
-          }
+          if (known[mid]) { known[mid].click(); return; }
         }
       });
       sn.appendChild(a);
     });
 
-    // Account stays as footer link (separate, destructive)
     if (known['account']) {
       const acct = document.createElement('a');
       acct.href = '#settings-account';
@@ -84,22 +85,39 @@
       });
       sn.appendChild(acct);
     }
-
-    sn.dataset.collapsed = '1';
   }
 
-  // Watch for sub-nav appearing in DOM (Settings page renders dynamically)
-  const obs = new MutationObserver(() => rebuild());
-  obs.observe(document.body, { childList: true, subtree: true });
-
-  // Also try on page change events
-  window.addEventListener('hashchange', () => setTimeout(rebuild, 100));
-  window.addEventListener('wjp:settings:rendered', rebuild);
-
-  // Initial attempt
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(rebuild, 200));
-  } else {
-    setTimeout(rebuild, 200);
+  // Only attach observer to the settings subtree once it exists
+  let scoped = null;
+  function attachScoped() {
+    if (scoped) return;
+    if (!onSettings()) return;
+    const root = document.querySelector('[data-settings-content], .settings-panel, main');
+    if (!root) return;
+    scoped = new MutationObserver(scheduleRebuild);
+    scoped.observe(root, { childList: true, subtree: true });
+    scheduleRebuild();
   }
+
+  window.addEventListener('hashchange', () => {
+    if (onSettings()) {
+      setTimeout(attachScoped, 100);
+      scheduleRebuild();
+    }
+  });
+
+  window.addEventListener('wjp:settings:rendered', scheduleRebuild);
+
+  // Polling fallback only while we wait for the settings panel to first appear
+  // (capped at 20 attempts × 500ms = 10s, then gives up)
+  let pollCount = 0;
+  const initPoll = setInterval(() => {
+    pollCount++;
+    if (onSettings() && findSubNav()) {
+      clearInterval(initPoll);
+      attachScoped();
+    } else if (pollCount > 20) {
+      clearInterval(initPoll);
+    }
+  }, 500);
 })();

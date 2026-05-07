@@ -1,7 +1,10 @@
 /* ============================================================================
-   WJP Proactive Nudges (W3) — context-aware AI prompts.
-   Watches user's data and surfaces a nudge banner when a high-leverage moment
-   is detected. Nudges are ranked; only one shown per session. Dismissible.
+   WJP Proactive Nudges — HARDENED (B-4)
+   Context-aware coach prompts. HARDENING:
+     - Waits for explicit wjp:appstate:loaded event (no auto-run on DOMContentLoaded)
+     - 30-second initial delay to ensure app is fully settled
+     - Checks dashboard hash specifically (skips on Settings, Inbox, etc.)
+     - Single nudge per session (sessionStorage flag)
    ============================================================================ */
 (function () {
   'use strict';
@@ -14,7 +17,6 @@
   const NUDGES = [
     {
       id: 'high-apr-card',
-      label: 'A card you have is bleeding you',
       detect: () => {
         const debts = (window.appState && window.appState.debts) || [];
         return debts.some(d => Number(d.apr) >= 22);
@@ -29,7 +31,6 @@
     },
     {
       id: 'payment-due-soon',
-      label: 'Payment due in <3 days',
       detect: () => {
         const bills = (window.appState && window.appState.recurringBills) || [];
         const today = new Date().getDate();
@@ -40,14 +41,11 @@
           return diff >= 0 && diff <= 3;
         });
       },
-      msg: () => {
-        return 'You have a payment due in the next 3 days. Make sure your buffer is ready — the AI Coach can check your projected balance.';
-      },
+      msg: () => 'You have a payment due in the next 3 days. Make sure your buffer is ready — the AI Coach can check your projected balance.',
       cta: 'Check buffer'
     },
     {
       id: 'high-utilization',
-      label: 'Credit utilization above 30%',
       detect: () => {
         const debts = (window.appState && window.appState.debts) || [];
         const cards = debts.filter(d => d.type === 'credit_card' || d.creditLimit);
@@ -65,17 +63,6 @@
         return `Your credit utilization is ${util}%. Anything over 30% drags your credit score. Pay down before the statement closes — the AI Coach can tell you exactly which card to hit and when.`;
       },
       cta: 'Get the move'
-    },
-    {
-      id: 'no-debt-progress',
-      label: 'No payment recorded this week',
-      detect: () => {
-        const last = (window.WJP_Gamification && window.WJP_Gamification.getStats() || {}).totalPaid || 0;
-        // Heuristic — you could implement "delta from last week" if you track it
-        return false; // Stub — needs payment-tracking history
-      },
-      msg: () => 'You haven\'t logged a payment this week. Even a small one keeps your streak alive. Open the dashboard.',
-      cta: 'Log a payment'
     }
   ];
 
@@ -88,11 +75,16 @@
   function isDismissed(id) {
     const d = dismissed();
     if (!d[id]) return false;
-    // Re-show after 7 days
     return (Date.now() - d[id]) < 7 * 86400000;
   }
   function shownThisSession() { try { return sessionStorage.getItem(SHOWN_THIS_SESSION_KEY) === '1'; } catch(_) { return false; } }
   function markShown() { try { sessionStorage.setItem(SHOWN_THIS_SESSION_KEY, '1'); } catch(_) {} }
+
+  // Hash guard: only show on dashboard, not Settings/Inbox/etc.
+  function onDashboard() {
+    const h = (location.hash || '').toLowerCase();
+    return h === '' || h === '#' || h.includes('exec') || h.includes('top') || h.includes('strategy') || h.includes('focus') || h.includes('dashboard');
+  }
 
   function pickNudge() {
     for (const n of NUDGES) {
@@ -120,27 +112,31 @@
       </div>
     `;
     document.body.appendChild(b);
-    b.querySelector('[data-dismiss]').addEventListener('click', () => {
-      dismiss(n.id);
-      b.remove();
-    });
+    b.querySelector('[data-dismiss]').addEventListener('click', () => { dismiss(n.id); b.remove(); });
     markShown();
   }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  function check() {
+  function maybeRun() {
     if (shownThisSession()) return;
-    if (!window.appState || !window.appState.debts) return;
+    if (!onDashboard()) return;
+    if (!window.appState || !window.appState.debts || !window.appState.debts.length) return;
     const n = pickNudge();
-    if (n) setTimeout(() => show(n), 6000); // Wait 6s after page settle
+    if (n) show(n);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', check);
-  } else {
-    check();
-  }
-  window.addEventListener('wjp:appstate:loaded', check);
+  // Wait for explicit app event. NEVER auto-run on DOMContentLoaded.
+  // Also gate behind a 30s settle delay.
+  let armedAt = 0;
+  window.addEventListener('wjp:appstate:loaded', () => {
+    armedAt = Date.now();
+    setTimeout(maybeRun, 30000);
+  });
 
-  window.WJP_Nudges = { check, dismiss, NUDGES };
+  // Re-check on hash change (dashboard tab switch) — but only if armed and waited 30s
+  window.addEventListener('hashchange', () => {
+    if (armedAt && Date.now() - armedAt > 30000) maybeRun();
+  });
+
+  window.WJP_Nudges = { dismiss, NUDGES, _maybeRun: maybeRun };
 })();

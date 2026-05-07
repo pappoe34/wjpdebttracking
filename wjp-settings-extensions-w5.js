@@ -1,22 +1,35 @@
 /* ============================================================================
-   WJP Settings Extensions W5 — Theme picker + Custom Strategy + Notifications
-   + Referrals stats. Adds onto the W3 settings extensions module.
+   WJP Settings Extensions W5 — HARDENED (B-3)
+   Theme picker + Custom Strategy + Notifications + Referrals stats.
    ============================================================================ */
 (function () {
   'use strict';
   if (window._wjpSettingsExtW5Installed) return;
   window._wjpSettingsExtW5Installed = true;
 
+  function onSettings() {
+    const h = (location.hash || '').toLowerCase();
+    return h.includes('settings') || !!document.querySelector('[data-settings-content]');
+  }
+
+  let renderTimer = null;
+  function scheduleRender() {
+    if (!onSettings()) return;
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderControls, 280);
+  }
+
   function renderControls() {
-    const settingsArea = document.querySelector('[data-settings-content], #settings-content, .settings-panel, main');
-    if (!settingsArea) return;
+    renderTimer = null;
+    if (!onSettings()) return;
     if (document.getElementById('wjp-w5-controls')) return;
+    const settingsArea = document.querySelector('[data-settings-content], #settings-content, .settings-panel');
+    if (!settingsArea) return;
 
     const wrap = document.createElement('div');
     wrap.id = 'wjp-w5-controls';
     wrap.style.cssText = 'display:flex;flex-direction:column;gap:16px;margin:16px 0;font-family:var(--sans,Inter,system-ui);';
 
-    // ---- Theme picker ----
     const cur = document.documentElement.getAttribute('data-theme') || 'auto';
     const themeRow = document.createElement('div');
     themeRow.style.cssText = 'background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:18px;';
@@ -43,20 +56,20 @@
           document.documentElement.setAttribute('data-theme', v);
           try { localStorage.setItem('wjp.theme', v); } catch(_) {}
         }
-        renderControls(); // re-render selection
+        // Manual re-render of just this card (don't re-trigger full controls)
+        const old = document.getElementById('wjp-w5-controls');
+        if (old) old.remove();
+        scheduleRender();
       });
     });
 
-    // ---- Notifications toggle ----
     const notifRow = document.createElement('div');
     notifRow.style.cssText = 'background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:18px;';
     notifRow.setAttribute('data-wjp-notifications', '');
 
-    // ---- Custom Strategy panel ----
     const csRow = document.createElement('div');
     csRow.setAttribute('data-wjp-custom-strategy', '');
 
-    // ---- Referrals stats card ----
     const refRow = document.createElement('div');
     refRow.setAttribute('data-wjp-referrals', '');
 
@@ -67,7 +80,6 @@
 
     settingsArea.appendChild(wrap);
 
-    // Trigger renderers from other W5 modules
     if (window.WJP_Notifications && typeof window.WJP_Notifications.renderToggle === 'function') {
       window.WJP_Notifications.renderToggle(notifRow);
     }
@@ -79,17 +91,26 @@
     }
   }
 
-  const obs = new MutationObserver(() => {
-    if (location.hash.indexOf('settings') !== -1 || document.querySelector('[data-settings-content]')) {
-      renderControls();
-    }
-  });
-  obs.observe(document.body, { childList: true, subtree: true });
-
-  window.addEventListener('hashchange', () => setTimeout(renderControls, 200));
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(renderControls, 500));
-  } else {
-    setTimeout(renderControls, 500);
+  let scoped = null;
+  function attachScoped() {
+    if (scoped) return;
+    if (!onSettings()) return;
+    const root = document.querySelector('[data-settings-content], .settings-panel, main');
+    if (!root) return;
+    scoped = new MutationObserver(scheduleRender);
+    scoped.observe(root, { childList: true, subtree: false });
+    scheduleRender();
   }
+
+  window.addEventListener('hashchange', () => { if (onSettings()) { setTimeout(attachScoped, 100); scheduleRender(); } });
+  window.addEventListener('wjp:settings:rendered', scheduleRender);
+
+  let pollCount = 0;
+  const initPoll = setInterval(() => {
+    pollCount++;
+    if (onSettings() && document.querySelector('[data-settings-content], .settings-panel')) {
+      clearInterval(initPoll);
+      attachScoped();
+    } else if (pollCount > 20) clearInterval(initPoll);
+  }, 500);
 })();

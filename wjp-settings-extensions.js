@@ -1,20 +1,33 @@
 /* ============================================================================
-   WJP Settings Extensions (W3) — Language picker + Joint Accounts toggle UI.
-   Adds two new controls to the Settings page that consume W2 infrastructure.
-   Renders into the Profile bucket (i18n) and a new Joint Accounts area
-   (gated by tier).
+   WJP Settings Extensions W3 — HARDENED (B-2)
+   Language picker + Joint Accounts toggle UI.
+   HARDENING: same as collapse module — path guard, scoped observer,
+   debounced render, idempotent.
    ============================================================================ */
 (function () {
   'use strict';
   if (window._wjpSettingsExtInstalled) return;
   window._wjpSettingsExtInstalled = true;
 
+  function onSettings() {
+    const h = (location.hash || '').toLowerCase();
+    return h.includes('settings') || !!document.querySelector('[data-settings-content]');
+  }
+
+  let renderTimer = null;
+  function scheduleRender() {
+    if (!onSettings()) return;
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderControls, 250);
+  }
+
   function renderControls() {
-    if (document.getElementById('wjp-lang-picker')) return;
-    const settingsArea = document.querySelector('[data-settings-content], #settings-content, .settings-panel, main');
+    renderTimer = null;
+    if (!onSettings()) return;
+    if (document.getElementById('wjp-lang-picker')) return; // idempotent
+    const settingsArea = document.querySelector('[data-settings-content], #settings-content, .settings-panel');
     if (!settingsArea) return;
 
-    // Language picker
     const lang = document.createElement('div');
     lang.id = 'wjp-lang-picker';
     lang.style.cssText = 'background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:18px;margin:16px 0;font-family:var(--sans,Inter,system-ui);';
@@ -32,11 +45,9 @@
       </div>
     `;
     settingsArea.appendChild(lang);
-    document.getElementById('wjp-lang-select').addEventListener('change', e => {
-      if (window.WJP_i18n) window.WJP_i18n.set(e.target.value);
-    });
+    const sel = document.getElementById('wjp-lang-select');
+    if (sel) sel.addEventListener('change', e => { if (window.WJP_i18n) window.WJP_i18n.set(e.target.value); });
 
-    // Joint accounts toggle (Pro Plus only)
     const isAuth = window.WJP_Joint && window.WJP_Joint.isAuthorized();
     if (isAuth) {
       const enabled = window.WJP_Joint.isEnabled();
@@ -54,47 +65,36 @@
             <span>${enabled?'Enabled':'Disabled'}</span>
           </label>
         </div>
-        <div id="wjp-joint-partner-row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border,#e5e7eb);${enabled?'':'display:none;'}">
-          <label style="display:block;font-size:12px;font-weight:700;color:var(--ink,#0a0a0a);margin-bottom:6px;">Partner email (they'll get an invite)</label>
-          <input type="email" id="wjp-joint-partner" placeholder="partner@example.com" value="${(window.WJP_Joint.getPartner && window.WJP_Joint.getPartner()) || ''}" style="width:100%;max-width:320px;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#d8d3c4);font-size:13px;font-family:inherit;" />
-          <button id="wjp-joint-invite" style="margin-left:8px;background:#1f7a4a;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Send invite</button>
-        </div>
       `;
       settingsArea.appendChild(ja);
-
-      document.getElementById('wjp-joint-enable').addEventListener('change', e => {
-        if (e.target.checked) {
-          window.WJP_Joint.enable();
-          document.getElementById('wjp-joint-partner-row').style.display = '';
-        } else {
-          window.WJP_Joint.disable();
-          document.getElementById('wjp-joint-partner-row').style.display = 'none';
-        }
+      const t = document.getElementById('wjp-joint-enable');
+      if (t) t.addEventListener('change', e => {
+        if (e.target.checked) window.WJP_Joint.enable(); else window.WJP_Joint.disable();
         e.target.parentElement.querySelector('span').textContent = e.target.checked ? 'Enabled' : 'Disabled';
       });
-      document.getElementById('wjp-joint-invite').addEventListener('click', () => {
-        const email = document.getElementById('wjp-joint-partner').value.trim();
-        if (!email) return;
-        window.WJP_Joint.setPartner(email);
-        // TODO: backend call to actually email invite
-        document.getElementById('wjp-joint-invite').textContent = 'Invite sent ✓';
-        setTimeout(() => { document.getElementById('wjp-joint-invite').textContent = 'Send invite'; }, 2400);
-      });
     }
   }
 
-  // Watch for Settings page render
-  const obs = new MutationObserver(() => {
-    if (location.hash.indexOf('settings') !== -1 || document.querySelector('[data-settings-content]')) {
-      renderControls();
-    }
-  });
-  obs.observe(document.body, { childList: true, subtree: true });
-
-  window.addEventListener('hashchange', () => setTimeout(renderControls, 200));
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(renderControls, 400));
-  } else {
-    setTimeout(renderControls, 400);
+  let scoped = null;
+  function attachScoped() {
+    if (scoped) return;
+    if (!onSettings()) return;
+    const root = document.querySelector('[data-settings-content], .settings-panel, main');
+    if (!root) return;
+    scoped = new MutationObserver(scheduleRender);
+    scoped.observe(root, { childList: true, subtree: false });
+    scheduleRender();
   }
+
+  window.addEventListener('hashchange', () => { if (onSettings()) { setTimeout(attachScoped, 100); scheduleRender(); } });
+  window.addEventListener('wjp:settings:rendered', scheduleRender);
+
+  let pollCount = 0;
+  const initPoll = setInterval(() => {
+    pollCount++;
+    if (onSettings() && document.querySelector('[data-settings-content], .settings-panel')) {
+      clearInterval(initPoll);
+      attachScoped();
+    } else if (pollCount > 20) clearInterval(initPoll);
+  }, 500);
 })();
