@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "WJP Debt Tracking",
+  "version": "0.1.0",
+  "description": "Detects credit card sign-up screens and helps you import them into your WJP debt tracker.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.chase.com/*",
+        "https://*.capitalone.com/*",
+        "https://*.discover.com/*",
+        "https://*.citi.com/*",
+        "https://*.americanexpress.com/*",
+        "https://*.wellsfargo.com/*",
+        "https://*.bankofamerica.com/*",
+        "https://*.usbank.com/*",
+        "https://*.synchrony.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://wjpdebttracking.com/*"],
+  "homepage_url": "https://wjpdebttracking.com/"
+}

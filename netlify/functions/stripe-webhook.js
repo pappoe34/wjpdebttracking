@@ -57,6 +57,50 @@ async function syncSubToFirestore(stripe, db, sub) {
   console.log('[webhook] synced subscription for uid', uid, 'tier=' + tier, 'status=' + sub.status);
 }
 
+
+// W6 — Referral activation/clawback helpers (mirror of validate-referral.js logic)
+const REWARD_THRESHOLD = 5;
+const CLAWBACK_DAYS = 30;
+
+async function tryActivateReferral(db, referredUid) {
+  const snap = await db.collection('referrals')
+    .where('referredUid', '==', referredUid)
+    .where('status', '==', 'pending').limit(1).get();
+  if (snap.empty) return;
+  const doc = snap.docs[0];
+  await doc.ref.update({ status: 'paid', activatedAt: Date.now() });
+  const referrerUid = doc.data().referrerUid;
+  const paidCount = await db.collection('referrals')
+    .where('referrerUid', '==', referrerUid)
+    .where('status', '==', 'paid').get();
+  if (paidCount.size >= REWARD_THRESHOLD) {
+    await db.collection('users').doc(referrerUid).collection('referralReward').doc('current').set({
+      earnedAt: Date.now(),
+      redeemedUntil: Date.now() + 365 * 86400000,
+      count: paidCount.size
+    }, { merge: true });
+    const all = await db.collection('referrals')
+      .where('referrerUid', '==', referrerUid)
+      .where('status', '==', 'paid').get();
+    const batch = db.batch();
+    all.docs.slice(0, REWARD_THRESHOLD).forEach(d => batch.update(d.ref, { status: 'rewarded', reward: 'plus_year' }));
+    await batch.commit();
+    console.log('[webhook] referral reward granted to', referrerUid);
+  }
+}
+
+async function tryClawbackReferral(db, referredUid) {
+  const snap = await db.collection('referrals')
+    .where('referredUid', '==', referredUid)
+    .where('status', 'in', ['paid', 'rewarded']).limit(1).get();
+  if (snap.empty) return;
+  const doc = snap.docs[0];
+  const ageDays = (Date.now() - doc.data().activatedAt) / 86400000;
+  if (ageDays > CLAWBACK_DAYS) return;
+  await doc.ref.update({ status: 'clawback', clawbackAt: Date.now() });
+  console.log('[webhook] referral clawback for', referredUid);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return RESPOND(405, 'method not allowed');
 
@@ -83,6 +127,15 @@ exports.handler = async (event) => {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         await syncSubToFirestore(stripe, db, evt.data.object);
+        // W6: on subscription deletion, attempt referral clawback if within 30d window
+        if (evt.type === 'customer.subscription.deleted') {
+          try {
+            const sub = evt.data.object;
+            const uid = (sub.metadata && sub.metadata.firebase_uid)
+              || (await stripe.customers.retrieve(sub.customer)).metadata.firebase_uid;
+            if (uid) await tryClawbackReferral(db, uid);
+          } catch(e) { console.warn('[webhook] referral clawback failed:', e.message); }
+        }
         break;
       }
       case 'checkout.session.completed': {
@@ -100,9 +153,19 @@ exports.handler = async (event) => {
         if (invoice.subscription) {
           const sub = await stripe.subscriptions.retrieve(invoice.subscription);
           await syncSubToFirestore(stripe, db, sub);
+
+          // W6: on first successful payment, fire referral activation if this user was referred
+          if (evt.type === 'invoice.payment_succeeded' && (invoice.billing_reason === 'subscription_create' || invoice.billing_reason === 'subscription_cycle')) {
+            try {
+              const uid = (sub.metadata && sub.metadata.firebase_uid)
+                || (await stripe.customers.retrieve(sub.customer)).metadata.firebase_uid;
+              if (uid) await tryActivateReferral(db, uid);
+            } catch(e) { console.warn('[webhook] referral activation failed:', e.message); }
+          }
         }
         break;
       }
+
       default:
         // Quietly ignore unhandled events (Stripe sends many)
         console.log('[webhook] ignored event:', evt.type);

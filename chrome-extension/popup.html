@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { width: 320px; margin: 0; padding: 16px; font-family: system-ui, sans-serif; color: #0a0a0a; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .sub { color: #6b7280; font-size: 12px; margin: 0 0 16px; }
+  .det-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+  .det { padding: 10px; background: #fafaf7; border-radius: 8px; font-size: 12px; }
+  .det b { color: #0a0a0a; }
+  .empty { color: #6b7280; font-size: 13px; padding: 20px 0; text-align: center; }
+  .cta { display: block; margin-top: 16px; background: #1f7a4a; color: #fff; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>WJP Debt Tracking</h1>
+  <p class="sub">Recent card detections from your browser</p>
+  <div class="det-list" id="list">
+    <div class="empty">No detections yet. Visit a bank site after applying for a card.</div>
+  </div>
+  <a class="cta" href="https://wjpdebttracking.com/index.html" target="_blank">Open WJP →</a>
+  <script src="popup.js"></script>
+</body>
+</html>
