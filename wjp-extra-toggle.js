@@ -37,9 +37,9 @@
   function loadCfg() {
     try {
       var raw = localStorage.getItem(KEY);
-      if (!raw) return { enabled: true, mode: 'manual', amount: null }; // null=use original
+      if (!raw) return { enabled: true, mode: 'auto', amount: null }; // default: system decides via cashflow surplus
       return JSON.parse(raw);
-    } catch(_) { return { enabled: true, mode: 'manual', amount: null }; }
+    } catch(_) { return { enabled: true, mode: 'auto', amount: null }; }
   }
   function saveCfg(cfg) {
     try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch(_) {}
@@ -173,14 +173,18 @@
     };
 
     pop.querySelectorAll('[data-mode]').forEach(function(b) {
+      // Mark currently-selected button so saveCfg can read mode reliably
+      if (b.getAttribute('data-mode') === cfg.mode) b.setAttribute('data-active', '1');
       b.onclick = function() {
         var m = b.getAttribute('data-mode');
-        // Update visual
+        // Update visual + data-active
         pop.querySelectorAll('[data-mode]').forEach(function(x) {
           var sel = x.getAttribute('data-mode') === m;
           x.style.border = '1px solid ' + (sel ? '#1f7a4a' : 'var(--border,#d8d3c4)');
           x.style.background = sel ? '#1f7a4a' : 'transparent';
           x.style.color = sel ? '#fff' : 'var(--ink,#0a0a0a)';
+          if (sel) x.setAttribute('data-active', '1');
+          else x.removeAttribute('data-active');
         });
         document.getElementById('wjp-ext-amount-row').style.display = (m === 'manual') ? '' : 'none';
         document.getElementById('wjp-ext-auto-row').style.display = (m === 'auto') ? '' : 'none';
@@ -212,9 +216,14 @@
     var saveBtn = document.getElementById('wjp-ext-save');
     if (saveBtn) saveBtn.onclick = function() {
       var enabled = document.getElementById('wjp-ext-enabled').checked;
-      var modeBtn = pop.querySelector('[data-mode][style*="rgb(31, 122, 74)"]') ||
+      // Read active mode from the data-active attribute we maintain on click
+      var activeBtn = pop.querySelector('[data-mode][data-active="1"]');
+      if (!activeBtn) {
+        // Fall back: read style background to detect active green button
+        activeBtn = pop.querySelector('[data-mode][style*="rgb(31, 122, 74)"]') ||
                     pop.querySelector('[data-mode][style*="#1f7a4a"]');
-      var mode = modeBtn ? modeBtn.getAttribute('data-mode') : 'manual';
+      }
+      var mode = activeBtn ? activeBtn.getAttribute('data-mode') : 'auto';
       var amtEl = document.getElementById('wjp-ext-amount');
       var amount = amtEl && amtEl.value ? parseFloat(amtEl.value) : null;
       saveCfg({ enabled: enabled, mode: mode, amount: amount });
