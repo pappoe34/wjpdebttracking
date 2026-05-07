@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Help Center — WJP Debt Tracking</title>
-<meta name="description" content="Answers to common questions about WJP Budgeting — banking, billing, AI Coach, privacy, data export, and more." />
+<meta name="description" content="Answers to common questions about WJP Debt Tracking — banking, billing, AI Coach, privacy, data export, and more." />
 <meta property="og:title" content="WJP Help Center" />
 <meta property="og:description" content="Find answers fast. Or email us — we read every message." />
 <meta property="og:url" content="https://wjpdebttracking.com/help" />
@@ -140,13 +140,59 @@
 <nav class="top">
   <a class="brand" href="/intro" style="text-decoration:none">
     <div class="brand-mark" aria-hidden="true">WJP</div>
-    <div class="brand-name"><b style="font-weight:700;color:#141414;">WJP</b> <span style="color:#1f7a4a;font-style:italic;">Budgetting</span></div>
+    <div class="brand-name"><b style="font-weight:700;color:#141414;">WJP</b> <span style="color:#1f7a4a;font-style:italic;">Debt Tracking</span></div>
   </a>
   <a class="nav-back" href="/intro">&larr; Back to home</a>
 </nav>
 
 <main>
   <h1>Help Center</h1>
+
+<!-- Help search bar (W1) -->
+<div class="help-search" style="max-width:600px;margin:24px auto 30px;padding:0 20px;">
+  <div style="position:relative;">
+    <svg style="position:absolute;left:18px;top:50%;transform:translateY(-50%);" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input type="search" id="help-search-input" placeholder="Search 37 answers..." aria-label="Search help" style="width:100%;padding:14px 18px 14px 46px;border-radius:12px;border:1px solid var(--glass-border,#d8d3c4);background:var(--glass-bg,#fff);font-family:var(--sans,Inter,system-ui,sans-serif);font-size:15px;color:var(--ink,#0a0a0a);outline:none;box-shadow:0 1px 2px rgba(0,0,0,0.04);" />
+    <span id="help-search-count" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--ink-dim,#6b7280);font-weight:500;"></span>
+  </div>
+</div>
+<script>
+(function(){
+  var input = document.getElementById('help-search-input');
+  var count = document.getElementById('help-search-count');
+  if (!input) return;
+  // Index all <details> Q&A blocks
+  var qas = Array.prototype.slice.call(document.querySelectorAll('details'));
+  function filter(){
+    var q = input.value.trim().toLowerCase();
+    var visible = 0;
+    qas.forEach(function(d){
+      var txt = d.textContent.toLowerCase();
+      var match = !q || txt.indexOf(q) !== -1;
+      d.style.display = match ? '' : 'none';
+      if (match) visible++;
+      // Auto-expand matching items
+      if (q && match && q.length > 2) {
+        d.setAttribute('open','');
+      } else if (!q) {
+        d.removeAttribute('open');
+      }
+    });
+    // Hide section headers if all their qas are hidden
+    document.querySelectorAll('section').forEach(function(s){
+      var any = s.querySelectorAll('details:not([style*="display: none"])').length;
+      if (s.querySelector('details')) {
+        s.style.display = any > 0 ? '' : 'none';
+      }
+    });
+    count.textContent = q ? visible + ' result' + (visible === 1 ? '' : 's') : '';
+  }
+  input.addEventListener('input', filter);
+})();
+</script>
+
   <p class="lede">Answers to questions our users actually ask. Can't find what you need? Email us — we read every message and reply within 24 hours, usually faster.</p>
 
   <div class="contact-card">
@@ -176,7 +222,7 @@
     <p class="sec-sub">First-time setup — what to add, in what order, and what each piece does.</p>
 
     <details class="qa">
-      <summary>What does WJP Budgeting actually do?</summary>
+      <summary>What does WJP Debt Tracking actually do?</summary>
       <div class="answer">
         <p>WJP turns your debts into a single dashboard with a real <b>debt-free date</b>. You add (or sync) your debts, pick a payoff strategy (Avalanche, Snowball, or Hybrid), and the app runs the math: how much you'll pay in interest, when each card disappears, and what changes if you throw an extra $200/mo at it.</p>
         <p>Beyond the math, you get an AI Coach that knows your numbers, automatic bill detection from linked banks, statement OCR, calendar reminders, and a credit utilization tracker.</p>
@@ -536,7 +582,7 @@
   <div class="wrap">
     <p class="foot-about"><b>WJP</b> is a private debt tracker for people doing the quiet work of paying it all off. We're an independent team — not a bank, not a lender, not a BNPL company. The only way we make money is one optional Pro plan. That means our only job is helping you get to zero. When you do, we've done ours.</p>
     <div class="foot-row">
-      <div>&copy; <span id="year"></span> WJP Budgetting. All rights reserved.</div>
+      <div>&copy; <span id="year"></span> WJP Debt Tracking. All rights reserved.</div>
       <div class="foot-links">
         <a href="/about">About</a>
         <a href="/how">How</a>
