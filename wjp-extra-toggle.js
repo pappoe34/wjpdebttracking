@@ -260,11 +260,14 @@
     btn.type = 'button';
     btn.setAttribute('aria-label', 'Adjust extra payment');
     btn.title = 'Adjust extra payment';
-    btn.style.cssText = 'background:transparent;border:1px solid var(--border,#d8d3c4);' +
-      'border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;' +
-      'justify-content:center;cursor:pointer;margin-left:8px;color:var(--ink-dim,#6b7280);' +
-      'vertical-align:middle;padding:0;transition:all 0.15s;font-family:inherit;';
-    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    btn.style.cssText = 'position:absolute;top:18px;right:18px;z-index:5;' +
+      'background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);' +
+      '-webkit-backdrop-filter:blur(8px);border:1px solid var(--border,#d8d3c4);' +
+      'border-radius:50%;width:36px;height:36px;display:inline-flex;align-items:center;' +
+      'justify-content:center;cursor:pointer;color:var(--ink-dim,#6b7280);' +
+      'padding:0;transition:all 0.15s;font-family:inherit;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,0.06);';
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
     btn.onmouseenter = function() {
       btn.style.color = '#1f7a4a';
       btn.style.borderColor = '#1f7a4a';
@@ -274,11 +277,17 @@
       btn.style.borderColor = 'var(--border,#d8d3c4)';
     };
     btn.onclick = function(e) { e.preventDefault(); renderPopover(); };
-    // Insert AFTER meta (not inside) so app re-renders that overwrite
-    // meta.innerHTML don't wipe our icon.
-    var parent = meta.parentNode;
-    if (parent) parent.appendChild(btn);
-    else meta.appendChild(btn);
+    // Insert into #dfd-hero (the executive summary card) and pin to top-right.
+    // Use the hero card itself as the positioning anchor; ensure it has
+    // position:relative so absolute coords resolve correctly.
+    var hero = document.getElementById('dfd-hero') || meta.closest('.card, [class*="hero"], [class*="summary"]') || meta.parentNode;
+    if (hero) {
+      var cs = getComputedStyle(hero);
+      if (cs.position === 'static' || !cs.position) hero.style.position = 'relative';
+      hero.appendChild(btn);
+    } else {
+      meta.appendChild(btn);
+    }
     return true;
   }
 
