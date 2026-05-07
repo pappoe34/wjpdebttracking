@@ -2,11 +2,7 @@
    WJP Simulator Enhance (surgical overlay)
    Three independent pieces, all defensive and reversible:
 
-   PIECE A — "Open Simulator" CTA on Debts/Strategy tab top
-     • Detects when #page-debts is visible AND .debts-subtabs exists
-     • Adds a green pill button "🧪 Open Simulator" next to the sub-tab nav
-     • Click jumps to the Simulations sub-tab (clicks the existing sub-tab)
-     • Idempotent — won't re-inject if already present
+   PIECE A — REMOVED (duplicated the existing "Simulations" sub-tab)
 
    PIECE B — Smart Sync card at top of Simulator
      • When #simulations-tab-content is visible AND has the simulator content
@@ -45,49 +41,7 @@
     return '$' + Math.round(Number(n)).toLocaleString();
   }
 
-  // ============================================================
-  // PIECE A — "Open Simulator" CTA on Strategy tab
-  // ============================================================
-  var STRATEGY_CTA_ID = 'wjp-sim-cta';
-
-  function isDebtsPageVisible() {
-    var pg = document.getElementById('page-debts');
-    if (!pg) return false;
-    return getComputedStyle(pg).display !== 'none';
-  }
-
-  function injectStrategyCTA() {
-    if (!isDebtsPageVisible()) return;
-    if (document.getElementById(STRATEGY_CTA_ID)) return; // already injected
-    // Find sub-tabs container
-    var subtabs = document.querySelector('.debts-subtabs');
-    if (!subtabs) return;
-
-    var btn = document.createElement('button');
-    btn.id = STRATEGY_CTA_ID;
-    btn.type = 'button';
-    btn.title = 'Run scenarios with extra payments, lump sums, and rate changes — see impact before committing';
-    btn.style.cssText = 'background:linear-gradient(135deg,#1f7a4a,#2b9b72);color:#fff;border:none;' +
-      'border-radius:8px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer;' +
-      'font-family:inherit;display:inline-flex;align-items:center;gap:6px;margin-left:14px;' +
-      'box-shadow:0 4px 12px rgba(31,122,74,0.25);transition:transform 0.15s, box-shadow 0.15s;' +
-      'vertical-align:middle;';
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Open Simulator';
-    btn.onmouseenter = function(){ btn.style.transform='translateY(-1px)'; btn.style.boxShadow='0 8px 20px rgba(31,122,74,0.35)'; };
-    btn.onmouseleave = function(){ btn.style.transform='translateY(0)'; btn.style.boxShadow='0 4px 12px rgba(31,122,74,0.25)'; };
-    btn.onclick = function(e) {
-      e.preventDefault();
-      // Click the simulations sub-tab (the existing app code routes to it)
-      var simTab = Array.from(document.querySelectorAll('.debts-subtabs .subtab')).find(function(t) {
-        return /simulat/i.test(t.textContent || '');
-      });
-      if (simTab) simTab.click();
-      else if (typeof window.renderSimulationsTab === 'function') window.renderSimulationsTab();
-    };
-
-    // Append after existing sub-tab buttons (preserve original container display)
-    subtabs.appendChild(btn);
-  }
+  // PIECE A removed — duplicated existing "Simulations" sub-tab
 
   // ============================================================
   // PIECE B — Smart Sync card injection into Simulator
@@ -452,7 +406,7 @@
   // POLL LOOP — runs every 2s, all three pieces idempotent
   // ============================================================
   function tick() {
-    try { injectStrategyCTA(); } catch(_) {}
+    // PIECE A removed (was injectStrategyCTA)
     try {
       if (sessionStorage.getItem('wjp.simSmart.dismissed') !== '1') injectSmartCard();
     } catch(_) {}
@@ -471,7 +425,7 @@
   }
 
   window.WJP_SimEnhance = {
-    pieces: ['Strategy CTA', 'Smart Sync card', 'Apply confirmation'],
+    pieces: ['Smart Sync card', 'Apply confirmation'],
     tick: tick
   };
 })();
