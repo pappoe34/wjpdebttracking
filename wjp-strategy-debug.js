@@ -91,16 +91,20 @@
             badge.style.cssText = 'display:block;font-size:9px;font-weight:600;letter-spacing:0;text-transform:none;margin-top:2px;opacity:0.85;';
             chip.appendChild(badge);
           }
-          if (savings > 1) {
-            badge.textContent = 'saves ' + fmt$(savings);
-            badge.style.color = '#1f7a4a';
-          } else if (savings >= 0 && d.interestSpread > 1) {
+          // Compare against best vs worst to label correctly:
+          // - lowest interest → 'lowest cost' (green)
+          // - highest interest → 'highest cost' (red)
+          // - middle → 'saves $X vs worst' (green)
+          var thisInt = d.interest[s];
+          if (Math.abs(thisInt - d.bestInterest) < 1) {
             badge.textContent = 'lowest cost';
             badge.style.color = '#1f7a4a';
-          } else {
-            // Worst — show the cost so user can see it
-            badge.textContent = 'costs ' + fmt$(d.interest[s]) + ' interest';
+          } else if (Math.abs(thisInt - d.worstInterest) < 1) {
+            badge.textContent = 'highest cost: ' + fmt$(thisInt);
             badge.style.color = '#c0594a';
+          } else {
+            badge.textContent = 'saves ' + fmt$(d.worstInterest - thisInt) + ' vs worst';
+            badge.style.color = '#1f7a4a';
           }
         } catch(_) {}
       });
