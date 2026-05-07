@@ -472,7 +472,7 @@
       </p>
     </div>
 
-    <p style="font-size:13px;color:var(--ink-dim,#6b7280);margin:0 0 18px;">14-day Pro Plus trial included with any plan. No charge until day 15. Cancel any time in one click.</p>
+    <p style="font-size:13px;color:var(--ink-dim,#6b7280);margin:0 0 18px;">14-day Free Trial Upgrade included with every plan &mdash; full Pro Plus access regardless of pick. No charge until day 15. Cancel any time in one click.</p>
 
     <a href="/signup?tier=pro&cycle=yearly" class="pill accent" style="display:inline-block;background:#1f7a4a;color:#fff;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;font-size:15px;letter-spacing:-0.01em;">Start free 14-day trial &rarr;</a>
   </div>
@@ -698,6 +698,24 @@
         setTimeout(patchCtas, 50);
       }
     });
+  })();
+</script>
+<script>
+  (function(){
+    function hasReturningHint(){
+      try {
+        var t = parseInt(localStorage.getItem('wjp.returningCancelAt') || '0', 10);
+        if (!t) return false;
+        return (Date.now() - t) > 30 * 24 * 60 * 60 * 1000;
+      } catch(_) { return false; }
+    }
+    if (!hasReturningHint()) return;
+    var grid = document.getElementById('tier-grid');
+    if (!grid) return;
+    var banner = document.createElement('div');
+    banner.style.cssText = 'background:linear-gradient(90deg,rgba(31,122,74,0.10),rgba(201,154,42,0.08));border:1px solid rgba(31,122,74,0.35);border-radius:14px;padding:14px 22px;margin:0 auto 24px;max-width:760px;text-align:center;font-size:14.5px;color:#1f7a4a;font-weight:600;';
+    banner.innerHTML = "🎁 <b>Welcome back!</b> A small welcome-back discount applies to your first month on Pro or Pro Plus &mdash; auto-applied at checkout.";
+    grid.parentNode.insertBefore(banner, grid);
   })();
 </script>
 </body>
