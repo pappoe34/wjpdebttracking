@@ -265,7 +265,11 @@
       btn.style.borderColor = 'var(--border,#d8d3c4)';
     };
     btn.onclick = function(e) { e.preventDefault(); renderPopover(); };
-    meta.appendChild(btn);
+    // Insert AFTER meta (not inside) so app re-renders that overwrite
+    // meta.innerHTML don't wipe our icon.
+    var parent = meta.parentNode;
+    if (parent) parent.appendChild(btn);
+    else meta.appendChild(btn);
     return true;
   }
 
@@ -282,11 +286,11 @@
   function start() {
     installOverride();
     // Try to inject the icon once meta exists
-    var attempts = 0;
-    var poll = setInterval(function() {
-      attempts++;
-      if (injectIcon() || attempts > 30) clearInterval(poll);
-    }, 500);
+    // Continuous re-injection — every 1.5s, re-add icon if app removed it.
+    // Cheap (one DOM query) and resilient to app re-renders.
+    setInterval(function() {
+      try { if (!document.getElementById(ICON_ID)) injectIcon(); } catch(_) {}
+    }, 1500);
   }
 
   if (document.readyState === 'loading') {
