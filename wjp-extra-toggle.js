@@ -142,8 +142,13 @@
         <div id="wjp-ext-suggest" style="font-size:11px;color:var(--ink-dim,#6b7280);margin-top:6px;line-height:1.4;"></div>
       </div>
 
-      <div id="wjp-ext-auto-row" style="${cfg.enabled === false || cfg.mode !== 'auto' ? 'display:none;' : ''}margin-bottom:14px;padding:9px 10px;background:var(--bg,#fafaf7);border-radius:8px;font-size:11.5px;color:var(--ink-dim,#6b7280);line-height:1.5;">
+      <div id="wjp-ext-auto-row" style="${cfg.enabled === false || cfg.mode !== 'auto' ? 'display:none;' : ''}margin-bottom:10px;padding:9px 10px;background:var(--bg,#fafaf7);border-radius:8px;font-size:11.5px;color:var(--ink-dim,#6b7280);line-height:1.5;">
         Auto-pulls your monthly cash surplus (income − expenses − bills − minimums) and routes it as extra payment. Updates as your spending changes.
+      </div>
+
+      <div id="wjp-ext-preview" style="margin-bottom:14px;padding:11px 12px;background:linear-gradient(135deg,rgba(31,122,74,0.08),rgba(43,155,114,0.04));border:1px solid rgba(31,122,74,0.18);border-radius:9px;">
+        <div style="font-size:10px;font-weight:800;color:#1f7a4a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Live preview</div>
+        <div id="wjp-ext-preview-body" style="font-size:12px;line-height:1.55;color:var(--ink,#0a0a0a);">Calculating…</div>
       </div>
 
       <button type="button" id="wjp-ext-save" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1f7a4a;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Save & apply</button>
@@ -211,6 +216,100 @@
       } catch(_) {}
     }
     updateSuggest();
+
+    // ---- LIVE WHAT-IF PREVIEW ----
+    // Recomputes debt-free date and interest given current popover state.
+    function recomputePreview() {
+      var body = document.getElementById('wjp-ext-preview-body');
+      if (!body) return;
+      try {
+        // Determine candidate extra value from current UI state
+        var enabled = document.getElementById('wjp-ext-enabled');
+        if (enabled && !enabled.checked) {
+          // OFF: simulate with $0 extra
+          var sim0 = simulateAt(0);
+          body.innerHTML = previewHtml(0, sim0, null, 'off');
+          return;
+        }
+        var activeBtn = pop.querySelector('[data-mode][data-active="1"]');
+        var m = activeBtn ? activeBtn.getAttribute('data-mode') : 'auto';
+        var candidate = 0;
+        if (m === 'manual') {
+          var v = parseFloat(document.getElementById('wjp-ext-amount').value);
+          candidate = isNaN(v) ? 0 : Math.max(0, v);
+        } else if (m === 'auto') {
+          if (typeof window.getAvailableCashflow === 'function') {
+            try {
+              var cf = window.getAvailableCashflow();
+              if (cf && cf.available > 0) candidate = cf.available;
+            } catch(_) {}
+          }
+        }
+        // Compare against current saved/applied value
+        var cur = origGetEff ? origGetEff() : { extra: 0 };
+        var simNew = simulateAt(candidate);
+        var simCur = simulateAt(cur.extra || 0);
+        body.innerHTML = previewHtml(candidate, simNew, simCur, m);
+      } catch(e) {
+        if (body) body.textContent = 'Preview unavailable.';
+      }
+    }
+
+    // Run a fresh debt-free simulation with the chosen extra amount.
+    // Uses calcSimTotals if available (more accurate fractional months).
+    function simulateAt(extraAmt) {
+      try {
+        if (typeof window.calcSimTotals === 'function') {
+          var strat = (window.appState && window.appState.settings && window.appState.settings.strategy) ||
+                      (typeof window.simulateAllStrategies === 'function' ? (window.simulateAllStrategies().best || 'avalanche') : 'avalanche');
+          var r = window.calcSimTotals(strat, extraAmt, 0, 0);
+          if (r && (r.months || r.monthsFractional)) {
+            return { months: r.monthsFractional || r.months, interest: r.totalInterest || 0 };
+          }
+        }
+      } catch(_) {}
+      // Fallback — just say no preview
+      return null;
+    }
+
+    function previewHtml(extra, sim, cur, mode) {
+      var fmt = function(n) { return '$' + Math.round(n).toLocaleString(); };
+      if (!sim) return '<em style="opacity:0.7;">Preview not available.</em>';
+      var months = Math.round(sim.months);
+      var date = new Date();
+      date.setMonth(date.getMonth() + months);
+      var dateStr = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      var yearsText = months >= 12 ? Math.floor(months/12) + 'y ' + (months%12) + 'm' : months + ' months';
+      var headline = mode === 'off'
+        ? '<strong style="color:#c0594a;">Without extra payment:</strong> debt-free ' + dateStr + ' (' + yearsText + ')'
+        : '<strong style="color:#1f7a4a;">With ' + fmt(extra) + '/mo extra:</strong> debt-free ' + dateStr + ' (' + yearsText + ')';
+      var interest = '<div style="font-size:11px;color:var(--ink-dim,#6b7280);margin-top:4px;">' + fmt(sim.interest) + ' total interest</div>';
+      var delta = '';
+      if (cur && cur.months && Math.abs(cur.months - sim.months) > 0.5) {
+        var monthDelta = Math.round(cur.months - sim.months);
+        var savingsDelta = Math.round((cur.interest || 0) - sim.interest);
+        if (monthDelta > 0 || savingsDelta > 50) {
+          delta = '<div style="font-size:11px;color:#1f7a4a;margin-top:4px;font-weight:700;">→ ' + monthDelta + ' months sooner · saves ' + fmt(savingsDelta) + ' more</div>';
+        } else if (monthDelta < 0) {
+          delta = '<div style="font-size:11px;color:#c0594a;margin-top:4px;font-weight:700;">→ ' + Math.abs(monthDelta) + ' months later · costs ' + fmt(Math.abs(savingsDelta)) + ' more</div>';
+        }
+      }
+      return headline + interest + delta;
+    }
+
+    // Run preview on every input change
+    var enableEl = document.getElementById('wjp-ext-enabled');
+    if (enableEl) enableEl.addEventListener('change', function(){ setTimeout(recomputePreview, 50); });
+    var amtEl = document.getElementById('wjp-ext-amount');
+    if (amtEl) amtEl.addEventListener('input', function(){ setTimeout(recomputePreview, 50); });
+    pop.querySelectorAll('[data-mode]').forEach(function(b) {
+      var origClick = b.onclick;
+      b.onclick = function(e) {
+        if (origClick) origClick.call(this, e);
+        setTimeout(recomputePreview, 50);
+      };
+    });
+    recomputePreview();
 
     // Save handler
     var saveBtn = document.getElementById('wjp-ext-save');
