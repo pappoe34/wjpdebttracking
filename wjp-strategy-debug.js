@@ -159,10 +159,60 @@
     }
   }
 
+
+  function annotateIndicatorCards(d) {
+    try {
+      if (!d) return;
+      var lists = ['snowball', 'hybrid', 'avalanche'];
+      var worst = d.worstInterest;
+      lists.forEach(function(strat) {
+        try {
+          var listEl = document.getElementById(strat + '-list');
+          if (!listEl) return;
+          // Find the parent indicator card (the inner styled div with grid of 3 stat tiles)
+          var card = listEl.querySelector('div[style*="display:grid"]');
+          if (!card) return;
+          // Already annotated?
+          var existing = listEl.querySelector('.wjp-indicator-savings');
+          if (existing) existing.remove();
+
+          var thisInt = d.interest[strat];
+          if (thisInt == null) return;
+
+          var badge = document.createElement('div');
+          badge.className = 'wjp-indicator-savings';
+          var savings = worst - thisInt;
+          var label, color;
+          if (Math.abs(thisInt - d.bestInterest) < 1) {
+            label = '✓ LOWEST INTEREST · Best math';
+            color = '#1f7a4a';
+          } else if (Math.abs(thisInt - d.worstInterest) < 1) {
+            label = '⚠ HIGHEST INTEREST · Costs $' + Math.round(thisInt - d.bestInterest).toLocaleString() + ' more than Avalanche';
+            color = '#c0594a';
+          } else {
+            label = '✓ Saves $' + Math.round(savings).toLocaleString() + ' vs Snowball · ' +
+                    'Costs $' + Math.round(thisInt - d.bestInterest).toLocaleString() + ' more than Avalanche';
+            color = '#c99a2a';
+          }
+          badge.style.cssText = 'margin-top:8px;padding:7px 10px;background:rgba(' +
+            (color === '#1f7a4a' ? '31,122,74' : color === '#c0594a' ? '192,89,74' : '201,154,42') + ',0.10);' +
+            'border-left:3px solid ' + color + ';border-radius:0 6px 6px 0;' +
+            'font-size:10.5px;font-weight:700;color:' + color + ';line-height:1.4;';
+          badge.textContent = label;
+          // Insert AFTER the grid row but BEFORE Priority Order header
+          card.parentNode.insertBefore(badge, card.nextSibling);
+        } catch(_) {}
+      });
+    } catch(e) {
+      try { console.warn('[wjp-strategy-debug] annotateIndicatorCards threw', e); } catch(_) {}
+    }
+  }
+
   function run() {
     var d = diagnose();
     if (d) {
       annotateChips(d);
+      annotateIndicatorCards(d);
       injectBanner(d);
     }
   }
