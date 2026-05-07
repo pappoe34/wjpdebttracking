@@ -1,22 +1,15 @@
 {
   "name": "WJP Debt Tracking",
-  "short_name": "WJP Debt",
-  "description": "AI Financial Dashboard for debt tracking and strategy visualization.",
+  "short_name": "WJP",
+  "description": "Put a date on debt-free. AI debt coach + bank sync + payoff strategy engine.",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#0b0f1a",
-  "theme_color": "#00d4a8",
+  "background_color": "#0d130f",
+  "theme_color": "#1f7a4a",
   "orientation": "portrait-primary",
+  "categories": ["finance", "productivity", "lifestyle"],
   "icons": [
-    {
-      "src": "icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
   ]
 }

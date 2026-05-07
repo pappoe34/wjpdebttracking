@@ -1,0 +1,132 @@
+/* ============================================================================
+   WJP Dark Mode for marketing pages (W4)
+   Activated by [data-theme="dark"] on <html>. Auto-applies if user prefers
+   dark scheme and hasn't picked a manual theme.
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --bg: #0d130f;
+    --bg-soft: #131a16;
+    --bg-tint: #1a221d;
+    --ink: #f0f5f1;
+    --ink-dim: rgba(240,245,241,0.72);
+    --ink-faint: rgba(240,245,241,0.45);
+    --rule: rgba(240,245,241,0.10);
+    --glass-bg: rgba(20,28,22,0.55);
+    --glass-bg-soft: rgba(20,28,22,0.35);
+    --glass-border: rgba(240,245,241,0.10);
+    --glass-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(240,245,241,0.04);
+    --card: #131a16;
+    --border: rgba(240,245,241,0.10);
+  }
+  html:not([data-theme="light"]) body {
+    background: #0d130f !important;
+  }
+  html:not([data-theme="light"]) body::before {
+    background: radial-gradient(1100px 700px at 6% 8%, rgba(31,122,74,0.18), transparent 60%),
+                radial-gradient(1000px 650px at 96% 22%, rgba(201,154,42,0.12), transparent 60%),
+                radial-gradient(950px 620px at 8% 75%, rgba(201,154,42,0.10), transparent 60%),
+                radial-gradient(1100px 700px at 96% 95%, rgba(31,122,74,0.16), transparent 60%) !important;
+  }
+  html:not([data-theme="light"]) nav.top.scrolled {
+    background: rgba(13,19,15,0.85) !important;
+    border-bottom-color: rgba(240,245,241,0.06);
+  }
+  html:not([data-theme="light"]) .pill.ghost {
+    background: rgba(240,245,241,0.06);
+    color: var(--ink);
+    border-color: rgba(240,245,241,0.12);
+  }
+  html:not([data-theme="light"]) details.q[open] {
+    background: rgba(31,122,74,0.16) !important;
+    border-color: rgba(31,122,74,0.40) !important;
+  }
+  html:not([data-theme="light"]) footer {
+    background: rgba(13,19,15,0.85) !important;
+    border-top-color: rgba(240,245,241,0.06);
+  }
+  html:not([data-theme="light"]) .nav-menu-overlay {
+    background: rgba(13,19,15,0.97) !important;
+  }
+  html:not([data-theme="light"]) .nav-menu-content a.link {
+    color: var(--ink) !important;
+  }
+}
+
+/* Manual override (Settings → Theme) */
+html[data-theme="dark"] {
+  --bg: #0d130f;
+  --bg-soft: #131a16;
+  --bg-tint: #1a221d;
+  --ink: #f0f5f1;
+  --ink-dim: rgba(240,245,241,0.72);
+  --ink-faint: rgba(240,245,241,0.45);
+  --rule: rgba(240,245,241,0.10);
+  --glass-bg: rgba(20,28,22,0.55);
+  --glass-bg-soft: rgba(20,28,22,0.35);
+  --glass-border: rgba(240,245,241,0.10);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(240,245,241,0.04);
+  --card: #131a16;
+  --border: rgba(240,245,241,0.10);
+}
+html[data-theme="dark"] body {
+  background: #0d130f !important;
+}
+html[data-theme="dark"] body::before {
+  background: radial-gradient(1100px 700px at 6% 8%, rgba(31,122,74,0.18), transparent 60%),
+              radial-gradient(1000px 650px at 96% 22%, rgba(201,154,42,0.12), transparent 60%),
+              radial-gradient(950px 620px at 8% 75%, rgba(201,154,42,0.10), transparent 60%),
+              radial-gradient(1100px 700px at 96% 95%, rgba(31,122,74,0.16), transparent 60%) !important;
+}
+html[data-theme="dark"] nav.top.scrolled {
+  background: rgba(13,19,15,0.85) !important;
+  border-bottom-color: rgba(240,245,241,0.06);
+}
+html[data-theme="dark"] .pill.ghost {
+  background: rgba(240,245,241,0.06);
+  color: var(--ink);
+  border-color: rgba(240,245,241,0.12);
+}
+html[data-theme="dark"] details.q[open] {
+  background: rgba(31,122,74,0.16) !important;
+  border-color: rgba(31,122,74,0.40) !important;
+}
+html[data-theme="dark"] footer {
+  background: rgba(13,19,15,0.85) !important;
+  border-top-color: rgba(240,245,241,0.06);
+}
+html[data-theme="dark"] .nav-menu-overlay {
+  background: rgba(13,19,15,0.97) !important;
+}
+
+/* Theme toggle button styling */
+.wjp-theme-toggle {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 9990;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(10,10,10,0.08);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0a0a0a;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: transform 0.2s, background 0.2s;
+}
+.wjp-theme-toggle:hover { transform: scale(1.06); }
+html[data-theme="dark"] .wjp-theme-toggle,
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .wjp-theme-toggle {
+    background: rgba(20,28,22,0.85);
+    border-color: rgba(240,245,241,0.12);
+    color: #f0f5f1;
+  }
+}

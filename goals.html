@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Goals — WJP Debt Tracking</title>
+<meta name="description" content="Track savings buckets alongside your debts. Emergency fund, vacation, down payment — same UX, inverse direction." />
+<link rel="canonical" href="https://wjpdebttracking.com/goals.html">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://wjpdebttracking.com/goals.html">
+<meta property="og:title" content="Goals — WJP Debt Tracking">
+<meta property="og:description" content="Track savings buckets alongside your debts.">
+<meta property="og:image" content="https://wjpdebttracking.com/assets/og/og-features.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="WJP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://wjpdebttracking.com/assets/og/og-features.png">
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1f7a4a">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+
+<link rel="preload" as="font" href="/fonts/inter-var.woff2" type="font/woff2" crossorigin>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 100 900; font-style: normal; font-display: swap;
+    src: url('/fonts/inter-var.woff2') format('woff2-variations'), url('/fonts/inter-var.woff2') format('woff2'); }
+  @font-face { font-family: 'Fraunces'; font-weight: 700; font-style: normal; font-display: swap;
+    src: url('/fonts/fraunces-700.woff2') format('woff2'); }
+</style>
+<link rel="stylesheet" href="/landing.css?v=phase2-15">
+<link rel="stylesheet" href="/wjp-darkmode-marketing.css">
+<style>
+  .goals-hero { padding: 130px 24px 50px; text-align: center;
+    background: radial-gradient(700px 400px at 15% 20%, rgba(31,122,74,0.07), transparent 70%); }
+  .goals-hero .wrap { max-width: 760px; margin: 0 auto; }
+  .goals-hero h1 { font-family: var(--serif); font-size: clamp(36px, 5vw, 56px); line-height: 1.05;
+    letter-spacing: -0.02em; margin: 0 0 18px; color: var(--ink); }
+  .goals-hero p.lede { font-size: 16.5px; line-height: 1.6; color: var(--ink-dim);
+    max-width: 540px; margin: 0 auto 22px; }
+  .goals-content { padding: 30px 24px 80px; max-width: 880px; margin: 0 auto; }
+  .signed-out-cta { background: var(--glass-bg); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); border-radius: 14px; padding: 30px;
+    text-align: center; max-width: 540px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<nav class="top" id="nav">
+  <a class='brand' href='/intro'>
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/></svg></span>
+    <span class="brand-text"><b>WJP</b><i> Debt Tracking</i><small>Tracking OS</small></span>
+  </a>
+  <div class="nav-links">
+    <a class='link' href='/about'>About</a>
+    <a class='link' href='/how'>How</a>
+    <a class='link' href='/features'>Features</a>
+    <a class='link' href='/pricing'>Pricing</a>
+    <a class='link' href='/faq'>FAQ</a>
+    <a class='pill ghost' href='/signin'>Sign in</a>
+    <a class='pill accent' href='/signup'>Start free →</a>
+  </div>
+</nav>
+
+<section class="goals-hero">
+  <div class="wrap">
+    <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-dim);font-weight:800;margin:0 0 12px;">Savings buckets</p>
+    <h1>Goals are debts in reverse.</h1>
+    <p class="lede">Same engine, opposite direction. Track an emergency fund, vacation, down payment — anything you're saving toward — alongside the debts you're paying down.</p>
+  </div>
+</section>
+
+<section class="goals-content">
+  <div data-wjp-goals></div>
+  <div id="goals-signed-out" class="signed-out-cta">
+    <h3 style="font-family:var(--serif);font-size:22px;margin:0 0 8px;letter-spacing:-0.02em;">Sign in to set goals</h3>
+    <p style="color:var(--ink-dim);margin:0 0 18px;">Goals are tied to your account so they sync across devices.</p>
+    <a href="/signin" class="pill ghost" style="margin-right:8px;">Sign in</a>
+    <a href="/signup" class="pill accent">Start free 14-day trial &rarr;</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-about">WJP is built and operated by <b>Pappoe Venture LLC</b>. We sell one product to one customer: you.</div>
+    <div class="foot-row">
+      <div class="foot-trust"><span>Bank-grade encryption</span><span>Plaid-secured links</span><span>Zero data sales</span><span>Cancel anytime</span></div>
+      <div class="foot-links">
+        <a href='/privacy'>Privacy</a><a href='/terms'>Terms</a><a href='/about'>About</a><a href='/help'>Help</a><a href='/faq'>FAQ</a><a href='mailto:support@wjpdebttracking.com'>Support</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="/wjp-i18n.js" defer></script>
+<script src="/wjp-marketing-chat.js" defer></script>
+<script src="/wjp-schema-reconciler.js" defer></script>
+<script src="/wjp-pwa-install.js" defer></script>
+<script src="/wjp-darkmode-toggle.js" defer></script>
+<script src="/wjp-goal-tracker.js" defer></script>
+<script>
+  // Hide signed-out card if logged in
+  (function(){
+    if (!window.indexedDB) return;
+    var req = indexedDB.open('firebaseLocalStorageDb');
+    req.onsuccess = function(e){
+      try {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains('firebaseLocalStorage')) return;
+        var tx = db.transaction('firebaseLocalStorage', 'readonly');
+        var store = tx.objectStore('firebaseLocalStorage');
+        var getAll = store.getAll();
+        getAll.onsuccess = function(){
+          var rec = (getAll.result || []).find(function(r){ return r && r.fbase_key && r.fbase_key.indexOf('firebase:authUser:') === 0; });
+          if (rec) {
+            var so = document.getElementById('goals-signed-out');
+            if (so) so.style.display = 'none';
+          }
+        };
+      } catch(_){}
+    };
+  })();
+</script>
+</body>
+</html>

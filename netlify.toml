@@ -36,3 +36,6 @@
 # Function checks each user's account age and sends Day 0 / Day 3 / Day 7 emails.
 [functions."email-cron"]
   schedule = "0 13 * * *"
+
+[functions."email-cron-w3"]
+  schedule = "0 14 * * *"
