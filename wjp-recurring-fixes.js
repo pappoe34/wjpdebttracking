@@ -252,6 +252,32 @@
     }
   }
 
+
+  // Monkey-patch renderRecurringTab so my fixes run synchronously AFTER it.
+  // App.js's recRenderCountdown sets innerHTML to "No debt payments found"
+  // when its filter (r.cat==='debt' && r.debtId) returns 0; my polling-only
+  // override loses the race. Wrapping makes it deterministic.
+  var _wjpRtWrapped = false;
+  function wrapRender() {
+    if (_wjpRtWrapped) return;
+    if (typeof window.renderRecurringTab !== 'function') {
+      setTimeout(wrapRender, 400);
+      return;
+    }
+    var orig = window.renderRecurringTab;
+    var wrapper = function () {
+      var r = orig.apply(this, arguments);
+      try { harvestDebtsFromObligations(); renderCountdown(); renderOptimization(); } catch (_) {}
+      return r;
+    };
+    wrapper._wjpFixed = true;
+    window.renderRecurringTab = wrapper;
+    _wjpRtWrapped = true;
+    try { console.log('[wjp-recurring-fixes] wrapped renderRecurringTab'); } catch (_) {}
+    // Run immediately too in case the tab is already rendered
+    try { wrapper(); } catch (_) {}
+  }
+
   function tick() {
     try {
       harvestDebtsFromObligations();
@@ -263,6 +289,7 @@
   }
 
   function boot() {
+    wrapRender();
     setTimeout(tick, 800);
     setInterval(tick, 2500);
   }
