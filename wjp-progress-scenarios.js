@@ -136,7 +136,7 @@
 
   function onChipClick(s) {
     try {
-      var key = 'wjp.extraToggle.config';
+      var key = 'wjp.extraToggle.v1';
       var cfg = { enabled: s.extra > 0, mode: 'manual', amount: Math.round(s.extra) };
       if (s.key === 'minimums') cfg = { enabled: false, mode: 'manual', amount: 0 };
       try { localStorage.setItem(key, JSON.stringify(cfg)); } catch (_) {}
