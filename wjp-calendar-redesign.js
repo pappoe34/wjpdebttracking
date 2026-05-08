@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4.2 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v4.3 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -468,7 +468,7 @@
     var s = document.createElement("style");
     s.id = "wjp-cal-styles";
     s.textContent = `
-      .wjp-cal-cell { min-height:96px; padding:6px 8px; border-right:1px solid rgba(0,0,0,0.05); cursor:pointer; transition:background .15s; position:relative; }
+      .wjp-cal-cell { height:112px; padding:6px 8px; border-right:1px solid rgba(0,0,0,0.05); cursor:pointer; transition:background .15s; position:relative; overflow:hidden; display:flex; flex-direction:column; }
       .wjp-cal-cell:hover { background: rgba(0,0,0,0.025); }
       .wjp-cal-cell:hover .wjp-cal-day-menu { opacity: 1; }
       .wjp-cal-today { background: rgba(31,122,74,0.04); }
@@ -485,7 +485,7 @@
       .wjp-cal-chip[draggable] { cursor:grab; }
       .wjp-cal-chip[draggable]:active { cursor:grabbing; }
       .wjp-cal-cell.wjp-cal-drop-target { background: rgba(31,122,74,0.15) !important; outline: 2px dashed #1f7a4a; outline-offset: -3px; }
-      .wjp-cal-quarter-cell { min-height:54px !important; padding:4px 5px !important; }
+      .wjp-cal-quarter-cell { height:64px !important; padding:4px 5px !important; }
       .wjp-cal-quarter-cell .wjp-cal-chip { font-size:9px !important; padding:1px 4px !important; }
       .wjp-cal-quarter-cell .wjp-cal-day-num { font-size:10px !important; }
       .wjp-cal-quarter-cell .wjp-cal-day-menu { display:none; }
@@ -600,7 +600,7 @@
     var weekHTML = weeks.map(function (week) {
       var cellsHTML = week.map(function (cell) {
         if (cell.blank) {
-          return `<div style="${compact ? "min-height:54px;" : "min-height:96px;"}background:rgba(0,0,0,0.015);border-right:1px solid rgba(0,0,0,0.05);"></div>`;
+          return `<div style="${compact ? "height:64px;" : "height:112px;"}background:rgba(0,0,0,0.015);border-right:1px solid rgba(0,0,0,0.05);"></div>`;
         }
         var total = (cell.events || []).reduce(function (s, e) { return s + (e.category === "income" ? 0 : e.amount); }, 0);
         var hasOverdue = (cell.events || []).some(isOverdue);
@@ -618,7 +618,7 @@
           (total > 0 && !compact) ? `<span style="font-size:9.5px;color:#6b7280;font-weight:700;">${fmtUSD(total)}</span>` : "",
           !compact ? `<button type="button" class="wjp-cal-day-menu${state.dayMenuFor === cell.date ? " wjp-cal-day-menu-open" : ""}" data-cal-day-menu="${cell.date}" title="Day options" aria-label="Day options">⋮</button>` : ""
         ].join("");
-        var visible = (cell.events || []).slice(0, compact ? 2 : 3);
+        var visible = (cell.events || []).slice(0, compact ? 1 : 2);
         var chipsHTML = visible.map(function (e) { return chipHTML(e, !compact, compact); }).join("");
         var more = (cell.events || []).length - visible.length;
         if (more > 0) chipsHTML += `<div style="font-size:${compact ? "8.5px" : "9.5px"};color:#9ca3af;font-weight:700;">+${more} more</div>`;
