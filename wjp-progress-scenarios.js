@@ -41,13 +41,19 @@
     return 'avalanche';
   }
 
+  // Per-scenario simulation needs the engine to USE the scenario\u2019s extra,
+  // not whatever is currently active. We set a thread-local override that
+  // the wrapped getEffectiveExtraContribution honors temporarily.
+  var _wjpSimOverride = null;
   function simulate(extra) {
     try {
       if (typeof window.calculateDebtPayoff !== 'function') return null;
       var strategy = getStrategy();
       var r;
-      try { r = window.calculateDebtPayoff(strategy, Number(extra) || 0); }
+      _wjpSimOverride = Number(extra) || 0;
+      try { r = window.calculateDebtPayoff(strategy); }
       catch (_) { r = null; }
+      _wjpSimOverride = null;
       if (r && typeof r === 'object') {
         if (typeof r.months === 'number' && r.months > 0) {
           return { months: Math.ceil(r.months), totalInterest: r.totalInterest };
@@ -98,26 +104,11 @@
   // Aggressive must NOT depend on current custom — that creates a feedback
   // loop where clicking Aggressive changes the value, which changes Aggressive
   // again on next tick, and the active-state derivation breaks.
+  // Stable, non-recursive Aggressive value. Calling calculateDebtPayoff here
+  // would re-enter the wrapped getEffectiveExtraContribution and recurse.
   function computeAggressive() {
     var surplus = getAvailableCashflow();
-    var minSum = 0;
-    try {
-      // Approximate 2x total minimums as a stable aggressive target
-      if (typeof window.calculateDebtPayoff === 'function') {
-        var r = window.calculateDebtPayoff(getStrategy(), 0);
-        if (r && typeof r === 'object') {
-          var keys = Object.keys(r);
-          keys.forEach(function (k) {
-            var d = r[k];
-            if (d && typeof d.monthlyPayment === 'number') minSum += d.monthlyPayment;
-            else if (d && typeof d.minPayment === 'number') minSum += d.minPayment;
-          });
-        }
-      }
-    } catch (_) {}
-    var floor = 500;
-    var fromMin = minSum > 0 ? Math.round(minSum * 1.5) : 0;
-    return Math.max(surplus, fromMin, floor);
+    return Math.max(surplus, 500);
   }
 
   function findCard() {
@@ -191,13 +182,16 @@
     var orig = window.getEffectiveExtraContribution;
     window.getEffectiveExtraContribution = function () {
       try {
+        // Temporary override during chip simulations
+        if (_wjpSimOverride !== null) {
+          return { extra: _wjpSimOverride, source: 'scenario-sim' };
+        }
         var active = readActiveScenario();
         if (active === 'minimums') return { extra: 0, source: 'scenario-minimums' };
         if (active === 'aggressive') {
           return { extra: computeAggressive(), source: 'scenario-aggressive' };
         }
       } catch (_) {}
-      // 'custom' or no active scenario => use the user\u2019s saved value
       return orig.apply(this, arguments);
     };
     _wjpScenariosWrapped = true;
