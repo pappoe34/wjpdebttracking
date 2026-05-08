@@ -132,6 +132,40 @@
     }
   };
 
+  // Indicator-card copy per algorithm (overrides app.js stratMeta.hybrid.why/.benefit)
+  var COPY = {
+    interest_bleed: {
+      subhead: 'Highest interest dollars first',
+      why: 'Attacks the biggest monthly interest dollars first \u2014 combines balance and APR into one number (balance \u00d7 APR) and pays them off top-to-bottom in that order. A $10K loan at 18% ($150/mo bleed) ranks ahead of a $500 card at 30% ($13/mo bleed) because it\u2019s costing you more every month.',
+      bestFor: 'Best for: A balanced approach when you want both speed and savings.'
+    },
+    cfi: {
+      subhead: 'Cash Flow Index (CFI)',
+      why: 'Sorts by balance \u00f7 minimum payment ascending. The lower the ratio, the faster that debt clears at its current minimum \u2014 so paying it off frees up monthly cash flow soonest. Each finished debt rolls its freed-up minimum onto the next.',
+      bestFor: 'Best for: Tight cash flow. Frees breathing room each month, fastest.'
+    },
+    debt_blaster: {
+      subhead: 'Debt Blaster (auto-escalation)',
+      why: 'Smallest balance first \u2014 like Snowball. As each debt finishes, the freed minimum payment is automatically stacked onto the next target, accelerating payoff like a blaster gaining charge. Pure momentum mechanics.',
+      bestFor: 'Best for: Quick wins and visible progress. Best when motivation matters more than math.'
+    },
+    utilization: {
+      subhead: 'Highest credit utilization',
+      why: 'Pays down the cards closest to (or over) their credit limit first. Credit utilization above 30% drags your credit score the most; above 80% it tanks. Knocking those down first is the fastest credit-score lift you can buy. Cards with no credit limit drop to the bottom.',
+      bestFor: 'Best for: Recovering credit score fast \u2014 mortgage, auto loan, or new card application coming up.'
+    },
+    highest_apr: {
+      subhead: 'Highest APR (avalanche)',
+      why: 'Pure Avalanche \u2014 highest interest-rate debt first regardless of balance. Mathematically optimal for total interest paid: every $1 against a 30% card saves $0.30/year forever, the same $1 against an 18% loan only saves $0.18/year.',
+      bestFor: 'Best for: Lowest total interest paid. Provably optimal \u2014 no other strategy beats it on math.'
+    },
+    smallest_balance: {
+      subhead: 'Smallest balance (snowball)',
+      why: 'Pure Snowball \u2014 smallest balance first regardless of APR. You eliminate accounts fastest, which builds momentum. Mathematically not optimal, but emotionally undefeated: the dopamine hit of zeroing an account beats a slightly lower interest bill.',
+      bestFor: 'Best for: Staying motivated. Fastest to eliminate individual accounts.'
+    }
+  };
+
   function getAlgorithm() {
     try {
       var v = localStorage.getItem(LS_KEY);
@@ -416,7 +450,54 @@
   }
 
   // === Refresh all surfaces (called after setAlgorithm) ===
+  // Walk #hybrid-list, find the body <p> and italic <div>, rewrite them
+  // with the active algorithm\u2019s copy. Also rewrites the "Hybrid Method"
+  // sub-heading next to the icon so the entire card matches.
+  function updateHybridCardCopy() {
+    try {
+      var key = getAlgorithm();
+      var copy = COPY[key];
+      if (!copy) return;
+      var list = document.getElementById('hybrid-list');
+      if (!list) return;
+      // The card structure (per renderStrategyIndicators in app.js):
+      //   <div ...>
+      //     <div ...><i .../><span>... Method</span></div>
+      //     <p>...why...</p>
+      //     <div>...best-for...</div>
+      //     <div>... 3-stat grid ...</div>
+      //   </div>
+      var card = list.querySelector('div');
+      if (!card) return;
+      // Sub-heading span
+      var subSpan = card.querySelector('span');
+      if (subSpan && /method/i.test(subSpan.textContent || '')) {
+        subSpan.textContent = copy.subhead;
+      }
+      // Body paragraph
+      var body = card.querySelector('p');
+      if (body) {
+        body.textContent = copy.why;
+      }
+      // Best-for line \u2014 the italic-styled <div> sibling of <p>
+      // Find a div whose inline style contains "italic" or whose text starts with "Best for"
+      var divs = card.querySelectorAll(':scope > div');
+      for (var i = 0; i < divs.length; i++) {
+        var d = divs[i];
+        var st = d.getAttribute('style') || '';
+        var txt = (d.textContent || '').trim();
+        if (st.indexOf('italic') !== -1 || txt.indexOf('Best for') === 0) {
+          d.textContent = copy.bestFor;
+          break;
+        }
+      }
+    } catch (e) {
+      try { console.warn('[wjp-hybrid-picker] updateHybridCardCopy threw', e); } catch (_) {}
+    }
+  }
+
   function refreshAllSurfaces() {
+    try { updateHybridCardCopy(); } catch (_) {}
     try {
       var card = findHybridCard();
       if (card) injectAlgoLabel(card);
@@ -437,7 +518,7 @@
     injectSettingsCard();
     // Light polling for SPA mounts (Settings panel may render after click)
     setInterval(function () {
-      try { injectGearIcon(); injectSettingsCard(); } catch (_) {}
+      try { injectGearIcon(); injectSettingsCard(); updateHybridCardCopy(); } catch (_) {}
     }, 2000);
   }
 
