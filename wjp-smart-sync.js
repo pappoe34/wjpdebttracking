@@ -273,6 +273,8 @@
   }
 
   function injectButton() {
+    return; // user removed top-bar button
+
     if (document.getElementById(BUTTON_ID)) return true;
     // Mount in the dashboard top action area (next to Bank Health, Sync Bank, etc.)
     var host = document.querySelector('.dashboard-actions, .top-actions, [class*="action-row"]') ||

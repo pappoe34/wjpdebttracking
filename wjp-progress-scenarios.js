@@ -1,4 +1,8 @@
-/* wjp-progress-scenarios.js — v4 clean (tabs ABOVE the bar). */
+/* wjp-progress-scenarios.js — v5 (no window.appState dependency).
+ * Tabs above the progress bar. Reads debt info via window.calculateDebtPayoff
+ * which uses app.js's internal closure-scoped appState. No reliance on
+ * window.appState (which doesn't exist).
+ */
 (function () {
   'use strict';
   if (window._wjpProgressScenariosInstalled) return;
@@ -11,34 +15,50 @@
 
   var WRAP_ID = 'wjp-ps-tabs';
 
+  function getStrategy() {
+    try {
+      // Try to read from a few well-known accessors
+      var dfdEyebrow = document.getElementById('dfd-eyebrow');
+      // The strategy lives in appState.settings.strategy — but we can pluck it
+      // from the visible DOM: the badge near the bar shows strategy text.
+      var badge = document.getElementById('freedom-badge-text');
+      if (badge && badge.textContent) {
+        var t = badge.textContent.toLowerCase();
+        if (t.indexOf('avalanche') !== -1) return 'avalanche';
+        if (t.indexOf('snowball') !== -1) return 'snowball';
+        if (t.indexOf('hybrid') !== -1) return 'hybrid';
+      }
+    } catch (_) {}
+    return 'avalanche';
+  }
+
+  // Use window.calculateDebtPayoff which uses app.js internal appState
   function simulate(extra) {
     try {
-      if (!window.appState || !window.appState.debts || !window.appState.debts.length) return null;
-      var debts = window.appState.debts.map(function (d) { return Object.assign({}, d); });
-      var strategy = (window.appState.settings && window.appState.settings.strategy) || 'avalanche';
-      if (typeof window.calculateDebtPayoff === 'function') {
-        var r = window.calculateDebtPayoff(debts, Number(extra) || 0, strategy);
-        if (r && typeof r === 'object') {
-          if (typeof r.months === 'number' && r.months > 0) {
-            return { months: Math.ceil(r.months), totalInterest: r.totalInterest };
-          }
-          var keys = Object.keys(r);
-          if (keys.length && typeof r[keys[0]] === 'object' && 'months' in (r[keys[0]] || {})) {
-            var maxM = 0, totalI = 0;
-            keys.forEach(function (k) {
-              var d2 = r[k];
-              if (d2 && typeof d2.months === 'number') maxM = Math.max(maxM, d2.months);
-              if (d2 && typeof d2.totalInterest === 'number') totalI += d2.totalInterest;
-            });
-            if (maxM > 0) return { months: Math.ceil(maxM), totalInterest: totalI };
-          }
+      if (typeof window.calculateDebtPayoff !== 'function') return null;
+      var strategy = getStrategy();
+      // Most app.js call sites use calculateDebtPayoff(strategy, extraOverride).
+      // The fn ignores the extra-arg if not provided and uses internal extra.
+      // We try calling with strategy first; if extra differs we attempt 2nd-arg.
+      var r;
+      try { r = window.calculateDebtPayoff(strategy, Number(extra) || 0); }
+      catch (_) { r = null; }
+      // Fallback shapes
+      if (r && typeof r === 'object') {
+        // Aggregate shape: {months, totalInterest, ...}
+        if (typeof r.months === 'number' && r.months > 0) {
+          return { months: Math.ceil(r.months), totalInterest: r.totalInterest };
         }
-      }
-      if (typeof window.simulateAllStrategies === 'function') {
-        var all = window.simulateAllStrategies(debts, Number(extra) || 0);
-        var pick = all && all[strategy];
-        if (pick && pick.months > 0) {
-          return { months: Math.ceil(pick.months), totalInterest: pick.totalInterest };
+        // Per-debt map: {debtId: {months, totalInterest, ...}}
+        var keys = Object.keys(r);
+        if (keys.length && typeof r[keys[0]] === 'object' && 'months' in (r[keys[0]] || {})) {
+          var maxM = 0, totalI = 0;
+          keys.forEach(function (k) {
+            var d = r[k];
+            if (d && typeof d.months === 'number') maxM = Math.max(maxM, d.months);
+            if (d && typeof d.totalInterest === 'number') totalI += d.totalInterest;
+          });
+          if (maxM > 0) return { months: Math.ceil(maxM), totalInterest: totalI };
         }
       }
     } catch (_) {}
@@ -64,11 +84,6 @@
       if (typeof window.getEffectiveExtraContribution === 'function') {
         var r = window.getEffectiveExtraContribution();
         if (r && typeof r.extra === 'number') return r.extra;
-      }
-    } catch (_) {}
-    try {
-      if (window.appState && window.appState.budget) {
-        return Number(window.appState.budget.extraContribution || window.appState.budget.extra) || 0;
       }
     } catch (_) {}
     return 0;
@@ -160,15 +175,24 @@
 
   function tick() {
     try {
-      if (!window.appState || !window.appState.debts || !window.appState.debts.length) return;
+      // No appState dependency. Just check that calculateDebtPayoff exists
+      // and returns valid data for at least the minimums-only scenario.
+      if (typeof window.calculateDebtPayoff !== 'function') return;
       var insertion = findBarInsertionPoint();
       if (!insertion) return;
+
       var custom = getCustomExtra();
       var aggressive = computeAggressive(custom);
       var displayCustom = custom > 0 ? custom : Math.max(100, Math.round(aggressive / 2));
+
       var minSim = simulate(0);
+      // If minimums-only sim fails or returns 0 months, the user has no
+      // debts — don't render tabs.
+      if (!minSim || !minSim.months) return;
+
       var customSim = simulate(displayCustom);
       var aggSim = simulate(aggressive);
+
       function makeS(key, label, extra, sim) {
         var months = sim ? sim.months : null;
         var ti = sim ? sim.totalInterest : null;
@@ -179,6 +203,7 @@
         makeS('custom', 'Your plan', displayCustom, customSim),
         makeS('aggressive', 'Aggressive', aggressive, aggSim)
       ];
+
       var wrap = document.getElementById(WRAP_ID);
       var positionMismatch = !wrap
         || wrap.parentElement !== insertion.parent
@@ -190,6 +215,7 @@
         wrap.style.cssText = 'display:flex;gap:6px;width:100%;margin:8px 0 0;font-family:Inter,system-ui,sans-serif;align-items:stretch;';
         insertion.parent.insertBefore(wrap, insertion.beforeNode);
       }
+
       var newChildren = [];
       scenarios.forEach(function (s) {
         var isActive = Math.abs(s.extra - custom) < 1;
@@ -198,7 +224,7 @@
       while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
       newChildren.forEach(function (c) { wrap.appendChild(c); });
     } catch (e) {
-      try { console.warn('[wjp-progress-scenarios v4] tick threw', e); } catch (_) {}
+      try { console.warn('[wjp-progress-scenarios v5] tick threw', e); } catch (_) {}
     }
   }
 
