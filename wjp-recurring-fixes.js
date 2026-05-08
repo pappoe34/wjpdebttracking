@@ -158,9 +158,11 @@
         + '</div>'
         + '</div>';
     });
-    if (el.dataset.wjpFixed === html) return; // no-op if unchanged
-    el.dataset.wjpFixed = html;
-    el.innerHTML = html;
+    // Always re-set innerHTML — app.js may have just overwritten ours.
+    if (el.innerHTML.indexOf('wjp-cd-marker') === -1 || el.dataset.wjpFixed !== html) {
+      el.dataset.wjpFixed = html;
+      el.innerHTML = '<span style="display:none;">wjp-cd-marker</span>' + html;
+    }
     el.style.display = 'block';
   }
 
@@ -290,12 +292,15 @@
 
   function boot() {
     wrapRender();
-    setTimeout(tick, 800);
-    setInterval(tick, 2500);
+    setTimeout(tick, 600);
+    setTimeout(tick, 1500);
+    // Tighter polling so we always win the race against app.js's
+    // recRenderCountdown which overwrites our output.
+    setInterval(tick, 600);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  window.WJP_RecurringFixes = { refresh: tick };
+  window.WJP_RecurringFixes = { refresh: tick, _cache: debtCache };
 })();
