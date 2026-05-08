@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4.1 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v4.2 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -36,7 +36,7 @@
   var MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var DAYS         = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 
-  var CATEGORIES = ["debt","subscription","utility","insurance","income","other"];
+  var CATEGORIES = ["debt","subscription","utility","insurance","income","transfers","other"];
 
   var state = {
     viewMonth:    new Date().getMonth(),
@@ -111,6 +111,23 @@
   }
 
   // ============================================================
+  // Display-name cleanup — Plaid merchant strings are long & noisy.
+  // ============================================================
+  function simplifyDisplayName(s) {
+    if (!s) return s;
+    var t = String(s).trim();
+    // Zelle: keep only "Zelle" — strip everything after, no IDs, no clutter
+    if (/^zelle\b/i.test(t)) return "Zelle";
+    // ZELLE DEBIT (occasional caps form)
+    if (/^zelle\s+(debit|credit)/i.test(t)) return "Zelle";
+    // BofA ATM deposits already filtered out, but if some leak through:
+    if (/^bkofamerica\s+atm/i.test(t)) return "BofA ATM";
+    // Generic: collapse extra-long lines (35 char cap)
+    if (t.length > 35) return t.slice(0, 32).trim() + "…";
+    return t;
+  }
+
+  // ============================================================
   // Merchant key normalization + auto-classify
   // ============================================================
   function merchantKey(s) {
@@ -133,7 +150,9 @@
   function autoClassify(name, plaidCategory) {
     var s = ((name || "") + " " + (plaidCategory || "")).toLowerCase();
     if (/payday|paycheck|payroll|direct\s*dep|wire\s*in|incoming|deposit\b|salary|benefit/.test(s)) return "income";
-    if (/transfer\s+from|transfer\s+to|internal\s+xfer|online\s+transfer|wire\s+out/.test(s)) return "other";
+    if (/^zelle\b|\bzelle\b/.test(s)) return "transfers";
+    if (/cash\s*app|venmo|paypal\s+(transfer|send)/.test(s)) return "transfers";
+    if (/transfer\s+from|transfer\s+to|internal\s+xfer|online\s+transfer|wire\s+out/.test(s)) return "transfers";
     if (/electric|\bgas\b|\bpower\b|water\s+co|sewer|internet|verizon|comcast|xfinity|t[-]?mobile|at\s*&\s*t|phone\s+bill|att|spectrum/.test(s)) return "utility";
     if (/insurance|policy|coverage|geico|progressive|state\s+farm|allstate|esurance|liberty\s+mutual|farmers/.test(s)) return "insurance";
     if (/netflix|spotify|hulu|disney|paramount|claude|chatgpt|anthropic|openai|adobe|microsoft\s*365|prime\s+video|youtube\s+premium|\bgym\b|peloton|nytimes|washingtonpost|patreon|substack|membership|subscription/.test(s)) return "subscription";
@@ -148,6 +167,7 @@
       case "utility":      return { color: "#0284c7", bg: "rgba(2,132,199,0.10)", border: "rgba(2,132,199,0.25)" };
       case "insurance":    return { color: "#c99a2a", bg: "rgba(201,154,42,0.12)", border: "rgba(201,154,42,0.30)" };
       case "income":       return { color: "#1f7a4a", bg: "rgba(31,122,74,0.12)", border: "rgba(31,122,74,0.30)" };
+      case "transfers":    return { color: "#0891b2", bg: "rgba(8,145,178,0.10)", border: "rgba(8,145,178,0.25)" };
       default:             return { color: "#6b7280", bg: "rgba(107,114,128,0.10)", border: "rgba(107,114,128,0.20)" };
     }
   }
@@ -224,7 +244,8 @@
         id: "rp:" + (rp.id || (origDate + "|" + (rp.name || ""))),
         date: date,
         origDate: origDate,
-        name: rp.name || "Payment",
+        name: simplifyDisplayName(rp.name || "Payment"),
+        rawName: rp.name || "Payment",
         merchant: rp.name || "",
         amount: Math.abs(rp.amount),
         category: rp.category || "",
@@ -255,7 +276,8 @@
         id: "tx:" + (tx.id || (origDate + "|" + (tx.merchant || ""))),
         date: date,
         origDate: origDate,
-        name: tx.merchant || "Transaction",
+        name: simplifyDisplayName(tx.merchant || "Transaction"),
+        rawName: tx.merchant || "Transaction",
         merchant: tx.merchant || "",
         amount: amt,
         category: "", // resolved later via override → autoClassify
@@ -644,7 +666,8 @@
       { k: "subscription", label: "Subs",        count: events.filter(function(e){return e.category==="subscription";}).length },
       { k: "utility",      label: "Utilities",   count: events.filter(function(e){return e.category==="utility";}).length },
       { k: "insurance",    label: "Insurance",   count: events.filter(function(e){return e.category==="insurance";}).length },
-      { k: "income",       label: "Income",      count: events.filter(function(e){return e.category==="income";}).length }
+      { k: "income",       label: "Income",      count: events.filter(function(e){return e.category==="income";}).length },
+      { k: "transfers",    label: "Transfers",   count: events.filter(function(e){return e.category==="transfers";}).length }
     ];
 
     var titleStr = state.view === "quarter"
