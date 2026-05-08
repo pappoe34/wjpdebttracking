@@ -1,4 +1,4 @@
-/* wjp-streak.js v3 — payment streak counter, mounted in top-right header.
+/* wjp-streak.js v4 — payment streak counter, mounted in top-right header.
  *
  * v1 placed the chip at top of sidebar, above the nav items — visually
  * orphaned. v2 mounts it inline with the existing header pills (Privacy
@@ -88,7 +88,7 @@
       + '<button type="button" id="wjp-streak-chip" '
       +   'title="Login streak — ' + label + ' (best: ' + (s.best || s.count) + ')" '
       +   'style="display:inline-flex;align-items:center;gap:7px;'
-      +   'padding:0;border-radius:0;'
+      +   'padding:0;border:0;outline:0;background:transparent;appearance:none;-webkit-appearance:none;'
       +   'font-family:var(--sans,Inter,system-ui,sans-serif);'
       +   'font-size:12.5px;font-weight:600;color:var(--ink,#0a0a0a);'
       +   'cursor:default;line-height:1;">'
