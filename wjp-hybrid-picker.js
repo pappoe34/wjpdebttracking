@@ -227,12 +227,12 @@
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99996;background:rgba(10,10,10,0.55);display:flex;align-items:center;justify-content:center;padding:20px;animation:wjpHpFade .2s ease-out';
 
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--card,#fff);color:var(--ink,#0a0a0a);border-radius:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.30);border:1px solid var(--border,rgba(0,0,0,0.08));font-family:Inter,system-ui,sans-serif';
+    card.style.cssText = 'background:var(--card,#fff);color:var(--ink,#0a0a0a);border-radius:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.30);border:1px solid var(--border,rgba(0,0,0,0.08));font-family:var(--sans,Inter,system-ui,sans-serif)';
 
     var html = ''
       + '<div style="padding:24px 28px 14px;border-bottom:1px solid var(--border,rgba(0,0,0,0.06));">'
       +   '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c99a2a;font-weight:800;margin-bottom:8px;">Hybrid algorithm</div>'
-      +   '<h2 style="font-family:Fraunces,Georgia,serif;font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;line-height:1.2;">How should Hybrid order your debts?</h2>'
+      +   '<h2 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;line-height:1.2;">How should Hybrid order your debts?</h2>'
       +   '<p style="font-size:14px;color:var(--ink-dim,#6b7280);line-height:1.55;margin:0;">Each option uses a different rule for the order. Pick what matters most for your situation.</p>'
       + '</div>'
       + '<div id="wjp-hp-options" style="padding:14px 18px 8px;">';
@@ -379,7 +379,7 @@
       }
       var lbl = document.createElement('div');
       lbl.className = 'wjp-hp-label';
-      lbl.style.cssText = 'font-size:10.5px;letter-spacing:0.05em;color:var(--ink-faint,#9ca3af);font-weight:600;margin-top:8px;padding:4px 10px;background:rgba(31,122,74,0.06);border-radius:999px;display:inline-block;font-family:Inter,system-ui,sans-serif;';
+      lbl.style.cssText = 'font-size:10.5px;letter-spacing:0.05em;color:var(--ink-faint,#9ca3af);font-weight:600;margin-top:8px;padding:4px 10px;background:rgba(31,122,74,0.06);border-radius:999px;display:inline-block;font-family:var(--sans,Inter,system-ui,sans-serif);';
       lbl.textContent = text;
       card.appendChild(lbl);
     } catch (_) {}
@@ -414,11 +414,11 @@
     var algo = ALGORITHMS[current];
     var card = document.createElement('div');
     card.id = 'wjp-hp-settings-card';
-    card.style.cssText = 'background:var(--card,#fff);border:1px solid var(--border,rgba(0,0,0,0.08));border-radius:14px;padding:20px 22px;margin:18px 0;font-family:Inter,system-ui,sans-serif;color:var(--ink,#0a0a0a)';
+    card.style.cssText = 'background:var(--card,#fff);border:1px solid var(--border,rgba(0,0,0,0.08));border-radius:14px;padding:20px 22px;margin:18px 0;font-family:var(--sans,Inter,system-ui,sans-serif);color:var(--ink,#0a0a0a)';
 
     var html = ''
       + '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-faint,#9ca3af);font-weight:800;margin-bottom:10px;">Hybrid algorithm</div>'
-      + '<h3 style="font-family:Fraunces,Georgia,serif;font-size:20px;font-weight:600;margin:0 0 6px;letter-spacing:-0.01em;">How Hybrid orders your debts</h3>'
+      + '<h3 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:20px;font-weight:600;margin:0 0 6px;letter-spacing:-0.01em;">How Hybrid orders your debts</h3>'
       + '<p style="font-size:13.5px;color:var(--ink-dim,#6b7280);line-height:1.55;margin:0 0 14px;">Snowball sorts by smallest balance, Avalanche sorts by highest APR. Hybrid is whatever you want — pick the rule that fits your psychology and finances.</p>'
       + '<div style="background:#fbf9f4;border-left:3px solid var(--accent,#1f7a4a);border-radius:8px;padding:12px 14px;margin-bottom:14px;">'
       +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">'
@@ -472,7 +472,7 @@
       if (!pill) {
         pill = document.createElement('div');
         pill.id = pillId;
-        pill.style.cssText = 'display:inline-block;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;background:rgba(31,122,74,0.10);color:#1f7a4a;padding:4px 10px;border-radius:999px;font-weight:800;margin-bottom:8px;font-family:Inter,system-ui,sans-serif;';
+        pill.style.cssText = 'display:inline-block;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;background:rgba(31,122,74,0.10);color:#1f7a4a;padding:4px 10px;border-radius:999px;font-weight:800;margin-bottom:8px;font-family:var(--sans,Inter,system-ui,sans-serif);';
         card.insertBefore(pill, card.firstChild);
       }
       pill.textContent = 'Selected: ' + copy.subhead;
