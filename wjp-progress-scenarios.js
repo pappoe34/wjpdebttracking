@@ -211,14 +211,19 @@
   // === Find injection point ===
   function findInjectionAnchor() {
     // Prefer the freedom-fill bar's parent so chips appear with the bar
-    var bar = document.getElementById('freedom-fill') || document.querySelector('.summary-progress, [class*="freedom-progress"]');
+    var bar = document.getElementById('freedom-progress-fill') || document.getElementById('freedom-fill') || document.querySelector('[id*="freedom-progress"], .summary-progress');
     if (bar) {
-      // Walk up to a sensible container (the bar's parent's parent is usually right)
+      // Walk up to the section that also contains freedom-paid-amt and freedom-target-amt
+      // (this is the Executive Summary block). Fallback to bar's grand-parent.
       var anchor = bar.parentElement;
-      while (anchor && anchor.parentElement && anchor.getBoundingClientRect().width < 400) {
+      var maxDepth = 6;
+      while (anchor && maxDepth-- > 0) {
+        if (anchor.querySelector('#freedom-paid-amt') && anchor.querySelector('#freedom-target-amt')) {
+          return anchor;
+        }
         anchor = anchor.parentElement;
       }
-      return anchor;
+      return bar.parentElement && bar.parentElement.parentElement;
     }
     // Fallback: the executive summary section
     return document.getElementById('exec-summary') || document.querySelector('[class*="exec-summary"], .executive-summary');
