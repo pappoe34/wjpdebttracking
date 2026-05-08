@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wjp-debt-v4-p5c';
+const CACHE_NAME = 'wjp-debt-v4-p5c-may9';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
