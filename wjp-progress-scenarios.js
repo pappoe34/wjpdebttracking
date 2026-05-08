@@ -110,11 +110,11 @@
     btn.title = scenario.label + (scenario.dateStr ? ' - ' + scenario.dateStr : '');
     btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     btn.style.cssText = [
-      'padding:5px 10px',
+      'padding:6px 12px',
       'background:' + (isActive ? '#1f7a4a' : 'rgba(255,255,255,0.92)'),
       'color:' + (isActive ? '#fff' : '#0a0a0a'),
       'border:1px solid ' + (isActive ? '#1f7a4a' : 'rgba(0,0,0,0.12)'),
-      'border-radius:999px',
+      'border-radius:14px','min-width:130px',
       'cursor:pointer',
       'font-family:Inter,system-ui,sans-serif',
       'font-size:10.5px',
@@ -127,7 +127,7 @@
     ].join(';');
     var labelText = scenario.shortLabel;
     var dateText = scenario.dateStr || '-';
-    btn.innerHTML = '<span style="opacity:' + (isActive ? '0.85' : '0.55') + ';font-size:9px;letter-spacing:0.10em;text-transform:uppercase;display:block;margin-bottom:1px;">' + labelText + '</span><span style="font-weight:600;font-size:11.5px;letter-spacing:0.02em;">' + dateText + '</span>';
+    btn.innerHTML = '<span style="display:block;font-weight:700;font-size:11px;letter-spacing:0.01em;line-height:1.15;">' + labelText + '</span><span style="display:block;opacity:' + (isActive ? '0.85' : '0.55') + ';font-size:9.5px;font-weight:500;letter-spacing:0.02em;margin-top:1px;">' + dateText + '</span>';
     btn.addEventListener('mouseenter', function () { if (!isActive) { btn.style.borderColor = '#1f7a4a'; btn.style.transform = 'translateY(-1px)'; } });
     btn.addEventListener('mouseleave', function () { if (!isActive) { btn.style.borderColor = 'rgba(0,0,0,0.12)'; btn.style.transform = 'translateY(0)'; } });
     btn.addEventListener('click', function () { onChipClick(scenario); });
@@ -168,9 +168,9 @@
         };
       }
       var scenarios = [
-        makeS('minimums', 'Minimums only', 'MIN', 0, minSim),
-        makeS('custom', 'Your plan', 'YOU', displayCustom, customSim),
-        makeS('aggressive', 'Aggressive', 'MAX', aggressive, aggSim)
+        makeS('minimums', 'Minimum payments only', 'MINIMUMS ONLY', 0, minSim),
+        makeS('custom', 'Extra payment', 'EXTRA PAYMENT', displayCustom, customSim),
+        makeS('aggressive', 'Aggressive mode', 'AGGRESSIVE MODE', aggressive, aggSim)
       ];
 
       // Ensure the card is positioned so we can absolutely-place chips.
@@ -187,7 +187,7 @@
         wrap.style.cssText = [
           'position:absolute',
           'top:18px',
-          'right:64px', // leave room for the existing gear icon at right:18px
+          'right:60px', // clear of the gear icon at right:18px (gear is ~36px)
           'display:flex',
           'gap:5px',
           'z-index:5',
