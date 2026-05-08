@@ -1,7 +1,8 @@
-/* wjp-progress-scenarios.js — v6 (small chips, top-right corner of Exec Summary card).
- * Tiny pill chips in the top-right corner of the dashboard's Executive Summary
- * card. Each shows: label + projected debt-free date. Click applies that
- * scenario. Active chip = filled green. Doesn't interfere with the bar.
+/* wjp-progress-scenarios.js — v7 (segmented toggle).
+ * Single connected pill in the top-right corner of the Exec Summary card with
+ * 3 segments: Minimums / Extra payment / Aggressive. iOS-style segmented
+ * control. Active segment shows white inner pill with shadow. Click changes
+ * the active scenario, dashboard re-renders.
  */
 (function () {
   'use strict';
@@ -86,8 +87,6 @@
     return Math.max((Number(custom) || 0) * 2, getAvailableCashflow(), 500);
   }
 
-  // Find the Exec Summary card and ensure it's relatively positioned so we
-  // can absolutely-position chips in its top-right corner.
   function findCard() {
     var paid = document.getElementById('freedom-paid-amt');
     if (!paid) return null;
@@ -103,38 +102,39 @@
     return null;
   }
 
-  function buildChip(scenario, isActive) {
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.dataset.scenarioKey = scenario.key;
-    btn.title = scenario.label + (scenario.dateStr ? ' - ' + scenario.dateStr : '');
-    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    btn.style.cssText = [
-      'padding:6px 12px',
-      'background:' + (isActive ? '#1f7a4a' : 'rgba(255,255,255,0.92)'),
-      'color:' + (isActive ? '#fff' : '#0a0a0a'),
-      'border:1px solid ' + (isActive ? '#1f7a4a' : 'rgba(0,0,0,0.12)'),
-      'border-radius:14px','min-width:130px',
+  function buildSegment(scenario, isActive) {
+    var seg = document.createElement('button');
+    seg.type = 'button';
+    seg.dataset.scenarioKey = scenario.key;
+    seg.title = scenario.fullLabel + (scenario.dateStr ? ' - ' + scenario.dateStr : '');
+    seg.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    seg.style.cssText = [
+      'flex:1',
+      'padding:6px 14px',
+      'background:' + (isActive ? '#fff' : 'transparent'),
+      'color:' + (isActive ? '#0a0a0a' : 'rgba(10,10,10,0.55)'),
+      'border:0',
+      'border-radius:999px',
       'cursor:pointer',
       'font-family:Inter,system-ui,sans-serif',
-      'font-size:10.5px',
-      'font-weight:700',
-      'letter-spacing:0.02em',
+      'transition:background .15s, color .15s, box-shadow .15s, transform .12s',
+      'box-shadow:' + (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none'),
       'white-space:nowrap',
-      'transition:background .15s, color .15s, border-color .15s, transform .12s',
-      'box-shadow:' + (isActive ? '0 2px 6px rgba(31,122,74,0.25)' : '0 1px 2px rgba(0,0,0,0.05)'),
-      'line-height:1.15'
+      'line-height:1.15',
+      'position:relative',
+      'z-index:' + (isActive ? '2' : '1'),
+      'min-width:0'
     ].join(';');
-    var labelText = scenario.shortLabel;
-    var dateText = scenario.dateStr || '-';
-    btn.innerHTML = '<span style="display:block;font-weight:700;font-size:11px;letter-spacing:0.01em;line-height:1.15;">' + labelText + '</span><span style="display:block;opacity:' + (isActive ? '0.85' : '0.55') + ';font-size:9.5px;font-weight:500;letter-spacing:0.02em;margin-top:1px;">' + dateText + '</span>';
-    btn.addEventListener('mouseenter', function () { if (!isActive) { btn.style.borderColor = '#1f7a4a'; btn.style.transform = 'translateY(-1px)'; } });
-    btn.addEventListener('mouseleave', function () { if (!isActive) { btn.style.borderColor = 'rgba(0,0,0,0.12)'; btn.style.transform = 'translateY(0)'; } });
-    btn.addEventListener('click', function () { onChipClick(scenario); });
-    return btn;
+    seg.innerHTML = ''
+      + '<span style="display:block;font-weight:700;font-size:10.5px;letter-spacing:0.02em;color:' + (isActive ? '#0a0a0a' : 'rgba(10,10,10,0.65)') + ';">' + scenario.label + '</span>'
+      + '<span style="display:block;font-size:9.5px;font-weight:500;color:' + (isActive ? 'var(--accent,#1f7a4a)' : 'rgba(10,10,10,0.45)') + ';margin-top:1px;letter-spacing:0.02em;">' + (scenario.dateStr || '-') + '</span>';
+    seg.addEventListener('mouseenter', function () { if (!isActive) seg.style.color = '#0a0a0a'; });
+    seg.addEventListener('mouseleave', function () { if (!isActive) seg.style.color = 'rgba(10,10,10,0.55)'; });
+    seg.addEventListener('click', function () { onSegmentClick(scenario); });
+    return seg;
   }
 
-  function onChipClick(s) {
+  function onSegmentClick(s) {
     try {
       var key = 'wjp.extraToggle.v1';
       var cfg = { enabled: s.extra > 0, mode: 'manual', amount: Math.round(s.extra) };
@@ -160,20 +160,19 @@
       var customSim = simulate(displayCustom);
       var aggSim = simulate(aggressive);
 
-      function makeS(key, label, shortLabel, extra, sim) {
+      function makeS(key, label, fullLabel, extra, sim) {
         var months = sim ? sim.months : null;
         return {
-          key: key, label: label, shortLabel: shortLabel, extra: extra,
+          key: key, label: label, fullLabel: fullLabel, extra: extra,
           months: months, dateStr: months ? fmtDate(months) : null
         };
       }
       var scenarios = [
-        makeS('minimums', 'Minimum payments only', 'MINIMUMS ONLY', 0, minSim),
-        makeS('custom', 'Extra payment', 'EXTRA PAYMENT', displayCustom, customSim),
-        makeS('aggressive', 'Aggressive mode', 'AGGRESSIVE MODE', aggressive, aggSim)
+        makeS('minimums', 'Minimums', 'Minimum payments only', 0, minSim),
+        makeS('custom', 'Extra', 'Extra payment', displayCustom, customSim),
+        makeS('aggressive', 'Aggressive', 'Aggressive mode', aggressive, aggSim)
       ];
 
-      // Ensure the card is positioned so we can absolutely-place chips.
       try {
         var pos = window.getComputedStyle(card).position;
         if (pos === 'static') card.style.position = 'relative';
@@ -184,26 +183,35 @@
         if (wrap) try { wrap.remove(); } catch (_) {}
         wrap = document.createElement('div');
         wrap.id = WRAP_ID;
+        // Segmented control container — single rounded pill with light background
         wrap.style.cssText = [
           'position:absolute',
           'top:18px',
-          'right:60px', // clear of the gear icon at right:18px (gear is ~36px)
+          'right:60px',
           'display:flex',
-          'gap:5px',
+          'gap:2px',
+          'padding:3px',
+          'background:rgba(255,255,255,0.65)',
+          'border:1px solid rgba(0,0,0,0.08)',
+          'border-radius:999px',
           'z-index:5',
           'font-family:Inter,system-ui,sans-serif',
-          'pointer-events:auto'
+          'box-shadow:inset 0 1px 2px rgba(0,0,0,0.04)',
+          'pointer-events:auto',
+          'backdrop-filter:blur(6px)'
         ].join(';');
         card.appendChild(wrap);
+      } else {
+        // Reset inline styles in case width changed; the container style is fixed
       }
 
       while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
       scenarios.forEach(function (s) {
         var isActive = Math.abs(s.extra - custom) < 1;
-        wrap.appendChild(buildChip(s, isActive));
+        wrap.appendChild(buildSegment(s, isActive));
       });
     } catch (e) {
-      try { console.warn('[wjp-progress-scenarios v6] tick threw', e); } catch (_) {}
+      try { console.warn('[wjp-progress-scenarios v7] tick threw', e); } catch (_) {}
     }
   }
 
