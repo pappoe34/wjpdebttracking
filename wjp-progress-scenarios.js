@@ -83,8 +83,29 @@
     return 0;
   }
 
-  function computeAggressive(custom) {
-    return Math.max((Number(custom) || 0) * 2, getAvailableCashflow(), 500);
+  // Aggressive must NOT depend on current custom — that creates a feedback
+  // loop where clicking Aggressive changes the value, which changes Aggressive
+  // again on next tick, and the active-state derivation breaks.
+  function computeAggressive() {
+    var surplus = getAvailableCashflow();
+    var minSum = 0;
+    try {
+      // Approximate 2x total minimums as a stable aggressive target
+      if (typeof window.calculateDebtPayoff === 'function') {
+        var r = window.calculateDebtPayoff(getStrategy(), 0);
+        if (r && typeof r === 'object') {
+          var keys = Object.keys(r);
+          keys.forEach(function (k) {
+            var d = r[k];
+            if (d && typeof d.monthlyPayment === 'number') minSum += d.monthlyPayment;
+            else if (d && typeof d.minPayment === 'number') minSum += d.minPayment;
+          });
+        }
+      }
+    } catch (_) {}
+    var floor = 500;
+    var fromMin = minSum > 0 ? Math.round(minSum * 1.5) : 0;
+    return Math.max(surplus, fromMin, floor);
   }
 
   function findCard() {
@@ -150,7 +171,7 @@
       if (!card) return;
 
       var custom = getCustomExtra();
-      var aggressive = computeAggressive(custom);
+      var aggressive = computeAggressive();
       var displayCustom = custom > 0 ? custom : Math.max(100, Math.round(aggressive / 2));
 
       var minSim = simulate(0);
