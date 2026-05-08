@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v4.1 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -176,6 +176,25 @@
     return ev.date < todayK && ev.category !== "income";
   }
 
+  // Skip internal bank transfers, interest charges, and other non-bill noise.
+  // These are not actionable payments — they're bank chatter that bloats the
+  // calendar without giving the user anything to act on.
+  function isNoisyTransaction(tx) {
+    var s = ((tx.merchant || "") + " " + (tx.method || "") + " " + (tx.category || "")).toLowerCase();
+    if (/transfer\s+from\s+acct/.test(s)) return true;
+    if (/transfer\s+to\s+acct/.test(s)) return true;
+    if (/online\s+banking\s+transfer/.test(s)) return true;
+    if (/internal\s+xfer/.test(s)) return true;
+    if (/\bxfer\b/.test(s)) return true;
+    if (/wire\s+(in|out)\s+from\s+(self|own)/.test(s)) return true;
+    // Interest charges are fees, not payments
+    if (/interest\s+charge/.test(s)) return true;
+    // Internal bank ATM activity (deposits to one's own account aren't bills)
+    if (/\bbkofamerica\s+atm\b/.test(s) && /deposit/.test(s)) return true;
+    if (/\batm\s+\d+.*deposit\b/.test(s)) return true;
+    return false;
+  }
+
   // ============================================================
   // Data harvest from localStorage app state
   // ============================================================
@@ -220,7 +239,7 @@
       });
     });
 
-    // 2. Plaid transactions (filter to window + significance)
+    // 2. Plaid transactions (filter to window + significance + skip noise)
     (raw.transactions || []).forEach(function (tx) {
       if (!tx || !tx.date || tx.amount == null) return;
       var t = new Date(String(tx.date).slice(0, 10) + "T12:00:00").getTime();
@@ -228,6 +247,7 @@
       if (t < minMs || t > maxMs) return;
       var amt = Math.abs(Number(tx.amount));
       if (!isFinite(amt) || amt < 25) return; // significance gate
+      if (isNoisyTransaction(tx)) return;     // skip internal bank chatter
       var origDate = String(tx.date).slice(0, 10);
       var ovKey = origDate + "|" + (tx.merchant || tx.id || "");
       var date = ovDate[ovKey] || origDate;
