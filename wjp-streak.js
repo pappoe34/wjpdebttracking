@@ -1,4 +1,4 @@
-/* wjp-streak.js v5 — payment streak counter, mounted in top-right header.
+/* wjp-streak.js v6 — payment streak counter, mounted in top-right header.
  *
  * v1 placed the chip at top of sidebar, above the nav items — visually
  * orphaned. v2 mounts it inline with the existing header pills (Privacy
@@ -53,23 +53,48 @@
     return s;
   }
 
-  // Find the pill row that holds Privacy Mode / Sync Bank / Bank Health.
-  // Walk up from any of those buttons to a shared parent.
+  // Anchor on the "Search insights..." input — chip is inserted right
+  // BEFORE its wrapper, so visually it lands between the left-side tabs
+  // (..."Strategy") and the search bar.
   function findHeaderPillRow() {
-    var anchors = [];
-    document.querySelectorAll('button, a, [role=button], [class*="pill"], [class*="btn"]').forEach(function (n) {
-      var t = (n.textContent || '').toLowerCase();
-      if (/privacy mode|bank health|sync bank/.test(t) && n.offsetParent !== null) anchors.push(n);
+    var input = Array.from(document.querySelectorAll('input')).find(function (i) {
+      var p = (i.placeholder || '').toLowerCase();
+      return p.indexOf('search insights') !== -1 && i.offsetParent !== null;
     });
-    if (!anchors.length) return null;
-    // Walk up until we find a parent that contains at least 2 of the anchors
-    var cand = anchors[0].parentElement;
-    while (cand) {
-      var hits = anchors.filter(function (a) { return cand.contains(a); }).length;
-      if (hits >= 2) return { row: cand, beforeNode: anchors[0] };
-      cand = cand.parentElement;
+    if (!input) {
+      // Fallback to old behaviour if search not found
+      var anchors = [];
+      document.querySelectorAll('button, a, [role=button], [class*="pill"], [class*="btn"]').forEach(function (n) {
+        var t = (n.textContent || '').toLowerCase();
+        if (/privacy mode|bank health|sync bank/.test(t) && n.offsetParent !== null) anchors.push(n);
+      });
+      if (!anchors.length) return null;
+      var cand = anchors[0].parentElement;
+      while (cand) {
+        var hits = anchors.filter(function (a) { return cand.contains(a); }).length;
+        if (hits >= 2) return { row: cand, beforeNode: anchors[0] };
+        cand = cand.parentElement;
+      }
+      return { row: anchors[0].parentElement, beforeNode: anchors[0] };
     }
-    return { row: anchors[0].parentElement, beforeNode: anchors[0] };
+    // Walk up from the input until we hit the row-level parent that holds
+    // pills like "Privacy Mode" / "Sync Bank" — then we insert the chip
+    // right before the search input's direct wrapper inside that row.
+    var rowParent = input.parentElement;
+    while (rowParent) {
+      var pillSibling = Array.from(rowParent.querySelectorAll('button, a, [class*="pill"]')).find(function (n) {
+        return /privacy mode|bank health|sync bank/i.test((n.textContent || ''));
+      });
+      if (pillSibling) break;
+      rowParent = rowParent.parentElement;
+    }
+    if (!rowParent) rowParent = input.parentElement;
+    // beforeNode is the direct child of rowParent that contains the search input
+    var beforeNode = input;
+    while (beforeNode.parentElement && beforeNode.parentElement !== rowParent) {
+      beforeNode = beforeNode.parentElement;
+    }
+    return { row: rowParent, beforeNode: beforeNode };
   }
 
   // Pick a milestone emoji that evolves with streak length so the chip
