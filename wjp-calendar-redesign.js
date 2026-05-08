@@ -157,6 +157,8 @@
     if (/insurance|policy|coverage|geico|progressive|state\s+farm|allstate|esurance|liberty\s+mutual|farmers/.test(s)) return "insurance";
     if (/netflix|spotify|hulu|disney|paramount|claude|chatgpt|anthropic|openai|adobe|microsoft\s*365|prime\s+video|youtube\s+premium|\bgym\b|peloton|nytimes|washingtonpost|patreon|substack|membership|subscription/.test(s)) return "subscription";
     if (/\brent\b|rental\s+payment|mortgage|\bmtg\b|landlord|property\s+(mgmt|management|manager)|\bhoa\b|homeowners|apartment\s+pay|home\s+(loan|payment)/.test(s)) return "housing";
+    if (/\bgas\s+station|exxon|chevron|\bshell\b|\bbp\s+gas|mobil\b|citgo|sunoco|76\s+gas|valero|conoco|wawa\s+gas|7-eleven|fuel\s+stop|gasoline|\bpetrol|parking\s+(garage|lot|meter)|\btolls?\b|ezpass|e-zpass|fastrak|jiffy\s+lube|valvoline|midas|firestone|pep\s+boys|tire(\s+(kingdom|shop)|s\s+plus)|car\s+wash|aaa\s+club|\bdmv\b|department\s+of\s+motor|vehicle\s+(reg|registration)|auto\s+(parts|repair|body|service)|\boreilly\s+auto|advance\s+auto|autozone|napa\s+auto|uber\b|lyft\b/.test(s)) return "car";
+    if (/staples|office\s+depot|fedex|ups\s+store|usps\s+(office|store)|coworking|wework|regus|industrious|aws\s+(billing|services)|amazon\s+web\s+services|google\s+cloud|azure\s+billing|hubspot|salesforce|linkedin\s+(premium|sales)|quickbooks|zoom\s+meet|stripe\s+(fee|payout)|business\s+(card|services)|\bllc\b|\binc\.|invoice\s+(payment|fee)/.test(s)) return "business";
     if (/avant|affirm|klarna|sofi|capital\s+one|milestone|credit\s+one|brightway|westlake|aidadvantage|one\s+main|credit\s+card|\bloan\b/.test(s)) return "debt";
     return "other";
   }
@@ -671,6 +673,8 @@
       { k: "all",          label: "All",         count: events.length },
       { k: "debt",         label: "Debts",       count: events.filter(function(e){return e.category==="debt";}).length },
       { k: "housing",      label: "Rent/Home",   count: events.filter(function(e){return e.category==="housing";}).length },
+      { k: "car",          label: "Car",         count: events.filter(function(e){return e.category==="car";}).length },
+      { k: "business",     label: "Business",    count: events.filter(function(e){return e.category==="business";}).length },
       { k: "subscription", label: "Subs",        count: events.filter(function(e){return e.category==="subscription";}).length },
       { k: "utility",      label: "Utilities",   count: events.filter(function(e){return e.category==="utility";}).length },
       { k: "insurance",    label: "Insurance",   count: events.filter(function(e){return e.category==="insurance";}).length },
