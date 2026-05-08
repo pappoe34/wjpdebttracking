@@ -229,7 +229,7 @@
     if (existing) { existing.remove(); return; }
     var form = document.createElement('div');
     form.className = 'wjp-rt-edit-form';
-    form.style.cssText = 'background:rgba(31,122,74,0.05);border:1px solid rgba(31,122,74,0.20);border-radius:10px;padding:12px;margin:0 14px 12px;font-family:Inter,system-ui,sans-serif;';
+    form.style.cssText = 'background:rgba(31,122,74,0.05);border:1px solid rgba(31,122,74,0.20);border-radius:10px;padding:12px;margin:0 14px 12px;font-family:var(--sans,Inter,system-ui,sans-serif);';
     form.innerHTML = ''
       + '<div style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#1f7a4a;font-weight:800;margin-bottom:8px;">Edit data</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
@@ -278,7 +278,7 @@
       'border:1px solid ' + (isExpanded ? 'rgba(31,122,74,0.45)' : 'var(--border,rgba(0,0,0,0.08))'),
       'border-radius:12px',
       'padding:0',
-      'font-family:Inter,system-ui,sans-serif',
+      'font-family:var(--sans,Inter,system-ui,sans-serif)',
       'color:var(--ink,#0a0a0a)',
       'transition:border-color .15s, box-shadow .15s',
       'box-shadow:' + (isExpanded ? '0 4px 14px rgba(31,122,74,0.10)' : '0 1px 3px rgba(0,0,0,0.04)'),
@@ -395,7 +395,7 @@
         if (grid) try { grid.remove(); } catch (_) {}
         grid = document.createElement('div');
         grid.id = WRAP_ID;
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:8px;margin:6px 0 22px;font-family:Inter,system-ui,sans-serif;align-items:start;';
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:8px;margin:6px 0 22px;font-family:var(--sans,Inter,system-ui,sans-serif);align-items:start;';
         var statsBar = content.querySelector('#rec-stats-bar') || content.firstElementChild;
         if (statsBar && statsBar.nextSibling) content.insertBefore(grid, statsBar.nextSibling);
         else content.insertBefore(grid, content.firstChild);
@@ -403,8 +403,8 @@
         if (existingHeading) existingHeading.remove();
         var heading = document.createElement('div');
         heading.id = 'wjp-rt-heading';
-        heading.style.cssText = 'margin:18px 0 10px;font-family:Fraunces,Georgia,serif;font-size:20px;font-weight:600;letter-spacing:-0.01em;color:var(--ink,#0a0a0a);';
-        heading.innerHTML = 'Your bills explained <span style="font-family:Inter,system-ui,sans-serif;font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;font-weight:700;background:rgba(0,0,0,0.04);padding:3px 9px;border-radius:999px;margin-left:8px;">Click any bill to expand</span>';
+        heading.style.cssText = 'margin:18px 0 10px;font-family:var(--sans,Inter,system-ui,sans-serif);font-size:20px;font-weight:600;letter-spacing:-0.01em;color:var(--ink,#0a0a0a);';
+        heading.innerHTML = 'Your bills explained <span style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;font-weight:700;background:rgba(0,0,0,0.04);padding:3px 9px;border-radius:999px;margin-left:8px;">Click any bill to expand</span>';
         grid.parentNode.insertBefore(heading, grid);
       }
 
