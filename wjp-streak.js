@@ -1,4 +1,4 @@
-/* wjp-streak.js v4 — payment streak counter, mounted in top-right header.
+/* wjp-streak.js v5 — payment streak counter, mounted in top-right header.
  *
  * v1 placed the chip at top of sidebar, above the nav items — visually
  * orphaned. v2 mounts it inline with the existing header pills (Privacy
@@ -72,29 +72,44 @@
     return { row: anchors[0].parentElement, beforeNode: anchors[0] };
   }
 
+  // Pick a milestone emoji that evolves with streak length so the chip
+  // visibly levels up over time. Each tier earns a fresh icon — small dose
+  // of novelty without leaving the design language.
+  function emojiForCount(c) {
+    if (c >= 365) return { e: '👑', label: 'crown' };
+    if (c >= 180) return { e: '💎', label: 'diamond' };
+    if (c >= 100) return { e: '🏆', label: 'trophy' };
+    if (c >= 60)  return { e: '🚀', label: 'rocket' };
+    if (c >= 30)  return { e: '💪', label: 'flex' };
+    if (c >= 14)  return { e: '⚡', label: 'bolt' };
+    if (c >= 7)   return { e: '🌱', label: 'sprout' };
+    if (c >= 3)   return { e: '🔥', label: 'fire' };
+    return { e: '✨', label: 'spark' };
+  }
+
   function renderChip() {
     var s = loadState();
     if (!s || !s.count) return;
     var info = findHeaderPillRow();
     if (!info) return;
+    var icon = emojiForCount(s.count);
     var label = s.count + ' day' + (s.count === 1 ? '' : 's') + ' streak';
     var existing = document.getElementById('wjp-streak-chip');
-    // If existing chip lives outside the right header row, remove it (cleanup of v1 placement)
     if (existing && existing.parentElement !== info.row) {
       try { existing.remove(); } catch (_) {}
       existing = null;
     }
     var html = ''
-      + '<button type="button" id="wjp-streak-chip" '
+      + '<span id="wjp-streak-chip" '
+      +   'role="status" '
       +   'title="Login streak — ' + label + ' (best: ' + (s.best || s.count) + ')" '
       +   'style="display:inline-flex;align-items:center;gap:7px;'
-      +   'padding:0;border:0;outline:0;background:transparent;appearance:none;-webkit-appearance:none;'
       +   'font-family:var(--sans,Inter,system-ui,sans-serif);'
       +   'font-size:12.5px;font-weight:600;color:var(--ink,#0a0a0a);'
-      +   'cursor:default;line-height:1;">'
-      +   '<span aria-hidden="true" style="font-size:13px;line-height:1;display:inline-block;transform:translateY(-0.5px);">🔥</span>'
+      +   'cursor:default;line-height:1;user-select:none;">'
+      +   '<span aria-hidden="true" style="font-size:13px;line-height:1;display:inline-block;transform:translateY(-0.5px);">' + icon.e + '</span>'
       +   '<span><b style="font-weight:700;">' + s.count + '</b> day' + (s.count === 1 ? '' : 's') + ' streak</span>'
-      + '</button>';
+      + '</span>';
     if (existing) {
       if (existing.dataset.wjpHtml === html) return;
       existing.outerHTML = html;
@@ -102,7 +117,6 @@
       if (fresh) fresh.dataset.wjpHtml = html;
       return;
     }
-    // Insert before the first existing pill in the row so streak appears left-most
     var wrap = document.createElement('div');
     wrap.innerHTML = html;
     var chip = wrap.firstElementChild;
