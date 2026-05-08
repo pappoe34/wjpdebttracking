@@ -21,6 +21,14 @@
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --shadow: 0 4px 24px rgba(0,0,0,0.18);
   --shadow-lg: 0 8px 40px rgba(0,0,0,0.28);
+  /* Typography tokens — dashboard is sans-only; serif reserved for brand glyph + signed-out splash */
+  --sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Ink color aliases used by overlay modules */
+  --ink: var(--text);
+  --ink-dim: var(--text-2);
+  --ink-faint: var(--text-3);
 }
 
 /* ---------- DARK MODE (DEFAULT) ---------- */
@@ -72,7 +80,7 @@ body.light {
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--sans);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
