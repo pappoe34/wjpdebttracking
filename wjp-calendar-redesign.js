@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4.5 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v4.6 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -1040,18 +1040,19 @@
       var popover = root.querySelector('.wjp-cal-popover-fixed');
       if (trigger && popover) {
         var r = trigger.getBoundingClientRect();
-        // Position popover to the LEFT of trigger so it doesn't flow off-screen,
-        // and aligned to the trigger's top edge.
-        var pw = 200;
-        var leftPx = r.right - pw;
-        if (leftPx < 8) leftPx = 8;
-        if (leftPx + pw > window.innerWidth - 8) leftPx = window.innerWidth - pw - 8;
-        var topPx = r.bottom + 6;
-        // Avoid bottom clip
-        if (topPx + 200 > window.innerHeight) topPx = r.top - 200 - 6;
+        var popW = 200, popH = popover.offsetHeight || 168;
+        // Anchor side-by-side with the trigger so it always sits glued to the
+        // clicked cell — left of the dot if there's room, otherwise right.
+        var leftPx = r.left - popW - 8;
+        if (leftPx < 8) leftPx = r.right + 6;
+        if (leftPx + popW > window.innerWidth - 8) leftPx = window.innerWidth - popW - 8;
+        // Vertically align with the dot, but clamp to viewport.
+        var topPx = r.top - 4;
+        if (topPx + popH > window.innerHeight - 8) topPx = window.innerHeight - popH - 8;
+        if (topPx < 8) topPx = 8;
         popover.style.left   = leftPx + "px";
         popover.style.top    = topPx + "px";
-        popover.style.minWidth = pw + "px";
+        popover.style.minWidth = popW + "px";
       }
     }
 
