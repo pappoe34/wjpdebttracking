@@ -150,13 +150,13 @@
       'border-radius:14px',
       'padding:20px 22px',
       'margin:18px 0',
-      'font-family:Inter,system-ui,sans-serif',
+      'font-family:var(--sans,Inter,system-ui,sans-serif)',
       'color:var(--ink,#0a0a0a)'
     ].join(';');
 
     var html = ''
       + '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-faint,#9ca3af);font-weight:800;margin-bottom:10px;">Plan management</div>'
-      + '<h3 style="font-family:Fraunces,Georgia,serif;font-size:20px;font-weight:600;margin:0 0 14px;letter-spacing:-0.01em;">'
+      + '<h3 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:20px;font-weight:600;margin:0 0 14px;letter-spacing:-0.01em;">'
       +   'You\'re on ' + (tier === 'plus' ? 'Pro Plus' : 'Pro')
       +   (cycle ? ' &middot; <span style="color:var(--ink-dim,#6b7280);font-weight:500;">' + cycle.charAt(0).toUpperCase() + cycle.slice(1) + '</span>' : '')
       + '</h3>';
