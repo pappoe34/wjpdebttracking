@@ -188,7 +188,7 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'wjp-ri-btn';
-    btn.title = 'See plain-English breakdown of this bill';
+    btn.title = 'Open the AI Coach breakdown of this bill';
     btn.style.cssText = [
       'margin-left:8px',
       'padding:4px 9px',
@@ -204,7 +204,7 @@
       'white-space:nowrap',
       'transition:background .15s, transform .12s'
     ].join(';');
-    btn.textContent = 'Plain English';
+    btn.textContent = '\u{1F4AC} Ask AI Coach';
     btn.addEventListener('mouseenter', function () { btn.style.transform = 'translateY(-1px)'; });
     btn.addEventListener('mouseleave', function () { btn.style.transform = 'translateY(0)'; });
     btn.addEventListener('click', function (e) { e.stopPropagation(); toggleDetails(row, data); });
@@ -227,7 +227,7 @@
     var blocks = buildInsight(data);
     var html = '<div style="padding:14px 22px;font-family:Inter,system-ui,sans-serif;border-left:3px solid #1f7a4a;">';
     html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
-    html += '<span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c99a2a;font-weight:800;">Plain English</span>';
+    html += '<span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c99a2a;font-weight:800;">Ask AI Coach</span>';
     html += '<span style="font-size:13px;color:#0a0a0a;font-weight:600;">' + data.name + '</span>';
     html += '</div>';
     blocks.forEach(function (b) {
