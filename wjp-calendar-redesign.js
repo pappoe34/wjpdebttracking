@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js — replace the broken Calendar tab with a dense
+/* wjp-calendar-redesign.js v2 — replace the broken Calendar tab with a dense
  * grid that plots all events, plus notes/reminders/filters/daily totals.
  *
  * BUG that prompted this: the standalone Calendar tab's grid renders only
@@ -113,8 +113,17 @@
       // "MAR 31 Family coverage $1,000.00 • Recurring OVERDUE"
       var m = txt.match(/^([A-Z]{3})\s*(\d{1,2})\s+(.+?)\s+\$([\d,]+(?:\.\d+)?)\s*[•·]\s*(\w[\w\s/-]*?)\s+(OVERDUE|PAID|DUE\s*\d+D|IN\s*\d+D|INCOME|UPCOMING|PENDING)$/i);
       if (!m) {
-        // Try without trailing status
         m = txt.match(/^([A-Z]{3})\s*(\d{1,2})\s+(.+?)\s+\$([\d,]+(?:\.\d+)?)\s*[•·]\s*(\w[\w\s/-]*)$/i);
+      }
+      if (!m) {
+        // Bullet-less form: "MAY 15 Payday $5,000.00 INCOME"
+        m = txt.match(/^([A-Z]{3})\s*(\d{1,2})\s+(.+?)\s+\$([\d,]+(?:\.\d+)?)\s+(OVERDUE|PAID|DUE\s*\d+D|IN\s*\d+D|INCOME|UPCOMING|PENDING)$/i);
+        if (m) m = [m[0], m[1], m[2], m[3], m[4], m[5].toLowerCase(), m[5]];
+      }
+      if (!m) {
+        // Bare form: "MAY 15 Payday $5,000.00"
+        m = txt.match(/^([A-Z]{3})\s*(\d{1,2})\s+(.+?)\s+\$([\d,]+(?:\.\d+)?)$/i);
+        if (m) m = [m[0], m[1], m[2], m[3], m[4], 'recurring', ''];
       }
       if (!m) return;
       var mo = monthIdx[m[1].toUpperCase()];
