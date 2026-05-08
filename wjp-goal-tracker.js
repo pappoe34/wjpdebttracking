@@ -44,7 +44,7 @@
       el.innerHTML = `
         <div style="text-align:center;padding:40px 20px;color:var(--ink-dim,#6b7280);">
           <div style="font-size:48px;margin-bottom:12px;">🎯</div>
-          <h3 style="font-family:var(--serif,Fraunces,serif);font-size:22px;margin:0 0 8px;color:var(--ink,#0a0a0a);">No goals yet.</h3>
+          <h3 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:22px;margin:0 0 8px;color:var(--ink,#0a0a0a);">No goals yet.</h3>
           <p style="font-size:14px;line-height:1.55;max-width:420px;margin:0 auto 18px;">Track savings goals alongside your debts. Emergency fund, vacation, down payment, anything you're saving toward.</p>
           <button id="wjp-goal-new" style="background:#1f7a4a;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">+ New goal</button>
         </div>`;
@@ -54,7 +54,7 @@
     }
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-        <h2 style="font-family:var(--serif,Fraunces,serif);font-size:24px;margin:0;letter-spacing:-0.02em;">Your goals</h2>
+        <h2 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:24px;margin:0;letter-spacing:-0.02em;">Your goals</h2>
         <button id="wjp-goal-new" style="background:#1f7a4a;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">+ New goal</button>
       </div>
       <div style="display:grid;gap:12px;">
