@@ -15,6 +15,18 @@
   } catch (_) {}
 
   var WRAP_ID = 'wjp-ps-tabs';
+  var LS_ACTIVE = 'wjp.ps.activeScenario';
+
+  function readActiveScenario() {
+    try {
+      var v = localStorage.getItem(LS_ACTIVE);
+      if (v === 'minimums' || v === 'custom' || v === 'aggressive') return v;
+    } catch (_) {}
+    return null;
+  }
+  function writeActiveScenario(key) {
+    try { localStorage.setItem(LS_ACTIVE, key); } catch (_) {}
+  }
 
   function getStrategy() {
     try {
@@ -155,6 +167,7 @@
 
   function onSegmentClick(s) {
     try {
+      writeActiveScenario(s.key);
       var key = 'wjp.extraToggle.v1';
       var cfg = { enabled: s.extra > 0, mode: 'manual', amount: Math.round(s.extra) };
       if (s.key === 'minimums') cfg = { enabled: false, mode: 'manual', amount: 0 };
@@ -226,9 +239,15 @@
         // Reset inline styles in case width changed; the container style is fixed
       }
 
+      var stored = readActiveScenario();
+      // If extra value === 0, infer minimums-only as active (covers fresh users)
+      if (!stored) {
+        if (Math.abs(custom) < 1) stored = 'minimums';
+        else stored = 'custom';
+      }
       while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
       scenarios.forEach(function (s) {
-        var isActive = Math.abs(s.extra - custom) < 1;
+        var isActive = (s.key === stored);
         wrap.appendChild(buildSegment(s, isActive));
       });
     } catch (e) {
