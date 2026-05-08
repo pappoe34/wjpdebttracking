@@ -1,14 +1,13 @@
-/* wjp-streak.js — daily-payment streak counter in sidebar.
+/* wjp-streak.js v2 — payment streak counter, mounted in top-right header.
  *
- * Counts consecutive days the user has logged into / interacted with WJP.
- * Stored in localStorage per device. Visible in sidebar header. Once a user
- * hits 7 days they don't want to lose it — turns one-week tool into a habit.
+ * v1 placed the chip at top of sidebar, above the nav items — visually
+ * orphaned. v2 mounts it inline with the existing header pills (Privacy
+ * Mode / Sync Bank / Bank Health / +Add) so it feels like a native status
+ * indicator.
  *
- * Mechanics:
- *   - First load this session: bump streak if last-active was yesterday
- *   - If gap > 1 day: reset streak to 1
- *   - Same day: no change
- *   - Render small chip with flame icon and current count
+ * Mechanics: counts consecutive days the user has interacted with WJP.
+ * Stored in localStorage per device. Once a user hits 7 days they don't
+ * want to lose it — turns one-week tool into a habit.
  */
 (function () {
   'use strict';
@@ -46,7 +45,7 @@
     } else {
       var gap = daysBetween(s.lastActive, today);
       if (gap === 1) s.count = (s.count || 0) + 1;
-      else s.count = 1; // reset
+      else s.count = 1;
     }
     s.lastActive = today;
     if ((s.best || 0) < s.count) s.best = s.count;
@@ -54,38 +53,65 @@
     return s;
   }
 
+  // Find the pill row that holds Privacy Mode / Sync Bank / Bank Health.
+  // Walk up from any of those buttons to a shared parent.
+  function findHeaderPillRow() {
+    var anchors = [];
+    document.querySelectorAll('button, a, [role=button], [class*="pill"], [class*="btn"]').forEach(function (n) {
+      var t = (n.textContent || '').toLowerCase();
+      if (/privacy mode|bank health|sync bank/.test(t) && n.offsetParent !== null) anchors.push(n);
+    });
+    if (!anchors.length) return null;
+    // Walk up until we find a parent that contains at least 2 of the anchors
+    var cand = anchors[0].parentElement;
+    while (cand) {
+      var hits = anchors.filter(function (a) { return cand.contains(a); }).length;
+      if (hits >= 2) return { row: cand, beforeNode: anchors[0] };
+      cand = cand.parentElement;
+    }
+    return { row: anchors[0].parentElement, beforeNode: anchors[0] };
+  }
+
   function renderChip() {
     var s = loadState();
     if (!s || !s.count) return;
-    var sidebar = document.querySelector('.sidebar') || document.querySelector('[class*="sidebar"]');
-    if (!sidebar) return;
+    var info = findHeaderPillRow();
+    if (!info) return;
+    var label = s.count + ' day' + (s.count === 1 ? '' : 's') + ' streak';
     var existing = document.getElementById('wjp-streak-chip');
-    var label = s.count + ' day' + (s.count === 1 ? '' : 's');
+    // If existing chip lives outside the right header row, remove it (cleanup of v1 placement)
+    if (existing && existing.parentElement !== info.row) {
+      try { existing.remove(); } catch (_) {}
+      existing = null;
+    }
     var html = ''
-      + '<div id="wjp-streak-chip" title="Login streak — ' + label + ' (best: ' + (s.best || s.count) + ')" '
-      +   'style="margin:8px 16px 4px;padding:8px 12px;border-radius:12px;'
-      +   'background:linear-gradient(135deg,rgba(220,38,38,0.10),rgba(245,158,11,0.10));'
-      +   'border:1px solid rgba(245,158,11,0.25);'
-      +   'display:flex;align-items:center;gap:8px;'
-      +   'font-family:var(--sans,Inter,system-ui,sans-serif);">'
-      +   '<span style="font-size:16px;line-height:1;" aria-hidden="true">🔥</span>'
-      +   '<span style="display:flex;flex-direction:column;line-height:1.15;">'
-      +     '<span style="font-size:13px;font-weight:800;color:#dc2626;letter-spacing:-0.005em;">' + label + '</span>'
-      +     '<span style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:#92400e;font-weight:700;">streak</span>'
-      +   '</span>'
-      + '</div>';
+      + '<button type="button" id="wjp-streak-chip" '
+      +   'title="Login streak — ' + label + ' (best: ' + (s.best || s.count) + ')" '
+      +   'style="display:inline-flex;align-items:center;gap:7px;'
+      +   'padding:8px 14px;border-radius:999px;'
+      +   'background:rgba(255,255,255,0.92);'
+      +   'border:1px solid rgba(0,0,0,0.08);'
+      +   'box-shadow:0 1px 2px rgba(0,0,0,0.04);'
+      +   'font-family:var(--sans,Inter,system-ui,sans-serif);'
+      +   'font-size:12.5px;font-weight:600;color:var(--ink,#0a0a0a);'
+      +   'letter-spacing:-0.005em;cursor:default;line-height:1;'
+      +   'transition:transform .15s ease, box-shadow .15s ease;">'
+      +   '<span aria-hidden="true" style="font-size:13px;line-height:1;display:inline-block;transform:translateY(-0.5px);">🔥</span>'
+      +   '<span><b style="font-weight:700;">' + s.count + '</b> day' + (s.count === 1 ? '' : 's') + ' streak</span>'
+      + '</button>';
     if (existing) {
       if (existing.dataset.wjpHtml === html) return;
       existing.outerHTML = html;
+      var fresh = document.getElementById('wjp-streak-chip');
+      if (fresh) fresh.dataset.wjpHtml = html;
       return;
     }
-    // Insert near sidebar top — after first child
-    var first = sidebar.firstElementChild;
+    // Insert before the first existing pill in the row so streak appears left-most
     var wrap = document.createElement('div');
     wrap.innerHTML = html;
-    if (first && first.nextSibling) sidebar.insertBefore(wrap.firstElementChild, first.nextSibling);
-    else sidebar.appendChild(wrap.firstElementChild);
-    document.getElementById('wjp-streak-chip').dataset.wjpHtml = html;
+    var chip = wrap.firstElementChild;
+    info.row.insertBefore(chip, info.beforeNode);
+    chip.dataset.wjpHtml = html;
   }
 
   function tick() {
