@@ -1,17 +1,4 @@
-/* wjp-progress-scenarios.js — v4 (tabs ABOVE the bar).
- *
- * 3 clickable tabs above the Exec Summary progress bar showing debt-free
- * dates for: Minimums only / Your plan / Aggressive. Click a tab → applies
- * that extra-payment scenario via extra-toggle config localStorage,
- * dashboard re-renders.
- *
- * v4 placement: tabs sit IMMEDIATELY above the progress bar (between the
- * date hero and the bar element). Anchor strategy: find #freedom-progress-fill,
- * walk up to its closest containing element that's a sibling of recognizable
- * exec-summary children, insert chips BEFORE that container.
- *
- * Hardened: IIFE, idempotent, path-guarded, no MutationObservers, try/catch.
- */
+/* wjp-progress-scenarios.js — v4 clean (tabs ABOVE the bar). */
 (function () {
   'use strict';
   if (window._wjpProgressScenariosInstalled) return;
@@ -24,7 +11,6 @@
 
   var WRAP_ID = 'wjp-ps-tabs';
 
-  // === Math: simulate debt-free date for a given extra ===
   function simulate(extra) {
     try {
       if (!window.appState || !window.appState.debts || !window.appState.debts.length) return null;
@@ -40,9 +26,9 @@
           if (keys.length && typeof r[keys[0]] === 'object' && 'months' in (r[keys[0]] || {})) {
             var maxM = 0, totalI = 0;
             keys.forEach(function (k) {
-              var d = r[k];
-              if (d && typeof d.months === 'number') maxM = Math.max(maxM, d.months);
-              if (d && typeof d.totalInterest === 'number') totalI += d.totalInterest;
+              var d2 = r[k];
+              if (d2 && typeof d2.months === 'number') maxM = Math.max(maxM, d2.months);
+              if (d2 && typeof d2.totalInterest === 'number') totalI += d2.totalInterest;
             });
             if (maxM > 0) return { months: Math.ceil(maxM), totalInterest: totalI };
           }
@@ -60,14 +46,14 @@
   }
 
   function fmtDate(monthsAhead) {
-    if (!monthsAhead || monthsAhead <= 0) return '—';
+    if (!monthsAhead || monthsAhead <= 0) return '-';
     if (monthsAhead > 600) return '50+ yrs';
     var d = new Date();
     d.setMonth(d.getMonth() + Math.ceil(monthsAhead));
     return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   }
   function fmtDollars(n) {
-    if (!isFinite(n)) return '—';
+    if (!isFinite(n)) return '-';
     var abs = Math.abs(n);
     if (abs >= 1000) return '$' + (abs / 1000).toFixed(1) + 'k';
     return '$' + Math.round(abs);
@@ -99,56 +85,42 @@
   }
 
   function computeAggressive(custom) {
-    var doubled = (Number(custom) || 0) * 2;
-    var surplus = getAvailableCashflow();
-    return Math.max(doubled, surplus, 500);
+    return Math.max((Number(custom) || 0) * 2, getAvailableCashflow(), 500);
   }
 
-  // === Anchor finder: locate the bar wrapper so we can insert BEFORE it ===
-  // Returns { parent, beforeNode } where chips go: parent.insertBefore(chips, beforeNode).
   function findBarInsertionPoint() {
     var fill = document.getElementById('freedom-progress-fill');
     if (!fill) return null;
-    // The fill is inside a track which is inside the bar wrapper.
-    // Walk up to find a node whose PARENT contains both the fill and the
-    // freedom-paid-amt/freedom-target-amt labels — that's the layout container.
-    // Then chips go as a sibling BEFORE that node.
     var node = fill.parentElement;
     var hops = 0;
     while (node && hops < 8) {
       var par = node.parentElement;
       if (!par) break;
-      // Does the parent contain the labels too?
       var hasPaid = par.querySelector && par.querySelector('#freedom-paid-amt');
       var hasTarget = par.querySelector && par.querySelector('#freedom-target-amt');
       if (hasPaid && hasTarget) {
-        // `node` is a sibling-level child (e.g., the bar wrapper). Insert before it.
         return { parent: par, beforeNode: node };
       }
       node = par;
       hops++;
     }
-    // Fallback: insert before fill's direct parent
     if (fill.parentElement && fill.parentElement.parentElement) {
       return { parent: fill.parentElement.parentElement, beforeNode: fill.parentElement };
     }
     return null;
   }
 
-  // === Build a single tab ===
   function buildTab(scenario, isActive) {
     var tab = document.createElement('button');
     tab.type = 'button';
     tab.dataset.scenarioKey = scenario.key;
     tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    // Tab style: connected to the bar visually. Active = filled, others = ghost.
     tab.style.cssText = [
       'flex:1', 'min-width:0',
       'padding:9px 12px 11px',
       'background:' + (isActive ? '#1f7a4a' : 'rgba(255,255,255,0.85)'),
       'color:' + (isActive ? '#fff' : '#0a0a0a'),
       'border:1px solid ' + (isActive ? '#1f7a4a' : 'rgba(0,0,0,0.10)'),
-      // Bottom border removed for active so it visually merges with bar below
       'border-bottom:' + (isActive ? '0' : '1px solid rgba(0,0,0,0.10)'),
       'border-radius:10px 10px 0 0',
       'cursor:pointer',
@@ -161,10 +133,14 @@
     ].join(';');
     var labelColor = isActive ? 'rgba(255,255,255,0.85)' : '#9ca3af';
     var dateColor = isActive ? '#fff' : '#0a0a0a';
+    var subParts = [];
+    if (scenario.months) subParts.push(scenario.months + ' mo');
+    if (scenario.totalInterest != null && isFinite(scenario.totalInterest)) subParts.push(fmtDollars(scenario.totalInterest) + ' int');
+    var subHtml = subParts.length ? '<div style="font-size:10px;color:' + labelColor + ';font-weight:500;margin-top:1px;">' + subParts.join(' . ') + '</div>' : '';
     tab.innerHTML = ''
       + '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:' + labelColor + ';font-weight:800;line-height:1.1;margin-bottom:2px;">' + scenario.label + '</div>'
-      + '<div style="font-family:Fraunces,Georgia,serif;font-size:15px;font-weight:600;letter-spacing:-0.01em;color:' + dateColor + ';line-height:1.15;">' + (scenario.dateStr || '—') + '</div>'
-      + (scenario.months ? '<div style="font-size:10px;color:' + labelColor + ';font-weight:500;margin-top:1px;">' + scenario.months + ' mo' + (scenario.totalInterest != null ? ' · ' + fmtDollars(scenario.totalInterest) + ' int' : '') + '</div>' : '');
+      + '<div style="font-family:Fraunces,Georgia,serif;font-size:15px;font-weight:600;letter-spacing:-0.01em;color:' + dateColor + ';line-height:1.15;">' + (scenario.dateStr || '-') + '</div>'
+      + subHtml;
     tab.addEventListener('mouseenter', function () { if (!isActive) { tab.style.borderColor = 'rgba(31,122,74,0.32)'; tab.style.background = '#fff'; } });
     tab.addEventListener('mouseleave', function () { if (!isActive) { tab.style.borderColor = 'rgba(0,0,0,0.10)'; tab.style.background = 'rgba(255,255,255,0.85)'; } });
     tab.addEventListener('click', function () { onTabClick(scenario); });
@@ -182,51 +158,38 @@
     } catch (_) {}
   }
 
-  // === Main tick ===
   function tick() {
     try {
       if (!window.appState || !window.appState.debts || !window.appState.debts.length) return;
-
       var insertion = findBarInsertionPoint();
       if (!insertion) return;
-
       var custom = getCustomExtra();
       var aggressive = computeAggressive(custom);
       var displayCustom = custom > 0 ? custom : Math.max(100, Math.round(aggressive / 2));
-
       var minSim = simulate(0);
       var customSim = simulate(displayCustom);
       var aggSim = simulate(aggressive);
-
-      var minInt = minSim ? minSim.totalInterest : null;
       function makeS(key, label, extra, sim) {
         var months = sim ? sim.months : null;
         var ti = sim ? sim.totalInterest : null;
-        var delta = (ti != null && minInt != null) ? (ti - minInt) : null;
-        return { key: key, label: label, extra: extra, months: months, dateStr: months ? fmtDate(months) : null, totalInterest: ti, deltaInterestVsMinimums: delta };
+        return { key: key, label: label, extra: extra, months: months, dateStr: months ? fmtDate(months) : null, totalInterest: ti };
       }
       var scenarios = [
         makeS('minimums', 'Minimums only', 0, minSim),
         makeS('custom', 'Your plan', displayCustom, customSim),
         makeS('aggressive', 'Aggressive', aggressive, aggSim)
       ];
-
-      // Reconcile wrap. If parent or position doesn't match, recreate.
       var wrap = document.getElementById(WRAP_ID);
-      var wantsParent = insertion.parent;
-      var wantsBefore = insertion.beforeNode;
       var positionMismatch = !wrap
-        || wrap.parentElement !== wantsParent
-        || wrap.nextSibling !== wantsBefore;
+        || wrap.parentElement !== insertion.parent
+        || wrap.nextSibling !== insertion.beforeNode;
       if (positionMismatch) {
         if (wrap) try { wrap.remove(); } catch (_) {}
         wrap = document.createElement('div');
         wrap.id = WRAP_ID;
         wrap.style.cssText = 'display:flex;gap:6px;width:100%;margin:8px 0 0;font-family:Inter,system-ui,sans-serif;align-items:stretch;';
-        wantsParent.insertBefore(wrap, wantsBefore);
+        insertion.parent.insertBefore(wrap, insertion.beforeNode);
       }
-
-      // Render tabs
       var newChildren = [];
       scenarios.forEach(function (s) {
         var isActive = Math.abs(s.extra - custom) < 1;
@@ -253,4 +216,3 @@
 
   window.WJP_ProgressScenarios = { refresh: tick, simulate: simulate, _findInsertion: findBarInsertionPoint };
 })();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
