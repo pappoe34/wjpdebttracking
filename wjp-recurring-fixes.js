@@ -1,14 +1,14 @@
-/* wjp-recurring-fixes.js v7 — sibling-clone strategy.
+/* wjp-recurring-fixes.js v8 — fix balance source.
  *
- * v6 polled at 600ms which still lost the race against app.js's
- * recRenderCountdown clobbering #rec-countdown after tab clicks.
+ * v7 used calculateDebtPayoff().balance which returns POST-SIMULATION balances
+ * (always 0 because the sim runs to payoff). Real current balances live in
+ * the [data-debt-id] card text as "$X,XXX left".
  *
- * v7: stop fighting. Hide #rec-countdown and #rec-optimization-content
- * with display:none, inject sibling elements WE own. App.js writes to
- * the originals harmlessly — user only ever sees our siblings.
+ * v8 changes only the harvest: balance comes from card text, everything else
+ * (apr, min, months, totalInterest, type) keeps coming from calculateDebtPayoff.
  *
- * Data source: window.calculateDebtPayoff('avalanche') — gives us all 12
- * debts directly. Names from [data-debt-id] DOM nodes.
+ * Same sibling-clone strategy from v7 — render to wjp-rec-countdown-clone /
+ * wjp-rec-optimization-clone, hide originals so app.js can clobber freely.
  */
 (function () {
   'use strict';
@@ -27,39 +27,68 @@
   function fmtUSD(n) { if (!isFinite(n)) return '-'; return '$' + Math.abs(Math.round(n)).toLocaleString('en-US'); }
   function fmtUSDc(n) { if (!isFinite(n)) return '-'; return '$' + Math.abs(Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 }); }
 
+  function parseDollarsToNumber(s) {
+    if (!s) return null;
+    var n = parseFloat(String(s).replace(/[$,\s]/g, ''));
+    return isFinite(n) ? n : null;
+  }
+
+  // Extract balance + name from a [data-debt-id] card.
+  function readCardData(node) {
+    var data = { name: null, balance: null };
+    var nameEl = node.querySelector('.obligation-name, .debt-name, h3, h4');
+    if (nameEl && nameEl.textContent.trim()) data.name = nameEl.textContent.trim();
+    var text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!data.name) {
+      var stripped = text.replace(/^(Priority|Autopay|\d+)\s+/i, '');
+      var m = stripped.match(/^(.+?)\s+(Managed Liability|\d+(?:\.\d+)?%\s+APR)/i);
+      if (m) data.name = m[1].trim();
+    }
+    // "$2,356 left" or "$2356 left"
+    var bm = text.match(/\$([\d,]+(?:\.\d+)?)\s*left/i);
+    if (bm) data.balance = parseDollarsToNumber('$' + bm[1]);
+    // Fallback: last "$X" in text (cards generally end with the balance)
+    if (data.balance == null) {
+      var all = text.match(/\$[\d,]+(?:\.\d+)?/g);
+      if (all && all.length) data.balance = parseDollarsToNumber(all[all.length - 1]);
+    }
+    return data;
+  }
+
   function harvest() {
     try {
-      if (typeof window.calculateDebtPayoff !== 'function') return;
-      var calc = window.calculateDebtPayoff('avalanche');
+      var calc = (typeof window.calculateDebtPayoff === 'function')
+        ? window.calculateDebtPayoff('avalanche') : null;
       if (!calc || typeof calc !== 'object') return;
-      var nameMap = {};
+      var domMap = {};
       document.querySelectorAll('[data-debt-id]').forEach(function (n) {
         var id = n.dataset.debtId;
-        if (!id || nameMap[id]) return;
-        var nameEl = n.querySelector('.obligation-name, .debt-name, h3, h4');
-        if (nameEl && nameEl.textContent.trim()) { nameMap[id] = nameEl.textContent.trim(); return; }
-        var text = (n.textContent || '').replace(/\s+/g, ' ').trim();
-        var stripped = text.replace(/^(Priority|Autopay|\d+)\s+/i, '');
-        var m = stripped.match(/^(.+?)\s+(Managed Liability|\d+(?:\.\d+)?%\s+APR)/i);
-        if (m) nameMap[id] = m[1].trim();
+        if (!id || domMap[id]) return;
+        var d = readCardData(n);
+        if (d.name || d.balance != null) domMap[id] = d;
       });
       Object.keys(calc).forEach(function (id) {
         var e = calc[id] || {};
+        var dom = domMap[id] || {};
         debtCache[id] = {
-          id: id, name: nameMap[id] || ('Debt ' + id.slice(-6)),
-          balance: e.balance, apr: e.apr, minPayment: e.min,
-          months: e.months, totalInterest: e.totalInterest, type: e.type
+          id: id,
+          name: dom.name || ('Debt ' + id.slice(-6)),
+          balance: dom.balance != null ? dom.balance : (e.balance || 0),
+          apr: e.apr,
+          minPayment: e.min,
+          months: e.months,
+          totalInterest: e.totalInterest,
+          type: e.type
         };
       });
     } catch (err) {
-      try { console.warn('[wjp-recurring-fixes v7] harvest threw', err); } catch (_) {}
+      try { console.warn('[wjp-recurring-fixes v8] harvest threw', err); } catch (_) {}
     }
   }
 
   function ensureClone(originalId, cloneId) {
     var orig = document.getElementById(originalId);
     if (!orig) return null;
-    // Hide original — app.js can clobber freely, user never sees it.
     if (orig.style.display !== 'none') orig.style.display = 'none';
     var clone = document.getElementById(cloneId);
     if (!clone) {
@@ -168,7 +197,6 @@
   function renderOptimization() {
     var clone = ensureClone('rec-optimization-content', OPT_CLONE);
     if (!clone) return;
-    // Hide the empty-state too if present
     var emptyEl = document.getElementById('rec-optimization-empty');
     if (emptyEl) emptyEl.style.display = 'none';
     var html = buildOptimizationHTML();
@@ -186,7 +214,7 @@
       renderCountdown();
       renderOptimization();
     } catch (e) {
-      try { console.warn('[wjp-recurring-fixes v7] tick threw', e); } catch (_) {}
+      try { console.warn('[wjp-recurring-fixes v8] tick threw', e); } catch (_) {}
     }
   }
 
