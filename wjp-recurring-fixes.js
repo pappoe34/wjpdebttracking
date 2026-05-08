@@ -34,25 +34,49 @@
   }
 
   function harvestDebtsFromObligations() {
-    var cards = document.querySelectorAll('[data-debt-id], .debt-card, .obligation-card');
+    // Supports 3 card formats found in the DOM:
+    // 1) Current Obligations card: "Balance: $X · APR X% · Min Payment: $X"
+    // 2) Top-3 card: "Avant Credit Card 30.00% APR Highest APR 30% \u00b7 bleeds $59/mo $0 paid 0% $2,356 left"
+    // 3) Indicator/strategy chip cards
+    var cards = document.querySelectorAll('[data-debt-id], .debt-card, .obligation-card, .top3-card');
     cards.forEach(function (card) {
       try {
-        var id = card.dataset.debtId || (card.querySelector('[data-debt-id]') ? card.querySelector('[data-debt-id]').dataset.debtId : null);
+        var id = card.dataset.debtId || null;
+        // Name: text BEFORE the first APR-like number, OR explicit name elements
         var nameEl = card.querySelector('.debt-name, .obligation-name, h3, h4, [class*="title"]');
         var name = nameEl ? nameEl.textContent.trim() : null;
+        var text = card.textContent.replace(/\s+/g, ' ').trim();
+        if (!name) {
+          // Strip leading rank number "1 " then capture up to " <num>.<num>% APR"
+          var nameMatch = text.replace(/^\s*\d+[\s.\u00a0]+/, '').match(/^(.+?)\s+\d+(?:\.\d+)?%\s+APR/i);
+          if (nameMatch) name = nameMatch[1].trim();
+        }
         if (!name) return;
-        var text = card.textContent.replace(/\s+/g, ' ');
-        var balanceMatch = text.match(/Balance[\s:]*\$?([\d,]+\.?\d*)/i);
-        var aprMatch = text.match(/APR[\s:]*([\d.]+)%/i) || text.match(/([\d.]+)%[\s]*APR/i);
-        var minMatch = text.match(/Min[\.]?\s*Payment[\s:]*\$?([\d,]+\.?\d*)/i);
+        // APR — try multiple shapes
+        var apr = null;
+        var aprMatch = text.match(/(\d+(?:\.\d+)?)%\s+APR/i) || text.match(/APR[\s:]*?(\d+(?:\.\d+)?)%/i);
+        if (aprMatch) apr = parseFloat(aprMatch[1]);
+        // Balance — "Balance: $X" OR "$X left"
+        var balance = null;
+        var balMatch = text.match(/Balance[\s:]*\$?([\d,]+\.?\d*)/i)
+          || text.match(/\$([\d,]+\.?\d*)\s+left/i)
+          || text.match(/\$([\d,]+\.?\d*)\s+balance/i);
+        if (balMatch) balance = parseFloat(balMatch[1].replace(/,/g, ''));
+        // Min payment — "Min: $X" OR "bleeds $X/mo" OR "$X/mo min"
+        var minPayment = null;
+        var minMatch = text.match(/Min[\.]?\s*Payment[\s:]*\$?([\d,]+\.?\d*)/i)
+          || text.match(/bleeds\s+\$([\d,]+\.?\d*)\s*\/?mo/i)
+          || text.match(/\$([\d,]+\.?\d*)\s*\/mo\s+min/i);
+        if (minMatch) minPayment = parseFloat(minMatch[1].replace(/,/g, ''));
         var key = id || ('name:' + name);
-        debtCache[key] = Object.assign(debtCache[key] || {}, {
+        var prev = debtCache[key] || {};
+        debtCache[key] = {
           id: key,
           name: name,
-          balance: balanceMatch ? parseFloat(balanceMatch[1].replace(/,/g, '')) : (debtCache[key]||{}).balance || null,
-          apr: aprMatch ? parseFloat(aprMatch[1]) : (debtCache[key]||{}).apr || null,
-          minPayment: minMatch ? parseFloat(minMatch[1].replace(/,/g, '')) : (debtCache[key]||{}).minPayment || null
-        });
+          balance: balance != null ? balance : prev.balance,
+          apr: apr != null ? apr : prev.apr,
+          minPayment: minPayment != null ? minPayment : prev.minPayment
+        };
       } catch (_) {}
     });
   }
