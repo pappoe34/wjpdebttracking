@@ -179,7 +179,7 @@
       'max-height:88vh', 'overflow:auto',
       'box-shadow:0 24px 80px rgba(0,0,0,0.30)',
       'border:1px solid var(--border,rgba(0,0,0,0.08))',
-      'font-family:Inter,system-ui,sans-serif'
+      'font-family:var(--sans,Inter,system-ui,sans-serif)'
     ].join(';');
 
     var fromLabel = tierLabel(fromTier);
@@ -188,7 +188,7 @@
     var headerHtml = ''
       + '<div style="padding:28px 28px 12px;border-bottom:1px solid var(--border,rgba(0,0,0,0.06));">'
       +   '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c99a2a;font-weight:800;margin-bottom:8px;">Plan changed</div>'
-      +   '<h2 id="wjp-dn-title" style="font-family:Fraunces,Georgia,serif;font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;line-height:1.2;">'
+      +   '<h2 id="wjp-dn-title" style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;line-height:1.2;">'
       +     'You\'re on ' + toLabel + ' now.'
       +   '</h2>'
       +   '<p style="font-size:14.5px;color:var(--ink-dim,#6b7280);line-height:1.55;margin:0;">'
