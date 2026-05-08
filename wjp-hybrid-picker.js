@@ -460,27 +460,35 @@
       if (!copy) return;
       var list = document.getElementById('hybrid-list');
       if (!list) return;
-      // The card structure (per renderStrategyIndicators in app.js):
-      //   <div ...>
-      //     <div ...><i .../><span>... Method</span></div>
-      //     <p>...why...</p>
-      //     <div>...best-for...</div>
-      //     <div>... 3-stat grid ...</div>
-      //   </div>
-      var card = list.querySelector('div');
-      if (!card) return;
-      // Sub-heading span
-      var subSpan = card.querySelector('span');
-      if (subSpan && /method/i.test(subSpan.textContent || '')) {
-        subSpan.textContent = copy.subhead;
+      // Walk all candidate cards inside #hybrid-list. The first child <div>
+      // is the active card; multiple cards exist if the user has multiple
+      // hybrid views, but the structure is identical.
+      var cards = list.querySelectorAll(':scope > div, :scope > * > div');
+      if (!cards || !cards.length) return;
+      var card = cards[0]; // first/primary card
+      // Add a prominent "Selected: X" pill at the top so users see what they picked
+      var pillId = 'wjp-hp-selected-pill';
+      var pill = card.querySelector('#' + pillId);
+      if (!pill) {
+        pill = document.createElement('div');
+        pill.id = pillId;
+        pill.style.cssText = 'display:inline-block;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;background:rgba(31,122,74,0.10);color:#1f7a4a;padding:4px 10px;border-radius:999px;font-weight:800;margin-bottom:8px;font-family:Inter,system-ui,sans-serif;';
+        card.insertBefore(pill, card.firstChild);
+      }
+      pill.textContent = 'Selected: ' + copy.subhead;
+
+      // Sub-heading span: find ANY span containing "Method"
+      var spans = card.querySelectorAll('span');
+      for (var s = 0; s < spans.length; s++) {
+        if (/method/i.test(spans[s].textContent || '')) {
+          spans[s].textContent = copy.subhead;
+          break;
+        }
       }
       // Body paragraph
       var body = card.querySelector('p');
-      if (body) {
-        body.textContent = copy.why;
-      }
-      // Best-for line \u2014 the italic-styled <div> sibling of <p>
-      // Find a div whose inline style contains "italic" or whose text starts with "Best for"
+      if (body) body.textContent = copy.why;
+      // Best-for line: italic <div> or text starting with "Best for"
       var divs = card.querySelectorAll(':scope > div');
       for (var i = 0; i < divs.length; i++) {
         var d = divs[i];
@@ -493,6 +501,37 @@
       }
     } catch (e) {
       try { console.warn('[wjp-hybrid-picker] updateHybridCardCopy threw', e); } catch (_) {}
+    }
+  }
+
+
+  // Monkey-patch window.renderStrategyIndicators so it ALWAYS calls
+  // updateHybridCardCopy() after the original runs. The polling-only approach
+  // gets clobbered between polls when app.js re-renders the card. Same
+  // surgical pattern as the sortDebtsByStrategy patch.
+  var _wjpRenderWrapped = false;
+  function wrapRenderStrategyIndicators() {
+    try {
+      if (_wjpRenderWrapped) return;
+      if (typeof window.renderStrategyIndicators !== 'function') {
+        // Try again later (app.js may load after us)
+        setTimeout(wrapRenderStrategyIndicators, 500);
+        return;
+      }
+      var orig = window.renderStrategyIndicators;
+      var wrapper = function () {
+        var result = orig.apply(this, arguments);
+        try { updateHybridCardCopy(); } catch (_) {}
+        return result;
+      };
+      wrapper._wjpHybridPicker = true;
+      window.renderStrategyIndicators = wrapper;
+      _wjpRenderWrapped = true;
+      try { console.log('[wjp-hybrid-picker] wrapped renderStrategyIndicators'); } catch (_) {}
+      // Run once now since the card may already be rendered
+      try { updateHybridCardCopy(); } catch (_) {}
+    } catch (e) {
+      try { console.warn('[wjp-hybrid-picker] wrap failed', e); } catch (_) {}
     }
   }
 
@@ -514,6 +553,7 @@
   // === Boot ===
   function boot() {
     installSortPatch();
+    wrapRenderStrategyIndicators();
     injectGearIcon();
     injectSettingsCard();
     // Light polling for SPA mounts (Settings panel may render after click)
