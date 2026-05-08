@@ -167,14 +167,41 @@
 
   function onSegmentClick(s) {
     try {
+      // Just record which scenario is active. The wrapped getEffectiveExtra-
+      // Contribution above maps active -> extra without touching the user\u2019s
+      // saved extra-toggle setting (so 'Extra' always = whatever they saved
+      // via the gear icon).
       writeActiveScenario(s.key);
-      var key = 'wjp.extraToggle.v1';
-      var cfg = { enabled: s.extra > 0, mode: 'manual', amount: Math.round(s.extra) };
-      if (s.key === 'minimums') cfg = { enabled: false, mode: 'manual', amount: 0 };
-      try { localStorage.setItem(key, JSON.stringify(cfg)); } catch (_) {}
       try { if (typeof window.updateUI === 'function') window.updateUI(); } catch (_) {}
       setTimeout(tick, 200);
     } catch (_) {}
+  }
+
+
+  // Wrap getEffectiveExtraContribution so the chip state determines what
+  // extra is APPLIED, without overwriting the user\u2019s saved setting in
+  // wjp.extraToggle.v1. This preserves the value they set in the gear icon.
+  var _wjpScenariosWrapped = false;
+  function wrapExtraContribution() {
+    if (_wjpScenariosWrapped) return;
+    if (typeof window.getEffectiveExtraContribution !== 'function') {
+      setTimeout(wrapExtraContribution, 300);
+      return;
+    }
+    var orig = window.getEffectiveExtraContribution;
+    window.getEffectiveExtraContribution = function () {
+      try {
+        var active = readActiveScenario();
+        if (active === 'minimums') return { extra: 0, source: 'scenario-minimums' };
+        if (active === 'aggressive') {
+          return { extra: computeAggressive(), source: 'scenario-aggressive' };
+        }
+      } catch (_) {}
+      // 'custom' or no active scenario => use the user\u2019s saved value
+      return orig.apply(this, arguments);
+    };
+    _wjpScenariosWrapped = true;
+    try { console.log('[wjp-progress-scenarios] wrapped getEffectiveExtraContribution'); } catch (_) {}
   }
 
   function tick() {
@@ -256,6 +283,7 @@
   }
 
   function boot() {
+    wrapExtraContribution();
     setTimeout(tick, 600);
     setTimeout(tick, 1500);
     setInterval(tick, 1500);
