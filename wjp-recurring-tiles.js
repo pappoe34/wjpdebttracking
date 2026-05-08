@@ -1,4 +1,4 @@
-/* wjp-recurring-tiles.js v3 — all 12 debts + Unicode literal escape fix.
+/* wjp-recurring-tiles.js v4 — all 12 debts + Unicode literal escape fix.
  *
  * v2 problems:
  *   1. Only showed 6 tiles — used DOM scraping that only finds visible cards.
@@ -85,6 +85,20 @@
     });
   }
 
+  // Strip recurring-table cruft from a name. Rows often look like
+  // "Avant Credit Card (min payment) Debt" — both suffixes need to go.
+  function normalizeRecurringName(s) {
+    if (!s) return '';
+    return s
+      .replace(/\s*\(min payment\)\s*/gi, ' ')
+      .replace(/\s+Debt\s*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  function looksLikeDateRow(s) {
+    return /^[A-Z]{3,9}\s+\d{1,2},?\s+\d{4}/i.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s);
+  }
+
   // Harvest non-debt recurring items from the recurring table
   function harvestFromTable() {
     var contents = document.querySelectorAll('.debts-subtab-content');
@@ -94,16 +108,23 @@
         if (row.classList && row.classList.contains('wjp-ri-detail')) return;
         var cells = row.querySelectorAll('td');
         if (cells.length < 3) return;
-        var rawName = (cells[0] && cells[0].textContent || '').trim().replace(/\s*\(min payment\)\s*$/i, '').trim();
+        var firstCell = (cells[0] && cells[0].textContent || '').trim();
+        var rawName = normalizeRecurringName(firstCell);
+        if (!rawName || looksLikeDateRow(rawName) || looksLikeDateRow(firstCell)) return;
+        // Filter out names that are obviously debt rows already covered
+        // (covers "(min payment) Debt" → normalized to debt name match)
         var typeRaw = (cells[1] && cells[1].textContent || '').trim().toLowerCase();
         var amountText = (cells[2] && cells[2].textContent || '');
         var amount = parseFloat(amountText.replace(/[^0-9.\-]/g, ''));
-        if (!rawName) return;
-        // Skip if a debt with this name is already in cache
         var existsAsDebt = Object.values(debtDataCache).some(function (d) {
-          return d.type === 'debt' && d.name && d.name.toLowerCase() === rawName.toLowerCase();
+          if (d.type !== 'debt' || !d.name) return false;
+          return d.name.toLowerCase() === rawName.toLowerCase()
+              || rawName.toLowerCase().indexOf(d.name.toLowerCase()) !== -1
+              || d.name.toLowerCase().indexOf(rawName.toLowerCase()) !== -1;
         });
         if (existsAsDebt) return;
+        // Drop debt-typed rows we couldn't match — better to under-show than dupe
+        if (typeRaw === 'debt') return;
         var key = 'rec:' + rawName;
         debtDataCache[key] = Object.assign(debtDataCache[key] || {}, {
           debtId: key,
@@ -390,7 +411,7 @@
       while (grid.firstChild) grid.removeChild(grid.firstChild);
       items.forEach(function (d) { grid.appendChild(buildTile(d)); });
     } catch (e) {
-      try { console.warn('[wjp-recurring-tiles v3] tick threw', e); } catch (_) {}
+      try { console.warn('[wjp-recurring-tiles v4] tick threw', e); } catch (_) {}
     }
   }
 
