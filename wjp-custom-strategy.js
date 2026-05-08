@@ -67,7 +67,7 @@
       <div style="background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:22px;font-family:var(--sans,Inter,system-ui);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;">
           <div>
-            <h3 style="font-family:var(--serif,Fraunces,serif);font-size:20px;margin:0 0 4px;letter-spacing:-0.02em;">Custom strategy</h3>
+            <h3 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:20px;margin:0 0 4px;letter-spacing:-0.02em;">Custom strategy</h3>
             <p style="font-size:13px;color:var(--ink-dim,#6b7280);margin:0;">Override the auto strategy. Allocate any monthly amount to any debt. Math will follow what you pick.</p>
           </div>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:700;color:var(--ink,#0a0a0a);flex-shrink:0;">
