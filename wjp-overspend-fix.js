@@ -57,15 +57,15 @@
       if (!isFinite(spent) || !isFinite(budget) || budget <= 0) return;
       var pct = Math.round((spent / budget) * 100);
       var over = spent - budget;
+      // Update the spent line itself
       var newText;
       if (pct > 100) {
         newText = 'Spent $' + Math.round(spent).toLocaleString('en-US')
           + ' of $' + Math.round(budget).toLocaleString('en-US')
-          + ' · ' + pct + '% (over by $' + Math.round(over).toLocaleString('en-US') + ')';
+          + ' — over by $' + Math.round(over).toLocaleString('en-US');
       } else {
         newText = 'Spent $' + Math.round(spent).toLocaleString('en-US')
-          + ' of $' + Math.round(budget).toLocaleString('en-US')
-          + ' · ' + pct + '%';
+          + ' of $' + Math.round(budget).toLocaleString('en-US');
       }
       if (statLine.dataset.wjpOverspendApplied !== newText) {
         statLine.textContent = newText;
@@ -75,6 +75,22 @@
           statLine.style.fontWeight = '700';
         }
       }
+      // Also update any nearby "100%" text in the same card → real %
+      var pctNodes = Array.from(card.querySelectorAll('span, div')).filter(function (n) {
+        var t = (n.textContent || '').trim();
+        return /^\d{1,3}%$/.test(t);
+      });
+      pctNodes.forEach(function (pn) {
+        var newPct = pct + '%';
+        if (pn.dataset.wjpOverspendPct !== newPct) {
+          pn.textContent = newPct;
+          pn.dataset.wjpOverspendPct = newPct;
+          if (pct > 100) {
+            pn.style.color = '#dc2626';
+            pn.style.fontWeight = '800';
+          }
+        }
+      });
       // Try to fix the progress bar too — find a sibling with width:100%; clamp that
       var bar = card.querySelector('[style*="width:100%"], [style*="width: 100%"]');
       if (bar && pct > 100 && bar.dataset.wjpOverspendApplied !== '1') {
