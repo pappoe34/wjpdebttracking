@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4.3 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v4.4 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -36,7 +36,7 @@
   var MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var DAYS         = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 
-  var CATEGORIES = ["debt","subscription","utility","insurance","income","transfers","other"];
+  var CATEGORIES = ["debt","housing","subscription","utility","insurance","income","transfers","other"];
 
   var state = {
     viewMonth:    new Date().getMonth(),
@@ -156,7 +156,8 @@
     if (/electric|\bgas\b|\bpower\b|water\s+co|sewer|internet|verizon|comcast|xfinity|t[-]?mobile|at\s*&\s*t|phone\s+bill|att|spectrum/.test(s)) return "utility";
     if (/insurance|policy|coverage|geico|progressive|state\s+farm|allstate|esurance|liberty\s+mutual|farmers/.test(s)) return "insurance";
     if (/netflix|spotify|hulu|disney|paramount|claude|chatgpt|anthropic|openai|adobe|microsoft\s*365|prime\s+video|youtube\s+premium|\bgym\b|peloton|nytimes|washingtonpost|patreon|substack|membership|subscription/.test(s)) return "subscription";
-    if (/avant|affirm|klarna|sofi|capital\s+one|milestone|credit\s+one|brightway|westlake|aidadvantage|one\s+main|credit\s+card|\bloan\b|mortgage/.test(s)) return "debt";
+    if (/\brent\b|rental\s+payment|mortgage|\bmtg\b|landlord|property\s+(mgmt|management|manager)|\bhoa\b|homeowners|apartment\s+pay|home\s+(loan|payment)/.test(s)) return "housing";
+    if (/avant|affirm|klarna|sofi|capital\s+one|milestone|credit\s+one|brightway|westlake|aidadvantage|one\s+main|credit\s+card|\bloan\b/.test(s)) return "debt";
     return "other";
   }
 
@@ -168,6 +169,7 @@
       case "insurance":    return { color: "#c99a2a", bg: "rgba(201,154,42,0.12)", border: "rgba(201,154,42,0.30)" };
       case "income":       return { color: "#1f7a4a", bg: "rgba(31,122,74,0.12)", border: "rgba(31,122,74,0.30)" };
       case "transfers":    return { color: "#0891b2", bg: "rgba(8,145,178,0.10)", border: "rgba(8,145,178,0.25)" };
+      case "housing":      return { color: "#9a3412", bg: "rgba(154,52,18,0.10)", border: "rgba(154,52,18,0.25)" };
       default:             return { color: "#6b7280", bg: "rgba(107,114,128,0.10)", border: "rgba(107,114,128,0.20)" };
     }
   }
@@ -663,6 +665,7 @@
     var FILTERS = [
       { k: "all",          label: "All",         count: events.length },
       { k: "debt",         label: "Debts",       count: events.filter(function(e){return e.category==="debt";}).length },
+      { k: "housing",      label: "Rent/Home",   count: events.filter(function(e){return e.category==="housing";}).length },
       { k: "subscription", label: "Subs",        count: events.filter(function(e){return e.category==="subscription";}).length },
       { k: "utility",      label: "Utilities",   count: events.filter(function(e){return e.category==="utility";}).length },
       { k: "insurance",    label: "Insurance",   count: events.filter(function(e){return e.category==="insurance";}).length },
