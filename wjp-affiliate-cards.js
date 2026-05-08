@@ -106,7 +106,7 @@
       <div style="background:linear-gradient(135deg,rgba(31,122,74,0.06),rgba(201,154,42,0.04));border:1px solid var(--border,#e5e7eb);border-radius:16px;padding:22px;font-family:var(--sans,Inter,system-ui);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
           <div>
-            <h3 style="font-family:var(--serif,Fraunces,serif);font-size:20px;margin:0 0 6px;letter-spacing:-0.02em;">Your <strong style="color:#c0594a;">${escapeHtml(debt.name||'card')}</strong> is at ${debtApr}% APR.</h3>
+            <h3 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:20px;margin:0 0 6px;letter-spacing:-0.02em;">Your <strong style="color:#c0594a;">${escapeHtml(debt.name||'card')}</strong> is at ${debtApr}% APR.</h3>
             <p style="margin:0;color:var(--ink-dim,#6b7280);font-size:13.5px;line-height:1.5;">A balance transfer to a 0% intro card could pause that interest. Below: 3 honest options based on your $${debtBal.toLocaleString()} balance.</p>
           </div>
           <button id="wjp-aff-dismiss" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,#d8d3c4);border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">Hide</button>
