@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v3 — full feature set.
+/* wjp-calendar-redesign.js v3.1 — comment-in-concat NaN fix.
  * v1: dense grid + filter chips + notes/reminders + late-fee dots
  * v2: parse bullet-less Payday/INCOME rows
  * v3: heatmap toggle, Month/Quarter view, payday accent lines, smart
@@ -491,7 +491,6 @@
       +     '<span>Out: <b style="color:#dc2626;">' + fmtUSD(monthOut) + '</b></span>'
       +     '<span>In: <b style="color:#1f7a4a;">' + fmtUSD(monthIn) + '</b></span>'
       +     '<span>Net: <b style="color:' + ((monthIn-monthOut) >= 0 ? "#1f7a4a" : "#dc2626") + ';">' + fmtUSD(monthIn-monthOut) + '</b></span>'
-      +     // view + heatmap toggles + ICS button
       +     '<div style="display:inline-flex;background:rgba(0,0,0,0.05);border-radius:999px;padding:2px;">'
       +       '<button type="button" data-cal-view="month" style="border:0;background:' + (state.view==="month"?"#0a0a0a":"transparent") + ';color:' + (state.view==="month"?"#fff":"#6b7280") + ';font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;">Month</button>'
       +       '<button type="button" data-cal-view="quarter" style="border:0;background:' + (state.view==="quarter"?"#0a0a0a":"transparent") + ';color:' + (state.view==="quarter"?"#fff":"#6b7280") + ';font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;">Quarter</button>'
