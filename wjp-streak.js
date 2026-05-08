@@ -1,4 +1,4 @@
-/* wjp-streak.js v2 — payment streak counter, mounted in top-right header.
+/* wjp-streak.js v3 — payment streak counter, mounted in top-right header.
  *
  * v1 placed the chip at top of sidebar, above the nav items — visually
  * orphaned. v2 mounts it inline with the existing header pills (Privacy
@@ -88,14 +88,10 @@
       + '<button type="button" id="wjp-streak-chip" '
       +   'title="Login streak — ' + label + ' (best: ' + (s.best || s.count) + ')" '
       +   'style="display:inline-flex;align-items:center;gap:7px;'
-      +   'padding:8px 14px;border-radius:999px;'
-      +   'background:rgba(255,255,255,0.92);'
-      +   'border:1px solid rgba(0,0,0,0.08);'
-      +   'box-shadow:0 1px 2px rgba(0,0,0,0.04);'
+      +   'padding:0;border-radius:0;'
       +   'font-family:var(--sans,Inter,system-ui,sans-serif);'
       +   'font-size:12.5px;font-weight:600;color:var(--ink,#0a0a0a);'
-      +   'letter-spacing:-0.005em;cursor:default;line-height:1;'
-      +   'transition:transform .15s ease, box-shadow .15s ease;">'
+      +   'cursor:default;line-height:1;">'
       +   '<span aria-hidden="true" style="font-size:13px;line-height:1;display:inline-block;transform:translateY(-0.5px);">🔥</span>'
       +   '<span><b style="font-weight:700;">' + s.count + '</b> day' + (s.count === 1 ? '' : 's') + ' streak</span>'
       + '</button>';
