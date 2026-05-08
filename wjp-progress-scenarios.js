@@ -132,7 +132,7 @@
     seg.style.cssText = [
       'flex:1',
       'padding:8px 16px',
-      'background:' + (isActive ? '#fff' : 'transparent'),
+      'background:' + (isActive ? 'linear-gradient(180deg,#ffffff,#f8faf6)' : 'transparent'),
       'color:' + (isActive ? '#0a0a0a' : 'rgba(10,10,10,0.55)'),
       'border:0',
       'border-radius:999px',
@@ -210,14 +210,16 @@
           'display:flex',
           'gap:2px',
           'padding:3px',
-          'background:rgba(255,255,255,0.65)',
-          'border:1px solid rgba(0,0,0,0.08)',
+          // Glass overlay: translucent base + heavy backdrop blur + subtle inner highlight
+          'background:linear-gradient(135deg,rgba(255,255,255,0.55),rgba(255,255,255,0.25))',
+          'border:1px solid rgba(255,255,255,0.45)',
           'border-radius:999px',
           'z-index:5',
           'font-family:Inter,system-ui,sans-serif',
-          'box-shadow:inset 0 1px 2px rgba(0,0,0,0.04)',
+          'box-shadow:0 4px 18px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.05)',
           'pointer-events:auto',
-          'backdrop-filter:blur(6px)'
+          'backdrop-filter:blur(14px) saturate(160%)',
+          '-webkit-backdrop-filter:blur(14px) saturate(160%)'
         ].join(';');
         card.appendChild(wrap);
       } else {
