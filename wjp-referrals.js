@@ -59,7 +59,7 @@
 
     el.innerHTML = `
       <div style="background:linear-gradient(135deg,rgba(31,122,74,0.08),rgba(201,154,42,0.05));border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:22px;font-family:var(--sans,Inter,system-ui);">
-        <h3 style="font-family:var(--serif,Fraunces,serif);font-size:22px;margin:0 0 8px;letter-spacing:-0.02em;color:var(--ink,#0a0a0a);">Refer 5 paid friends → 1 year free Pro Plus.</h3>
+        <h3 style="font-family:var(--sans,Inter,system-ui,sans-serif);font-size:22px;margin:0 0 8px;letter-spacing:-0.02em;color:var(--ink,#0a0a0a);">Refer 5 paid friends → 1 year free Pro Plus.</h3>
         <p style="font-size:13.5px;line-height:1.55;color:var(--ink-dim,#6b7280);margin:0 0 18px;">Share your code. When 5 people use it AND activate a paid subscription, we comp you a full year of Pro Plus ($299 value). 30-day clawback if a referred user cancels.</p>
         <div style="background:#fff;border:1px solid var(--border,#d8d3c4);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
           <code style="font-size:15px;font-weight:800;color:#1f7a4a;letter-spacing:0.04em;">${code}</code>
