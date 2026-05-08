@@ -127,7 +127,7 @@
     ].join(';');
     var labelText = scenario.shortLabel;
     var dateText = scenario.dateStr || '-';
-    btn.innerHTML = '<span style="opacity:' + (isActive ? '0.85' : '0.55') + ';font-size:9px;letter-spacing:0.08em;text-transform:uppercase;display:block;margin-bottom:1px;">' + labelText + '</span><span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:12px;letter-spacing:-0.01em;">' + dateText + '</span>';
+    btn.innerHTML = '<span style="opacity:' + (isActive ? '0.85' : '0.55') + ';font-size:9px;letter-spacing:0.10em;text-transform:uppercase;display:block;margin-bottom:1px;">' + labelText + '</span><span style="font-weight:600;font-size:11.5px;letter-spacing:0.02em;">' + dateText + '</span>';
     btn.addEventListener('mouseenter', function () { if (!isActive) { btn.style.borderColor = '#1f7a4a'; btn.style.transform = 'translateY(-1px)'; } });
     btn.addEventListener('mouseleave', function () { if (!isActive) { btn.style.borderColor = 'rgba(0,0,0,0.12)'; btn.style.transform = 'translateY(0)'; } });
     btn.addEventListener('click', function () { onChipClick(scenario); });
