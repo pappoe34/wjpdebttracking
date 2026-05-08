@@ -110,13 +110,13 @@
     seg.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     seg.style.cssText = [
       'flex:1',
-      'padding:6px 14px',
+      'padding:8px 16px',
       'background:' + (isActive ? '#fff' : 'transparent'),
       'color:' + (isActive ? '#0a0a0a' : 'rgba(10,10,10,0.55)'),
       'border:0',
       'border-radius:999px',
       'cursor:pointer',
-      'font-family:Inter,system-ui,sans-serif',
+      'font-family:Inter,system-ui,sans-serif','font-size:11.5px','font-weight:700','letter-spacing:0.02em',
       'transition:background .15s, color .15s, box-shadow .15s, transform .12s',
       'box-shadow:' + (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none'),
       'white-space:nowrap',
@@ -125,9 +125,7 @@
       'z-index:' + (isActive ? '2' : '1'),
       'min-width:0'
     ].join(';');
-    seg.innerHTML = ''
-      + '<span style="display:block;font-weight:700;font-size:10.5px;letter-spacing:0.02em;color:' + (isActive ? '#0a0a0a' : 'rgba(10,10,10,0.65)') + ';">' + scenario.label + '</span>'
-      + '<span style="display:block;font-size:9.5px;font-weight:500;color:' + (isActive ? 'var(--accent,#1f7a4a)' : 'rgba(10,10,10,0.45)') + ';margin-top:1px;letter-spacing:0.02em;">' + (scenario.dateStr || '-') + '</span>';
+    seg.textContent = scenario.label;
     seg.addEventListener('mouseenter', function () { if (!isActive) seg.style.color = '#0a0a0a'; });
     seg.addEventListener('mouseleave', function () { if (!isActive) seg.style.color = 'rgba(10,10,10,0.55)'; });
     seg.addEventListener('click', function () { onSegmentClick(scenario); });
