@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4.4 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v4.5 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -480,6 +480,7 @@
       .wjp-cal-day-menu:hover { background: rgba(0,0,0,0.06); color:#0a0a0a; }
       .wjp-cal-day-menu-open { opacity: 1; background: rgba(0,0,0,0.06); color:#0a0a0a; }
       .wjp-cal-popover { position:absolute; right:6px; top:30px; z-index:50; background:#fff; border:1px solid rgba(0,0,0,0.10); border-radius:10px; box-shadow:0 10px 32px rgba(0,0,0,0.15); padding:6px; min-width:180px; }
+      .wjp-cal-popover-fixed { position:fixed !important; right:auto; top:auto; z-index:99999 !important; }
       .wjp-cal-popover-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 10px; background:transparent; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px; color:#0a0a0a; text-align:left; line-height:1.2; }
       .wjp-cal-popover-item:hover { background:rgba(31,122,74,0.06); }
       .wjp-cal-popover-item .wjp-cal-icon { width:18px; text-align:center; opacity:.85; }
@@ -529,9 +530,11 @@
     return `<div class="wjp-cal-chip" ${dragAttrs} title="${escapeAttr(tip)}" style="${sz}background:${s.bg};color:${s.color};border-radius:4px;border:1px solid ${s.border};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;letter-spacing:-0.005em;">${escapeHTML(e.name)}${moved}</div>`;
   }
 
-  function dayMenuHTML(date) {
-    if (state.dayMenuFor !== date) return "";
-    return `<div class="wjp-cal-popover" data-cal-popover-day="${date}">
+  // Day-cell popover is rendered at calendar root (not inside the cell)
+  // so the cell's overflow:hidden cannot clip it.
+  function rootPopoverHTML() {
+    if (!state.dayMenuFor) return "";
+    return `<div class="wjp-cal-popover wjp-cal-popover-fixed" data-cal-popover-day="${state.dayMenuFor}">
       <button type="button" class="wjp-cal-popover-item" data-cal-day-action="add-note">
         <span class="wjp-cal-icon">📝</span> Add note
       </button>
@@ -546,6 +549,8 @@
       </button>
     </div>`;
   }
+  // Stub kept so existing call sites (cell HTML) still compile to empty string.
+  function dayMenuHTML(date) { return ""; }
 
   function buildMonthGrid(events, year, month, opts) {
     opts = opts || {};
@@ -825,6 +830,7 @@
       ${buildHeader(events)}
       ${grid}
       ${dayPanel}
+      ${rootPopoverHTML()}
     </div>`;
   }
 
@@ -1026,6 +1032,27 @@
         rerender(host);
       };
       setTimeout(function () { document.addEventListener("click", closer, true); }, 0);
+    }
+
+    // Position the root-level popover next to its trigger button
+    if (state.dayMenuFor) {
+      var trigger = root.querySelector('[data-cal-day-menu="' + state.dayMenuFor + '"]');
+      var popover = root.querySelector('.wjp-cal-popover-fixed');
+      if (trigger && popover) {
+        var r = trigger.getBoundingClientRect();
+        // Position popover to the LEFT of trigger so it doesn't flow off-screen,
+        // and aligned to the trigger's top edge.
+        var pw = 200;
+        var leftPx = r.right - pw;
+        if (leftPx < 8) leftPx = 8;
+        if (leftPx + pw > window.innerWidth - 8) leftPx = window.innerWidth - pw - 8;
+        var topPx = r.bottom + 6;
+        // Avoid bottom clip
+        if (topPx + 200 > window.innerHeight) topPx = r.top - 200 - 6;
+        popover.style.left   = leftPx + "px";
+        popover.style.top    = topPx + "px";
+        popover.style.minWidth = pw + "px";
+      }
     }
 
     // Close button on day panel
