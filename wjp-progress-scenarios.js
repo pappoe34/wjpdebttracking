@@ -1,7 +1,7 @@
-/* wjp-progress-scenarios.js — v5 (no window.appState dependency).
- * Tabs above the progress bar. Reads debt info via window.calculateDebtPayoff
- * which uses app.js's internal closure-scoped appState. No reliance on
- * window.appState (which doesn't exist).
+/* wjp-progress-scenarios.js — v6 (small chips, top-right corner of Exec Summary card).
+ * Tiny pill chips in the top-right corner of the dashboard's Executive Summary
+ * card. Each shows: label + projected debt-free date. Click applies that
+ * scenario. Active chip = filled green. Doesn't interfere with the bar.
  */
 (function () {
   'use strict';
@@ -17,10 +17,6 @@
 
   function getStrategy() {
     try {
-      // Try to read from a few well-known accessors
-      var dfdEyebrow = document.getElementById('dfd-eyebrow');
-      // The strategy lives in appState.settings.strategy — but we can pluck it
-      // from the visible DOM: the badge near the bar shows strategy text.
       var badge = document.getElementById('freedom-badge-text');
       if (badge && badge.textContent) {
         var t = badge.textContent.toLowerCase();
@@ -32,24 +28,17 @@
     return 'avalanche';
   }
 
-  // Use window.calculateDebtPayoff which uses app.js internal appState
   function simulate(extra) {
     try {
       if (typeof window.calculateDebtPayoff !== 'function') return null;
       var strategy = getStrategy();
-      // Most app.js call sites use calculateDebtPayoff(strategy, extraOverride).
-      // The fn ignores the extra-arg if not provided and uses internal extra.
-      // We try calling with strategy first; if extra differs we attempt 2nd-arg.
       var r;
       try { r = window.calculateDebtPayoff(strategy, Number(extra) || 0); }
       catch (_) { r = null; }
-      // Fallback shapes
       if (r && typeof r === 'object') {
-        // Aggregate shape: {months, totalInterest, ...}
         if (typeof r.months === 'number' && r.months > 0) {
           return { months: Math.ceil(r.months), totalInterest: r.totalInterest };
         }
-        // Per-debt map: {debtId: {months, totalInterest, ...}}
         var keys = Object.keys(r);
         if (keys.length && typeof r[keys[0]] === 'object' && 'months' in (r[keys[0]] || {})) {
           var maxM = 0, totalI = 0;
@@ -67,16 +56,10 @@
 
   function fmtDate(monthsAhead) {
     if (!monthsAhead || monthsAhead <= 0) return '-';
-    if (monthsAhead > 600) return '50+ yrs';
+    if (monthsAhead > 600) return '50y+';
     var d = new Date();
     d.setMonth(d.getMonth() + Math.ceil(monthsAhead));
-    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  }
-  function fmtDollars(n) {
-    if (!isFinite(n)) return '-';
-    var abs = Math.abs(n);
-    if (abs >= 1000) return '$' + (abs / 1000).toFixed(1) + 'k';
-    return '$' + Math.round(abs);
+    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
   }
 
   function getCustomExtra() {
@@ -103,66 +86,55 @@
     return Math.max((Number(custom) || 0) * 2, getAvailableCashflow(), 500);
   }
 
-  function findBarInsertionPoint() {
-    var fill = document.getElementById('freedom-progress-fill');
-    if (!fill) return null;
-    var node = fill.parentElement;
+  // Find the Exec Summary card and ensure it's relatively positioned so we
+  // can absolutely-position chips in its top-right corner.
+  function findCard() {
+    var paid = document.getElementById('freedom-paid-amt');
+    if (!paid) return null;
+    var node = paid.parentElement;
     var hops = 0;
-    while (node && hops < 8) {
-      var par = node.parentElement;
-      if (!par) break;
-      var hasPaid = par.querySelector && par.querySelector('#freedom-paid-amt');
-      var hasTarget = par.querySelector && par.querySelector('#freedom-target-amt');
-      if (hasPaid && hasTarget) {
-        return { parent: par, beforeNode: node };
+    while (node && hops < 12) {
+      if (node.querySelector && node.querySelector('#freedom-target-amt') && node.querySelector('#freedom-progress-fill')) {
+        return node;
       }
-      node = par;
+      node = node.parentElement;
       hops++;
-    }
-    if (fill.parentElement && fill.parentElement.parentElement) {
-      return { parent: fill.parentElement.parentElement, beforeNode: fill.parentElement };
     }
     return null;
   }
 
-  function buildTab(scenario, isActive) {
-    var tab = document.createElement('button');
-    tab.type = 'button';
-    tab.dataset.scenarioKey = scenario.key;
-    tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    tab.style.cssText = [
-      'flex:1', 'min-width:0',
-      'padding:9px 12px 11px',
-      'background:' + (isActive ? '#1f7a4a' : 'rgba(255,255,255,0.85)'),
+  function buildChip(scenario, isActive) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.scenarioKey = scenario.key;
+    btn.title = scenario.label + (scenario.dateStr ? ' - ' + scenario.dateStr : '');
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    btn.style.cssText = [
+      'padding:5px 10px',
+      'background:' + (isActive ? '#1f7a4a' : 'rgba(255,255,255,0.92)'),
       'color:' + (isActive ? '#fff' : '#0a0a0a'),
-      'border:1px solid ' + (isActive ? '#1f7a4a' : 'rgba(0,0,0,0.10)'),
-      'border-bottom:' + (isActive ? '0' : '1px solid rgba(0,0,0,0.10)'),
-      'border-radius:10px 10px 0 0',
+      'border:1px solid ' + (isActive ? '#1f7a4a' : 'rgba(0,0,0,0.12)'),
+      'border-radius:999px',
       'cursor:pointer',
-      'text-align:center',
-      'transition:transform .12s, background .15s, color .15s, border-color .15s',
       'font-family:Inter,system-ui,sans-serif',
-      'box-shadow:' + (isActive ? '0 -3px 12px rgba(31,122,74,0.18)' : 'none'),
-      'position:relative',
-      'z-index:' + (isActive ? '2' : '1')
+      'font-size:10.5px',
+      'font-weight:700',
+      'letter-spacing:0.02em',
+      'white-space:nowrap',
+      'transition:background .15s, color .15s, border-color .15s, transform .12s',
+      'box-shadow:' + (isActive ? '0 2px 6px rgba(31,122,74,0.25)' : '0 1px 2px rgba(0,0,0,0.05)'),
+      'line-height:1.15'
     ].join(';');
-    var labelColor = isActive ? 'rgba(255,255,255,0.85)' : '#9ca3af';
-    var dateColor = isActive ? '#fff' : '#0a0a0a';
-    var subParts = [];
-    if (scenario.months) subParts.push(scenario.months + ' mo');
-    if (scenario.totalInterest != null && isFinite(scenario.totalInterest)) subParts.push(fmtDollars(scenario.totalInterest) + ' int');
-    var subHtml = subParts.length ? '<div style="font-size:10px;color:' + labelColor + ';font-weight:500;margin-top:1px;">' + subParts.join(' . ') + '</div>' : '';
-    tab.innerHTML = ''
-      + '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:' + labelColor + ';font-weight:800;line-height:1.1;margin-bottom:2px;">' + scenario.label + '</div>'
-      + '<div style="font-family:Fraunces,Georgia,serif;font-size:15px;font-weight:600;letter-spacing:-0.01em;color:' + dateColor + ';line-height:1.15;">' + (scenario.dateStr || '-') + '</div>'
-      + subHtml;
-    tab.addEventListener('mouseenter', function () { if (!isActive) { tab.style.borderColor = 'rgba(31,122,74,0.32)'; tab.style.background = '#fff'; } });
-    tab.addEventListener('mouseleave', function () { if (!isActive) { tab.style.borderColor = 'rgba(0,0,0,0.10)'; tab.style.background = 'rgba(255,255,255,0.85)'; } });
-    tab.addEventListener('click', function () { onTabClick(scenario); });
-    return tab;
+    var labelText = scenario.shortLabel;
+    var dateText = scenario.dateStr || '-';
+    btn.innerHTML = '<span style="opacity:' + (isActive ? '0.85' : '0.55') + ';font-size:9px;letter-spacing:0.08em;text-transform:uppercase;display:block;margin-bottom:1px;">' + labelText + '</span><span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:12px;letter-spacing:-0.01em;">' + dateText + '</span>';
+    btn.addEventListener('mouseenter', function () { if (!isActive) { btn.style.borderColor = '#1f7a4a'; btn.style.transform = 'translateY(-1px)'; } });
+    btn.addEventListener('mouseleave', function () { if (!isActive) { btn.style.borderColor = 'rgba(0,0,0,0.12)'; btn.style.transform = 'translateY(0)'; } });
+    btn.addEventListener('click', function () { onChipClick(scenario); });
+    return btn;
   }
 
-  function onTabClick(s) {
+  function onChipClick(s) {
     try {
       var key = 'wjp.extraToggle.config';
       var cfg = { enabled: s.extra > 0, mode: 'manual', amount: Math.round(s.extra) };
@@ -175,56 +147,63 @@
 
   function tick() {
     try {
-      // No appState dependency. Just check that calculateDebtPayoff exists
-      // and returns valid data for at least the minimums-only scenario.
       if (typeof window.calculateDebtPayoff !== 'function') return;
-      var insertion = findBarInsertionPoint();
-      if (!insertion) return;
+      var card = findCard();
+      if (!card) return;
 
       var custom = getCustomExtra();
       var aggressive = computeAggressive(custom);
       var displayCustom = custom > 0 ? custom : Math.max(100, Math.round(aggressive / 2));
 
       var minSim = simulate(0);
-      // If minimums-only sim fails or returns 0 months, the user has no
-      // debts — don't render tabs.
       if (!minSim || !minSim.months) return;
-
       var customSim = simulate(displayCustom);
       var aggSim = simulate(aggressive);
 
-      function makeS(key, label, extra, sim) {
+      function makeS(key, label, shortLabel, extra, sim) {
         var months = sim ? sim.months : null;
-        var ti = sim ? sim.totalInterest : null;
-        return { key: key, label: label, extra: extra, months: months, dateStr: months ? fmtDate(months) : null, totalInterest: ti };
+        return {
+          key: key, label: label, shortLabel: shortLabel, extra: extra,
+          months: months, dateStr: months ? fmtDate(months) : null
+        };
       }
       var scenarios = [
-        makeS('minimums', 'Minimums only', 0, minSim),
-        makeS('custom', 'Your plan', displayCustom, customSim),
-        makeS('aggressive', 'Aggressive', aggressive, aggSim)
+        makeS('minimums', 'Minimums only', 'MIN', 0, minSim),
+        makeS('custom', 'Your plan', 'YOU', displayCustom, customSim),
+        makeS('aggressive', 'Aggressive', 'MAX', aggressive, aggSim)
       ];
 
+      // Ensure the card is positioned so we can absolutely-place chips.
+      try {
+        var pos = window.getComputedStyle(card).position;
+        if (pos === 'static') card.style.position = 'relative';
+      } catch (_) {}
+
       var wrap = document.getElementById(WRAP_ID);
-      var positionMismatch = !wrap
-        || wrap.parentElement !== insertion.parent
-        || wrap.nextSibling !== insertion.beforeNode;
-      if (positionMismatch) {
+      if (!wrap || wrap.parentElement !== card) {
         if (wrap) try { wrap.remove(); } catch (_) {}
         wrap = document.createElement('div');
         wrap.id = WRAP_ID;
-        wrap.style.cssText = 'display:flex;gap:6px;width:100%;margin:8px 0 0;font-family:Inter,system-ui,sans-serif;align-items:stretch;';
-        insertion.parent.insertBefore(wrap, insertion.beforeNode);
+        wrap.style.cssText = [
+          'position:absolute',
+          'top:18px',
+          'right:64px', // leave room for the existing gear icon at right:18px
+          'display:flex',
+          'gap:5px',
+          'z-index:5',
+          'font-family:Inter,system-ui,sans-serif',
+          'pointer-events:auto'
+        ].join(';');
+        card.appendChild(wrap);
       }
 
-      var newChildren = [];
+      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
       scenarios.forEach(function (s) {
         var isActive = Math.abs(s.extra - custom) < 1;
-        newChildren.push(buildTab(s, isActive));
+        wrap.appendChild(buildChip(s, isActive));
       });
-      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
-      newChildren.forEach(function (c) { wrap.appendChild(c); });
     } catch (e) {
-      try { console.warn('[wjp-progress-scenarios v5] tick threw', e); } catch (_) {}
+      try { console.warn('[wjp-progress-scenarios v6] tick threw', e); } catch (_) {}
     }
   }
 
@@ -240,5 +219,5 @@
     boot();
   }
 
-  window.WJP_ProgressScenarios = { refresh: tick, simulate: simulate, _findInsertion: findBarInsertionPoint };
+  window.WJP_ProgressScenarios = { refresh: tick, simulate: simulate, _findCard: findCard };
 })();
