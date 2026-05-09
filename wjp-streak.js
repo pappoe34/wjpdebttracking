@@ -1,4 +1,4 @@
-/* wjp-streak.js v8 — payment-on-track streak.
+/* wjp-streak.js v9 — payment-on-track streak.
  *
  * v6 was a LOGIN streak: reset to 1 if the user skipped a day. That broke
  * Winston's chip even though he hadn't missed any payments.
@@ -74,16 +74,21 @@
     if (!s.startDate) s.startDate = today;
 
     if (hasOverduePayment()) {
-      // Mark broken if we hadn't already today
       if (s.lastBreakDate !== today) {
         s.lastBreakDate = today;
         s.count = 0;
       }
     } else {
+      // v9: A previous run may have written lastBreakDate=today using the
+      // old naive overdue check. Now that the smarter Plaid-aware check
+      // says nothing is overdue, treat that break as a false alarm and
+      // clear it so the streak rebuilds from startDate (or the genuine
+      // last break, if any).
+      if (s.lastBreakDate === today) s.lastBreakDate = null;
       var anchor = s.lastBreakDate || s.startDate;
+      if (!anchor) { anchor = today; s.startDate = today; }
       var n = daysBetween(anchor, today) + 1; // inclusive of today
-      // If anchor === today (just broke earlier today), n could be 1 — still 0 until tomorrow
-      if (s.lastBreakDate === today) n = 0;
+      if (n < 1) n = 1;
       s.count = n;
     }
     if ((s.best || 0) < s.count) s.best = s.count;
