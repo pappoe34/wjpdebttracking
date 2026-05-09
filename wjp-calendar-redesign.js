@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.4 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.5 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -292,6 +292,20 @@
     return false;
   }
 
+  // v6.5: Normalize a merchant for dedup. Zelle pending/completed often
+  // have totally different merchant strings ("Zelle Transfer Conf# X; NAME"
+  // vs "Zelle payment from NAME for ...; Conf# X") — they share a conf #
+  // though, so extract that. Otherwise fall back to lowercased trim.
+  function dedupMerchantKey(merchant) {
+    var m = String(merchant || "").toLowerCase().trim();
+    if (!m) return "";
+    if (/zelle/.test(m)) {
+      var conf = m.match(/conf#?\s*([a-z0-9]+)/);
+      if (conf) return "zelle|conf|" + conf[1];
+    }
+    return m;
+  }
+
   // ============================================================
   // Data harvest from localStorage app state
   // ============================================================
@@ -327,7 +341,7 @@
       if (/^rec-/i.test(idChk) || /^plaid_rec/i.test(idChk) || idChk.indexOf("-rec-") >= 0) return;
       var rawAmt = Number(tx.amount);
       if (!isFinite(rawAmt)) return;
-      var cm = (tx.merchant || "").trim().toLowerCase();
+      var cm = dedupMerchantKey(tx.merchant);
       var key = cm + "|" + rawAmt.toFixed(2);
       var d = String(tx.date).slice(0, 10);
       var dayMs = new Date(d + "T12:00:00").getTime();
@@ -357,7 +371,7 @@
       // for the same merchant+amount. Otherwise keep the pending row so
       // today's paychecks (which start as pending) still show.
       var statusLower = String(tx.status || "").toLowerCase();
-      var cleanMerchant = (tx.merchant || "").trim().toLowerCase();
+      var cleanMerchant = dedupMerchantKey(tx.merchant);
       var amtKey = cleanMerchant + "|" + rawAmt.toFixed(2);
       var dayMs = t;
       if (statusLower === "pending") {
