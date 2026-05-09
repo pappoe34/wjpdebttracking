@@ -1,4 +1,4 @@
-/* wjp-credit-score-overhaul.js v2 — credit score tab refresh.
+/* wjp-credit-score-overhaul.js v3 — credit score tab refresh.
  *
  * Builds a Credit-Karma / Experian / WalletHub-grade UX:
  *   1. HERO — circular score gauge w/ change indicator + multi-bureau row
@@ -111,30 +111,44 @@
 
   // ── point-impact estimator (used by simulator) ─────────────────────────
   function estimateScoreShift(opts) {
-    // opts: { paydownAmt, newCard, closeCard }
     // Conservative FICO estimates — not exact, illustrative.
     var cs = loadCS();
     var u = computeUtilization();
     var baseUtil = u.overall || 0;
-    var newBal = Math.max(0, u.totalBalance - (opts.paydownAmt || 0));
-    var newUtil = u.totalLimit > 0 ? newBal / u.totalLimit : 0;
+    var newLim  = u.totalLimit + (opts.limitIncrease || 0);
+    var newBal  = Math.max(0, u.totalBalance - (opts.paydownAmt || 0));
+    var newUtil = newLim > 0 ? newBal / newLim : 0;
     var deltaUtil = newUtil - baseUtil;
     var delta = 0;
-    // Util bands → point shifts
     if (deltaUtil < -0.40) delta += 80;
     else if (deltaUtil < -0.20) delta += 50;
     else if (deltaUtil < -0.10) delta += 30;
     else if (deltaUtil < 0)     delta += 10 + Math.round(-deltaUtil * 200);
-    if (newUtil < 0.10 && baseUtil >= 0.10) delta += 20; // crossing into <10% threshold
+    if (newUtil < 0.10 && baseUtil >= 0.10) delta += 20;
     if (newUtil < 0.30 && baseUtil >= 0.30) delta += 15;
-    // New card application — short-term ding, long-term mix help
     if (opts.newCard) delta -= 8;
-    // Closing oldest card — ding age + util
+    if (opts.newLoan) delta -= 5; // hard pull short-term cost
     if (opts.closeCard) {
       delta -= 12;
       if (cs.oldestAccountYears && parseFloat(cs.oldestAccountYears) >= 5) delta -= 10;
     }
-    return delta;
+    if (opts.authUser) delta += 25; // long on-time history piggybacked
+    if (opts.pauseNew) delta += 8 + Math.min(12, opts.waitMonths || 0); // inquiries fade
+    if (opts.settleDerog) delta += 30 + (parseInt(cs.latePayments12mo, 10) || 0) * 10;
+    if (opts.azeo) {
+      // AZEO is a reporting trick — only beneficial if util > 0
+      if (baseUtil > 0.05) delta += 15;
+    }
+    if (opts.onTimeStreak) {
+      var l = parseInt(cs.latePayments12mo, 10) || 0;
+      if (l > 0) delta += Math.min(40, 8 + l * 6);
+      else delta += 4;
+    }
+    // Time-only waiting (no other changes): inquiries fade after 12 mo, age grows
+    if (opts.waitMonths) {
+      delta += Math.min(15, opts.waitMonths * 0.6);
+    }
+    return Math.round(delta);
   }
 
   // ── score history chart ────────────────────────────────────────────────
@@ -339,7 +353,7 @@
       // ── SIMULATOR ───────────────────────────────────────────────────
       + '  <div style="background:var(--card,rgba(255,255,255,0.02));border:1px solid var(--accent,#22c55e);border-radius:18px;padding:20px 22px;">'
       + '    <div style="font-size:10px;font-weight:800;letter-spacing:0.12em;color:var(--accent,#22c55e);text-transform:uppercase;">WHAT-IF SIMULATOR</div>'
-      + '    <div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin:4px 0 14px;">Move the sliders to see estimated point impact</div>'
+      + '    <div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin:4px 0 14px;">Move the sliders + check options to see estimated point impact</div>'
       + '    <div style="display:flex;flex-direction:column;gap:14px;">'
       + '      <div>'
       + '        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim,#94a3b8);margin-bottom:4px;">'
@@ -348,17 +362,38 @@
       + '        </div>'
       + '        <input id="wjp-cs-sim-paydown" type="range" min="0" max="' + Math.round(u.totalBalance) + '" step="50" value="0" style="width:100%;accent-color:#22c55e;">'
       + '      </div>'
-      + '      <div style="display:flex;gap:14px;flex-wrap:wrap;">'
-      + '        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;"><input id="wjp-cs-sim-newcard" type="checkbox"> Open a new credit card</label>'
-      + '        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;"><input id="wjp-cs-sim-closecard" type="checkbox"> Close my oldest card</label>'
+      + '      <div>'
+      + '        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim,#94a3b8);margin-bottom:4px;">'
+      + '          <span>Request credit limit increase of</span>'
+      + '          <span id="wjp-cs-sim-limitinc-val" style="color:var(--ink,#0a0a0a);font-weight:700;">$0</span>'
+      + '        </div>'
+      + '        <input id="wjp-cs-sim-limitinc" type="range" min="0" max="' + Math.max(5000, Math.round(u.totalLimit * 0.5)) + '" step="500" value="0" style="width:100%;accent-color:#22c55e;">'
+      + '      </div>'
+      + '      <div>'
+      + '        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim,#94a3b8);margin-bottom:4px;">'
+      + '          <span>Wait this many months (no changes)</span>'
+      + '          <span id="wjp-cs-sim-wait-val" style="color:var(--ink,#0a0a0a);font-weight:700;">0 mo</span>'
+      + '        </div>'
+      + '        <input id="wjp-cs-sim-wait" type="range" min="0" max="24" step="1" value="0" style="width:100%;accent-color:#22c55e;">'
+      + '      </div>'
+      + '      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;margin-top:6px;">'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-newcard" type="checkbox" style="margin-top:2px;"> Open a new credit card</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-closecard" type="checkbox" style="margin-top:2px;"> Close my oldest credit card</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-newloan" type="checkbox" style="margin-top:2px;"> Add a small installment loan (mix)</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-authuser" type="checkbox" style="margin-top:2px;"> Become an authorized user on an old, on-time card</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-pause" type="checkbox" style="margin-top:2px;"> Pause all new credit applications (12 mo)</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-settle" type="checkbox" style="margin-top:2px;"> Settle/remove a derogatory mark</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-azeo" type="checkbox" style="margin-top:2px;"> Use AZEO method (all $0 except one card)</label>'
+      + '        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1.4;"><input id="wjp-cs-sim-onstreak" type="checkbox" style="margin-top:2px;"> Build a 6-month on-time streak</label>'
       + '      </div>'
       + '    </div>'
       + '    <div style="margin-top:18px;padding:14px 16px;background:var(--card-2,rgba(255,255,255,0.03));border-radius:12px;display:flex;align-items:center;gap:14px;">'
-      + '      <div style="font-size:32px;font-weight:900;color:var(--accent,#22c55e);line-height:1;" id="wjp-cs-sim-delta">+0</div>'
+      + '      <div style="font-size:32px;font-weight:900;color:var(--accent,#22c55e);line-height:1;min-width:84px;text-align:center;" id="wjp-cs-sim-delta">+0</div>'
       + '      <div style="flex:1;">'
       + '        <div style="font-size:13px;font-weight:800;color:var(--ink,#0a0a0a);">Estimated point shift</div>'
-      + '        <div style="font-size:11px;color:var(--ink-dim,#94a3b8);" id="wjp-cs-sim-detail">Adjust sliders above to see impact.</div>'
+      + '        <div style="font-size:11px;color:var(--ink-dim,#94a3b8);line-height:1.5;" id="wjp-cs-sim-detail">Adjust sliders + check options above to see impact.</div>'
       + '      </div>'
+      + '      <button id="wjp-cs-sim-coach" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid #a78bfa;padding:8px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:0.04em;">Ask AI to explain</button>'
       + '    </div>'
       + '  </div>'
       // ── AI COACH ────────────────────────────────────────────────────
@@ -427,38 +462,86 @@
   }
 
   function wireSimulator() {
-    var pay = document.getElementById('wjp-cs-sim-paydown');
-    var newC = document.getElementById('wjp-cs-sim-newcard');
-    var closeC = document.getElementById('wjp-cs-sim-closecard');
-    var payVal = document.getElementById('wjp-cs-sim-paydown-val');
-    var deltaEl = document.getElementById('wjp-cs-sim-delta');
+    var pay      = document.getElementById('wjp-cs-sim-paydown');
+    var limitInc = document.getElementById('wjp-cs-sim-limitinc');
+    var waitInp  = document.getElementById('wjp-cs-sim-wait');
+    var newC     = document.getElementById('wjp-cs-sim-newcard');
+    var closeC   = document.getElementById('wjp-cs-sim-closecard');
+    var newLoan  = document.getElementById('wjp-cs-sim-newloan');
+    var authUser = document.getElementById('wjp-cs-sim-authuser');
+    var pause    = document.getElementById('wjp-cs-sim-pause');
+    var settle   = document.getElementById('wjp-cs-sim-settle');
+    var azeo     = document.getElementById('wjp-cs-sim-azeo');
+    var onStreak = document.getElementById('wjp-cs-sim-onstreak');
+    var coachBtn = document.getElementById('wjp-cs-sim-coach');
+    var payVal   = document.getElementById('wjp-cs-sim-paydown-val');
+    var limVal   = document.getElementById('wjp-cs-sim-limitinc-val');
+    var waitVal  = document.getElementById('wjp-cs-sim-wait-val');
+    var deltaEl  = document.getElementById('wjp-cs-sim-delta');
     var detailEl = document.getElementById('wjp-cs-sim-detail');
-    var wrap = document.getElementById(WRAP_ID);
+    var wrap     = document.getElementById(WRAP_ID);
     if (!pay || !deltaEl) return;
+    function readOpts() {
+      return {
+        paydownAmt:    parseFloat(pay.value) || 0,
+        limitIncrease: limitInc ? (parseFloat(limitInc.value) || 0) : 0,
+        waitMonths:    waitInp ? (parseInt(waitInp.value, 10) || 0) : 0,
+        newCard:       newC && newC.checked,
+        closeCard:     closeC && closeC.checked,
+        newLoan:       newLoan && newLoan.checked,
+        authUser:      authUser && authUser.checked,
+        pauseNew:      pause && pause.checked,
+        settleDerog:   settle && settle.checked,
+        azeo:          azeo && azeo.checked,
+        onTimeStreak:  onStreak && onStreak.checked
+      };
+    }
     function update() {
       if (wrap) wrap._simInteracting = true;
-      var amt = parseFloat(pay.value) || 0;
-      payVal.textContent = '$' + Math.round(amt).toLocaleString();
-      var delta = estimateScoreShift({
-        paydownAmt: amt,
-        newCard: newC && newC.checked,
-        closeCard: closeC && closeC.checked
-      });
+      var o = readOpts();
+      if (payVal)  payVal.textContent  = '$' + Math.round(o.paydownAmt).toLocaleString();
+      if (limVal)  limVal.textContent  = '$' + Math.round(o.limitIncrease).toLocaleString();
+      if (waitVal) waitVal.textContent = o.waitMonths + ' mo';
+      var delta = estimateScoreShift(o);
       var sign = delta >= 0 ? '+' : '';
       deltaEl.textContent = sign + delta;
       deltaEl.style.color = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : 'var(--ink-dim,#94a3b8)';
       var parts = [];
-      if (amt > 0) parts.push('paying down $' + Math.round(amt).toLocaleString());
-      if (newC && newC.checked) parts.push('opening a new card');
-      if (closeC && closeC.checked) parts.push('closing oldest card');
-      detailEl.textContent = parts.length ? 'Estimated impact of ' + parts.join(', ') + '.' : 'Adjust sliders above to see impact.';
-      // Allow re-renders again after debounce
+      if (o.paydownAmt > 0)    parts.push('paying down $' + Math.round(o.paydownAmt).toLocaleString());
+      if (o.limitIncrease > 0) parts.push('limit +$' + Math.round(o.limitIncrease).toLocaleString());
+      if (o.waitMonths > 0)    parts.push('waiting ' + o.waitMonths + ' mo');
+      if (o.newCard)      parts.push('new card');
+      if (o.closeCard)    parts.push('closing oldest card');
+      if (o.newLoan)      parts.push('add installment loan');
+      if (o.authUser)     parts.push('authorized-user lift');
+      if (o.pauseNew)     parts.push('pause new applications');
+      if (o.settleDerog)  parts.push('settle derogatory');
+      if (o.azeo)         parts.push('AZEO reporting');
+      if (o.onTimeStreak) parts.push('clean 6-mo on-time streak');
+      detailEl.textContent = parts.length ? 'Estimated impact of ' + parts.join(', ') + '.' : 'Adjust sliders + check options to see impact.';
       clearTimeout(wrap._simReleaseTimer);
       wrap._simReleaseTimer = setTimeout(function () { if (wrap) wrap._simInteracting = false; }, 1500);
     }
-    pay.addEventListener('input', update);
-    if (newC) newC.addEventListener('change', update);
-    if (closeC) closeC.addEventListener('change', update);
+    [pay, limitInc, waitInp].forEach(function (el) { if (el) el.addEventListener('input', update); });
+    [newC, closeC, newLoan, authUser, pause, settle, azeo, onStreak].forEach(function (el) { if (el) el.addEventListener('change', update); });
+    if (coachBtn) coachBtn.addEventListener('click', function () {
+      var o = readOpts();
+      var deltaPreview = estimateScoreShift(o);
+      var ask = 'Walk me through the credit-score impact if I do these things: '
+              + (o.paydownAmt > 0 ? 'pay down $' + Math.round(o.paydownAmt) + ' on credit cards; ' : '')
+              + (o.limitIncrease > 0 ? 'get a $' + Math.round(o.limitIncrease) + ' credit limit increase; ' : '')
+              + (o.waitMonths > 0 ? 'wait ' + o.waitMonths + ' months with no other changes; ' : '')
+              + (o.newCard ? 'open a new credit card; ' : '')
+              + (o.closeCard ? 'close my oldest card; ' : '')
+              + (o.newLoan ? 'add a small installment loan; ' : '')
+              + (o.authUser ? 'become an authorized user on an old card; ' : '')
+              + (o.pauseNew ? 'pause new applications for 12 mo; ' : '')
+              + (o.settleDerog ? 'settle/remove a derogatory mark; ' : '')
+              + (o.azeo ? 'use AZEO reporting; ' : '')
+              + (o.onTimeStreak ? 'build a 6-month on-time streak; ' : '')
+              + 'My current numbers: balance ' + new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(computeUtilization().totalBalance) + ', limit ' + new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(computeUtilization().totalLimit) + '. Estimated shift: ' + (deltaPreview >= 0 ? '+' : '') + deltaPreview + ' pts. Tell me what to actually do, in order, with point estimates per step.';
+      askCoach(ask);
+    });
   }
 
   function wireCoach() {
