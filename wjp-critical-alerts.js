@@ -1,4 +1,4 @@
-/* wjp-critical-alerts.js v4 — popup modal driven by WJP_PaymentStatus.
+/* wjp-critical-alerts.js v5 — popup modal driven by WJP_PaymentStatus.
  *
  * Improvements over v2:
  *   - Cross-checks Plaid transactions: if a payment matches an rp.amount near
@@ -114,6 +114,131 @@
     return alerts.slice(0, 6);
   }
 
+  // v5: open an inline statement scanner for a specific bill. The user
+  // picks an image (statement / receipt / confirmation) and we OCR it
+  // looking for the bill amount, the word "paid", or "balance $0". If we
+  // find a confirmation, we mark the bill as paid and advance its cycle.
+  function openStatementScannerFor(alert) {
+    // Try the host's openAttachStatementPicker first if this alert is tied
+    // to a debt (has linkedDebtId). That gives the user the richer existing flow.
+    try {
+      if (typeof appState !== 'undefined' && appState && Array.isArray(appState.recurringPayments)) {
+        var rp = null;
+        for (var i = 0; i < appState.recurringPayments.length; i++) {
+          if (appState.recurringPayments[i] && appState.recurringPayments[i].id === alert.rpId) { rp = appState.recurringPayments[i]; break; }
+        }
+        if (rp && rp.linkedDebtId && typeof window.openAttachStatementPicker === 'function') {
+          window.openAttachStatementPicker(rp.linkedDebtId);
+          close();
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Otherwise inline scan: tiny modal with file picker
+    var dialog = document.createElement('div');
+    dialog.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+    dialog.innerHTML =
+      '<div style="background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.10));border-radius:14px;padding:18px;max-width:440px;width:100%;">'
+    + '  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+    + '    <div>'
+    + '      <div style="font-size:9px;color:#a78bfa;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">VERIFY ' + escapeHtml(alert.name) + '</div>'
+    + '      <div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">Upload a statement, receipt or confirmation</div>'
+    + '    </div>'
+    + '    <button id="wjp-scan-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;">×</button>'
+    + '  </div>'
+    + '  <div style="font-size:11px;color:var(--ink-dim,#94a3b8);margin-bottom:12px;line-height:1.5;">We\'ll OCR the image on your device. If we find the bill amount or words like "paid" / "balance $0", we\'ll mark it cleared.</div>'
+    + '  <div id="wjp-scan-drop" style="border:2px dashed var(--border,rgba(255,255,255,0.20));border-radius:12px;padding:20px;text-align:center;cursor:pointer;">'
+    + '    <div style="font-size:24px;">📄</div>'
+    + '    <div style="font-size:12px;font-weight:700;color:var(--ink,#0a0a0a);margin-top:4px;">Click or drop an image</div>'
+    + '    <input type="file" accept="image/*" id="wjp-scan-file" style="display:none;">'
+    + '  </div>'
+    + '  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">'
+    + '    <div style="flex:1;height:6px;background:var(--card-2,rgba(255,255,255,0.06));border-radius:999px;overflow:hidden;"><div class="wjp-scan-bar" style="height:100%;width:0%;background:#a78bfa;transition:width 0.3s;"></div></div>'
+    + '    <div class="wjp-scan-lbl" style="font-size:11px;font-weight:700;color:var(--ink-dim,#94a3b8);min-width:120px;text-align:right;"></div>'
+    + '  </div>'
+    + '</div>';
+    document.body.appendChild(dialog);
+    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.remove(); });
+    dialog.querySelector('#wjp-scan-close').addEventListener('click', function () { dialog.remove(); });
+
+    var drop = dialog.querySelector('#wjp-scan-drop');
+    var file = dialog.querySelector('#wjp-scan-file');
+    drop.addEventListener('click', function () { file.click(); });
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.style.borderColor = '#a78bfa'; });
+    drop.addEventListener('dragleave', function () { drop.style.borderColor = ''; });
+    drop.addEventListener('drop', function (e) {
+      e.preventDefault(); drop.style.borderColor = '';
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) processStatementImage(dialog, alert, f);
+    });
+    file.addEventListener('change', function () {
+      var f = this.files && this.files[0];
+      if (f) processStatementImage(dialog, alert, f);
+      this.value = '';
+    });
+  }
+
+  function processStatementImage(dialog, alert, file) {
+    if (!file || !/^image\//.test((file.type || '').toLowerCase())) {
+      showToast('Pick an image (PNG / JPG / HEIC).', 'err');
+      return;
+    }
+    var bar = dialog.querySelector('.wjp-scan-bar');
+    var lbl = dialog.querySelector('.wjp-scan-lbl');
+    function setProg(pct, text) { if (bar) bar.style.width = pct + '%'; if (lbl) lbl.textContent = text || (pct + '%'); }
+    setProg(5, 'Loading OCR…');
+    ensureTesseractForScan()
+      .then(function () { setProg(15, 'Reading image…'); return window.Tesseract.recognize(file, 'eng', { logger: function (m) { if (m && typeof m.progress === 'number' && m.status === 'recognizing text') setProg(15 + m.progress * 75, 'Reading… ' + Math.round(m.progress * 100) + '%'); } }); })
+      .then(function (r) {
+        var text = (r && r.data && r.data.text) || '';
+        var lo = text.toLowerCase();
+        var amount = parseFloat(alert.amount) || 0;
+        var amtMatched = false;
+        if (amount > 0) {
+          // Look for the bill amount within ±$1 in the OCR text
+          var nums = text.match(/\d[\d,]*\.?\d{0,2}/g) || [];
+          for (var i = 0; i < nums.length; i++) {
+            var v = parseFloat(nums[i].replace(/,/g, ''));
+            if (isFinite(v) && Math.abs(v - amount) <= 1) { amtMatched = true; break; }
+          }
+        }
+        var paidWord = /\b(paid|payment\s+received|thank\s+you\s+for\s+your\s+payment|balance\s*[:$]?\s*\$?0\.?00?)\b/.test(lo);
+        var confirmed = amtMatched || paidWord;
+        if (confirmed) {
+          setProg(100, 'Confirmed');
+          showToast('Statement confirms ' + alert.name + ' — marking as paid.', 'ok');
+          var through = alert.nextDate ? addDays(alert.nextDate, 35) : addDays(todayKey(), 35);
+          window.WJP_PaymentStatus.markPaidThrough(alert.rpId, through);
+          try { if (typeof window.WJP_PaymentStatus.advanceRecurringByOneCycle === 'function') window.WJP_PaymentStatus.advanceRecurringByOneCycle(alert.rpId); } catch (_) {}
+          setTimeout(function () { dialog.remove(); rerender(); }, 800);
+        } else {
+          setProg(0, '');
+          showToast('Couldn\'t confirm payment in this image. Try a clearer crop or pick a different document.', 'err');
+        }
+      })
+      .catch(function (e) { setProg(0, ''); showToast('OCR failed: ' + (e && e.message || 'unknown'), 'err'); });
+  }
+
+  function ensureTesseractForScan() {
+    return new Promise(function (resolve, reject) {
+      if (typeof window.Tesseract !== 'undefined') return resolve();
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('Tesseract CDN failed')); };
+      document.head.appendChild(s);
+    });
+  }
+  function showToast(msg, kind) {
+    try { if (typeof window.showToast === 'function') return window.showToast(msg); } catch (_) {}
+    var el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:' + (kind === 'err' ? '#ef4444' : '#1f7a4a') + ';color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;z-index:99999;';
+    document.body.appendChild(el);
+    setTimeout(function () { try { el.remove(); } catch (_) {} }, 3000);
+  }
+
   function close() {
     var modal = document.getElementById('wjp-crit-alerts-modal');
     if (!modal) return;
@@ -187,11 +312,15 @@
         var actionsHTML = '';
         if (a.rpId) {
           actionsHTML =
-            '<div style="display:flex;gap:6px;margin-top:6px;">'
+            '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'
           +   '<button data-act="view" data-idx="' + idx + '" '
           +     'style="background:transparent;color:var(--ink, #0a0a0a);border:1px solid var(--border, rgba(255,255,255,0.15));padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">View</button>'
           +   '<button data-act="paid" data-idx="' + idx + '" '
-          +     'style="background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid #22c55e;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">Already paid</button>'
+          +     'style="background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid #22c55e;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">Yes, paid</button>'
+          +   '<button data-act="scan" data-idx="' + idx + '" '
+          +     'style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">Scan statement</button>'
+          +   '<button data-act="notyet" data-idx="' + idx + '" '
+          +     'style="background:transparent;color:var(--ink-dim, #6b7280);border:1px solid var(--border, rgba(255,255,255,0.10));padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">Not paid yet</button>'
           +   '<button data-act="notbill" data-idx="' + idx + '" '
           +     'style="background:transparent;color:var(--ink-dim, #6b7280);border:1px solid var(--border, rgba(255,255,255,0.10));padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;">Not a bill</button>'
           + '</div>';
@@ -265,13 +394,21 @@
           if (!a) return;
           if (act === 'view')   { jumpToBill(a.rpId, a.name); close(); return; }
           if (act === 'paid')   {
-            // Mark paid through nextDate + 35 days (covers monthly cycle)
             var through = a.nextDate ? addDays(a.nextDate, 35) : addDays(todayKey(), 35);
             window.WJP_PaymentStatus.markPaidThrough(a.rpId, through);
-            // v4: also advance the recurring's nextDate forward by one
-            // cycle so it doesn't show as overdue again next session
             try { if (typeof window.WJP_PaymentStatus.advanceRecurringByOneCycle === 'function') window.WJP_PaymentStatus.advanceRecurringByOneCycle(a.rpId); } catch (_) {}
             rerender();
+            return;
+          }
+          if (act === 'notyet') {
+            // User confirms it's truly unpaid — leave the alert state alone
+            // but track that we asked, so we don't keep nagging the same row.
+            // Simplest: close the modal for this session.
+            close();
+            return;
+          }
+          if (act === 'scan')   {
+            openStatementScannerFor(a);
             return;
           }
           if (act === 'notbill') {
