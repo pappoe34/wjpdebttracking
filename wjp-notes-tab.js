@@ -1,4 +1,4 @@
-/* wjp-notes-tab.js v1.1 — replace Plans tab with a full Notes feature.
+/* wjp-notes-tab.js v1.2 — replace Plans tab with a full Notes feature.
  *
  * Hijacks #page-plans (the existing Plans page) and the sidebar nav item
  * that points at it. Builds a complete note-taking UI with:
@@ -31,6 +31,26 @@
     if (p.indexOf("/index") === -1 && p !== "/" && p !== "") return;
   } catch (_) {}
 
+
+  // === Per-user storage helper (defers to WJP_UserScope when available) ===
+  function lsGet(s) {
+    try { return (window.WJP_UserScope && typeof window.WJP_UserScope.get === 'function')
+      ? window.WJP_UserScope.get(s) : localStorage.getItem(s); }
+    catch (_) { return localStorage.getItem(s); }
+  }
+  function lsSet(s, v) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.set === 'function')
+      window.WJP_UserScope.set(s, v);
+      else localStorage.setItem(s, v); }
+    catch (_) { try { localStorage.setItem(s, v); } catch (e) {} }
+  }
+  function lsRemove(s) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.remove === 'function')
+      window.WJP_UserScope.remove(s);
+      else localStorage.removeItem(s); }
+    catch (_) { try { localStorage.removeItem(s); } catch (e) {} }
+  }
+
   var ROOT_ID = "wjp-notes-root";
   var LS_NOTES_V2 = "wjp.notes.v2";
   var LS_NOTES_V1 = "wjp.cal.notes.v1";
@@ -56,21 +76,21 @@
   // === Storage / migration ===
   function loadStore() {
     try {
-      var v = JSON.parse(localStorage.getItem(LS_NOTES_V2) || "null");
+      var v = JSON.parse(lsGet(LS_NOTES_V2) || "null");
       if (v && v.byId) return v;
     } catch (_) {}
     return { byId: {}, migrated: false };
   }
 
   function saveStore(s) {
-    try { localStorage.setItem(LS_NOTES_V2, JSON.stringify(s)); } catch (_) {}
+    try { lsSet(LS_NOTES_V2, JSON.stringify(s)); } catch (_) {}
   }
 
   function migrateFromV1IfNeeded() {
     var s = loadStore();
     if (s.migrated) return s;
     try {
-      var v1 = JSON.parse(localStorage.getItem(LS_NOTES_V1) || "null");
+      var v1 = JSON.parse(lsGet(LS_NOTES_V1) || "null");
       if (v1 && typeof v1 === "object") {
         Object.keys(v1).forEach(function (date) {
           var n = v1[date]; if (!n || (!n.text && !n.reminderAt)) return;
@@ -147,7 +167,7 @@
         }
       });
       Object.keys(v1).forEach(function (k) { delete v1[k]._ts; });
-      localStorage.setItem(LS_NOTES_V1, JSON.stringify(v1));
+      lsSet(LS_NOTES_V1, JSON.stringify(v1));
     } catch (_) {}
   }
 
@@ -168,9 +188,9 @@
 
   // === Reminder check (browser Notification) ===
   function checkReminders() {
-    var lastCheck = parseInt(localStorage.getItem(LS_LAST_REMINDER_CHECK) || "0", 10);
+    var lastCheck = parseInt(lsGet(LS_LAST_REMINDER_CHECK) || "0", 10);
     if (Date.now() - lastCheck < 25000) return;
-    localStorage.setItem(LS_LAST_REMINDER_CHECK, String(Date.now()));
+    lsSet(LS_LAST_REMINDER_CHECK, String(Date.now()));
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
     var s = loadStore();
@@ -192,10 +212,10 @@
 
   // === View prefs ===
   function loadPrefs() {
-    try { return JSON.parse(localStorage.getItem(LS_VIEW_PREFS) || "null") || {}; }
+    try { return JSON.parse(lsGet(LS_VIEW_PREFS) || "null") || {}; }
     catch (_) { return {}; }
   }
-  function savePrefs(p) { try { localStorage.setItem(LS_VIEW_PREFS, JSON.stringify(p)); } catch (_) {} }
+  function savePrefs(p) { try { lsSet(LS_VIEW_PREFS, JSON.stringify(p)); } catch (_) {} }
 
   var state = {
     selectedId: null,
@@ -534,6 +554,9 @@
     if (saveBtn) saveBtn.addEventListener("click", function () {
       commit(true);
       showToast("Saved");
+      // Clear editor so user can immediately start a fresh note
+      state.selectedId = null;
+      rerender(host);
     });
 
     if (deleteBtn) deleteBtn.addEventListener("click", function () {
