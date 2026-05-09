@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.6 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.7 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -318,7 +318,7 @@
 
     var events = [];
     var todayMs = Date.now();
-    var WINDOW_BACK_MS    = 30 * 24 * 3600 * 1000;
+    var WINDOW_BACK_MS    = 365 * 24 * 3600 * 1000;
     var WINDOW_FORWARD_MS = 60 * 24 * 3600 * 1000;
     var minMs = todayMs - WINDOW_BACK_MS;
     var maxMs = todayMs + WINDOW_FORWARD_MS;
@@ -385,7 +385,7 @@
       if (t < minMs || t > todayMs) return; // past + today only
       var rawAmt = Number(tx.amount);
       if (!isFinite(rawAmt) || Math.abs(rawAmt) < 1) return;
-      if (Math.abs(rawAmt) < 25) return; // significance gate
+      if (Math.abs(rawAmt) < 5) return; // skip near-zero placeholders only
       if (isNoisyTransaction(tx)) return;
 
       // Skip recurring-schedule projections that leaked into state.transactions.
