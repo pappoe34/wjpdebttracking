@@ -1,4 +1,4 @@
-/* wjp-bureau-redesign.js v3 — replace the "Connect a credit bureau" card
+/* wjp-bureau-redesign.js v4 — replace the "Connect a credit bureau" card
  * with a 2-pane layout:
  *   - LEFT  "Automatic"  → Coming soon. Lists future bureau integrations.
  *   - RIGHT "Manual"     → Picture / document scanner + manual input.
@@ -99,6 +99,94 @@
       }
     }
     return null;
+  }
+
+  // v4: extract Credit-Karma-style factor values from OCR text.
+  // Returns an object with whichever fields it could detect.
+  function extractFactors(text) {
+    if (!text) return {};
+    var t = text.replace(/\r/g, '');
+    var out = {};
+    var m;
+
+    // Credit age: "6 yrs, 11 mos" or "6 yr 11 mo" or "Credit age 6 years"
+    if ((m = t.match(/credit\s*age[\s\S]{0,80}?(\d+)\s*yrs?[\s,]*?(\d+)?\s*mo?s?/i))) {
+      var yrs = parseInt(m[1], 10) || 0;
+      var mos = parseInt(m[2] || '0', 10) || 0;
+      out.oldestAccountYears = (yrs + mos / 12).toFixed(1);
+    }
+
+    // Hard inquiries — must follow the literal phrase
+    if ((m = t.match(/hard\s*inquir[a-z]+[\s\S]{0,60}?(\d+)/i))) {
+      out.hardInquiries12mo = parseInt(m[1], 10);
+    }
+
+    // Total accounts — for credit mix awareness
+    if ((m = t.match(/total\s*accounts?[\s\S]{0,60}?(\d+)/i))) {
+      out.totalAccounts = parseInt(m[1], 10);
+    }
+
+    // Derogatory marks — proxy for late payments / public records
+    if ((m = t.match(/derogatory\s*marks?[\s\S]{0,60}?(\d+)/i))) {
+      out.derogatoryMarks = parseInt(m[1], 10);
+    }
+
+    // Payment history on-time percentage
+    if ((m = t.match(/payment\s*history[\s\S]{0,60}?(\d{1,3})\s*%/i))) {
+      var pct = parseInt(m[1], 10);
+      out.paymentHistoryPct = pct;
+      // Rough proxy: if user has perfect 100% history, latePayments12mo = 0.
+      // If we see 98%, can't infer exact lates without total accounts. Leave
+      // latePayments12mo manual for accuracy.
+    }
+
+    // Credit card use (Credit Karma) — store as observed utilization
+    if ((m = t.match(/credit\s*card\s*use[\s\S]{0,60}?(\d{1,3})\s*%/i))) {
+      out.observedUtilizationPct = parseInt(m[1], 10);
+    }
+
+    // New accounts (some apps show this)
+    if ((m = t.match(/new\s*accounts?[\s\S]{0,60}?(\d+)/i))) {
+      out.newAccounts12mo = parseInt(m[1], 10);
+    }
+
+    return out;
+  }
+
+  // Apply extracted factors to the existing form inputs.
+  function applyFactorsToInputs(factors) {
+    var applied = [];
+    function set(id, value, label) {
+      var el = document.getElementById(id);
+      if (el && value != null && value !== '' && !isNaN(parseFloat(value))) {
+        el.value = value;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        var prev = el.style.boxShadow;
+        el.style.transition = 'box-shadow 0.4s';
+        el.style.boxShadow = '0 0 0 3px #22c55e';
+        setTimeout(function () { el.style.boxShadow = prev || ''; }, 1600);
+        applied.push(label);
+      }
+    }
+    if (factors.oldestAccountYears != null) set('cs-input-oldest', factors.oldestAccountYears, 'oldest account');
+    if (factors.hardInquiries12mo != null) set('cs-input-inq', factors.hardInquiries12mo, 'hard inquiries');
+    if (factors.newAccounts12mo != null) set('cs-input-newacc', factors.newAccounts12mo, 'new accounts');
+    // Derogatory marks → late payments proxy (only if user hasn't entered manually)
+    if (factors.derogatoryMarks != null) {
+      var lateEl = document.getElementById('cs-input-lates');
+      if (lateEl && (!lateEl.value || lateEl.value === '0')) {
+        set('cs-input-lates', factors.derogatoryMarks, 'late payments (from derogatory marks)');
+      }
+    }
+    // Persist factors to wjp_credit_inputs
+    try {
+      var cs = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
+      Object.keys(factors).forEach(function (k) { cs[k] = factors[k]; });
+      cs.factorsCapturedAt = Date.now();
+      localStorage.setItem('wjp_credit_inputs', JSON.stringify(cs));
+    } catch (_) {}
+    return applied;
   }
 
   function findAllScores(text) {
@@ -294,9 +382,16 @@
         var hits = findAllScores(text);
         // v3: if multiple bureau-labeled scores found, show a picker
         var labeled = hits.filter(function (h) { return h.bureau; });
+        // v4: extract factors regardless of single/multi score
+        var factors = extractFactors(text);
+        var appliedLabels = applyFactorsToInputs(factors);
+
         if (labeled.length >= 2) {
           setProgress(host, 100, 'Found ' + labeled.length + ' scores');
           showScorePicker(host, labeled);
+          if (appliedLabels.length) {
+            setTimeout(function () { showToast('Also filled: ' + appliedLabels.join(', '), 'ok'); }, 800);
+          }
           setTimeout(function () { setProgress(host, 0, ''); }, 1500);
           return;
         }
@@ -304,6 +399,10 @@
         if (!hit) {
           setProgress(host, 0, '');
           host._lastOcrText = text;
+          if (appliedLabels.length) {
+            showToast('No score detected, but filled: ' + appliedLabels.join(', '), 'ok');
+            return;
+          }
           var btn = host.querySelector('.wjp-br-show-ocr');
           if (!btn) {
             btn = document.createElement('button');
@@ -321,7 +420,10 @@
         if (hit.bureau) recordBureauScores([hit]);
         applyScoreToInput(hit.value);
         setProgress(host, 100, 'Detected: ' + hit.bureauLabel + ' ' + hit.value);
-        showToast(hit.bureauLabel + ' ' + hit.value + ' saved. Adjust if wrong.', 'ok');
+        var msg = hit.bureauLabel + ' ' + hit.value + ' saved.';
+        if (appliedLabels.length) msg += ' Also filled: ' + appliedLabels.join(', ') + '.';
+        else msg += ' Adjust if wrong.';
+        showToast(msg, 'ok');
         setTimeout(function () { setProgress(host, 0, ''); }, 2500);
       })
       .catch(function (e) {
