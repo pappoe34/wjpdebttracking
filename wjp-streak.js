@@ -1,20 +1,17 @@
-/* wjp-streak.js v11 — payment-on-track streak.
+/* wjp-streak.js v12 — no header chip; notify via bell icon instead.
  *
- * v6 was a LOGIN streak: reset to 1 if the user skipped a day. That broke
- * Winston's chip even though he hadn't missed any payments.
- *
- * v7 changes the semantic to what the audit actually called for:
- *   "Days on track" = days since user's first activity, MINUS days where
- *   a recurring payment was overdue (today > nextDate, not yet paid).
- *
- * Skipping a day no longer resets the streak. Only a missed payment does.
+ * Behavior:
+ *   - Tracks "days on track" exactly like v11 (count >= 1 always; uses
+ *     WJP_PaymentStatus.anyOverdue() to detect breaks).
+ *   - Does NOT render a chip in the header anymore.
+ *   - Pushes a notification into the bell-icon panel via window.logActivity
+ *     once per day with the current streak count. If a break happened
+ *     today, the notification reflects "Streak restarted — day 1".
+ *   - Notification throttling: persist `wjp.streak.lastNotifiedDay` so we
+ *     don't push a duplicate on every reload within the same day.
  *
  * State (localStorage, key "wjp.streak.v2"):
- *   { startDate: "YYYY-MM-DD",    // first day we ever ran
- *     count:     <int>,           // current streak (days on track)
- *     best:      <int>,           // highest streak ever reached
- *     lastBreakDate: "YYYY-MM-DD" or null, // last day a payment went overdue
- *     lastActive: "YYYY-MM-DD" }
+ *   { startDate, count, best, lastBreakDate, lastActive, lastNotifiedDay }
  */
 (function () {
   'use strict';
@@ -22,9 +19,7 @@
   window._wjpStreakInstalled = true;
 
   if (location.pathname && location.pathname !== '/' &&
-      !/index\.html?$/.test(location.pathname)) {
-    return;
-  }
+      !/index\.html?$/.test(location.pathname)) return;
 
   var LS_KEY = 'wjp.streak.v2';
 
@@ -32,11 +27,10 @@
     try {
       var raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
       if (raw) return raw;
-      // Migrate forward from v1 if present (preserves "best" so users don't lose history)
       var legacy = JSON.parse(localStorage.getItem('wjp.streak.v1') || 'null');
-      if (legacy) return { startDate: null, count: legacy.count || 0, best: legacy.best || 0, lastBreakDate: null, lastActive: legacy.lastActive || null };
+      if (legacy) return { startDate: null, count: legacy.count || 0, best: legacy.best || 0, lastBreakDate: null, lastActive: legacy.lastActive || null, lastNotifiedDay: null };
     } catch (_) {}
-    return { startDate: null, count: 0, best: 0, lastBreakDate: null, lastActive: null };
+    return { startDate: null, count: 0, best: 0, lastBreakDate: null, lastActive: null, lastNotifiedDay: null };
   }
   function save(s) { try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (_) {} }
 
@@ -50,10 +44,6 @@
     return Math.round((bd - ad) / (24 * 60 * 60 * 1000));
   }
 
-  // v8: Defer to WJP_PaymentStatus which cross-checks Plaid transactions
-  // and respects the user's "Already paid" / "Not a bill" overrides. If the
-  // helper hasn't loaded yet, fall back to "no overdue" rather than break
-  // the streak unnecessarily.
   function hasOverduePayment() {
     try {
       if (window.WJP_PaymentStatus && typeof window.WJP_PaymentStatus.anyOverdue === 'function') {
@@ -64,127 +54,128 @@
     return false;
   }
 
-  // Recompute streak from scratch each open. If any payment is overdue today,
-  // the streak is broken (count=0 with lastBreakDate=today). Otherwise the
-  // streak is "days since lastBreakDate" (or "days since startDate" if never
-  // broken).
   function recompute() {
     var s = loadState();
     var today = dayKey(new Date());
     if (!s.startDate) s.startDate = today;
-
-    // Migrate any stale count=0 state forward to 1 — "0 days" is not a
-    // valid streak value going forward.
     if (typeof s.count !== 'number' || s.count < 1) s.count = 1;
 
     if (hasOverduePayment()) {
-      // A fresh break: today restarts the streak at day 1.
       if (s.lastBreakDate !== today) {
         s.lastBreakDate = today;
         s.count = 1;
       }
-      // If lastBreakDate is already today, the count was set above to >=1
-      // (or just floored to 1 on this run); leave it as-is.
     } else {
-      // No overdue. A "break" that was written today must have been a false
-      // alarm from an earlier, naive overdue check — clear it.
       if (s.lastBreakDate === today) s.lastBreakDate = null;
       var anchor = s.lastBreakDate || s.startDate;
       if (!anchor) { anchor = today; s.startDate = today; }
-      var n = daysBetween(anchor, today) + 1; // inclusive of today
+      var n = daysBetween(anchor, today) + 1;
       if (n < 1) n = 1;
       s.count = n;
     }
 
-    // Final unconditional floor — count can NEVER be < 1.
     if (s.count < 1) s.count = 1;
-
     if ((s.best || 0) < s.count) s.best = s.count;
     s.lastActive = today;
     save(s);
     return s;
   }
 
-  function findHeaderPillRow() {
-    var input = Array.from(document.querySelectorAll('input')).find(function (i) {
-      var p = (i.placeholder || '').toLowerCase();
-      return p.indexOf('search insights') !== -1 && i.offsetParent !== null;
-    });
-    if (!input) {
-      var anchors = [];
-      document.querySelectorAll('button, a, [role=button], [class*="pill"], [class*="btn"]').forEach(function (n) {
-        var t = (n.textContent || '').toLowerCase();
-        if (/privacy mode|bank health|sync bank/.test(t) && n.offsetParent !== null) anchors.push(n);
-      });
-      if (!anchors.length) return null;
-      var cand = anchors[0].parentElement;
-      while (cand) {
-        var hits = anchors.filter(function (a) { return cand.contains(a); }).length;
-        if (hits >= 2) return { row: cand, beforeNode: anchors[0] };
-        cand = cand.parentElement;
-      }
-      return { row: anchors[0].parentElement, beforeNode: anchors[0] };
-    }
-    var rowParent = input.parentElement;
-    while (rowParent) {
-      var pillSibling = Array.from(rowParent.querySelectorAll('button, a, [class*="pill"]')).find(function (n) {
-        return /privacy mode|bank health|sync bank/i.test((n.textContent || ''));
-      });
-      if (pillSibling) break;
-      rowParent = rowParent.parentElement;
-    }
-    if (!rowParent) rowParent = input.parentElement;
-    var beforeNode = input;
-    while (beforeNode.parentElement && beforeNode.parentElement !== rowParent) {
-      beforeNode = beforeNode.parentElement;
-    }
-    return { row: rowParent, beforeNode: beforeNode };
-  }
-
   function emojiFor(count) {
     if (count >= 365) return '🏆';
     if (count >= 100) return '🔥🔥🔥';
-    if (count >= 30)  return '🔥🔥';
-    if (count >= 7)   return '🔥';
+    if (count >= 30) return '🔥🔥';
+    if (count >= 7) return '🔥';
     return '✓';
   }
 
-  function renderChip() {
+  // Remove any chip a previous version may have mounted.
+  function removeOldChip() {
+    var el = document.getElementById('wjp-streak-chip');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  // Push a daily notification into the bell panel via the host app's
+  // logActivity helper. Skips if already notified today.
+  function maybeNotify(s) {
     try {
-      var anchor = findHeaderPillRow();
-      if (!anchor) return;
-      var s = recompute();
-      // v11: count is always >= 1 now; broken state is gone. The chip just
-      // shows the current streak length.
+      var today = dayKey(new Date());
+      if (s.lastNotifiedDay === today) return;
+      if (typeof window.logActivity !== 'function') return; // host not ready
+
       var emoji = emojiFor(s.count);
-      var color = '#22c55e';
-      var bg    = 'rgba(34,197,94,0.10)';
-      var label = s.count + ' day' + (s.count === 1 ? '' : 's') + ' on track';
+      var brokeToday = s.lastBreakDate === today;
+      var title, text, priority;
 
-      var existing = document.getElementById('wjp-streak-chip');
-      if (existing) existing.remove();
+      if (brokeToday) {
+        title = emoji + ' Streak restarted — day 1';
+        text  = 'A payment went past due. New streak begins today.';
+        priority = 'high';
+      } else if (s.count === 1) {
+        title = emoji + ' Day 1 on track';
+        text  = 'No overdue payments — keep it going.';
+        priority = 'normal';
+      } else {
+        title = emoji + ' ' + s.count + ' days on track';
+        text  = 'No overdue payments. Best streak: ' + (s.best || s.count) + ' days.';
+        priority = 'normal';
+      }
 
-      var chipHTML =
-          '<span id="wjp-streak-chip" '
-        +   'style="display:inline-flex;align-items:center;gap:6px;'
-        +     'padding:6px 12px;border-radius:999px;border:1px solid ' + color + ';'
-        +     'background:' + bg + ';color:' + color + ';'
-        +     'font-size:12px;font-weight:700;cursor:help;'
-        +     'margin-right:8px;white-space:nowrap;" '
-        +   'title="' + label + ' · best: ' + (s.best || s.count) + '">'
-        +   '<span>' + emoji + '</span>'
-        +   '<span><b style="font-weight:800;">' + s.count + '</b>' + ' day' + (s.count === 1 ? '' : 's') + ' on track</span>'
-        + '</span>';
-      anchor.beforeNode.insertAdjacentHTML('beforebegin', chipHTML);
-    } catch (e) { try { console.warn('[wjp-streak v7] threw', e); } catch (_) {} }
+      window.logActivity({
+        title: title,
+        text: text,
+        type: 'strategy',
+        priority: priority,
+        link: null
+      });
+
+      s.lastNotifiedDay = today;
+      save(s);
+    } catch (_) {}
+  }
+
+  // Wait for window.logActivity to be available (it's defined inside app.js
+  // which loads after this module). Poll briefly, then notify.
+  function whenReady(fn) {
+    if (typeof window.logActivity === 'function' && window.appState) return fn();
+    var tries = 0;
+    var iv = setInterval(function () {
+      if (typeof window.logActivity === 'function' && window.appState) {
+        clearInterval(iv);
+        fn();
+      } else if (++tries > 30) { // ~15s max
+        clearInterval(iv);
+      }
+    }, 500);
+  }
+
+  function boot() {
+    removeOldChip();
+    whenReady(function () {
+      var s = recompute();
+      maybeNotify(s);
+    });
+    // Tidy up if some legacy code re-mounts the chip
+    setInterval(removeOldChip, 5000);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(renderChip, 800); });
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 600); });
   } else {
-    setTimeout(renderChip, 800);
+    setTimeout(boot, 600);
   }
-  setInterval(renderChip, 30000); // refresh every 30s in case state changes
 
-  window.WJP_Streak = { state: loadState, recompute: recompute, refresh: renderChip };
+  window.WJP_Streak = {
+    state: loadState,
+    recompute: recompute,
+    notifyNow: function () {
+      try {
+        var s = loadState();
+        s.lastNotifiedDay = null;
+        save(s);
+      } catch (_) {}
+      var s2 = recompute();
+      maybeNotify(s2);
+    }
+  };
 })();
