@@ -1,4 +1,4 @@
-/* wjp-settings-extras.js — adds Plans link in Settings → Billing and a new
+/* wjp-settings-extras.js v1.1 — adds Plans link in Settings → Billing and a new
  * Activity Log sub-tab with retention picker.
  *
  * Why: the sidebar Plans nav item is now Notes, and Activity Log is now
@@ -92,8 +92,7 @@
     s.textContent = `
       #${ACTIVITY_PANEL_ID} { display: none; }
       body.wjp-settings-activity-active #${ACTIVITY_PANEL_ID} { display: block; }
-      body.wjp-settings-activity-active #page-settings .settings-panel:not(#${ACTIVITY_PANEL_ID}) { display: none !important; }
-      body.wjp-settings-activity-active #page-settings > div > h2 { display: none !important; }
+      body.wjp-settings-activity-active #page-settings .settings-content-pane:not(.wjp-act-pane) { display: none !important; }
       .wjp-act-row { display: flex; gap: 12px; padding: 12px 14px; border-bottom: 1px solid rgba(0,0,0,0.06); align-items: flex-start; }
       .wjp-act-row .icon { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
       .wjp-act-priority-high .icon { background: rgba(220,38,38,0.10); color: #dc2626; }
@@ -177,11 +176,15 @@
     if (!panel) {
       panel = document.createElement("div");
       panel.id = ACTIVITY_PANEL_ID;
-      panel.className = "settings-panel";
-      // Mount inside the same container as other panels (after settings-subnav)
-      var anchor = page.querySelector(".settings-subnav");
-      if (anchor && anchor.parentElement) anchor.parentElement.appendChild(panel);
-      else page.appendChild(panel);
+      panel.className = "settings-content-pane wjp-act-pane";
+      // Mount as sibling of the real .settings-content-pane inside .settings-layout
+      var pane = page.querySelector(".settings-content-pane");
+      if (pane && pane.parentElement) pane.parentElement.appendChild(panel);
+      else {
+        var layout = page.querySelector(".settings-layout");
+        if (layout) layout.appendChild(panel);
+        else page.appendChild(panel);
+      }
     }
     panel.innerHTML = renderActivityPanel();
     bindActivityHandlers(panel);
