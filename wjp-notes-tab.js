@@ -295,7 +295,7 @@
       .wjp-notes-title { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; border: 0; outline: 0; padding: 0; background: transparent; color: var(--ink, #0a0a0a); font-family: inherit; }
       .wjp-notes-title::placeholder { color: var(--ink-faint, #9ca3af); }
       .wjp-notes-body { min-height: 220px; border: 0; outline: 0; padding: 0; background: transparent; color: var(--ink, #1a1a1a); font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
-      .wjp-notes-body::placeholder { color: #c0c5cf; }
+      .wjp-notes-body::placeholder { color:var(--ink-faint, #c0c5cf); }
       .wjp-notes-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06); }
       .wjp-notes-meta label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-dim, #6b7280); font-weight: 600; }
       .wjp-notes-meta input[type="date"], .wjp-notes-meta input[type="datetime-local"] { border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; padding: 5px 8px; font-family: inherit; font-size: 12px; color: var(--ink, #0a0a0a); }
