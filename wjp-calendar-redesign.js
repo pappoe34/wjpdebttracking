@@ -22,6 +22,26 @@
     if (p.indexOf("/index") === -1 && p !== "/" && p !== "") return;
   } catch (_) {}
 
+  // Flicker guard — installed synchronously on script load. Hides the
+  // original #page-recurring children the moment they would render so the
+  // user never sees the broken old layout. Our overlay's root
+  // (#wjp-cal-root) is exempt. Safety: if root fails to mount within 5s,
+  // remove the guard so the page can't be permanently empty.
+  (function installFlickerGuard() {
+    try {
+      if (document.getElementById("wjp-cal-flicker-guard")) return;
+      var s = document.createElement("style");
+      s.id = "wjp-cal-flicker-guard";
+      s.textContent = "#page-recurring > *:not(#wjp-cal-root){display:none !important;}";
+      (document.head || document.documentElement).appendChild(s);
+      setTimeout(function () {
+        if (!document.getElementById("wjp-cal-root")) {
+          try { s.remove(); } catch (_) {}
+        }
+      }, 5000);
+    } catch (_) {}
+  })();
+
   var ROOT_ID         = "wjp-cal-root";
   var LS_NOTES        = "wjp.cal.notes.v1";
   var LS_FILTER       = "wjp.cal.filter.v1";
@@ -1159,7 +1179,7 @@
   }
 
   function boot() {
-    setTimeout(tick, 800);
+    tick();
     setInterval(tick, 4000);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
