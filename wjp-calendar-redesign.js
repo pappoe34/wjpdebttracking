@@ -82,8 +82,15 @@
   }
   function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
 
-  function loadNotes()      { return loadJSON(LS_NOTES, {}); }
-  function saveNotes(o)     { saveJSON(LS_NOTES, o); }
+  function loadNotes() {
+    // Prefer the unified store maintained by the Notes tab if available.
+    if (window.WJP_Notes && typeof window.WJP_Notes.notesByDate === "function") {
+      try { return window.WJP_Notes.notesByDate() || {}; } catch (_) {}
+    }
+    // Fallback: legacy v1 store
+    return loadJSON(LS_NOTES, {});
+  }
+  function saveNotes(o) { saveJSON(LS_NOTES, o); }
   function loadOverrides()  { return loadJSON(LS_OVERRIDES, {}); }
   function saveOverrides(o) { saveJSON(LS_OVERRIDES, o); }
   function loadMerchantCats()  { return loadJSON(LS_MERCHANT_CAT, {}); }
