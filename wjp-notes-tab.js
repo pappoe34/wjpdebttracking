@@ -1,4 +1,4 @@
-/* wjp-notes-tab.js — replace Plans tab with a full Notes feature.
+/* wjp-notes-tab.js v1.1 — replace Plans tab with a full Notes feature.
  *
  * Hijacks #page-plans (the existing Plans page) and the sidebar nav item
  * that points at it. Builds a complete note-taking UI with:
@@ -416,6 +416,41 @@
     `;
   }
 
+  function refreshListOnly(host) {
+    var root = document.getElementById(ROOT_ID);
+    if (!root) return;
+    var listBody = root.querySelector('.wjp-notes-list-body');
+    if (!listBody) return;
+    var notes = listNotes({ q: state.query, includeArchived: state.showArchived });
+    var html;
+    if (notes.length) {
+      html = notes.map(function (n) {
+        var active = n.id === state.selectedId;
+        var hasReminder = n.reminderAt && !n.fired;
+        var hasPin = !!n.pinnedDate;
+        var titleStr = n.title || preview(n.body, 40) || 'Untitled note';
+        var preStr = n.title ? preview(n.body, 80) : '';
+        var pinBit = hasPin ? '<span class="pin">\ud83d\udccc ' + escapeHTML(fmtDateLong(n.pinnedDate)) + '</span>' : '';
+        var bellBit = hasReminder ? '<span class="bell">\ud83d\udd14 ' + escapeHTML(new Date(n.reminderAt).toLocaleDateString()) + '</span>' : '';
+        var preBit = preStr ? '<div class="pre">' + escapeHTML(preStr) + '</div>' : '';
+        return '<div class="wjp-notes-row' + (active ? ' wjp-active' : '') + '" data-wjp-note-id="' + escapeHTML(n.id) + '">' +
+          '<div class="ttl">' + escapeHTML(titleStr) + '</div>' +
+          preBit +
+          '<div class="meta">' + pinBit + bellBit + '<span style="margin-left:auto;">' + escapeHTML(fmtRelative(n.updatedAt)) + '</span></div>' +
+        '</div>';
+      }).join('');
+    } else {
+      html = '<div class="wjp-notes-empty">No notes yet.<br><span style="font-size:11px;">Click <b>+ New</b> to start.</span></div>';
+    }
+    listBody.innerHTML = html;
+    Array.from(listBody.querySelectorAll('[data-wjp-note-id]')).forEach(function (row) {
+      row.addEventListener('click', function () {
+        state.selectedId = row.dataset.wjpNoteId;
+        rerender(host);
+      });
+    });
+  }
+
   function attach(host) {
     var root = document.getElementById(ROOT_ID);
     if (!root) return;
@@ -481,6 +516,8 @@
       if (n.reminderAt && "Notification" in window && Notification.permission === "default") {
         try { Notification.requestPermission(); } catch (_) {}
       }
+    
+      refreshListOnly(host);
     }
 
     function debouncedCommit() {
