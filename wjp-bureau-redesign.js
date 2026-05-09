@@ -1,4 +1,4 @@
-/* wjp-bureau-redesign.js v1 — replace the "Connect a credit bureau" card
+/* wjp-bureau-redesign.js v2 — replace the "Connect a credit bureau" card
  * with a 2-pane layout:
  *   - LEFT  "Automatic"  → Coming soon. Lists future bureau integrations.
  *   - RIGHT "Manual"     → Picture / document scanner + manual input.
@@ -17,6 +17,45 @@
   var WRAP_ID = 'wjp-bureau-redesign-card';
   var TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
 
+  // v2: preprocess the image before OCR. Tesseract reads stylized fonts
+  // poorly at native resolution; we convert to grayscale, boost contrast,
+  // and 2x upscale. This single step matters more than any regex tweak.
+  function preprocessImage(file) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var scale = 2;
+            var w = img.naturalWidth * scale;
+            var h = img.naturalHeight * scale;
+            // Cap at reasonable size to avoid OOM on huge screenshots
+            if (w * h > 12000000) { var k = Math.sqrt(12000000 / (w * h)); w = Math.round(w * k); h = Math.round(h * k); }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            var data = ctx.getImageData(0, 0, w, h);
+            var d = data.data;
+            for (var i = 0; i < d.length; i += 4) {
+              var lum = 0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2];
+              // boost contrast: map [80, 200] → [0, 255]
+              var v = (lum - 80) * (255 / (200 - 80));
+              v = v < 0 ? 0 : v > 255 ? 255 : v;
+              d[i] = d[i+1] = d[i+2] = v;
+            }
+            ctx.putImageData(data, 0, 0);
+            resolve(canvas);
+          } catch (e) { reject(e); }
+        };
+        img.onerror = function () { reject(new Error('image load failed')); };
+        img.src = URL.createObjectURL(file);
+      } catch (e) { reject(e); }
+    });
+  }
+
   function ensureTesseract() {
     return new Promise(function (resolve, reject) {
       if (typeof window.Tesseract !== 'undefined') return resolve();
@@ -28,23 +67,47 @@
     });
   }
 
+  // v2: more lenient extraction. Handles common Tesseract misreads
+  // (l → 1, O → 0, S → 5, B → 8, I → 1) and digits without word boundaries.
+  function fixDigits(s) {
+    return String(s)
+      .replace(/[lI|]/g, '1')
+      .replace(/[oO]/g, '0')
+      .replace(/[Ss]/g, '5')
+      .replace(/[Bb](?=\d|$)/g, '8')
+      .replace(/[gG]/g, '9');
+  }
   function pickScore(text) {
     if (!text) return null;
     var lines = text.split(/\r?\n/);
     var hits = [];
     var lineIdx = 0;
     lines.forEach(function (line) {
-      var clean = line.replace(/[^\dA-Za-z\s]/g, ' ');
-      var m, re = /\b(\d{3})\b/g;
-      while ((m = re.exec(clean)) !== null) {
+      var lo = line.toLowerCase();
+      var ctxBoost = 0;
+      if (/score|fico|vantagescore|vantage/.test(lo)) ctxBoost += 5;
+      if (/credit/.test(lo)) ctxBoost += 1;
+      if (/current|today|latest|your/.test(lo)) ctxBoost += 2;
+
+      // Pass 1: bare 3-digit numbers anywhere in the line
+      var m, re = /(\d{3})/g;
+      while ((m = re.exec(line)) !== null) {
+        var v = parseInt(m[1], 10);
+        if (v >= 300 && v <= 850) hits.push({ value: v, lineIdx: lineIdx, ctx: ctxBoost, source: 'direct' });
+      }
+      // Pass 2: 3-character chunks with letters that look like digits
+      // (catches stylized fonts where Tesseract misreads "713" as "7l3" etc)
+      var fixed = fixDigits(line);
+      var re2 = /(\d{3})/g;
+      while ((m = re2.exec(fixed)) !== null) {
         var v = parseInt(m[1], 10);
         if (v >= 300 && v <= 850) {
-          var ctx = 0;
-          var lo = clean.toLowerCase();
-          if (/\bscore\b|\bfico\b|\bvantagescore\b|\bvantage\b/.test(lo)) ctx += 5;
-          if (/\bcredit\b/.test(lo)) ctx += 1;
-          if (/\bcurrent\b|\btoday\b|\blatest\b/.test(lo)) ctx += 2;
-          hits.push({ value: v, lineIdx: lineIdx, ctx: ctx });
+          // Avoid double-counting if same value already found at this position
+          var dup = false;
+          for (var i = 0; i < hits.length; i++) {
+            if (hits[i].lineIdx === lineIdx && hits[i].value === v) { dup = true; break; }
+          }
+          if (!dup) hits.push({ value: v, lineIdx: lineIdx, ctx: ctxBoost, source: 'corrected' });
         }
       }
       lineIdx++;
@@ -52,6 +115,8 @@
     if (!hits.length) return null;
     hits.sort(function (a, b) {
       if (b.ctx !== a.ctx) return b.ctx - a.ctx;
+      // Prefer direct reads over corrected
+      if (a.source !== b.source) return a.source === 'direct' ? -1 : 1;
       var inBand = function (x) { return (x.value >= 550 && x.value <= 820) ? 1 : 0; };
       var ab = inBand(a), bb = inBand(b);
       if (ab !== bb) return bb - ab;
@@ -76,22 +141,46 @@
     if (lbl) lbl.textContent = label || '';
   }
 
+  function showOcrTextDialog(text) {
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML =
+      '<div style="background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.10));border-radius:14px;padding:18px;max-width:560px;width:100%;max-height:80vh;display:flex;flex-direction:column;">'
+    + '  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+    + '    <div style="font-size:13px;font-weight:800;color:var(--ink,#0a0a0a);">What the OCR read</div>'
+    + '    <button id="wjp-br-ocrclose" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;">×</button>'
+    + '  </div>'
+    + '  <pre style="background:var(--card-2,rgba(255,255,255,0.03));padding:12px;border-radius:8px;font-size:11px;color:var(--ink,#0a0a0a);white-space:pre-wrap;overflow:auto;max-height:50vh;font-family:ui-monospace,monospace;">' + escHtml(text || '(empty)') + '</pre>'
+    + '  <div style="font-size:11px;color:var(--ink-dim,#94a3b8);margin-top:8px;line-height:1.5;">'
+    + '    Tip: best results when the score is the LARGEST number in the image. Crop tightly around the score before uploading. If your score IS in the text above but I missed it, type it manually below — I\'ll learn that pattern next time.'
+    + '  </div>'
+    + '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+    var x = modal.querySelector('#wjp-br-ocrclose');
+    if (x) x.addEventListener('click', function () { modal.remove(); });
+  }
+
   function processFile(host, file) {
     if (!file) return;
     if (!/^image\//.test((file.type || '').toLowerCase())) {
       showToast('Pick an image file (PNG / JPG / HEIC).', 'err');
       return;
     }
-    setProgress(host, 5, 'Loading OCR…');
-    ensureTesseract()
-      .then(function () {
-        setProgress(host, 12, 'Reading image…');
-        return window.Tesseract.recognize(file, 'eng', {
-          logger: function (m) {
-            if (m && typeof m.progress === 'number' && m.status === 'recognizing text') {
-              setProgress(host, 12 + m.progress * 80, 'Reading image… ' + Math.round(m.progress * 100) + '%');
+    setProgress(host, 5, 'Preprocessing…');
+    Promise.resolve()
+      .then(function () { return preprocessImage(file).catch(function () { return file; }); })
+      .then(function (input) {
+        setProgress(host, 12, 'Loading OCR…');
+        return ensureTesseract().then(function () {
+          setProgress(host, 18, 'Reading image…');
+          return window.Tesseract.recognize(input, 'eng', {
+            logger: function (m) {
+              if (m && typeof m.progress === 'number' && m.status === 'recognizing text') {
+                setProgress(host, 18 + m.progress * 75, 'Reading image… ' + Math.round(m.progress * 100) + '%');
+              }
             }
-          }
+          });
         });
       })
       .then(function (result) {
@@ -100,18 +189,31 @@
         var hit = pickScore(text);
         if (!hit) {
           setProgress(host, 0, '');
-          showToast('Couldn\'t find a 3-digit score (300–850). Try a clearer crop.', 'err');
+          // Stash the OCR text so user can inspect it
+          host._lastOcrText = text;
+          var btn = host.querySelector('.wjp-br-show-ocr');
+          if (!btn) {
+            btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wjp-br-show-ocr';
+            btn.textContent = 'Show what we read';
+            btn.style.cssText = 'margin-top:8px;background:transparent;border:1px solid var(--border,rgba(255,255,255,0.20));color:var(--ink-dim,#94a3b8);padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;';
+            btn.addEventListener('click', function () { showOcrTextDialog(host._lastOcrText || '(empty)'); });
+            var dropZone = host.querySelector('#wjp-br-drop');
+            if (dropZone && dropZone.parentNode) dropZone.parentNode.insertBefore(btn, dropZone.nextSibling);
+          }
+          showToast('Couldn\'t find a 3-digit score (300–850). Click "Show what we read" to see what the OCR pulled.', 'err');
           return;
         }
-        var input = document.getElementById('cs-input-score');
-        if (input) {
-          input.value = hit.value;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          var prev = input.style.boxShadow;
-          input.style.transition = 'box-shadow 0.4s';
-          input.style.boxShadow = '0 0 0 3px #22c55e';
-          setTimeout(function () { input.style.boxShadow = prev || ''; }, 1500);
+        var inputEl = document.getElementById('cs-input-score');
+        if (inputEl) {
+          inputEl.value = hit.value;
+          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+          var prev = inputEl.style.boxShadow;
+          inputEl.style.transition = 'box-shadow 0.4s';
+          inputEl.style.boxShadow = '0 0 0 3px #22c55e';
+          setTimeout(function () { inputEl.style.boxShadow = prev || ''; }, 1500);
         }
         setProgress(host, 100, 'Detected: ' + hit.value);
         showToast('Score detected: ' + hit.value + '. Adjust if wrong.', 'ok');
