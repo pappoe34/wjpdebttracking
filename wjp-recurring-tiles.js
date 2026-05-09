@@ -1,4 +1,4 @@
-/* wjp-recurring-tiles.js v4 — all 12 debts + Unicode literal escape fix.
+/* wjp-recurring-tiles.js v4.1 — all 12 debts + Unicode literal escape fix.
  *
  * v2 problems:
  *   1. Only showed 6 tiles — used DOM scraping that only finds visible cards.
@@ -233,13 +233,13 @@
     form.innerHTML = ''
       + '<div style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#1f7a4a;font-weight:800;margin-bottom:8px;">Edit data</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
-      +   '<label style="font-size:11px;color:#6b7280;">Balance<input type="number" step="0.01" value="' + (d.balance || '') + '" data-field="balance" style="width:100%;padding:6px 10px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;"></label>'
-      +   '<label style="font-size:11px;color:#6b7280;">APR (%)<input type="number" step="0.01" value="' + (d.apr || '') + '" data-field="apr" style="width:100%;padding:6px 10px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;"></label>'
-      +   '<label style="font-size:11px;color:#6b7280;">Min/mo<input type="number" step="0.01" value="' + (d.minPayment || '') + '" data-field="minPayment" style="width:100%;padding:6px 10px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;"></label>'
-      +   '<label style="font-size:11px;color:#6b7280;">Utilization (%)<input type="number" step="0.01" value="' + (d.utilization || '') + '" data-field="utilization" style="width:100%;padding:6px 10px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;"></label>'
+      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Balance<input type="number" step="0.01" value="' + (d.balance || '') + '" data-field="balance" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
+      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">APR (%)<input type="number" step="0.01" value="' + (d.apr || '') + '" data-field="apr" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
+      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Min/mo<input type="number" step="0.01" value="' + (d.minPayment || '') + '" data-field="minPayment" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
+      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Utilization (%)<input type="number" step="0.01" value="' + (d.utilization || '') + '" data-field="utilization" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
       + '</div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
-      +   '<button type="button" class="wjp-rt-cancel" style="background:transparent;color:#6b7280;border:1px solid rgba(0,0,0,0.15);padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>'
+      +   '<button type="button" class="wjp-rt-cancel" style="background:transparent;color:var(--ink-dim, #6b7280);border:1px solid var(--border, rgba(0,0,0,0.15));padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>'
       +   '<button type="button" class="wjp-rt-save" style="background:#1f7a4a;color:#fff;border:0;padding:7px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Save</button>'
       + '</div>';
     tileEl.appendChild(form);
@@ -307,9 +307,9 @@
       var stats = '';
       if (d.balance != null || d.apr != null || d.utilization != null) {
         stats = '<div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 10px;">';
-        if (d.balance != null) stats += '<span style="font-size:11px;color:#6b7280;background:#fbf9f4;padding:4px 10px;border-radius:6px;"><b style="color:#0a0a0a;">' + fmtUSD(d.balance) + '</b> balance</span>';
-        if (d.apr != null) stats += '<span style="font-size:11px;color:#6b7280;background:#fbf9f4;padding:4px 10px;border-radius:6px;"><b style="color:' + (d.apr >= 20 ? '#dc2626' : '#0a0a0a') + ';">' + fmtPct(d.apr) + '</b> APR</span>';
-        if (d.utilization != null) stats += '<span style="font-size:11px;color:#6b7280;background:#fbf9f4;padding:4px 10px;border-radius:6px;"><b style="color:' + (d.utilization >= 80 ? '#dc2626' : d.utilization >= 30 ? '#c99a2a' : '#1f7a4a') + ';">' + fmtPct(d.utilization) + '</b> util</span>';
+        if (d.balance != null) stats += '<span style="font-size:11px;color:var(--ink-dim, #6b7280);background:var(--card-2, #fbf9f4);padding:4px 10px;border-radius:6px;"><b style="color:var(--ink, #0a0a0a);">' + fmtUSD(d.balance) + '</b> balance</span>';
+        if (d.apr != null) stats += '<span style="font-size:11px;color:var(--ink-dim, #6b7280);background:var(--card-2, #fbf9f4);padding:4px 10px;border-radius:6px;"><b style="color:' + (d.apr >= 20 ? '#dc2626' : '#0a0a0a') + ';">' + fmtPct(d.apr) + '</b> APR</span>';
+        if (d.utilization != null) stats += '<span style="font-size:11px;color:var(--ink-dim, #6b7280);background:var(--card-2, #fbf9f4);padding:4px 10px;border-radius:6px;"><b style="color:' + (d.utilization >= 80 ? '#dc2626' : d.utilization >= 30 ? '#c99a2a' : '#1f7a4a') + ';">' + fmtPct(d.utilization) + '</b> util</span>';
         stats += '</div>';
       }
       var blocks = buildBreakdown(d);
@@ -318,13 +318,13 @@
       blocks.forEach(function (bl) {
         bd += '<div style="margin-bottom:7px;">'
           + '<div style="font-size:11px;font-weight:800;color:#1f7a4a;margin-bottom:2px;letter-spacing:0.02em;">' + bl.h + '</div>'
-          + '<div style="font-size:12.5px;color:#1a1a1a;line-height:1.5;">' + bl.p + '</div>'
+          + '<div style="font-size:12.5px;color:var(--ink, #1a1a1a);line-height:1.5;">' + bl.p + '</div>'
           + '</div>';
       });
       bd += '</div>';
       var actions = '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 14px;">';
       actions += '<button type="button" class="wjp-rt-upload" style="background:#1f7a4a;color:#fff;border:0;padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">Upload statement</button>';
-      actions += '<button type="button" class="wjp-rt-edit" style="background:rgba(255,255,255,0.92);color:#0a0a0a;border:1px solid rgba(0,0,0,0.15);padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">Edit</button>';
+      actions += '<button type="button" class="wjp-rt-edit" style="background:var(--card, rgba(255,255,255,0.92));color:var(--ink, #0a0a0a);border:1px solid var(--border, rgba(0,0,0,0.15));padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">Edit</button>';
       actions += '<button type="button" class="wjp-rt-ask" style="background:linear-gradient(135deg,rgba(31,122,74,0.10),rgba(201,154,42,0.06));color:#1f7a4a;border:1px solid rgba(31,122,74,0.25);padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">Ask AI Coach</button>';
       actions += '</div>';
       body = stats + bd + actions;
