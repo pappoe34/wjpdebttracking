@@ -1,4 +1,4 @@
-/* wjp-education-tab.js — replace Activity Log with Financial Education.
+/* wjp-education-tab.js v1.1 — replace Activity Log with Financial Education.
  *
  * Hijacks #page-activity (sidebar Activity Log → relabeled to Financial
  * Education). Activity Log is moved to Settings via wjp-settings-extras.js.
@@ -23,6 +23,26 @@
     var p = (location.pathname || "").toLowerCase();
     if (p.indexOf("/index") === -1 && p !== "/" && p !== "") return;
   } catch (_) {}
+
+
+  // === Per-user storage helper (defers to WJP_UserScope when available) ===
+  function lsGet(s) {
+    try { return (window.WJP_UserScope && typeof window.WJP_UserScope.get === 'function')
+      ? window.WJP_UserScope.get(s) : localStorage.getItem(s); }
+    catch (_) { return localStorage.getItem(s); }
+  }
+  function lsSet(s, v) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.set === 'function')
+      window.WJP_UserScope.set(s, v);
+      else localStorage.setItem(s, v); }
+    catch (_) { try { localStorage.setItem(s, v); } catch (e) {} }
+  }
+  function lsRemove(s) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.remove === 'function')
+      window.WJP_UserScope.remove(s);
+      else localStorage.removeItem(s); }
+    catch (_) { try { localStorage.removeItem(s); } catch (e) {} }
+  }
 
   var ROOT_ID = "wjp-edu-root";
   var LS_READ = "wjp.edu.read.v1";       // {tipId: ts}
