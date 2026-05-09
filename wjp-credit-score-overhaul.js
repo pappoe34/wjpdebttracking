@@ -1,4 +1,4 @@
-/* wjp-credit-score-overhaul.js v3 — credit score tab refresh.
+/* wjp-credit-score-overhaul.js v4 — credit score tab refresh.
  *
  * Builds a Credit-Karma / Experian / WalletHub-grade UX:
  *   1. HERO — circular score gauge w/ change indicator + multi-bureau row
@@ -263,10 +263,35 @@
       + '</div>';
   }
 
+  var lastRenderHash = null;
   function render() {
     try {
       var host = document.getElementById('credit-score-tab-content');
       if (!host || host.offsetParent === null) return;
+      // v4: skip if state unchanged AND widget already mounted
+      try {
+        var csNow = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}');
+        var bureauNow = JSON.parse(localStorage.getItem('wjp_credit_bureau') || '{}');
+        var debtsNow = (typeof appState !== 'undefined' && appState && appState.debts) || [];
+        var hashParts = [
+          csNow.currentScore || '', bureauNow.lastScore || '',
+          csNow.latePayments12mo || 0, csNow.oldestAccountYears || 0,
+          csNow.hardInquiries12mo || 0, csNow.newAccounts12mo || 0,
+          JSON.stringify(csNow.bureauScores || {}),
+          debtsNow.length
+        ];
+        debtsNow.forEach(function (d) {
+          var t = String(d.type || d.category || '').toLowerCase();
+          if (/credit/.test(t) || /\bcard\b/.test(t) || t === 'cc') {
+            var lim = (csNow.cardLimits && csNow.cardLimits[d.id]) || d.limit || 0;
+            hashParts.push(d.id + ':' + (d.balance || 0) + ':' + lim);
+          }
+        });
+        var newHash = hashParts.join('|');
+        var widgetExists = !!document.getElementById(WRAP_ID);
+        if (widgetExists && newHash === lastRenderHash) return; // unchanged
+        lastRenderHash = newHash;
+      } catch (_) {}
 
       var cs = loadCS();
       var bureau = loadBureau();
@@ -568,7 +593,7 @@
   function boot() {
     whenReady(function () {
       render();
-      setInterval(render, 5000);
+      setInterval(render, 30000);
     });
   }
 
