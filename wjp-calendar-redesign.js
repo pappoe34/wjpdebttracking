@@ -417,7 +417,7 @@
     var dayMap = {};
     events.forEach(function (e) {
       if (!dayMap[e.date]) dayMap[e.date] = 0;
-      dayMap[e.date] += (e.category === "income" ? e.amount : -e.amount);
+      dayMap[e.date] += (e.category === "income" ? e.amount : (e.category === "transfers" ? 0 : -e.amount));
     });
     var out = {};
     var bal = start;
@@ -650,7 +650,7 @@
 
     var dayOut = {}, maxOut = 0;
     Object.keys(byDate).forEach(function (k) {
-      var sum = byDate[k].reduce(function (s, e) { return s + (e.category === "income" ? 0 : e.amount); }, 0);
+      var sum = byDate[k].reduce(function (s, e) { return s + (e.category === "income" || e.category === "transfers" ? 0 : e.amount); }, 0);
       dayOut[k] = sum;
       if (sum > maxOut) maxOut = sum;
     });
@@ -681,7 +681,7 @@
         if (cell.blank) {
           return `<div style="${compact ? "height:64px;" : "height:112px;"}background:var(--bg-2, rgba(0,0,0,0.015));border-right:1px solid var(--border, rgba(0,0,0,0.05));"></div>`;
         }
-        var total = (cell.events || []).reduce(function (s, e) { return s + (e.category === "income" ? 0 : e.amount); }, 0);
+        var total = (cell.events || []).reduce(function (s, e) { return s + (e.category === "income" || e.category === "transfers" ? 0 : e.amount); }, 0);
         var hasOverdue = (cell.events || []).some(isOverdue);
         var bg = "";
         if (state.heatmap && total > 0 && maxOut > 0) {
@@ -734,7 +734,9 @@
     });
     var monthOut = 0, monthIn = 0;
     monthEvents.forEach(function (e) {
-      if (e.category === "income") monthIn += e.amount; else monthOut += e.amount;
+      if (e.category === "income") monthIn += e.amount;
+      else if (e.category === "transfers") return; // transfers are not expenses
+      else monthOut += e.amount;
     });
     var net = monthIn - monthOut;
     var netColor = net >= 0 ? "#1f7a4a" : "#dc2626";
