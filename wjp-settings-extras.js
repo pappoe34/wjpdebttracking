@@ -1,4 +1,4 @@
-/* wjp-settings-extras.js v1.1 — adds Plans link in Settings → Billing and a new
+/* wjp-settings-extras.js v1.2 — adds Plans link in Settings → Billing and a new
  * Activity Log sub-tab with retention picker.
  *
  * Why: the sidebar Plans nav item is now Notes, and Activity Log is now
@@ -21,6 +21,26 @@
     if (p.indexOf("/index") === -1 && p !== "/" && p !== "") return;
   } catch (_) {}
 
+
+  // === Per-user storage helper (defers to WJP_UserScope when available) ===
+  function lsGet(s) {
+    try { return (window.WJP_UserScope && typeof window.WJP_UserScope.get === 'function')
+      ? window.WJP_UserScope.get(s) : localStorage.getItem(s); }
+    catch (_) { return localStorage.getItem(s); }
+  }
+  function lsSet(s, v) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.set === 'function')
+      window.WJP_UserScope.set(s, v);
+      else localStorage.setItem(s, v); }
+    catch (_) { try { localStorage.setItem(s, v); } catch (e) {} }
+  }
+  function lsRemove(s) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.remove === 'function')
+      window.WJP_UserScope.remove(s);
+      else localStorage.removeItem(s); }
+    catch (_) { try { localStorage.removeItem(s); } catch (e) {} }
+  }
+
   var ACTIVITY_PANEL_ID = "wjp-settings-activity-panel";
   var ACTIVITY_BTN_ID = "wjp-settings-activity-btn";
   var PLANS_LINK_ID = "wjp-settings-plans-link";
@@ -36,10 +56,10 @@
   ];
 
   function getRetention() {
-    return localStorage.getItem(LS_RETENTION) || "90";
+    return lsGet(LS_RETENTION) || "90";
   }
   function setRetention(v) {
-    try { localStorage.setItem(LS_RETENTION, v); } catch (_) {}
+    try { lsSet(LS_RETENTION, v); } catch (_) {}
   }
 
   function loadActivity() {
