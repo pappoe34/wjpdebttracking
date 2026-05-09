@@ -1,4 +1,4 @@
-/* wjp-debt-progress.js v3 — animated progress bars by debt type, on the
+/* wjp-debt-progress.js v4 — animated progress bars by debt type, reorderable like native cards, on the
  * Dashboard.
  *
  * Groups appState.debts into the categories Winston cares about:
@@ -24,7 +24,7 @@
   if (location.pathname && location.pathname !== '/' &&
       !/index\.html?$/.test(location.pathname)) return;
 
-  var WRAP_ID = 'wjp-debt-progress-wrap';
+  var WRAP_ID = 'dash-debt-progress-card';
 
   function fmtUSD(n) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
@@ -178,8 +178,10 @@
 
       var html =
         '<div id="' + WRAP_ID + '" '
+        +   'class="card reveal reorderable" '
+        +   'data-card-id="debt-progress" '
         +   'style="background:var(--card, rgba(255,255,255,0.02));border:1px solid var(--border, rgba(255,255,255,0.08));'
-        +     'border-radius:14px;padding:16px 18px;margin:14px 0;font-family:var(--sans, Inter, system-ui, sans-serif);">'
+        +     'border-radius:14px;padding:16px 18px;margin:14px 0;font-family:var(--sans, Inter, system-ui, sans-serif);position:relative;">'
         +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
         +     '<div>'
         +       '<div style="font-size:9px;color:#22c55e;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;">DEBT PROGRESS</div>'
@@ -206,8 +208,26 @@
 
       var existing = document.getElementById(WRAP_ID);
       if (existing) {
-        existing.outerHTML = html;
-      } else {
+        // v4: keep the outer wrapper (it holds reorder/resize event bindings
+        // installed by the host customize bar). Only swap inner HTML.
+        var innerStart = html.indexOf('>') + 1;
+        var innerEnd = html.lastIndexOf('</div>');
+        existing.innerHTML = html.slice(innerStart, innerEnd);
+        // Re-trigger animation on bars
+        requestAnimationFrame(function () {
+          existing.querySelectorAll('.wjp-dp-bar').forEach(function (bar) {
+            var target = parseFloat(bar.getAttribute('data-target')) || 0;
+            bar.style.width = target.toFixed(2) + '%';
+          });
+          var ring = document.getElementById('wjp-dp-ring');
+          if (ring) {
+            var t = parseFloat(ring.getAttribute('data-target')) || 0;
+            ring.setAttribute('stroke-dasharray', t.toFixed(2) + ' ' + (100 - t).toFixed(2));
+          }
+        });
+        return;
+      }
+      if (false) {
         var div = document.createElement('div');
         div.innerHTML = html;
         var node = div.firstChild;
@@ -240,6 +260,21 @@
           ring.setAttribute('stroke-dasharray', t.toFixed(2) + ' ' + (100 - t).toFixed(2));
         }
       });
+      // v4: kick the host customize-bar machinery to honor saved order/size
+      // for our new card. injectCardControls (the function that adds ↑/↓/size
+      // buttons) only runs when the user toggles "Customize layout" mode —
+      // when they do, our card automatically gets the controls because it has
+      // class="reorderable". Saved order/size apply on every render.
+      try { if (typeof window.applyDashboardLayout === 'function') window.applyDashboardLayout(); } catch (_) {}
+      try { if (typeof window.applyCardSizes === 'function') window.applyCardSizes(); } catch (_) {}
+      // If user is currently in customize mode, retrigger control injection
+      // by toggling the dash-customizing class twice — picks up our new card.
+      try {
+        if (document.body.classList.contains('dash-customizing') && typeof window.initDashCustomize === 'function') {
+          // initDashCustomize is idempotent and safe to re-run
+          window.initDashCustomize();
+        }
+      } catch (_) {}
     } catch (e) { try { console.warn('[wjp-debt-progress] threw', e); } catch (_) {} }
   }
 
