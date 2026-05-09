@@ -1,4 +1,4 @@
-/* wjp-txn-hygiene.js v4 — robust Spending Tracker hygiene.
+/* wjp-txn-hygiene.js v5 — robust Spending Tracker hygiene.
  *
  * v1 mutated appState.transactions then hoped the host re-rendered. The
  * host's drawCharts/renderTransactions read appState.transactions directly
@@ -31,12 +31,9 @@
     if (/internal\s+xfer/.test(s) || /\bxfer\b/.test(s)) return true;
     if (/account\s+to\s+account/.test(s)) return true;
     if (/wire\s+(in|out)\s+from\s+(self|own)/.test(s)) return true;
-    // Self-Zelle (sender or receiver name = account holder)
-    if (/zelle.*winston\s+pappoe/.test(s)) return true;
-    if (/winston\s+pappoe.*zelle/.test(s)) return true;
-    // Generic Zelle "Recurring Transfer" / "Transfer" without a payee name —
-    // these are usually scheduled internal transfers.
-    if (/zelle\s+recurring\s+transfer/.test(s) && !/from\s+[A-Z]/i.test(tx.merchant || '')) return true;
+    // v5: ANY Zelle transaction is a person-to-person transfer, not earned
+    // income or true spending. Winston's call: drop them all from the math.
+    if (/\bzelle\b/.test(s)) return true;
     // Bare ACH DEBIT/CREDIT: keep payroll, drop the rest
     if (/^ach\s+(debit|credit)\b/.test(s.trim())) {
       if (/payroll|salary|wages|paycheck|freshrealm|adp\s+totalsource|direct\s+deposit/.test(s)) return false;
@@ -57,7 +54,6 @@
     var s = ((tx.merchant || '') + ' ' + (tx.category || '')).toLowerCase();
     var amt = Number(tx.amount) || 0;
     if (amt > 0 && /payroll|salary|wages|paycheck|payday|direct\s+dep|freshrealm|adp\s+totalsource/.test(s)) return 'Income';
-    if (amt > 0 && /zelle\s+(payment|transfer)\s+from/.test(s)) return 'Income';
     if (amt > 0 && /\bvenmo\b/.test(s) && /from/.test(s)) return 'Income';
     if (/\b(mortgage|landlord|rent\s+payment|woodhaven|leasing)\b/.test(s)) return 'Housing';
     if (/\b(electric|gas\s|power|water|sewer|internet|verizon|comcast|xfinity|t-mobile|at&t|phone\s+bill|spectrum|optimum)\b/.test(s)) return 'Utilities';
@@ -69,7 +65,7 @@
     if (/\b(pharmacy|cvs|walgreens|rite\s+aid|hospital|doctor|dental|optical|medical|urgent\s+care|kaiser|aetna)\b/.test(s)) return 'Health';
     if (/\b(amazon|ebay|etsy|nike|adidas|macys|nordstrom|best\s+buy)\b/.test(s)) return 'Shopping';
     if (/\b(atm|withdrawal|cash\s+advance)\b/.test(s)) return 'Cash';
-    if (/\b(zelle|venmo|cashapp|cash\s+app)\b/.test(s) && amt < 0) return 'Money sent';
+    if (/\b(venmo|cashapp|cash\s+app)\b/.test(s) && amt < 0) return 'Money sent';
     if (/\busps\b|\bu\.?s\.?\s*post\s*office\b/.test(s)) return 'Shipping';
     if (tx.category && !/^(other|uncategorized|misc)$/i.test(tx.category) && tx.category.length > 0) return tx.category;
     return 'Other';
