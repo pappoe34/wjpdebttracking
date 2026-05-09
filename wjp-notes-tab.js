@@ -274,39 +274,39 @@
     s.textContent = `
       #${ROOT_ID} { font-family: var(--sans, Inter, system-ui, sans-serif); color: var(--ink, #0a0a0a); padding: 18px 0 24px; width: 100%; box-sizing: border-box; }
       .wjp-notes-shell { display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 560px; }
-      .wjp-notes-list { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; max-height: 78vh; }
+      .wjp-notes-list { background: var(--card, #fff); border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; max-height: 78vh; }
       .wjp-notes-list-head { padding: 12px 14px; border-bottom: 1px solid rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.015); }
-      .wjp-notes-search { width: 100%; padding: 7px 10px; border: 1px solid rgba(0,0,0,0.10); border-radius: 8px; font-family: inherit; font-size: 12.5px; color: #0a0a0a; }
+      .wjp-notes-search { width: 100%; padding: 7px 10px; border: 1px solid rgba(0,0,0,0.10); border-radius: 8px; font-family: inherit; font-size: 12.5px; color: var(--ink, #0a0a0a); }
       .wjp-notes-newbtn { background: #1f7a4a; color: #fff; border: 0; padding: 8px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
       .wjp-notes-newbtn:hover { filter: brightness(1.05); }
       .wjp-notes-list-body { overflow-y: auto; flex: 1; }
-      .wjp-notes-empty { padding: 32px 18px; text-align: center; color: #9ca3af; font-size: 12.5px; }
+      .wjp-notes-empty { padding: 32px 18px; text-align: center; color: var(--ink-faint, #9ca3af); font-size: 12.5px; }
       .wjp-notes-row { padding: 12px 14px; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; transition: background .12s; }
       .wjp-notes-row:hover { background: rgba(0,0,0,0.025); }
       .wjp-notes-row.wjp-active { background: rgba(31,122,74,0.08); border-left: 3px solid #1f7a4a; padding-left: 11px; }
-      .wjp-notes-row .ttl { font-size: 13px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .wjp-notes-row .pre { font-size: 11.5px; color: #6b7280; line-height: 1.4; margin-top: 3px; max-height: 2.8em; overflow: hidden; }
-      .wjp-notes-row .meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 10px; color: #9ca3af; font-weight: 600; letter-spacing: 0.01em; }
+      .wjp-notes-row .ttl { font-size: 13px; font-weight: 700; color: var(--ink, #0a0a0a); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .wjp-notes-row .pre { font-size: 11.5px; color: var(--ink-dim, #6b7280); line-height: 1.4; margin-top: 3px; max-height: 2.8em; overflow: hidden; }
+      .wjp-notes-row .meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 10px; color: var(--ink-faint, #9ca3af); font-weight: 600; letter-spacing: 0.01em; }
       .wjp-notes-row .meta .pin { color: #1f7a4a; }
       .wjp-notes-row .meta .bell { color: #c99a2a; }
-      .wjp-notes-editor { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 22px 26px; display: flex; flex-direction: column; gap: 14px; }
-      .wjp-notes-editor-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 360px; color: #9ca3af; text-align: center; padding: 40px; }
+      .wjp-notes-editor { background: var(--card, #fff); border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 22px 26px; display: flex; flex-direction: column; gap: 14px; }
+      .wjp-notes-editor-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 360px; color: var(--ink-faint, #9ca3af); text-align: center; padding: 40px; }
       .wjp-notes-editor-empty .big { font-size: 36px; }
-      .wjp-notes-title { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; border: 0; outline: 0; padding: 0; background: transparent; color: #0a0a0a; font-family: inherit; }
-      .wjp-notes-title::placeholder { color: #9ca3af; }
-      .wjp-notes-body { min-height: 220px; border: 0; outline: 0; padding: 0; background: transparent; color: #1a1a1a; font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
+      .wjp-notes-title { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; border: 0; outline: 0; padding: 0; background: transparent; color: var(--ink, #0a0a0a); font-family: inherit; }
+      .wjp-notes-title::placeholder { color: var(--ink-faint, #9ca3af); }
+      .wjp-notes-body { min-height: 220px; border: 0; outline: 0; padding: 0; background: transparent; color: var(--ink, #1a1a1a); font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
       .wjp-notes-body::placeholder { color: #c0c5cf; }
       .wjp-notes-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06); }
-      .wjp-notes-meta label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6b7280; font-weight: 600; }
-      .wjp-notes-meta input[type="date"], .wjp-notes-meta input[type="datetime-local"] { border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; padding: 5px 8px; font-family: inherit; font-size: 12px; color: #0a0a0a; }
+      .wjp-notes-meta label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-dim, #6b7280); font-weight: 600; }
+      .wjp-notes-meta input[type="date"], .wjp-notes-meta input[type="datetime-local"] { border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; padding: 5px 8px; font-family: inherit; font-size: 12px; color: var(--ink, #0a0a0a); }
       .wjp-notes-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06); }
       .wjp-notes-actions button { font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 7px 14px; border-radius: 999px; }
       .wjp-notes-btn-primary { background: #1f7a4a; color: #fff; border: 0; }
-      .wjp-notes-btn-secondary { background: #fff; color: #0a0a0a; border: 1px solid rgba(0,0,0,0.10); }
+      .wjp-notes-btn-secondary { background: var(--card, #fff); color: var(--ink, #0a0a0a); border: 1px solid rgba(0,0,0,0.10); }
       .wjp-notes-btn-danger { background: transparent; color: #dc2626; border: 1px solid rgba(220,38,38,0.30); }
       .wjp-notes-saved-hint { font-size: 11px; color: #1f7a4a; font-weight: 600; }
       .wjp-notes-coming-soon { font-size: 10px; letter-spacing: 0.05em; color: #c99a2a; background: rgba(201,154,42,0.10); padding: 2px 8px; border-radius: 999px; font-weight: 700; }
-      .wjp-notes-arch-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; font-weight: 600; cursor: pointer; }
+      .wjp-notes-arch-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-dim, #6b7280); font-weight: 600; cursor: pointer; }
       .wjp-notes-color-pick { display: inline-flex; gap: 4px; align-items: center; }
       .wjp-notes-color-dot { width: 16px; height: 16px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform .1s; }
       .wjp-notes-color-dot.active { border-color: rgba(0,0,0,0.20); transform: scale(1.15); }
@@ -316,6 +316,26 @@
       }
       .wjp-notes-toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:#0a0a0a; color:#fff; padding:10px 16px; border-radius:999px; font-size:12.5px; font-family:var(--sans,Inter,system-ui,sans-serif); font-weight:600; box-shadow:0 12px 32px rgba(0,0,0,0.25); z-index:99999; pointer-events:none; transition:opacity .25s, transform .25s; }
       .wjp-notes-toast-show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+      /* Dark mode hover/subtle-bg overrides */
+      body.dark .wjp-cal-cell:hover { background: rgba(255,255,255,0.04) !important; }
+      body.dark .wjp-cal-today.wjp-cal-cell:hover { background: rgba(31,122,74,0.18) !important; }
+      body.dark .wjp-edu-card:hover { border-color: rgba(255,255,255,0.16); box-shadow: 0 12px 28px rgba(0,0,0,0.40); }
+      body.dark .wjp-notes-row:hover { background: rgba(255,255,255,0.04); }
+      body.dark .wjp-edu-disclaimer { background: rgba(220,38,38,0.18); color: #fecaca; }
+      body.dark .wjp-edu-disclaimer b { color: #fca5a5; }
+      body.dark .wjp-cal-suggestion-pulse, body.dark .wjp-edu-coach { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-edu-modal { background: var(--card, #131929) !important; color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-modal-body { color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-coach textarea, body.dark .wjp-notes-search, body.dark .wjp-notes-title, body.dark .wjp-notes-body, body.dark .wjp-edu-search { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-user { background: rgba(255,255,255,0.04); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-bot { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover { background: var(--card, #131929); border-color: var(--border, rgba(255,255,255,0.10)); }
+      body.dark .wjp-cal-popover-item { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover-item:hover { background: rgba(31,122,74,0.18); }
+      body.dark .wjp-act-row .ttl { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-plans-link-card { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-plans-link-card .ttl { color: var(--ink, #f0f4ff); }
     `;
     document.head.appendChild(s);
   }
@@ -358,7 +378,7 @@
     var editorHTML = selected ? renderEditor(selected) : `
       <div class="wjp-notes-editor-empty">
         <div class="big">📝</div>
-        <div style="font-size:14px;font-weight:600;color:#0a0a0a;">Select a note to edit</div>
+        <div style="font-size:14px;font-weight:600;color:var(--ink, #0a0a0a);">Select a note to edit</div>
         <div style="font-size:12px;">Or click <b>+ New</b> to create one.</div>
       </div>
     `;
@@ -366,10 +386,10 @@
     return `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <div style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:4px;">Personal</div>
+          <div style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-faint, #9ca3af);font-weight:700;margin-bottom:4px;">Personal</div>
           <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.15;">Your notes</div>
         </div>
-        <div style="font-size:11.5px;color:#6b7280;font-weight:600;">${notes.length} note${notes.length === 1 ? "" : "s"}${state.showArchived ? " (incl. archived)" : ""}</div>
+        <div style="font-size:11.5px;color:var(--ink-dim, #6b7280);font-weight:600;">${notes.length} note${notes.length === 1 ? "" : "s"}${state.showArchived ? " (incl. archived)" : ""}</div>
       </div>
       <div class="wjp-notes-shell">
         <aside class="wjp-notes-list">
@@ -429,7 +449,7 @@
         <button type="button" class="wjp-notes-btn-danger" data-wjp-notes-delete>Delete</button>
         <span data-wjp-notes-saved-hint class="wjp-notes-saved-hint" style="margin-left:auto;">${n.updatedAt ? "Last saved " + fmtRelative(n.updatedAt) : ""}</span>
       </div>
-      <div style="font-size:11px;color:#9ca3af;line-height:1.45;">
+      <div style="font-size:11px;color:var(--ink-faint, #9ca3af);line-height:1.45;">
         Notes pinned to a date show as a 📍 dot on that day in the Calendar tab.
         Reminders use browser notifications — click to allow when prompted.
       </div>
