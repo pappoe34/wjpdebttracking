@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v4.6 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.1 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -318,10 +318,33 @@
       if (Math.abs(rawAmt) < 25) return; // significance gate
       if (isNoisyTransaction(tx)) return;
 
-      // Dedup: same merchant, same signed amount, same date → keep first
-      var dedupKey = dateOnly + "|" + (tx.merchant || "").trim().toLowerCase() + "|" + rawAmt.toFixed(2);
-      if (seenPlaid[dedupKey]) return;
-      seenPlaid[dedupKey] = true;
+      // v6.1: Skip recurring-schedule projections that leaked into state.transactions.
+      // These have tx.id like "rec-r1777346994683848-2026-05-08" — weekly forecasts
+      // injected into the transactions array. They are NOT real bank transactions.
+      var txIdRaw = String(tx.id || "");
+      if (/^rec-/i.test(txIdRaw)) return;
+      if (/^plaid_rec/i.test(txIdRaw)) return;
+      if (txIdRaw.indexOf("-rec-") >= 0) return;
+
+      // v6.1: Only count completed Plaid transactions; skip pending duplicates.
+      // Plaid often emits both a pending row (date X) and a completed row (date X+1)
+      // for the same charge — we only want the completed one.
+      if (String(tx.status || "").toLowerCase() === "pending") return;
+
+      // Dedup: same merchant + signed amount within a ±3-day window (catches the
+      // pending→posted pairs whose dates differ by 1-2 days).
+      var cleanMerchant = (tx.merchant || "").trim().toLowerCase();
+      var amtKey = cleanMerchant + "|" + rawAmt.toFixed(2);
+      var dayMs = new Date(dateOnly + "T12:00:00").getTime();
+      var dupHit = false;
+      if (seenPlaid[amtKey]) {
+        for (var di = 0; di < seenPlaid[amtKey].length; di++) {
+          if (Math.abs(seenPlaid[amtKey][di] - dayMs) <= 3 * 24 * 3600 * 1000) { dupHit = true; break; }
+        }
+      }
+      if (dupHit) return;
+      if (!seenPlaid[amtKey]) seenPlaid[amtKey] = [];
+      seenPlaid[amtKey].push(dayMs);
 
       var origDate = dateOnly;
       var ovKey = origDate + "|" + (tx.merchant || tx.id || "");
