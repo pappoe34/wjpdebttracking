@@ -1,4 +1,4 @@
-/* wjp-streak.js v10 — payment-on-track streak.
+/* wjp-streak.js v11 — payment-on-track streak.
  *
  * v6 was a LOGIN streak: reset to 1 if the user skipped a day. That broke
  * Winston's chip even though he hadn't missed any payments.
@@ -73,18 +73,21 @@
     var today = dayKey(new Date());
     if (!s.startDate) s.startDate = today;
 
+    // Migrate any stale count=0 state forward to 1 — "0 days" is not a
+    // valid streak value going forward.
+    if (typeof s.count !== 'number' || s.count < 1) s.count = 1;
+
     if (hasOverduePayment()) {
-      // v10: a fresh break still counts as day 1 of the new streak — never 0.
+      // A fresh break: today restarts the streak at day 1.
       if (s.lastBreakDate !== today) {
         s.lastBreakDate = today;
         s.count = 1;
       }
+      // If lastBreakDate is already today, the count was set above to >=1
+      // (or just floored to 1 on this run); leave it as-is.
     } else {
-      // v9: A previous run may have written lastBreakDate=today using the
-      // old naive overdue check. Now that the smarter Plaid-aware check
-      // says nothing is overdue, treat that break as a false alarm and
-      // clear it so the streak rebuilds from startDate (or the genuine
-      // last break, if any).
+      // No overdue. A "break" that was written today must have been a false
+      // alarm from an earlier, naive overdue check — clear it.
       if (s.lastBreakDate === today) s.lastBreakDate = null;
       var anchor = s.lastBreakDate || s.startDate;
       if (!anchor) { anchor = today; s.startDate = today; }
@@ -92,6 +95,10 @@
       if (n < 1) n = 1;
       s.count = n;
     }
+
+    // Final unconditional floor — count can NEVER be < 1.
+    if (s.count < 1) s.count = 1;
+
     if ((s.best || 0) < s.count) s.best = s.count;
     s.lastActive = today;
     save(s);
@@ -139,8 +146,7 @@
     if (count >= 100) return '🔥🔥🔥';
     if (count >= 30)  return '🔥🔥';
     if (count >= 7)   return '🔥';
-    if (count >= 1)   return '✓';
-    return '⚠';
+    return '✓';
   }
 
   function renderChip() {
@@ -148,13 +154,12 @@
       var anchor = findHeaderPillRow();
       if (!anchor) return;
       var s = recompute();
-      var broken = (s.count === 0);
+      // v11: count is always >= 1 now; broken state is gone. The chip just
+      // shows the current streak length.
       var emoji = emojiFor(s.count);
-      var color = broken ? '#ef4444' : '#22c55e';
-      var bg    = broken ? 'rgba(239,68,68,0.10)' : 'rgba(34,197,94,0.10)';
-      var label = broken
-        ? 'Streak broken — overdue payment'
-        : (s.count + ' day' + (s.count === 1 ? '' : 's') + ' on track');
+      var color = '#22c55e';
+      var bg    = 'rgba(34,197,94,0.10)';
+      var label = s.count + ' day' + (s.count === 1 ? '' : 's') + ' on track';
 
       var existing = document.getElementById('wjp-streak-chip');
       if (existing) existing.remove();
@@ -166,9 +171,9 @@
         +     'background:' + bg + ';color:' + color + ';'
         +     'font-size:12px;font-weight:700;cursor:help;'
         +     'margin-right:8px;white-space:nowrap;" '
-        +   'title="' + label + ' · best: ' + (s.best || s.count) + (broken ? ' · pay overdue bills to restart' : '') + '">'
+        +   'title="' + label + ' · best: ' + (s.best || s.count) + '">'
         +   '<span>' + emoji + '</span>'
-        +   '<span><b style="font-weight:800;">' + s.count + '</b>' + (broken ? ' streak broken' : ' day' + (s.count === 1 ? '' : 's') + ' on track') + '</span>'
+        +   '<span><b style="font-weight:800;">' + s.count + '</b>' + ' day' + (s.count === 1 ? '' : 's') + ' on track</span>'
         + '</span>';
       anchor.beforeNode.insertAdjacentHTML('beforebegin', chipHTML);
     } catch (e) { try { console.warn('[wjp-streak v7] threw', e); } catch (_) {} }
