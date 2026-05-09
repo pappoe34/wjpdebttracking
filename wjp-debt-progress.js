@@ -1,4 +1,4 @@
-/* wjp-debt-progress.js v1 — animated progress bars by debt type, on the
+/* wjp-debt-progress.js v2 — animated progress bars by debt type, on the
  * Dashboard.
  *
  * Groups appState.debts into the categories Winston cares about:
@@ -71,7 +71,7 @@
   };
 
   function compute() {
-    var debts = (window.appState && window.appState.debts) || [];
+    var debts = []; try { if (typeof appState !== 'undefined' && appState && Array.isArray(appState.debts)) debts = appState.debts; } catch (_) {}
     var byBucket = {};
     var totalOrig = 0, totalCurr = 0;
 
@@ -140,12 +140,24 @@
   }
 
   function findHost() {
-    // Mount inside the dashboard page. Try to land just below the Executive
-    // Summary block so it appears above-the-fold but below the headline.
     var dash = document.getElementById('page-dashboard');
     if (!dash) return null;
-    // Look for existing Executive Summary
-    var es = dash.querySelector('[id*="executive"], [class*="executive"], [data-card-id="executive"]');
+    // v2: search broader for an anchor near the top of the dashboard. Try
+    // executive summary by data attr, then by text content, then fall back
+    // to the first major card on the page.
+    var es = dash.querySelector('[data-card-id="executive"], #dash-executive-card, [data-card-id="exec"], [id*="executive-summary"], [class*="executive-summary"]');
+    if (!es) {
+      // Walk children looking for one whose text starts with "executive summary"
+      var cards = dash.querySelectorAll('.card, [class*="card"]');
+      for (var i = 0; i < cards.length; i++) {
+        var t = (cards[i].textContent || '').trim().toLowerCase();
+        if (t.indexOf('executive summary') === 0 || t.indexOf("you'll be debt-free") >= 0) { es = cards[i]; break; }
+      }
+    }
+    if (!es) {
+      // Last resort: anchor before the spending tracker card
+      es = dash.querySelector('#dash-spending-card, [data-card-id="spending"]');
+    }
     return { dash: dash, anchor: es };
   }
 
@@ -196,27 +208,24 @@
       if (existing) {
         existing.outerHTML = html;
       } else {
-        // Insert after Executive Summary card if found, else top of dashboard
-        var insertHTML = function (parent, refNode) {
-          var div = document.createElement('div');
-          div.innerHTML = html;
-          var node = div.firstChild;
-          if (refNode && refNode.parentNode === parent && refNode.nextSibling) {
-            parent.insertBefore(node, refNode.nextSibling);
-          } else if (refNode && refNode.parentNode) {
-            // Place after the executive summary card
-            var ref = refNode;
-            // Walk up until ref is direct child of dash
-            while (ref.parentNode && ref.parentNode !== host.dash) ref = ref.parentNode;
+        var div = document.createElement('div');
+        div.innerHTML = html;
+        var node = div.firstChild;
+        if (host.anchor && host.anchor.parentNode) {
+          // Walk up until anchor is a direct child of dash
+          var ref = host.anchor;
+          while (ref.parentNode && ref.parentNode !== host.dash) ref = ref.parentNode;
+          if (ref.parentNode === host.dash) {
             if (ref.nextSibling) host.dash.insertBefore(node, ref.nextSibling);
             else host.dash.appendChild(node);
           } else {
-            // Fallback: prepend to dashboard
-            if (host.dash.firstChild) host.dash.insertBefore(node, host.dash.firstChild);
-            else host.dash.appendChild(node);
+            host.dash.insertBefore(node, host.dash.firstChild);
           }
-        };
-        insertHTML(host.dash, host.anchor);
+        } else {
+          // No anchor — prepend
+          if (host.dash.firstChild) host.dash.insertBefore(node, host.dash.firstChild);
+          else host.dash.appendChild(node);
+        }
       }
 
       // Animate the bars in
@@ -235,10 +244,10 @@
   }
 
   function whenReady(fn) {
-    if (window.appState && Array.isArray(window.appState.debts)) return fn();
+    function ready(){ try { return typeof appState !== 'undefined' && appState && Array.isArray(appState.debts); } catch(_) { return false; } } if (ready()) return fn();
     var tries = 0;
     var iv = setInterval(function () {
-      if (window.appState && Array.isArray(window.appState.debts)) {
+      if (ready()) {
         clearInterval(iv); fn();
       } else if (++tries > 40) clearInterval(iv);
     }, 500);
