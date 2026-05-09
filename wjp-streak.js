@@ -1,4 +1,4 @@
-/* wjp-streak.js v7 — payment-on-track streak.
+/* wjp-streak.js v8 — payment-on-track streak.
  *
  * v6 was a LOGIN streak: reset to 1 if the user skipped a day. That broke
  * Winston's chip even though he hadn't missed any payments.
@@ -50,22 +50,15 @@
     return Math.round((bd - ad) / (24 * 60 * 60 * 1000));
   }
 
-  // True if at least one recurring payment is OVERDUE today (nextDate is
-  // strictly before today and the entry isn't marked paid for that cycle).
-  // We treat "income" recurring entries as never overdue.
+  // v8: Defer to WJP_PaymentStatus which cross-checks Plaid transactions
+  // and respects the user's "Already paid" / "Not a bill" overrides. If the
+  // helper hasn't loaded yet, fall back to "no overdue" rather than break
+  // the streak unnecessarily.
   function hasOverduePayment() {
     try {
-      var raw = JSON.parse(localStorage.getItem('wjp_budget_state') || 'null');
-      if (!raw || !raw.recurringPayments) return false;
-      var todayMs = (new Date(dayKey(new Date()) + 'T00:00:00')).getTime();
-      for (var i = 0; i < raw.recurringPayments.length; i++) {
-        var rp = raw.recurringPayments[i];
-        if (!rp || !rp.nextDate) continue;
-        if (rp.linkedIncome) continue;
-        if ((rp.category || '').toLowerCase() === 'income') continue;
-        if (rp.status === 'cancelled' || rp.status === 'paused') continue;
-        var nextMs = (new Date(String(rp.nextDate).slice(0,10) + 'T00:00:00')).getTime();
-        if (nextMs < todayMs) return true; // strictly past
+      if (window.WJP_PaymentStatus && typeof window.WJP_PaymentStatus.anyOverdue === 'function') {
+        var raw = JSON.parse(localStorage.getItem('wjp_budget_state') || 'null');
+        return !!window.WJP_PaymentStatus.anyOverdue(raw);
       }
     } catch (_) {}
     return false;
