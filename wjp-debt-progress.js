@@ -1,4 +1,4 @@
-/* wjp-debt-progress.js v2 — animated progress bars by debt type, on the
+/* wjp-debt-progress.js v3 — animated progress bars by debt type, on the
  * Dashboard.
  *
  * Groups appState.debts into the categories Winston cares about:
@@ -163,7 +163,7 @@
 
   function render() {
     try {
-      if (!window.appState || !Array.isArray(window.appState.debts)) return;
+      if (typeof appState === 'undefined' || !appState || !Array.isArray(appState.debts)) return;
       var host = findHost();
       if (!host || !host.dash) return;
       var data = compute();
