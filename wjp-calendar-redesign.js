@@ -255,28 +255,32 @@
   // calendar without giving the user anything to act on.
   function isNoisyTransaction(tx) {
     var s = ((tx.merchant || "") + " " + (tx.method || "") + " " + (tx.category || "")).toLowerCase();
+    // Internal bank-to-bank moves between own accounts
     if (/transfer\s+from\s+acct/.test(s)) return true;
     if (/transfer\s+to\s+acct/.test(s)) return true;
     if (/online\s+banking\s+transfer/.test(s)) return true;
     if (/internal\s+xfer/.test(s)) return true;
     if (/\bxfer\b/.test(s)) return true;
     if (/wire\s+(in|out)\s+from\s+(self|own)/.test(s)) return true;
-    // Interest charges are fees, not payments
-    if (/interest\s+charge/.test(s)) return true;
-    // Internal bank ATM activity (deposits to one's own account aren't bills)
-    if (/\bbkofamerica\s+atm\b/.test(s) && /deposit/.test(s)) return true;
-    if (/\batm\s+\d+.*deposit\b/.test(s)) return true;
-    // STASH_RULE: extra internal-bank/investment patterns (v5.4)
     if (/account\s+to\s+account/.test(s)) return true;
     if (/external\s+transfer/.test(s)) return true;
+    // Self-Zelle (sender or receiver is the same name as the account holder)
+    // The user account is "WINSTON PAPPOE" — Zelles to/from his own name are self-transfers
+    if (/zelle.*winston\s+pappoe/.test(s)) return true;
+    if (/winston\s+pappoe.*zelle/.test(s)) return true;
+    // Interest charges are fees, not actionable bills
+    if (/interest\s+charge/.test(s)) return true;
+    // Plaid sometimes emits "ACH DEBIT/CREDIT" for the user own moves
     if (/^ach\s+(debit|credit)\b/.test(s.trim())) return true;
+    // Internal bank ATM activity (deposits to user own account aren bills)
+    if (/\bbkofamerica\s+atm\b/.test(s) && /deposit/.test(s)) return true;
+    if (/\batm\s+\d+.*deposit\b/.test(s)) return true;
+    // Investment moves (user is sending money to themselves not spending)
     if (/^stash\b|^robinhood\b|^coinbase\b|^fidelity\b|^vanguard\b|^charles\s+schwab\b/.test(s.trim())) return true;
     if (/\bbrokerage\s+transfer\b|investment\s+deposit/.test(s)) return true;
+    // Credit card payments TO the user own card
     if (/payment\s+(to|received|posted)\s+(capital\s+one|chase|amex|discover|citi|wells\s+fargo|bank\s+of\s+america|bofa)/.test(s)) return true;
     if (/cc\s+payment\s+(to|from)/.test(s)) return true;
-    if (/\bzelle\s+(payment|transfer)\s+(to|from)\s+(self|own)/.test(s)) return true;
-    if (/online\s+payment\s+to\s+(capital\s+one|chase|amex|discover|citi)/.test(s)) return true;
-
     return false;
   }
 
@@ -296,56 +300,44 @@
     var WINDOW_FORWARD_MS = 60 * 24 * 3600 * 1000;
     var minMs = todayMs - WINDOW_BACK_MS;
     var maxMs = todayMs + WINDOW_FORWARD_MS;
+    var todayK = dateKey(new Date());
 
     var ovDate = loadOverrides();
 
-    // 1. Recurring payments (scheduled)
-    (raw.recurringPayments || []).forEach(function (rp) {
-      if (!rp || !rp.nextDate || rp.amount == null) return;
-      var origDate = String(rp.nextDate).slice(0, 10);
-      var ovKey = origDate + "|" + (rp.name || "");
-      var date = ovDate[ovKey] || origDate;
-      events.push({
-        id: "rp:" + (rp.id || (origDate + "|" + (rp.name || ""))),
-        date: date,
-        origDate: origDate,
-        name: simplifyDisplayName(rp.name || "Payment"),
-        rawName: rp.name || "Payment",
-        merchant: rp.name || "",
-        amount: Math.abs(rp.amount),
-        category: rp.category || "",
-        rawCategory: rp.category || "",
-        source: "recurring",
-        type: rp.frequency || "recurring",
-        status: "",
-        moved: !!ovDate[ovKey],
-        ovKey: ovKey,
-        linkedDebtId: rp.linkedDebtId || null,
-        isIncome: !!rp.linkedIncome
-      });
-    });
-
-    // 2. Plaid transactions (filter to window + significance + skip noise)
+    // === PAST + TODAY: only Plaid transactions (the truth) ===
+    // Dedupe pending+posted by (cleanMerchant, signedAmount, date).
+    var seenPlaid = {};
     (raw.transactions || []).forEach(function (tx) {
       if (!tx || !tx.date || tx.amount == null) return;
-      var t = new Date(String(tx.date).slice(0, 10) + "T12:00:00").getTime();
+      var dateOnly = String(tx.date).slice(0, 10);
+      var t = new Date(dateOnly + "T12:00:00").getTime();
       if (!isFinite(t)) return;
-      if (t < minMs || t > maxMs) return;
-      var amt = Math.abs(Number(tx.amount));
-      if (!isFinite(amt) || amt < 25) return; // significance gate
-      if (isNoisyTransaction(tx)) return;     // skip internal bank chatter
-      var origDate = String(tx.date).slice(0, 10);
+      if (t < minMs || t > todayMs) return; // past + today only
+      var rawAmt = Number(tx.amount);
+      if (!isFinite(rawAmt) || Math.abs(rawAmt) < 1) return;
+      if (Math.abs(rawAmt) < 25) return; // significance gate
+      if (isNoisyTransaction(tx)) return;
+
+      // Dedup: same merchant, same signed amount, same date → keep first
+      var dedupKey = dateOnly + "|" + (tx.merchant || "").trim().toLowerCase() + "|" + rawAmt.toFixed(2);
+      if (seenPlaid[dedupKey]) return;
+      seenPlaid[dedupKey] = true;
+
+      var origDate = dateOnly;
       var ovKey = origDate + "|" + (tx.merchant || tx.id || "");
       var date = ovDate[ovKey] || origDate;
+      var isInflow = rawAmt > 0;
+      var amt = Math.abs(rawAmt);
       events.push({
         id: "tx:" + (tx.id || (origDate + "|" + (tx.merchant || ""))),
         date: date,
         origDate: origDate,
-        name: simplifyDisplayName(tx.merchant || "Transaction"),
-        rawName: tx.merchant || "Transaction",
+        name: tx.merchant || "Transaction",
         merchant: tx.merchant || "",
         amount: amt,
-        category: "", // resolved later via override → autoClassify
+        signedAmount: rawAmt,
+        isInflow: isInflow,
+        category: "",
         rawCategory: tx.category || "",
         source: "plaid",
         type: tx.method || "Bank",
@@ -355,6 +347,37 @@
         ovKey: ovKey,
         plaidId: tx.plaidTransactionId || "",
         locked: !!tx.locked
+      });
+    });
+
+    // === FUTURE: only recurring payments (forecasts) ===
+    (raw.recurringPayments || []).forEach(function (rp) {
+      if (!rp || !rp.nextDate || rp.amount == null) return;
+      var origDate = String(rp.nextDate).slice(0, 10);
+      var t = new Date(origDate + "T12:00:00").getTime();
+      if (!isFinite(t)) return;
+      if (t <= todayMs || t > maxMs) return; // strictly future
+      var ovKey = origDate + "|" + (rp.name || "");
+      var date = ovDate[ovKey] || origDate;
+      var isInflow = !!rp.linkedIncome || (rp.category === "income");
+      events.push({
+        id: "rp:" + (rp.id || (origDate + "|" + (rp.name || ""))),
+        date: date,
+        origDate: origDate,
+        name: rp.name || "Payment",
+        merchant: rp.name || "",
+        amount: Math.abs(rp.amount),
+        signedAmount: isInflow ? Math.abs(rp.amount) : -Math.abs(rp.amount),
+        isInflow: isInflow,
+        category: rp.category || "",
+        rawCategory: rp.category || "",
+        source: "recurring",
+        type: rp.frequency || "recurring",
+        status: "",
+        moved: !!ovDate[ovKey],
+        ovKey: ovKey,
+        linkedDebtId: rp.linkedDebtId || null,
+        isIncome: !!rp.linkedIncome
       });
     });
 
@@ -428,7 +451,7 @@
     var dayMap = {};
     events.forEach(function (e) {
       if (!dayMap[e.date]) dayMap[e.date] = 0;
-      dayMap[e.date] += (e.category === "income" ? e.amount : (e.category === "transfers" ? 0 : -e.amount));
+      dayMap[e.date] += (e.category === "transfers" ? 0 : (e.isInflow === true ? e.amount : -e.amount));
     });
     var out = {};
     var bal = start;
@@ -661,7 +684,7 @@
 
     var dayOut = {}, maxOut = 0;
     Object.keys(byDate).forEach(function (k) {
-      var sum = byDate[k].reduce(function (s, e) { return s + (e.category === "income" || e.category === "transfers" ? 0 : e.amount); }, 0);
+      var sum = byDate[k].reduce(function (s, e) { if (e.category === "transfers") return s; if (e.isInflow === true || e.category === "income") return s; return s + e.amount; }, 0);
       dayOut[k] = sum;
       if (sum > maxOut) maxOut = sum;
     });
@@ -692,7 +715,7 @@
         if (cell.blank) {
           return `<div style="${compact ? "height:64px;" : "height:112px;"}background:var(--bg-2, rgba(0,0,0,0.015));border-right:1px solid var(--border, rgba(0,0,0,0.05));"></div>`;
         }
-        var total = (cell.events || []).reduce(function (s, e) { return s + (e.category === "income" || e.category === "transfers" ? 0 : e.amount); }, 0);
+        var total = (cell.events || []).reduce(function (s, e) { if (e.category === "transfers") return s; if (e.isInflow === true || e.category === "income") return s; return s + e.amount; }, 0);
         var hasOverdue = (cell.events || []).some(isOverdue);
         var bg = "";
         if (state.heatmap && total > 0 && maxOut > 0) {
@@ -749,8 +772,12 @@
     });
     var monthOut = 0, monthIn = 0;
     monthEvents.forEach(function (e) {
-      if (e.category === "income") monthIn += e.amount;
-      else if (e.category === "transfers") return; // transfers are not expenses
+      // Skip transfers entirely (between own accounts)
+      if (e.category === "transfers") return;
+      // Use signed direction as ground truth (Plaid sign or recurring linkedIncome)
+      if (e.isInflow === true) monthIn += e.amount;
+      else if (e.isInflow === false) monthOut += e.amount;
+      else if (e.category === "income") monthIn += e.amount;
       else monthOut += e.amount;
     });
     var net = monthIn - monthOut;
