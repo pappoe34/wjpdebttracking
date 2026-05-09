@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js — surface the Education tab's pinned tip on
+/* wjp-edu-dashboard-tip.js v1.1 — surface the Education tab's pinned tip on
  * the dashboard as a small banner. Reads window.WJP_Education.pinnedTip()
  * (or falls back to localStorage). User can dismiss for the day, or jump
  * to the Education tab to swap pinned tip.
@@ -12,14 +12,34 @@
     if (p.indexOf("/index") === -1 && p !== "/" && p !== "") return;
   } catch (_) {}
 
+
+  // === Per-user storage helper (defers to WJP_UserScope when available) ===
+  function lsGet(s) {
+    try { return (window.WJP_UserScope && typeof window.WJP_UserScope.get === 'function')
+      ? window.WJP_UserScope.get(s) : localStorage.getItem(s); }
+    catch (_) { return localStorage.getItem(s); }
+  }
+  function lsSet(s, v) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.set === 'function')
+      window.WJP_UserScope.set(s, v);
+      else localStorage.setItem(s, v); }
+    catch (_) { try { localStorage.setItem(s, v); } catch (e) {} }
+  }
+  function lsRemove(s) {
+    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.remove === 'function')
+      window.WJP_UserScope.remove(s);
+      else localStorage.removeItem(s); }
+    catch (_) { try { localStorage.removeItem(s); } catch (e) {} }
+  }
+
   var BANNER_ID = "wjp-edu-dashboard-tip";
   var LS_DISMISS = "wjp.edu.dashTip.dismissed.v1"; // {tipId: "YYYY-MM-DD"}
 
   function loadDismiss() {
-    try { return JSON.parse(localStorage.getItem(LS_DISMISS) || "null") || {}; }
+    try { return JSON.parse(lsGet(LS_DISMISS) || "null") || {}; }
     catch (_) { return {}; }
   }
-  function saveDismiss(o) { try { localStorage.setItem(LS_DISMISS, JSON.stringify(o)); } catch (_) {} }
+  function saveDismiss(o) { try { lsSet(LS_DISMISS, JSON.stringify(o)); } catch (_) {} }
 
   function todayKey() {
     var d = new Date();
