@@ -193,10 +193,10 @@
 
   function autoClassify(name, plaidCategory) {
     var s = ((name || "") + " " + (plaidCategory || "")).toLowerCase();
-    if (/payday|paycheck|payroll|direct\s*dep|wire\s*in|incoming|deposit\b|salary|benefit/.test(s)) return "income";
+    if (/\bpayroll\b|\bpaycheck\b|\bpayday\b|\bsalary\b|direct\s*deposit\s+from|biweekly\s+pay|monthly\s+pay|employer\s+deposit|\bwages?\b/.test(s)) return "income";
     if (/^zelle\b|\bzelle\b/.test(s)) return "transfers";
     if (/cash\s*app|venmo|paypal\s+(transfer|send)/.test(s)) return "transfers";
-    if (/transfer\s+from|transfer\s+to|internal\s+xfer|online\s+transfer|wire\s+out/.test(s)) return "transfers";
+    if (/transfer\s+from|transfer\s+to|internal\s+xfer|online\s+transfer|external\s+transfer|wire\s+(in|out)|\bach\s+(debit|credit|transfer|payment)|account\s+to\s+account|payment\s+(to|from)\s+(capital\s+one|chase|amex|discover|citi|wells\s+fargo|bank\s+of\s+america|bofa|amazon\s+credit)|cc\s+payment|credit\s+card\s+payment|\bstash\b|\brobinhood\b|coinbase|\bvanguard\b|\bfidelity\b|charles\s+schwab|\binvestment\s+(transfer|deposit)|brokerage|\bira\b\s+(deposit|contribution)|\bvenmo\s+(add|cashout)|paypal\s+(transfer|send)/.test(s)) return "transfers";
     if (/electric|\bgas\b|\bpower\b|water\s+co|sewer|internet|verizon|comcast|xfinity|t[-]?mobile|at\s*&\s*t|phone\s+bill|att|spectrum/.test(s)) return "utility";
     if (/insurance|policy|coverage|geico|progressive|state\s+farm|allstate|esurance|liberty\s+mutual|farmers/.test(s)) return "insurance";
     if (/netflix|spotify|hulu|disney|paramount|claude|chatgpt|anthropic|openai|adobe|microsoft\s*365|prime\s+video|youtube\s+premium|\bgym\b|peloton|nytimes|washingtonpost|patreon|substack|membership|subscription/.test(s)) return "subscription";
