@@ -303,7 +303,7 @@
       .wjp-edu-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.14); }
       .wjp-edu-card-cat { font-size: 9.5px; letter-spacing: 0.10em; text-transform: uppercase; font-weight: 800; }
       .wjp-edu-card-title { font-size: 14.5px; font-weight: 700; color: var(--ink, #0a0a0a); letter-spacing: -0.01em; line-height: 1.25; margin: 8px 0; }
-      .wjp-edu-card-body { font-size: 12.5px; color: #4b5563; line-height: 1.5; }
+      .wjp-edu-card-body { font-size: 12.5px; color:var(--ink-dim, #4b5563); line-height: 1.5; }
       .wjp-edu-card-foot { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 10.5px; color: var(--ink-faint, #9ca3af); font-weight: 600; }
       .wjp-edu-card-read { color: #1f7a4a; }
       .wjp-edu-card-pinned { color: #c99a2a; }
