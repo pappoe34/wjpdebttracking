@@ -1,4 +1,4 @@
-/* wjp-streak.js v9 — payment-on-track streak.
+/* wjp-streak.js v10 — payment-on-track streak.
  *
  * v6 was a LOGIN streak: reset to 1 if the user skipped a day. That broke
  * Winston's chip even though he hadn't missed any payments.
@@ -74,9 +74,10 @@
     if (!s.startDate) s.startDate = today;
 
     if (hasOverduePayment()) {
+      // v10: a fresh break still counts as day 1 of the new streak — never 0.
       if (s.lastBreakDate !== today) {
         s.lastBreakDate = today;
-        s.count = 0;
+        s.count = 1;
       }
     } else {
       // v9: A previous run may have written lastBreakDate=today using the
