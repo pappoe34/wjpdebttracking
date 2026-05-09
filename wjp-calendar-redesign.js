@@ -729,8 +729,12 @@
   }
 
   function buildHeader(events) {
+    var todayKey_ = dateKey(new Date());
     var monthEvents = events.filter(function (e) {
-      return e.date.startsWith(state.viewYear + "-" + String(state.viewMonth + 1).padStart(2, "0"));
+      // Limit to events whose date is on or before today — gives month-to-date for the
+      // current month, full history for past months, and $0 for future months.
+      return e.date.startsWith(state.viewYear + "-" + String(state.viewMonth + 1).padStart(2, "0"))
+          && e.date <= todayKey_;
     });
     var monthOut = 0, monthIn = 0;
     monthEvents.forEach(function (e) {
@@ -787,6 +791,7 @@
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:center;font-size:12px;color:var(--ink-dim, #6b7280);flex-wrap:wrap;">
+          <span style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ink-faint, #9ca3af);font-weight:700;">${(state.viewYear === new Date().getFullYear() && state.viewMonth === new Date().getMonth()) ? "Month to date" : (todayKey_ < (state.viewYear + "-" + String(state.viewMonth + 1).padStart(2, "0") + "-01") ? "Forecast" : "Full month")}</span>
           <span>Out: <b style="color:#dc2626;">${fmtUSD(monthOut)}</b></span>
           <span>In: <b style="color:#1f7a4a;">${fmtUSD(monthIn)}</b></span>
           <span>Net: <b style="color:${netColor};">${fmtUSD(net)}</b></span>
