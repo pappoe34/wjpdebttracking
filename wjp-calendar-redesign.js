@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.1 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.2 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -255,6 +255,14 @@
   // calendar without giving the user anything to act on.
   function isNoisyTransaction(tx) {
     var s = ((tx.merchant || "") + " " + (tx.method || "") + " " + (tx.category || "")).toLowerCase();
+    // v6.2: Whitelist real payroll/income BEFORE any noise rules can match.
+    // Patterns that indicate a real paycheck or earned income — never noise.
+    if (/payroll/.test(s)) return false;
+    if (/freshrealm|fresh\s*realm/.test(s)) return false;
+    if (/adp\s+totalsource|adp\s+payroll|adp\s+totals/.test(s)) return false;
+    if (/direct\s+dep|direct\s+deposit/.test(s)) return false;
+    if (/\bsalary\b|\bwages\b|\bpaycheck\b/.test(s)) return false;
+    if (/\bgusto\b|\bjustworks\b|\bpaychex\b|\bquickbooks\s+payroll\b/.test(s)) return false;
     // Internal bank-to-bank moves between own accounts
     if (/transfer\s+from\s+acct/.test(s)) return true;
     if (/transfer\s+to\s+acct/.test(s)) return true;
