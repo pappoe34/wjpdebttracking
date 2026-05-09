@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.5 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.6 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -349,6 +349,33 @@
       completedKeys[key].push(dayMs);
     });
 
+    // v6.6: For each (key), find the earliest pending date that has a
+    // completed twin within ±10 days. The completed row will adopt that
+    // earlier date when emitted — that's the date the charge actually hit
+    // the user (vs. the clearing date Plaid emits as "completed").
+    var pendingEarliestByCompletedDay = {}; // key|completedDayMs -> earliest pendingDayMs
+    (raw.transactions || []).forEach(function (tx) {
+      if (!tx || !tx.date || tx.amount == null) return;
+      if (String(tx.status || "").toLowerCase() !== "pending") return;
+      var idChk = String(tx.id || "");
+      if (/^rec-/i.test(idChk) || /^plaid_rec/i.test(idChk) || idChk.indexOf("-rec-") >= 0) return;
+      var rawAmt = Number(tx.amount);
+      if (!isFinite(rawAmt)) return;
+      var cm = dedupMerchantKey(tx.merchant);
+      var key = cm + "|" + rawAmt.toFixed(2);
+      var d = String(tx.date).slice(0, 10);
+      var pendDayMs = new Date(d + "T12:00:00").getTime();
+      var twins = completedKeys[key] || [];
+      for (var i = 0; i < twins.length; i++) {
+        if (Math.abs(twins[i] - pendDayMs) <= 10 * 24 * 3600 * 1000) {
+          var slot = key + "|" + twins[i];
+          if (!pendingEarliestByCompletedDay[slot] || pendDayMs < pendingEarliestByCompletedDay[slot]) {
+            pendingEarliestByCompletedDay[slot] = pendDayMs;
+          }
+        }
+      }
+    });
+
     var seenPlaid = {};
     (raw.transactions || []).forEach(function (tx) {
       if (!tx || !tx.date || tx.amount == null) return;
@@ -397,7 +424,17 @@
       if (!seenPlaid[amtKey]) seenPlaid[amtKey] = [];
       seenPlaid[amtKey].push(dayMs);
 
-      var origDate = dateOnly;
+      // v6.6: If this is a completed row and it has a pending twin within
+      // ±10 days, adopt the earlier (pending) date — that is when the
+      // charge actually happened, not when it cleared.
+      var displayDate = dateOnly;
+      if (statusLower === "completed") {
+        var earlyMs = pendingEarliestByCompletedDay[amtKey + "|" + dayMs];
+        if (earlyMs && earlyMs < dayMs) {
+          displayDate = new Date(earlyMs).toISOString().slice(0, 10);
+        }
+      }
+      var origDate = displayDate;
       var ovKey = origDate + "|" + (tx.merchant || tx.id || "");
       var date = ovDate[ovKey] || origDate;
       var isInflow = rawAmt > 0;
