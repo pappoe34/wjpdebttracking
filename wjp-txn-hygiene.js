@@ -1,4 +1,4 @@
-/* wjp-txn-hygiene.js v5 — robust Spending Tracker hygiene.
+/* wjp-txn-hygiene.js v6 — robust Spending Tracker hygiene.
  *
  * v1 mutated appState.transactions then hoped the host re-rendered. The
  * host's drawCharts/renderTransactions read appState.transactions directly
@@ -106,6 +106,15 @@
       if (!raw || !raw.length) return fn.apply(this, arguments);
       var clean = buildClean(raw);
       s.transactions = clean;
+      // v6: app.js's materializeRecurringTransactions caches via
+      // _lastMaterializeHash and short-circuits if unchanged. Our wrap
+      // restores appState.transactions to `raw` at the end of each call —
+      // which deletes the synthetic recurring entries materialize injected
+      // into `clean`. The cache then returns early on the next call, so
+      // subsequent timeframe clicks see clean WITHOUT recurring income,
+      // making Income look stuck across Daily/Weekly/Monthly/etc.
+      // Bust the cache so each wrapped call re-injects synthetic entries.
+      try { _lastMaterializeHash = null; } catch (_) {}
       try {
         return fn.apply(this, arguments);
       } finally {
