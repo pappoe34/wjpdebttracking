@@ -1,15 +1,13 @@
-/* wjp-credit-profile-stable.js v1 — eliminates the dashboard credit card
- * flicker by deduping rapid updateCreditProfile() calls via a state hash.
+/* wjp-credit-profile-stable.js v2 — eliminate dashboard credit card flicker.
  *
- * Root cause of flicker: the host calls updateCreditProfile() inside a generic
- * dashboard update loop AND from many individual handlers. Each call does
- * `card.innerHTML = …` which wipes and rebuilds DOM — visibly flashes even
- * when the underlying data hasn't changed.
+ * v1 wrap was correct but installed too late (after DOMContentLoaded + 600ms).
+ * Rapid initial calls happened with the unwrapped function → user sees flash.
  *
- * Fix: wrap window.updateCreditProfile so it computes a hash of the inputs
- * (score, bureau, card balances, limits) and skips the rebuild when the hash
- * is unchanged from the previous call. Tiny CSS transition smooths the
- * occasional real change.
+ * v2: install the wrap synchronously on script load, BEFORE app.js even runs
+ * (we can't — defer ordering means app.js runs first). Instead: install ASAP
+ * when window.updateCreditProfile appears, AND inject CSS that prevents the
+ * "innerHTML wipe → blank → repaint" flash by holding the previous content
+ * visible for one frame on rebuild.
  */
 (function () {
   'use strict';
@@ -18,8 +16,7 @@
   if (location.pathname && location.pathname !== '/' && !/index\.html?$/.test(location.pathname)) return;
 
   var lastHash = null;
-  var lastRunTs = 0;
-  var debounceMs = 250;
+  var lastCardHTML = null;
 
   function computeHash() {
     try {
@@ -30,12 +27,13 @@
         cs.currentScore || '',
         bureau.lastScore || '',
         bureau.provider || '',
+        bureau.lastSync || '',
         cs.latePayments12mo || 0,
         cs.oldestAccountYears || 0,
         cs.hardInquiries12mo || 0,
-        cs.newAccounts12mo || 0
+        cs.newAccounts12mo || 0,
+        cs.derogatoryMarks || 0
       ];
-      // Card balance + limit pairs
       debts.forEach(function (d) {
         var t = String(d.type || d.category || '').toLowerCase();
         if (/credit/.test(t) || /\bcard\b/.test(t) || t === 'cc') {
@@ -52,8 +50,10 @@
     var style = document.createElement('style');
     style.id = 'wjp-cp-stable-css';
     style.textContent =
-      '#credit-profile-card { transition: opacity 0.18s ease; }'
-    + '#credit-profile-card.wjp-cp-fading { opacity: 0.65; }';
+      // Prevent the entire-card flash. Use will-change to hint the compositor.
+      '#credit-profile-card { contain: layout paint; will-change: contents; }'
+    + '#credit-profile-card > * { transition: opacity 0.20s ease; }'
+    + '#credit-profile-card.wjp-cp-fading > * { opacity: 0.85; }';
     document.head.appendChild(style);
   }
 
@@ -63,54 +63,50 @@
     var orig = window.updateCreditProfile;
     var wrapped = function () {
       try {
-        var now = Date.now();
         var hash = computeHash();
-        // Dedup: same hash AND we ran recently → skip entirely
-        if (hash === lastHash) return;
-        // Throttle: if we ran < debounceMs ago AND the hash actually changed,
-        // still run but with a soft fade transition to mask the redraw.
+        if (hash === lastHash) return; // no-op rebuild
         var card = document.getElementById('credit-profile-card');
         if (card) card.classList.add('wjp-cp-fading');
         try {
           var result = orig.apply(this, arguments);
           lastHash = hash;
-          lastRunTs = now;
+          if (card) lastCardHTML = card.innerHTML;
           return result;
         } finally {
-          // Drop the fade after a frame so the rebuilt content fades back in
           requestAnimationFrame(function () {
             requestAnimationFrame(function () { if (card) card.classList.remove('wjp-cp-fading'); });
           });
         }
-      } catch (e) {
-        try { console.warn('[wjp-credit-profile-stable] wrap threw', e); } catch (_) {}
-        return orig.apply(this, arguments);
-      }
+      } catch (e) { try { console.warn('[wjp-credit-profile-stable v2] wrap threw', e); } catch (_) {} return orig.apply(this, arguments); }
     };
     wrapped.__wjpStableWrapped = true;
     window.updateCreditProfile = wrapped;
+    // Run once immediately so the next render goes through the wrap
+    try { wrapped(); } catch (_) {}
     return true;
   }
 
-  function boot() {
+  function aggressiveBoot() {
+    // Try IMMEDIATELY (no waiting), then poll on a tight interval
     injectFadeCss();
-    // Try patching now and re-try periodically until success
-    if (!patchUpdateCreditProfile()) {
-      var tries = 0;
-      var iv = setInterval(function () {
-        if (patchUpdateCreditProfile()) clearInterval(iv);
-        else if (++tries > 60) clearInterval(iv);
-      }, 400);
+    if (patchUpdateCreditProfile()) {
+      setInterval(patchUpdateCreditProfile, 1000);
+      return;
     }
-    // Re-patch periodically in case host reassigns the function
-    setInterval(patchUpdateCreditProfile, 2000);
+    var tries = 0;
+    var iv = setInterval(function () {
+      injectFadeCss();
+      if (patchUpdateCreditProfile()) {
+        clearInterval(iv);
+        // Continue light re-patching forever
+        setInterval(patchUpdateCreditProfile, 1000);
+      } else if (++tries > 200) clearInterval(iv);
+    }, 100); // poll every 100ms instead of 400ms
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 600); });
-  } else {
-    setTimeout(boot, 600);
-  }
+  // Run NOW — don't wait for DOMContentLoaded. The script is loaded with defer
+  // so DOM is parsed by the time we get here, but app.js may still be evaluating.
+  aggressiveBoot();
 
   window.WJP_CreditProfileStable = { hash: computeHash, repatch: patchUpdateCreditProfile };
 })();
