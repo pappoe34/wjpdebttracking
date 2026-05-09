@@ -135,8 +135,8 @@
     seg.style.cssText = [
       'flex:1',
       'padding:8px 16px',
-      'background:' + (isActive ? 'linear-gradient(180deg,#ffffff,#f8faf6)' : 'transparent'),
-      'color:' + (isActive ? '#0a0a0a' : 'rgba(10,10,10,0.55)'),
+      'background:' + (isActive ? 'var(--card, linear-gradient(180deg,#ffffff,#f8faf6))' : 'transparent'),
+      'color:' + (isActive ? 'var(--ink, #0a0a0a)' : 'var(--ink-dim, rgba(10,10,10,0.55))'),
       'border:0',
       'border-radius:999px',
       'cursor:pointer',
@@ -150,7 +150,7 @@
       'min-width:0'
     ].join(';');
     seg.textContent = scenario.label;
-    seg.addEventListener('mouseenter', function () { if (!isActive) seg.style.color = '#0a0a0a'; });
+    seg.addEventListener('mouseenter', function () { if (!isActive) seg.style.color = getComputedStyle(document.body).getPropertyValue('--ink').trim() || '#0a0a0a'; });
     seg.addEventListener('mouseleave', function () { if (!isActive) seg.style.color = 'rgba(10,10,10,0.55)'; });
     seg.addEventListener('click', function () { onSegmentClick(scenario); });
     return seg;
