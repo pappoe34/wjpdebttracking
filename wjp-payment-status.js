@@ -94,6 +94,35 @@
       }
     } catch (_) {}
   }
+  // v2: when user marks a bill as paid, advance the recurringPayment's
+  // nextDate forward by one cycle so we don't keep alerting on it.
+  function advanceRecurringByOneCycle(rpId) {
+    try {
+      if (typeof appState === 'undefined' || !appState || !Array.isArray(appState.recurringPayments)) return;
+      var rp = null;
+      for (var i = 0; i < appState.recurringPayments.length; i++) {
+        if (appState.recurringPayments[i] && appState.recurringPayments[i].id === rpId) { rp = appState.recurringPayments[i]; break; }
+      }
+      if (!rp || !rp.nextDate) return;
+      var freq = (rp.frequency || 'monthly').toLowerCase();
+      var next = new Date(String(rp.nextDate).slice(0,10) + 'T12:00:00');
+      if (isNaN(next.getTime())) return;
+      // Advance forward until next is after today
+      var today = new Date();
+      var safety = 0;
+      while (next.getTime() <= today.getTime() && safety++ < 60) {
+        if (freq === 'weekly') next.setDate(next.getDate() + 7);
+        else if (freq === 'biweekly') next.setDate(next.getDate() + 14);
+        else if (freq === 'semimonthly') next.setDate(next.getDate() + 15);
+        else if (freq === 'quarterly') next.setMonth(next.getMonth() + 3);
+        else if (freq === 'annually') next.setFullYear(next.getFullYear() + 1);
+        else next.setMonth(next.getMonth() + 1); // monthly default
+      }
+      rp.nextDate = next.toISOString().slice(0, 10);
+      try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+    } catch (_) {}
+  }
+
   function markPaidThrough(rpId, throughIso) {
     var o = loadPaidOverrides();
     o[rpId] = throughIso;
@@ -168,7 +197,10 @@
     if (deltaDays > 3) return 'ok';
     if (deltaDays > 0) return 'soon';
     if (deltaDays === 0) return 'today';
-    if (deltaDays < -14) return 'stale'; // too old to surface
+    // v2: tighter stale window. If a monthly bill hasn't auto-advanced and
+    // is 7+ days past due with no Plaid match, the user almost certainly
+    // paid it externally — don't keep alerting.
+    if (deltaDays < -7) return 'stale';
     return 'overdue';
   }
 
@@ -191,6 +223,7 @@
     unmarkNotBill: unmarkNotBill,
     loadNotBillList: loadNotBillList,
     markPaidThrough: markPaidThrough,
+    advanceRecurringByOneCycle: advanceRecurringByOneCycle,
     loadPaidOverrides: loadPaidOverrides,
     fuzzyKey: fuzzyKey
   };

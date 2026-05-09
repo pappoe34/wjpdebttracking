@@ -1,4 +1,4 @@
-/* wjp-critical-alerts.js v3 — popup modal driven by WJP_PaymentStatus.
+/* wjp-critical-alerts.js v4 — popup modal driven by WJP_PaymentStatus.
  *
  * Improvements over v2:
  *   - Cross-checks Plaid transactions: if a payment matches an rp.amount near
@@ -88,14 +88,20 @@
       });
     });
 
-    // High-priority unread notifications (last 24h)
+    // High-priority unread notifications (last 24h) — v4: dedup by title so
+    // we don't show 5 copies of the same alert when the host has been
+    // generating duplicates.
     var since = Date.now() - 24*3600*1000;
+    var seenTitles = {};
     (raw.notifications || []).forEach(function (n) {
       if (!n || n.read) return;
       var ts = n.timestamp || n.createdAt || 0;
       if (ts < since) return;
       var pri = (n.priority || n.severity || 'normal').toLowerCase();
       if (pri !== 'high' && pri !== 'critical' && pri !== 'urgent') return;
+      var key = (n.title || n.message || 'Notification').trim().toLowerCase();
+      if (seenTitles[key]) return; // already added
+      seenTitles[key] = true;
       alerts.push({
         severity: 'notif', priority: 40, rpId: null, nextDate: null,
         name: n.title || n.message || 'Notification', amount: null,
@@ -262,6 +268,9 @@
             // Mark paid through nextDate + 35 days (covers monthly cycle)
             var through = a.nextDate ? addDays(a.nextDate, 35) : addDays(todayKey(), 35);
             window.WJP_PaymentStatus.markPaidThrough(a.rpId, through);
+            // v4: also advance the recurring's nextDate forward by one
+            // cycle so it doesn't show as overdue again next session
+            try { if (typeof window.WJP_PaymentStatus.advanceRecurringByOneCycle === 'function') window.WJP_PaymentStatus.advanceRecurringByOneCycle(a.rpId); } catch (_) {}
             rerender();
             return;
           }
