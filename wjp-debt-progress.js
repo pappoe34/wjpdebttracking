@@ -1,4 +1,4 @@
-/* wjp-debt-progress.js v4 — animated progress bars by debt type, reorderable like native cards, on the
+/* wjp-debt-progress.js v5 — animated progress bars, no flicker, on the
  * Dashboard.
  *
  * Groups appState.debts into the categories Winston cares about:
@@ -161,12 +161,17 @@
     return { dash: dash, anchor: es };
   }
 
+  var _wjpDpLastHash = null;
   function render() {
     try {
       if (typeof appState === 'undefined' || !appState || !Array.isArray(appState.debts)) return;
       var host = findHost();
       if (!host || !host.dash) return;
       var data = compute();
+      // v5: skip re-render if same data AND widget already mounted
+      var _hash = data.totalPaid.toFixed(0) + '|' + data.totalOwed.toFixed(0) + '|' + data.rows.map(function (r) { return r.key + ':' + r.paid.toFixed(0) + ':' + r.original.toFixed(0); }).join(',');
+      if (_hash === _wjpDpLastHash && document.getElementById(WRAP_ID)) return;
+      _wjpDpLastHash = _hash;
       if (!data.rows.length) {
         // Hide the widget if user has no qualifying debts
         var prev = document.getElementById(WRAP_ID);
@@ -265,16 +270,18 @@
       // buttons) only runs when the user toggles "Customize layout" mode —
       // when they do, our card automatically gets the controls because it has
       // class="reorderable". Saved order/size apply on every render.
-      try { if (typeof window.applyDashboardLayout === 'function') window.applyDashboardLayout(); } catch (_) {}
-      try { if (typeof window.applyCardSizes === 'function') window.applyCardSizes(); } catch (_) {}
-      // If user is currently in customize mode, retrigger control injection
-      // by toggling the dash-customizing class twice — picks up our new card.
-      try {
-        if (document.body.classList.contains('dash-customizing') && typeof window.initDashCustomize === 'function') {
-          // initDashCustomize is idempotent and safe to re-run
-          window.initDashCustomize();
-        }
-      } catch (_) {}
+      // v5: only run host layout helpers when the widget was just mounted
+      // for the first time. Calling them every 5s caused dashboard flicker.
+      if (!window._wjpDpLayoutApplied) {
+        window._wjpDpLayoutApplied = true;
+        try { if (typeof window.applyDashboardLayout === 'function') window.applyDashboardLayout(); } catch (_) {}
+        try { if (typeof window.applyCardSizes === 'function') window.applyCardSizes(); } catch (_) {}
+        try {
+          if (document.body.classList.contains('dash-customizing') && typeof window.initDashCustomize === 'function') {
+            window.initDashCustomize();
+          }
+        } catch (_) {}
+      }
     } catch (e) { try { console.warn('[wjp-debt-progress] threw', e); } catch (_) {} }
   }
 
@@ -291,7 +298,7 @@
   function boot() {
     whenReady(render);
     // Re-render on debt changes (every 5s polled — cheap)
-    setInterval(render, 5000);
+    setInterval(render, 30000);
   }
 
   if (document.readyState === 'loading') {
