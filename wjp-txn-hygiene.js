@@ -1,4 +1,4 @@
-/* wjp-txn-hygiene.js v2 — robust Spending Tracker hygiene.
+/* wjp-txn-hygiene.js v3 — robust Spending Tracker hygiene.
  *
  * v1 mutated appState.transactions then hoped the host re-rendered. The
  * host's drawCharts/renderTransactions read appState.transactions directly
@@ -113,19 +113,30 @@
     };
   }
 
+  // v3: returns true if a fresh wrap was applied this call (so the caller
+  // can force a re-render and the user sees clean data immediately).
   function patchHostFunctions() {
+    var wrappedSomething = false;
     if (window.drawCharts && !window.drawCharts.__wjpHygieneWrapped) {
       var orig = window.drawCharts;
       var wrapped = wrapWithClean(orig);
       wrapped.__wjpHygieneWrapped = true;
       window.drawCharts = wrapped;
+      wrappedSomething = true;
     }
     if (window.renderTransactions && !window.renderTransactions.__wjpHygieneWrapped) {
       var orig2 = window.renderTransactions;
       var wrapped2 = wrapWithClean(orig2);
       wrapped2.__wjpHygieneWrapped = true;
       window.renderTransactions = wrapped2;
+      wrappedSomething = true;
     }
+    return wrappedSomething;
+  }
+
+  function forceRerender() {
+    try { if (typeof window.drawCharts === 'function') window.drawCharts(); } catch (_) {}
+    try { if (typeof window.renderTransactions === 'function') window.renderTransactions(); } catch (_) {}
   }
 
   function whenReady(fn) {
@@ -139,12 +150,18 @@
 
   function boot() {
     whenReady(function () {
-      patchHostFunctions();
-      // Trigger a re-render now that we're wrapped
-      try { if (typeof window.drawCharts === 'function') window.drawCharts(); } catch (_) {}
-      try { if (typeof window.renderTransactions === 'function') window.renderTransactions(); } catch (_) {}
-      // Keep re-patching periodically — the host may reassign these later
-      setInterval(patchHostFunctions, 2000);
+      var wrappedNow = patchHostFunctions();
+      if (wrappedNow) forceRerender();
+      // v3: every poll, both re-patch AND force a re-render whenever a fresh
+      // wrap is installed (covers the race where drawCharts/renderTransactions
+      // get defined after our boot ran). Also do an unconditional re-render
+      // ~3s after boot to repaint the first-load stale state.
+      setInterval(function () {
+        var w = patchHostFunctions();
+        if (w) forceRerender();
+      }, 1500);
+      setTimeout(forceRerender, 3000);
+      setTimeout(forceRerender, 6000);
     });
   }
 
