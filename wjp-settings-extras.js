@@ -118,9 +118,9 @@
       .wjp-act-priority-high .icon { background: rgba(220,38,38,0.10); color: #dc2626; }
       .wjp-act-priority-normal .icon { background: rgba(31,122,74,0.10); color: #1f7a4a; }
       .wjp-act-row .body { flex: 1; min-width: 0; }
-      .wjp-act-row .body .ttl { font-size: 13px; font-weight: 700; color: #0a0a0a; }
-      .wjp-act-row .body .txt { font-size: 12px; color: #6b7280; margin-top: 2px; line-height: 1.4; }
-      .wjp-act-row .meta { font-size: 10.5px; color: #9ca3af; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
+      .wjp-act-row .body .ttl { font-size: 13px; font-weight: 700; color: var(--ink, #0a0a0a); }
+      .wjp-act-row .body .txt { font-size: 12px; color: var(--ink-dim, #6b7280); margin-top: 2px; line-height: 1.4; }
+      .wjp-act-row .meta { font-size: 10.5px; color: var(--ink-faint, #9ca3af); font-weight: 600; flex-shrink: 0; white-space: nowrap; }
       .wjp-plans-link-card {
         margin: 14px 0;
         padding: 16px 20px;
@@ -132,8 +132,8 @@
         align-items: center;
         font-family: var(--sans, Inter, system-ui, sans-serif);
       }
-      .wjp-plans-link-card .ttl { font-size: 13px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.005em; }
-      .wjp-plans-link-card .sub { font-size: 11.5px; color: #6b7280; margin-top: 2px; }
+      .wjp-plans-link-card .ttl { font-size: 13px; font-weight: 700; color: var(--ink, #0a0a0a); letter-spacing: -0.005em; }
+      .wjp-plans-link-card .sub { font-size: 11.5px; color: var(--ink-dim, #6b7280); margin-top: 2px; }
       .wjp-plans-link-card a {
         background: #1f7a4a;
         color: #fff;
@@ -146,6 +146,26 @@
         white-space: nowrap;
       }
       .wjp-plans-link-card a:hover { filter: brightness(1.05); }
+
+      /* Dark mode hover/subtle-bg overrides */
+      body.dark .wjp-cal-cell:hover { background: rgba(255,255,255,0.04) !important; }
+      body.dark .wjp-cal-today.wjp-cal-cell:hover { background: rgba(31,122,74,0.18) !important; }
+      body.dark .wjp-edu-card:hover { border-color: rgba(255,255,255,0.16); box-shadow: 0 12px 28px rgba(0,0,0,0.40); }
+      body.dark .wjp-notes-row:hover { background: rgba(255,255,255,0.04); }
+      body.dark .wjp-edu-disclaimer { background: rgba(220,38,38,0.18); color: #fecaca; }
+      body.dark .wjp-edu-disclaimer b { color: #fca5a5; }
+      body.dark .wjp-cal-suggestion-pulse, body.dark .wjp-edu-coach { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-edu-modal { background: var(--card, #131929) !important; color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-modal-body { color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-coach textarea, body.dark .wjp-notes-search, body.dark .wjp-notes-title, body.dark .wjp-notes-body, body.dark .wjp-edu-search { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-user { background: rgba(255,255,255,0.04); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-bot { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover { background: var(--card, #131929); border-color: var(--border, rgba(255,255,255,0.10)); }
+      body.dark .wjp-cal-popover-item { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover-item:hover { background: rgba(31,122,74,0.18); }
+      body.dark .wjp-act-row .ttl { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-plans-link-card { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-plans-link-card .ttl { color: var(--ink, #f0f4ff); }
     `;
     document.head.appendChild(s);
   }
@@ -225,7 +245,7 @@
             <span class="meta">${escapeHTML(fmtRelative(n.timestamp))}</span>
           </div>`;
         }).join("")
-      : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:13px;">No activity yet.</div>`;
+      : `<div style="padding:32px;text-align:center;color:var(--ink-faint, #9ca3af);font-size:13px;">No activity yet.</div>`;
 
     var retOpts = RETENTION_OPTIONS.map(function (o) {
       return `<option value="${escapeHTML(o.v)}" ${o.v === ret ? "selected" : ""}>${escapeHTML(o.label)}</option>`;
@@ -234,17 +254,17 @@
     return `
       <div style="font-family:var(--sans,Inter,system-ui,sans-serif);">
         <h2 style="font-size:22px;font-weight:700;letter-spacing:-0.015em;margin-bottom:6px;">Activity Log</h2>
-        <p style="color:#6b7280;font-size:13.5px;margin-bottom:14px;">Notifications and noteworthy events from your account.</p>
+        <p style="color:var(--ink-dim, #6b7280);font-size:13.5px;margin-bottom:14px;">Notifications and noteworthy events from your account.</p>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <label style="font-size:11.5px;font-weight:600;color:#6b7280;">
+          <label style="font-size:11.5px;font-weight:600;color:var(--ink-dim, #6b7280);">
             Keep activity for:
-            <select data-wjp-act-retention style="margin-left:6px;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:5px 10px;font-family:inherit;font-size:12px;color:#0a0a0a;">
+            <select data-wjp-act-retention style="margin-left:6px;border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:6px;padding:5px 10px;font-family:inherit;font-size:12px;color:var(--ink, #0a0a0a);">
               ${retOpts}
             </select>
           </label>
-          <span style="font-size:11px;color:#9ca3af;">${items.length} entr${items.length === 1 ? "y" : "ies"} shown</span>
+          <span style="font-size:11px;color:var(--ink-faint, #9ca3af);">${items.length} entr${items.length === 1 ? "y" : "ies"} shown</span>
         </div>
-        <div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:12px;overflow:hidden;max-height:60vh;overflow-y:auto;">
+        <div style="background:var(--card, #fff);border:1px solid var(--border, rgba(0,0,0,0.08));border-radius:12px;overflow:hidden;max-height:60vh;overflow-y:auto;">
           ${rows}
         </div>
       </div>
