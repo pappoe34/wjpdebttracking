@@ -499,18 +499,18 @@
     var s = document.createElement("style");
     s.id = "wjp-cal-styles";
     s.textContent = `
-      .wjp-cal-cell { height:112px; padding:6px 8px; border-right:1px solid rgba(0,0,0,0.05); cursor:pointer; transition:background .15s; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+      .wjp-cal-cell { height:112px; padding:6px 8px; border-right:1px solid var(--border, rgba(0,0,0,0.05)); cursor:pointer; transition:background .15s; position:relative; overflow:hidden; display:flex; flex-direction:column; }
       .wjp-cal-cell:hover { background: rgba(0,0,0,0.025); }
       .wjp-cal-cell:hover .wjp-cal-day-menu { opacity: 1; }
       .wjp-cal-today { background: rgba(31,122,74,0.04); }
       .wjp-cal-today.wjp-cal-cell:hover { background: rgba(31,122,74,0.08); }
       .wjp-cal-payday-col::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:2px; background:#1f7a4a; border-radius:2px; opacity:0.55; pointer-events:none; }
-      .wjp-cal-day-menu { opacity: 0; transition: opacity .15s; background:transparent; border:0; cursor:pointer; padding:2px 4px; border-radius:6px; line-height:1; color:#9ca3af; font-weight:700; }
-      .wjp-cal-day-menu:hover { background: rgba(0,0,0,0.06); color:#0a0a0a; }
-      .wjp-cal-day-menu-open { opacity: 1; background: rgba(0,0,0,0.06); color:#0a0a0a; }
-      .wjp-cal-popover { position:absolute; right:6px; top:30px; z-index:50; background:#fff; border:1px solid rgba(0,0,0,0.10); border-radius:10px; box-shadow:0 10px 32px rgba(0,0,0,0.15); padding:6px; min-width:180px; }
+      .wjp-cal-day-menu { opacity: 0; transition: opacity .15s; background:transparent; border:0; cursor:pointer; padding:2px 4px; border-radius:6px; line-height:1; color:var(--ink-faint, #9ca3af); font-weight:700; }
+      .wjp-cal-day-menu:hover { background: rgba(0,0,0,0.06); color:var(--ink, #0a0a0a); }
+      .wjp-cal-day-menu-open { opacity: 1; background: rgba(0,0,0,0.06); color:var(--ink, #0a0a0a); }
+      .wjp-cal-popover { position:absolute; right:6px; top:30px; z-index:50; background:var(--card, #fff); border:1px solid var(--border, rgba(0,0,0,0.10)); border-radius:10px; box-shadow:0 10px 32px rgba(0,0,0,0.15); padding:6px; min-width:180px; }
       .wjp-cal-popover-fixed { position:fixed !important; right:auto; top:auto; z-index:99999 !important; }
-      .wjp-cal-popover-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 10px; background:transparent; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px; color:#0a0a0a; text-align:left; line-height:1.2; }
+      .wjp-cal-popover-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 10px; background:transparent; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px; color:var(--ink, #0a0a0a); text-align:left; line-height:1.2; }
       .wjp-cal-popover-item:hover { background:rgba(31,122,74,0.06); }
       .wjp-cal-popover-item .wjp-cal-icon { width:18px; text-align:center; opacity:.85; }
       .wjp-cal-cell[draggable] { cursor:grab; }
@@ -524,12 +524,32 @@
       .wjp-cal-cat-pill { cursor:pointer; user-select:none; }
       .wjp-cal-cat-pill:hover { box-shadow: 0 0 0 1px rgba(0,0,0,0.10); }
       .wjp-cal-cat-picker { display:flex; gap:5px; flex-wrap:wrap; padding:8px 12px 4px; }
-      .wjp-cal-cat-chip { border:1px solid var(--border, rgba(0,0,0,0.10)); background:#fff; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
-      .wjp-cal-cat-chip-active { background:#0a0a0a; color:#fff; border-color:#0a0a0a; }
+      .wjp-cal-cat-chip { border:1px solid var(--border, rgba(0,0,0,0.10)); background:var(--card, #fff); padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
+      .wjp-cal-cat-chip-active { background:#0a0a0a; color:#fff; border-color:var(--ink, #0a0a0a); }
       .wjp-cal-toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:#0a0a0a; color:#fff; padding:10px 16px; border-radius:999px; font-size:12.5px; font-family:var(--sans,Inter,system-ui,sans-serif); font-weight:600; box-shadow:0 12px 32px rgba(0,0,0,0.25); z-index:99999; pointer-events:none; transition:opacity .25s, transform .25s; }
       .wjp-cal-toast-show { opacity:1; transform:translateX(-50%) translateY(0); }
       @keyframes wjpPulse { 0%,100% { opacity:.65 } 50% { opacity:1 } }
       .wjp-cal-suggestion-pulse { animation: wjpPulse 2.4s ease-in-out infinite; }
+
+      /* Dark mode hover/subtle-bg overrides */
+      body.dark .wjp-cal-cell:hover { background: rgba(255,255,255,0.04) !important; }
+      body.dark .wjp-cal-today.wjp-cal-cell:hover { background: rgba(31,122,74,0.18) !important; }
+      body.dark .wjp-edu-card:hover { border-color: rgba(255,255,255,0.16); box-shadow: 0 12px 28px rgba(0,0,0,0.40); }
+      body.dark .wjp-notes-row:hover { background: rgba(255,255,255,0.04); }
+      body.dark .wjp-edu-disclaimer { background: rgba(220,38,38,0.18); color: #fecaca; }
+      body.dark .wjp-edu-disclaimer b { color: #fca5a5; }
+      body.dark .wjp-cal-suggestion-pulse, body.dark .wjp-edu-coach { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-edu-modal { background: var(--card, #131929) !important; color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-modal-body { color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-coach textarea, body.dark .wjp-notes-search, body.dark .wjp-notes-title, body.dark .wjp-notes-body, body.dark .wjp-edu-search { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-user { background: rgba(255,255,255,0.04); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-bot { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover { background: var(--card, #131929); border-color: var(--border, rgba(255,255,255,0.10)); }
+      body.dark .wjp-cal-popover-item { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover-item:hover { background: rgba(31,122,74,0.18); }
+      body.dark .wjp-act-row .ttl { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-plans-link-card { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-plans-link-card .ttl { color: var(--ink, #f0f4ff); }
     `;
     document.head.appendChild(s);
   }
@@ -630,13 +650,13 @@
     for (var w = 0; w < cells.length; w += 7) weeks.push(cells.slice(w, w + 7));
 
     var headerCells = DAYS.map(function (label) {
-      return `<div style="padding:${compact ? "5px 6px" : "8px 10px"};font-size:${compact ? "8.5px" : "9.5px"};letter-spacing:0.14em;font-weight:700;color:#9ca3af;text-align:left;border-right:1px solid rgba(0,0,0,0.05);">${label}</div>`;
+      return `<div style="padding:${compact ? "5px 6px" : "8px 10px"};font-size:${compact ? "8.5px" : "9.5px"};letter-spacing:0.14em;font-weight:700;color:var(--ink-faint, #9ca3af);text-align:left;border-right:1px solid var(--border, rgba(0,0,0,0.05));">${label}</div>`;
     }).join("");
 
     var weekHTML = weeks.map(function (week) {
       var cellsHTML = week.map(function (cell) {
         if (cell.blank) {
-          return `<div style="${compact ? "height:64px;" : "height:112px;"}background:rgba(0,0,0,0.015);border-right:1px solid rgba(0,0,0,0.05);"></div>`;
+          return `<div style="${compact ? "height:64px;" : "height:112px;"}background:var(--bg-2, rgba(0,0,0,0.015));border-right:1px solid var(--border, rgba(0,0,0,0.05));"></div>`;
         }
         var total = (cell.events || []).reduce(function (s, e) { return s + (e.category === "income" ? 0 : e.amount); }, 0);
         var hasOverdue = (cell.events || []).some(isOverdue);
@@ -647,17 +667,17 @@
         }
         var dayNum = cell.isToday
           ? `<span class="wjp-cal-day-num" style="font-size:${compact ? "10px" : "11.5px"};font-weight:700;color:#fff;background:#1f7a4a;width:${compact ? "16px" : "20px"};height:${compact ? "16px" : "20px"};border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">${cell.day}</span>`
-          : `<span class="wjp-cal-day-num" style="font-size:${compact ? "10px" : "11.5px"};font-weight:700;color:#0a0a0a;">${cell.day}</span>`;
+          : `<span class="wjp-cal-day-num" style="font-size:${compact ? "10px" : "11.5px"};font-weight:700;color:var(--ink, #0a0a0a);">${cell.day}</span>`;
         var dotsAndTotal = [
           cell.note ? `<span title="Has note" style="width:5px;height:5px;border-radius:50%;background:#c99a2a;"></span>` : "",
           hasOverdue ? `<span title="Overdue/late" style="width:6px;height:6px;border-radius:50%;background:#dc2626;"></span>` : "",
-          (total > 0 && !compact) ? `<span style="font-size:9.5px;color:#6b7280;font-weight:700;">${fmtUSD(total)}</span>` : "",
+          (total > 0 && !compact) ? `<span style="font-size:9.5px;color:var(--ink-dim, #6b7280);font-weight:700;">${fmtUSD(total)}</span>` : "",
           !compact ? `<button type="button" class="wjp-cal-day-menu${state.dayMenuFor === cell.date ? " wjp-cal-day-menu-open" : ""}" data-cal-day-menu="${cell.date}" title="Day options" aria-label="Day options">⋮</button>` : ""
         ].join("");
         var visible = (cell.events || []).slice(0, compact ? 1 : 2);
         var chipsHTML = visible.map(function (e) { return chipHTML(e, !compact, compact); }).join("");
         var more = (cell.events || []).length - visible.length;
-        if (more > 0) chipsHTML += `<div style="font-size:${compact ? "8.5px" : "9.5px"};color:#9ca3af;font-weight:700;">+${more} more</div>`;
+        if (more > 0) chipsHTML += `<div style="font-size:${compact ? "8.5px" : "9.5px"};color:var(--ink-faint, #9ca3af);font-weight:700;">+${more} more</div>`;
         var balLine = "";
         if (cell.balance != null) {
           var negative = cell.balance < 0;
@@ -676,11 +696,11 @@
           ${dayMenuHTML(cell.date)}
         </div>`;
       }).join("");
-      return `<div style="display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid rgba(0,0,0,0.05);">${cellsHTML}</div>`;
+      return `<div style="display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border, rgba(0,0,0,0.05));">${cellsHTML}</div>`;
     }).join("");
 
-    return `<div style="border:1px solid rgba(0,0,0,0.08);border-radius:14px;overflow:hidden;background:#fff;">
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);background:rgba(0,0,0,0.025);">${headerCells}</div>
+    return `<div style="border:1px solid var(--border, rgba(0,0,0,0.08));border-radius:14px;overflow:hidden;background:var(--card, #fff);">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg-2, rgba(0,0,0,0.025));">${headerCells}</div>
       ${weekHTML}
     </div>`;
   }
@@ -725,21 +745,21 @@
     var monthBtnStyle = `border:0;background:${state.view==="month"?"#0a0a0a":"transparent"};color:${state.view==="month"?"#fff":"#6b7280"};font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
     var quarterBtnStyle = `border:0;background:${state.view==="quarter"?"#0a0a0a":"transparent"};color:${state.view==="quarter"?"#fff":"#6b7280"};font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
     var heatmapStyle = `border:1px solid ${state.heatmap ? "#dc2626" : "rgba(0,0,0,0.10)"};background:${state.heatmap ? "rgba(220,38,38,0.08)" : "transparent"};color:${state.heatmap ? "#dc2626" : "#6b7280"};font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
-    var lightBtnStyle = `border:1px solid rgba(0,0,0,0.10);background:#fff;color:#0a0a0a;font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
+    var lightBtnStyle = `border:1px solid var(--border, rgba(0,0,0,0.10));background:var(--card, #fff);color:var(--ink, #0a0a0a);font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
 
     return `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <div style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:4px;">Calendar</div>
+          <div style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-faint, #9ca3af);font-weight:700;margin-bottom:4px;">Calendar</div>
           <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.15;">
-            <span data-cal-prev style="cursor:pointer;color:#9ca3af;padding:0 6px;user-select:none;">‹</span>${titleStr}<span data-cal-next style="cursor:pointer;color:#9ca3af;padding:0 6px;user-select:none;">›</span>
+            <span data-cal-prev style="cursor:pointer;color:var(--ink-faint, #9ca3af);padding:0 6px;user-select:none;">‹</span>${titleStr}<span data-cal-next style="cursor:pointer;color:var(--ink-faint, #9ca3af);padding:0 6px;user-select:none;">›</span>
           </div>
         </div>
-        <div style="display:flex;gap:14px;align-items:center;font-size:12px;color:#6b7280;flex-wrap:wrap;">
+        <div style="display:flex;gap:14px;align-items:center;font-size:12px;color:var(--ink-dim, #6b7280);flex-wrap:wrap;">
           <span>Out: <b style="color:#dc2626;">${fmtUSD(monthOut)}</b></span>
           <span>In: <b style="color:#1f7a4a;">${fmtUSD(monthIn)}</b></span>
           <span>Net: <b style="color:${netColor};">${fmtUSD(net)}</b></span>
-          <div style="display:inline-flex;background:rgba(0,0,0,0.05);border-radius:999px;padding:2px;">
+          <div style="display:inline-flex;background:var(--bg-2, rgba(0,0,0,0.05));border-radius:999px;padding:2px;">
             <button type="button" data-cal-view="month" style="${monthBtnStyle}">Month</button>
             <button type="button" data-cal-view="quarter" style="${quarterBtnStyle}">Quarter</button>
           </div>
@@ -758,8 +778,8 @@
     var s = sugs[0];
     return `<div class="wjp-cal-suggestion-pulse" data-cal-sug-id="${s.id}" style="border:1px solid rgba(31,122,74,0.30);background:linear-gradient(135deg,rgba(31,122,74,0.06),rgba(201,154,42,0.04));border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;font-family:var(--sans,Inter,system-ui,sans-serif);">
       <span style="font-size:18px;">💡</span>
-      <div style="flex:1;font-size:12.5px;color:#0a0a0a;line-height:1.45;"><b>Smart suggestion:</b> ${escapeHTML(s.message)}</div>
-      <button type="button" data-cal-sug-dismiss="${s.id}" style="background:transparent;border:0;color:#9ca3af;font-size:18px;cursor:pointer;line-height:1;">×</button>
+      <div style="flex:1;font-size:12.5px;color:var(--ink, #0a0a0a);line-height:1.45;"><b>Smart suggestion:</b> ${escapeHTML(s.message)}</div>
+      <button type="button" data-cal-sug-dismiss="${s.id}" style="background:transparent;border:0;color:var(--ink-faint, #9ca3af);font-size:18px;cursor:pointer;line-height:1;">×</button>
     </div>`;
   }
 
@@ -789,10 +809,10 @@
         return `<div style="border:1px solid ${s.border};border-radius:8px;background:${s.bg};">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;">
             <div style="display:flex;flex-direction:column;line-height:1.25;flex:1;min-width:0;">
-              <span style="font-size:12.5px;font-weight:700;color:#0a0a0a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <span style="font-size:12.5px;font-weight:700;color:var(--ink, #0a0a0a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 ${escapeHTML(e.name)}${e.moved ? ` <span style="color:#c99a2a;font-weight:800;" title="moved">↻</span>` : ""}
               </span>
-              <span style="font-size:10.5px;color:#6b7280;font-weight:600;">${srcLabel}${e.status ? " · " + escapeHTML(e.status) : ""}${ovBadge}</span>
+              <span style="font-size:10.5px;color:var(--ink-dim, #6b7280);font-weight:600;">${srcLabel}${e.status ? " · " + escapeHTML(e.status) : ""}${ovBadge}</span>
             </div>
             <button type="button" data-cal-cat-edit="${escapeAttr(e.id)}" class="wjp-cal-cat-pill" style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;background:${s.color};color:#fff;padding:3px 9px;border:0;border-radius:999px;font-weight:800;font-family:inherit;">${escapeHTML(e.category)}</button>
             <span style="font-size:13px;font-weight:800;color:${amtColor};white-space:nowrap;">${amtSign}${fmtUSD(e.amount)}</span>
@@ -801,29 +821,29 @@
         </div>`;
       }).join("") + `</div>`;
     } else {
-      eventsHTML = `<div style="font-size:12.5px;color:#9ca3af;margin-bottom:16px;">No payments scheduled.</div>`;
+      eventsHTML = `<div style="font-size:12.5px;color:var(--ink-faint, #9ca3af);margin-bottom:16px;">No payments scheduled.</div>`;
     }
     var noteText = note ? note.text : "";
     var reminderAt = note && note.reminderAt ? new Date(note.reminderAt) : null;
     var reminderVal = reminderAt ? reminderAt.toISOString().slice(0, 16) : "";
 
-    return `<div id="wjp-cal-day-panel" style="margin-top:18px;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:14px;padding:18px 20px;">
+    return `<div id="wjp-cal-day-panel" style="margin-top:18px;background:var(--card, #fff);border:1px solid var(--border, rgba(0,0,0,0.08));border-radius:14px;padding:18px 20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <div style="font-size:14.5px;font-weight:700;letter-spacing:-0.01em;">${pretty}</div>
-        <button type="button" data-cal-close style="background:transparent;border:0;color:#9ca3af;font-size:20px;cursor:pointer;line-height:1;">×</button>
+        <button type="button" data-cal-close style="background:transparent;border:0;color:var(--ink-faint, #9ca3af);font-size:20px;cursor:pointer;line-height:1;">×</button>
       </div>
       ${eventsHTML}
-      <div style="border-top:1px solid rgba(0,0,0,0.06);padding-top:14px;">
-        <div style="font-size:10.5px;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:8px;">Your note</div>
-        <textarea data-cal-note placeholder="Add a note for this day…" rows="3" style="width:100%;padding:10px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;font-family:inherit;font-size:13px;color:#0a0a0a;resize:vertical;background:#fff;">${escapeHTML(noteText)}</textarea>
+      <div style="border-top:1px solid var(--border, rgba(0,0,0,0.06));padding-top:14px;">
+        <div style="font-size:10.5px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ink-faint, #9ca3af);font-weight:700;margin-bottom:8px;">Your note</div>
+        <textarea data-cal-note placeholder="Add a note for this day…" rows="3" style="width:100%;padding:10px 12px;border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink, #0a0a0a);resize:vertical;background:var(--card, #fff);">${escapeHTML(noteText)}</textarea>
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#6b7280;font-weight:600;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-dim, #6b7280);font-weight:600;">
             Remind me at:
-            <input type="datetime-local" data-cal-reminder value="${reminderVal}" style="border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px;">
+            <input type="datetime-local" data-cal-reminder value="${reminderVal}" style="border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px;">
           </label>
           <button type="button" data-cal-save style="background:#1f7a4a;color:#fff;border:0;padding:7px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Save</button>
           ${note ? `<button type="button" data-cal-delete style="background:transparent;color:#dc2626;border:1px solid rgba(220,38,38,0.30);padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Delete</button>` : ""}
-          <span style="font-size:10.5px;color:#9ca3af;flex:1;text-align:right;">Reminders use browser notifications · click to allow</span>
+          <span style="font-size:10.5px;color:var(--ink-faint, #9ca3af);flex:1;text-align:right;">Reminders use browser notifications · click to allow</span>
         </div>
       </div>
     </div>`;
@@ -839,7 +859,7 @@
         var m = state.viewMonth + i, y = state.viewYear;
         while (m > 11) { m -= 12; y++; }
         months += `<div>
-          <div style="font-size:13px;font-weight:700;letter-spacing:-0.005em;margin-bottom:6px;color:#0a0a0a;">${MONTHS_FULL[m]} ${y}</div>
+          <div style="font-size:13px;font-weight:700;letter-spacing:-0.005em;margin-bottom:6px;color:var(--ink, #0a0a0a);">${MONTHS_FULL[m]} ${y}</div>
           ${buildMonthGrid(filtered, y, m, { compact: true })}
         </div>`;
       }
