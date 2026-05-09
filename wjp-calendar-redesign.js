@@ -266,6 +266,17 @@
     // Internal bank ATM activity (deposits to one's own account aren't bills)
     if (/\bbkofamerica\s+atm\b/.test(s) && /deposit/.test(s)) return true;
     if (/\batm\s+\d+.*deposit\b/.test(s)) return true;
+    // STASH_RULE: extra internal-bank/investment patterns (v5.4)
+    if (/account\s+to\s+account/.test(s)) return true;
+    if (/external\s+transfer/.test(s)) return true;
+    if (/^ach\s+(debit|credit)\b/.test(s.trim())) return true;
+    if (/^stash\b|^robinhood\b|^coinbase\b|^fidelity\b|^vanguard\b|^charles\s+schwab\b/.test(s.trim())) return true;
+    if (/\bbrokerage\s+transfer\b|investment\s+deposit/.test(s)) return true;
+    if (/payment\s+(to|received|posted)\s+(capital\s+one|chase|amex|discover|citi|wells\s+fargo|bank\s+of\s+america|bofa)/.test(s)) return true;
+    if (/cc\s+payment\s+(to|from)/.test(s)) return true;
+    if (/\bzelle\s+(payment|transfer)\s+(to|from)\s+(self|own)/.test(s)) return true;
+    if (/online\s+payment\s+to\s+(capital\s+one|chase|amex|discover|citi)/.test(s)) return true;
+
     return false;
   }
 
