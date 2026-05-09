@@ -119,8 +119,8 @@
       html += '<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.06);">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px;">'
         +   '<div style="flex:1;min-width:0;">'
-        +     '<div style="font-size:12.5px;font-weight:700;color:#0a0a0a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.name + '</div>'
-        +     '<div style="font-size:10.5px;color:#9ca3af;font-weight:500;">Freedom: ' + dateStr + ' · ' + fmtUSD(d.balance) + ' remaining</div>'
+        +     '<div style="font-size:12.5px;font-weight:700;color:var(--ink, #0a0a0a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.name + '</div>'
+        +     '<div style="font-size:10.5px;color:var(--ink-faint, #9ca3af);font-weight:500;">Freedom: ' + dateStr + ' · ' + fmtUSD(d.balance) + ' remaining</div>'
         +   '</div>'
         +   '<div style="font-size:12.5px;font-weight:800;color:' + color + ';flex-shrink:0;">' + (months >= 600 ? '∞' : months + ' mo') + '</div>'
         + '</div>'
@@ -171,11 +171,11 @@
     var html = '<div style="display:grid;gap:10px;">';
     insights.forEach(function (i) {
       html += '<div style="background:rgba(31,122,74,0.04);border:1px solid rgba(31,122,74,0.18);border-radius:10px;padding:12px 14px;">'
-        + '<div style="font-weight:700;font-size:13px;color:#0a0a0a;margin-bottom:4px;letter-spacing:-0.005em;">' + i.title + '</div>'
-        + '<div style="font-size:12.5px;color:#1a1a1a;line-height:1.55;">' + i.body + '</div>'
-        + '<div style="background:#fff;border-left:3px solid #1f7a4a;padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;">'
+        + '<div style="font-weight:700;font-size:13px;color:var(--ink, #0a0a0a);margin-bottom:4px;letter-spacing:-0.005em;">' + i.title + '</div>'
+        + '<div style="font-size:12.5px;color:var(--ink, #1a1a1a);line-height:1.55;">' + i.body + '</div>'
+        + '<div style="background:var(--card, #fff);border-left:3px solid #1f7a4a;padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;">'
         +   '<div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:#1f7a4a;font-weight:800;margin-bottom:2px;">Action</div>'
-        +   '<div style="font-size:12px;color:#1a1a1a;line-height:1.5;">' + i.action + '</div>'
+        +   '<div style="font-size:12px;color:var(--ink, #1a1a1a);line-height:1.5;">' + i.action + '</div>'
         + '</div>'
         + '</div>';
     });
