@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.7 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.8 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -296,6 +296,22 @@
   // have totally different merchant strings ("Zelle Transfer Conf# X; NAME"
   // vs "Zelle payment from NAME for ...; Conf# X") — they share a conf #
   // though, so extract that. Otherwise fall back to lowercased trim.
+  // v6.8: True if a transaction looks like payroll/earned income. We use
+  // this to PROTECT these transactions from the cross-status dedup and the
+  // pending-date-stamping logic — paychecks recur weekly/biweekly and must
+  // never collapse against each other or shift dates.
+  function looksLikeIncome(tx) {
+    var s = ((tx.merchant || "") + " " + (tx.method || "") + " " + (tx.category || "")).toLowerCase();
+    if (Number(tx.amount) <= 0) return false;
+    if (/payroll/.test(s)) return true;
+    if (/freshrealm|fresh\s*realm/.test(s)) return true;
+    if (/adp\s+totalsource|adp\s+payroll|adp\s+totals/.test(s)) return true;
+    if (/direct\s+dep|direct\s+deposit/.test(s)) return true;
+    if (/\bsalary\b|\bwages\b|\bpaycheck\b|\bpayday\b/.test(s)) return true;
+    if (/\bgusto\b|\bjustworks\b|\bpaychex\b/.test(s)) return true;
+    return false;
+  }
+
   function dedupMerchantKey(merchant) {
     var m = String(merchant || "").toLowerCase().trim();
     if (!m) return "";
@@ -401,34 +417,40 @@
       var cleanMerchant = dedupMerchantKey(tx.merchant);
       var amtKey = cleanMerchant + "|" + rawAmt.toFixed(2);
       var dayMs = t;
-      if (statusLower === "pending") {
+      // v6.8: Income (paycheck) transactions are exempt from cross-status
+      // dedup. Two paychecks 7 days apart with same amount are SEPARATE
+      // paychecks, not pending+completed twins. Only run the twin check for
+      // outflows / non-income.
+      var isIncomeTx = looksLikeIncome(tx);
+      if (statusLower === "pending" && !isIncomeTx) {
         var twins = completedKeys[amtKey] || [];
         var hasTwin = false;
-        // v6.4: widen pending→completed window to ±10 days. Plaid pending rows
-        // can sit for up to a week before transitioning to completed, especially
-        // for ACH/payroll. ±3 days isn't enough.
         for (var ti = 0; ti < twins.length; ti++) {
           if (Math.abs(twins[ti] - dayMs) <= 10 * 24 * 3600 * 1000) { hasTwin = true; break; }
         }
-        if (hasTwin) return; // skip — the completed row will be emitted instead
+        if (hasTwin) return;
       }
 
       // Generic dedup within ±3 days at same (merchant, amount).
-      var dupHit = false;
-      if (seenPlaid[amtKey]) {
-        for (var di = 0; di < seenPlaid[amtKey].length; di++) {
-          if (Math.abs(seenPlaid[amtKey][di] - dayMs) <= 3 * 24 * 3600 * 1000) { dupHit = true; break; }
+      // v6.8: Skip for income — weekly paychecks 7 days apart are NOT dupes.
+      if (!isIncomeTx) {
+        var dupHit = false;
+        if (seenPlaid[amtKey]) {
+          for (var di = 0; di < seenPlaid[amtKey].length; di++) {
+            if (Math.abs(seenPlaid[amtKey][di] - dayMs) <= 3 * 24 * 3600 * 1000) { dupHit = true; break; }
+          }
         }
+        if (dupHit) return;
+        if (!seenPlaid[amtKey]) seenPlaid[amtKey] = [];
+        seenPlaid[amtKey].push(dayMs);
       }
-      if (dupHit) return;
-      if (!seenPlaid[amtKey]) seenPlaid[amtKey] = [];
-      seenPlaid[amtKey].push(dayMs);
 
       // v6.6: If this is a completed row and it has a pending twin within
       // ±10 days, adopt the earlier (pending) date — that is when the
       // charge actually happened, not when it cleared.
+      // v6.8: Don't stamp paychecks — they deposit on the date Plaid shows.
       var displayDate = dateOnly;
-      if (statusLower === "completed") {
+      if (statusLower === "completed" && !isIncomeTx) {
         var earlyMs = pendingEarliestByCompletedDay[amtKey + "|" + dayMs];
         if (earlyMs && earlyMs < dayMs) {
           displayDate = new Date(earlyMs).toISOString().slice(0, 10);
