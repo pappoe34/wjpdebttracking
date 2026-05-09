@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.3 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.4 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -363,8 +363,11 @@
       if (statusLower === "pending") {
         var twins = completedKeys[amtKey] || [];
         var hasTwin = false;
+        // v6.4: widen pending→completed window to ±10 days. Plaid pending rows
+        // can sit for up to a week before transitioning to completed, especially
+        // for ACH/payroll. ±3 days isn't enough.
         for (var ti = 0; ti < twins.length; ti++) {
-          if (Math.abs(twins[ti] - dayMs) <= 3 * 24 * 3600 * 1000) { hasTwin = true; break; }
+          if (Math.abs(twins[ti] - dayMs) <= 10 * 24 * 3600 * 1000) { hasTwin = true; break; }
         }
         if (hasTwin) return; // skip — the completed row will be emitted instead
       }
