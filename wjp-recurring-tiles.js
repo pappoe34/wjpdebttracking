@@ -180,23 +180,40 @@
     return blocks;
   }
 
+  // Open the AI Coach panel and submit the bill-specific prompt.
+  // The site's AI Coach uses a FAB (#ai-chat-fab) that toggles a panel
+  // (#ai-chat-panel) and shares a WJP_ChatCore.send() pipeline. We open the
+  // panel if needed, populate the input for visibility, then send.
   function openAiCoach(prompt) {
     try {
-      if (window.WJP_ChatCore && typeof window.WJP_ChatCore.openWith === 'function') {
-        window.WJP_ChatCore.openWith(prompt); return;
+      var fab = document.getElementById('ai-chat-fab');
+      var panel = document.getElementById('ai-chat-panel');
+      var input = document.getElementById('chat-input-v2') || document.getElementById('chat-input');
+      var sendBtn = document.getElementById('chat-send-v2') || document.getElementById('chat-send');
+
+      // Open panel if not active
+      if (panel && !panel.classList.contains('active') && fab) {
+        fab.click();
       }
-      var fab = document.querySelector('.ai-coach-fab, [class*="ai-coach-fab"], #ai-coach-fab');
-      if (fab) fab.click();
-      setTimeout(function () {
-        var input = document.querySelector('#ai-coach-input, [class*="ai-coach-input"] textarea, textarea[placeholder*="Ask"]');
-        if (input) {
-          input.value = prompt;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          var sendBtn = document.querySelector('.ai-coach-send-btn, [class*="ai-coach-send"]');
-          if (sendBtn) sendBtn.click();
+      // Stuff the prompt into the input so the user sees it queue up
+      function stuffAndSend() {
+        var i = document.getElementById('chat-input-v2') || document.getElementById('chat-input');
+        if (i) {
+          i.value = prompt;
+          i.dispatchEvent(new Event('input', { bubbles: true }));
+          // Prefer ChatCore (handles render + history) over clicking the button
+          if (window.WJP_ChatCore && typeof window.WJP_ChatCore.send === 'function') {
+            try { window.WJP_ChatCore.send(prompt); return; } catch (_) {}
+          }
+          var s = document.getElementById('chat-send-v2') || document.getElementById('chat-send');
+          if (s) s.click();
+        } else if (window.WJP_ChatCore && typeof window.WJP_ChatCore.send === 'function') {
+          try { window.WJP_ChatCore.send(prompt); } catch (_) {}
         }
-      }, 400);
-    } catch (e) {}
+      }
+      // Wait for panel mount animation then send
+      setTimeout(stuffAndSend, 350);
+    } catch (e) { try { console.warn('[wjp-recurring-tiles] openAiCoach threw', e); } catch (_) {} }
   }
 
   function buildAiPrompt(d) {
@@ -256,6 +273,20 @@
       tick();
     });
     form.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    // v2: Click outside the edit form (and outside the tile that hosts it)
+    // closes the form. Bound on next tick so the originating click that
+    // opened the form doesn't immediately close it.
+    setTimeout(function () {
+      function onDocClick(ev) {
+        if (!form.parentNode) { document.removeEventListener('click', onDocClick, true); return; }
+        if (form.contains(ev.target)) return; // click inside form
+        // Click outside form → close
+        try { form.remove(); } catch (_) {}
+        document.removeEventListener('click', onDocClick, true);
+      }
+      document.addEventListener('click', onDocClick, true);
+    }, 50);
   }
 
   function badgeForType(type) {
@@ -408,6 +439,10 @@
         grid.parentNode.insertBefore(heading, grid);
       }
 
+      // If the user has an Edit form open, skip the rebuild — we'd otherwise
+      // wipe the form mid-typing. The form is in #wjp-rt-grid; a refresh
+      // resumes once the user saves or cancels (both call tick() explicitly).
+      if (grid.querySelector('.wjp-rt-edit-form')) return;
       while (grid.firstChild) grid.removeChild(grid.firstChild);
       items.forEach(function (d) { grid.appendChild(buildTile(d)); });
     } catch (e) {
