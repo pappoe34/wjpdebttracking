@@ -295,33 +295,53 @@
       .wjp-edu-disclaimer { background: rgba(220,38,38,0.06); border: 1px solid rgba(220,38,38,0.20); border-radius: 10px; padding: 9px 14px; font-size: 11.5px; color: #7f1d1d; margin-bottom: 14px; line-height: 1.45; }
       .wjp-edu-disclaimer b { color: #b91c1c; }
       .wjp-edu-cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-      .wjp-edu-cat { padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; border: 1px solid rgba(0,0,0,0.10); background: #fff; color: #0a0a0a; display: inline-flex; gap: 6px; align-items: center; }
-      .wjp-edu-cat-active { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
+      .wjp-edu-cat { padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; border: 1px solid rgba(0,0,0,0.10); background: var(--card, #fff); color: var(--ink, #0a0a0a); display: inline-flex; gap: 6px; align-items: center; }
+      .wjp-edu-cat-active { background: #0a0a0a; color: #fff; border-color: var(--ink, #0a0a0a); }
       .wjp-edu-cat-count { font-weight: 600; opacity: .7; }
       .wjp-edu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-      .wjp-edu-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 16px 18px; cursor: pointer; transition: transform .12s, box-shadow .12s, border-color .12s; }
+      .wjp-edu-card { background: var(--card, #fff); border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 16px 18px; cursor: pointer; transition: transform .12s, box-shadow .12s, border-color .12s; }
       .wjp-edu-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.14); }
       .wjp-edu-card-cat { font-size: 9.5px; letter-spacing: 0.10em; text-transform: uppercase; font-weight: 800; }
-      .wjp-edu-card-title { font-size: 14.5px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.25; margin: 8px 0; }
+      .wjp-edu-card-title { font-size: 14.5px; font-weight: 700; color: var(--ink, #0a0a0a); letter-spacing: -0.01em; line-height: 1.25; margin: 8px 0; }
       .wjp-edu-card-body { font-size: 12.5px; color: #4b5563; line-height: 1.5; }
-      .wjp-edu-card-foot { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 10.5px; color: #9ca3af; font-weight: 600; }
+      .wjp-edu-card-foot { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 10.5px; color: var(--ink-faint, #9ca3af); font-weight: 600; }
       .wjp-edu-card-read { color: #1f7a4a; }
       .wjp-edu-card-pinned { color: #c99a2a; }
       .wjp-edu-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9998; display: flex; align-items: center; justify-content: center; padding: 24px; }
-      .wjp-edu-modal { background: #fff; border-radius: 16px; max-width: 640px; width: 100%; max-height: 86vh; overflow-y: auto; padding: 28px 32px; box-shadow: 0 30px 80px rgba(0,0,0,0.30); }
+      .wjp-edu-modal { background: var(--card, #fff); border-radius: 16px; max-width: 640px; width: 100%; max-height: 86vh; overflow-y: auto; padding: 28px 32px; box-shadow: 0 30px 80px rgba(0,0,0,0.30); }
       .wjp-edu-modal h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; margin-bottom: 14px; }
-      .wjp-edu-modal-body { font-size: 14.5px; line-height: 1.6; color: #1a1a1a; }
+      .wjp-edu-modal-body { font-size: 14.5px; line-height: 1.6; color: var(--ink, #1a1a1a); }
       .wjp-edu-modal-actions { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; align-items: center; }
-      .wjp-edu-btn { font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.10); background: #fff; color: #0a0a0a; }
+      .wjp-edu-btn { font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.10); background: var(--card, #fff); color: var(--ink, #0a0a0a); }
       .wjp-edu-btn-primary { background: #1f7a4a; color: #fff; border-color: #1f7a4a; }
-      .wjp-edu-rotation { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: #6b7280; font-weight: 600; }
+      .wjp-edu-rotation { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-dim, #6b7280); font-weight: 600; }
       .wjp-edu-coach { background: linear-gradient(135deg, rgba(31,122,74,0.06), rgba(201,154,42,0.04)); border: 1px solid rgba(31,122,74,0.20); border-radius: 14px; padding: 18px 20px; margin-bottom: 18px; }
-      .wjp-edu-coach textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; font-family: inherit; font-size: 13px; color: #0a0a0a; resize: vertical; min-height: 60px; background: #fff; }
+      .wjp-edu-coach textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--ink, #0a0a0a); resize: vertical; min-height: 60px; background: var(--card, #fff); }
       .wjp-edu-coach-msgs { display: grid; gap: 8px; margin-top: 12px; }
       .wjp-edu-coach-msg { padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.55; }
       .wjp-edu-coach-msg-user { background: rgba(0,0,0,0.05); }
-      .wjp-edu-coach-msg-bot { background: #fff; border: 1px solid rgba(31,122,74,0.20); }
-      .wjp-edu-search { padding: 7px 12px; border: 1px solid rgba(0,0,0,0.10); border-radius: 8px; font-family: inherit; font-size: 12.5px; color: #0a0a0a; min-width: 220px; }
+      .wjp-edu-coach-msg-bot { background: var(--card, #fff); border: 1px solid rgba(31,122,74,0.20); }
+      .wjp-edu-search { padding: 7px 12px; border: 1px solid rgba(0,0,0,0.10); border-radius: 8px; font-family: inherit; font-size: 12.5px; color: var(--ink, #0a0a0a); min-width: 220px; }
+
+      /* Dark mode hover/subtle-bg overrides */
+      body.dark .wjp-cal-cell:hover { background: rgba(255,255,255,0.04) !important; }
+      body.dark .wjp-cal-today.wjp-cal-cell:hover { background: rgba(31,122,74,0.18) !important; }
+      body.dark .wjp-edu-card:hover { border-color: rgba(255,255,255,0.16); box-shadow: 0 12px 28px rgba(0,0,0,0.40); }
+      body.dark .wjp-notes-row:hover { background: rgba(255,255,255,0.04); }
+      body.dark .wjp-edu-disclaimer { background: rgba(220,38,38,0.18); color: #fecaca; }
+      body.dark .wjp-edu-disclaimer b { color: #fca5a5; }
+      body.dark .wjp-cal-suggestion-pulse, body.dark .wjp-edu-coach { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-edu-modal { background: var(--card, #131929) !important; color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-modal-body { color: var(--ink, #f0f4ff) !important; }
+      body.dark .wjp-edu-coach textarea, body.dark .wjp-notes-search, body.dark .wjp-notes-title, body.dark .wjp-notes-body, body.dark .wjp-edu-search { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-user { background: rgba(255,255,255,0.04); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-edu-coach-msg-bot { background: var(--card, #131929); color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover { background: var(--card, #131929); border-color: var(--border, rgba(255,255,255,0.10)); }
+      body.dark .wjp-cal-popover-item { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-cal-popover-item:hover { background: rgba(31,122,74,0.18); }
+      body.dark .wjp-act-row .ttl { color: var(--ink, #f0f4ff); }
+      body.dark .wjp-plans-link-card { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
+      body.dark .wjp-plans-link-card .ttl { color: var(--ink, #f0f4ff); }
     `;
     document.head.appendChild(s);
   }
@@ -352,7 +372,7 @@
         <textarea data-wjp-edu-coach-input placeholder="Ask anything about budgeting, debt, credit, investing basics… (e.g. 'how do index funds work?')"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
           <button type="button" class="wjp-edu-btn wjp-edu-btn-primary" data-wjp-edu-coach-send>${state.chatInFlight ? "Thinking…" : "Ask"}</button>
-          <span style="font-size:10.5px;color:#6b7280;font-style:italic;">Answers are general education. Your specific situation may differ.</span>
+          <span style="font-size:10.5px;color:var(--ink-dim, #6b7280);font-style:italic;">Answers are general education. Your specific situation may differ.</span>
         </div>
         <div class="wjp-edu-coach-msgs">
           ${state.chatHistory.map(function (m) {
@@ -363,16 +383,16 @@
     `;
 
     var pinControls = `
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11.5px;color:#6b7280;">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11.5px;color:var(--ink-dim, #6b7280);">
         <span class="wjp-edu-rotation">📌 Dashboard tip:
-          <select data-wjp-edu-rotation style="border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:11.5px;color:#0a0a0a;">
+          <select data-wjp-edu-rotation style="border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:6px;padding:4px 8px;font-family:inherit;font-size:11.5px;color:var(--ink, #0a0a0a);">
             <option value="daily" ${pin.rotation === "daily" ? "selected" : ""}>Daily rotation</option>
             <option value="weekly" ${pin.rotation === "weekly" ? "selected" : ""}>Weekly rotation</option>
             <option value="monthly" ${pin.rotation === "monthly" ? "selected" : ""}>Monthly rotation</option>
             <option value="pinned" ${pin.rotation === "pinned" ? "selected" : ""}>Pinned (manual)</option>
           </select>
         </span>
-        ${pin.tipId ? `<span>Currently: <b>${escapeHTML((findTip(pin.tipId) || {}).title || "—")}</b></span>` : `<span style="color:#9ca3af;">No tip pinned yet</span>`}
+        ${pin.tipId ? `<span>Currently: <b>${escapeHTML((findTip(pin.tipId) || {}).title || "—")}</b></span>` : `<span style="color:var(--ink-faint, #9ca3af);">No tip pinned yet</span>`}
         ${pin.tipId ? `<button type="button" class="wjp-edu-btn" data-wjp-edu-unpin>Unpin</button>` : ""}
       </div>
     `;
@@ -401,14 +421,14 @@
             </div>
           </div>`;
         }).join("") + `</div>`
-      : `<div style="text-align:center;color:#9ca3af;padding:40px;font-size:13px;">No tips match.</div>`;
+      : `<div style="text-align:center;color:var(--ink-faint, #9ca3af);padding:40px;font-size:13px;">No tips match.</div>`;
 
     return `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <div style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:4px;">Education</div>
+          <div style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-faint, #9ca3af);font-weight:700;margin-bottom:4px;">Education</div>
           <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.15;">Financial education</div>
-          <div style="font-size:13px;color:#6b7280;margin-top:4px;">The basics most people pick up too late.</div>
+          <div style="font-size:13px;color:var(--ink-dim, #6b7280);margin-top:4px;">The basics most people pick up too late.</div>
         </div>
         <input class="wjp-edu-search" data-wjp-edu-search type="text" placeholder="Search tips…" value="${escapeHTML(state.query)}">
       </div>
