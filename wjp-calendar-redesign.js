@@ -56,7 +56,24 @@
   var MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var DAYS         = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 
-  var CATEGORIES = ["debt","housing","subscription","utility","insurance","income","transfers","other"];
+  var CATEGORIES_BUILTIN = ["debt","housing","subscription","utility","insurance","income","transfers","car","business","other"];
+  var LS_USER_CATEGORIES = "wjp.cal.userCategories.v1";
+
+  function loadUserCategories() {
+    try { return JSON.parse(localStorage.getItem(LS_USER_CATEGORIES) || "null") || []; }
+    catch (_) { return []; }
+  }
+  function saveUserCategories(arr) {
+    try { localStorage.setItem(LS_USER_CATEGORIES, JSON.stringify(arr)); } catch (_) {}
+  }
+  function allCategories() {
+    var user = loadUserCategories().map(function(u){ return u.key; });
+    // Insert user categories BEFORE "other" for natural ordering
+    var out = CATEGORIES_BUILTIN.slice(0, -1).concat(user).concat(["other"]);
+    return out;
+  }
+  // Backward-compat alias for any code still using CATEGORIES
+  var CATEGORIES = CATEGORIES_BUILTIN;
 
   var state = {
     viewMonth:    new Date().getMonth(),
@@ -191,6 +208,10 @@
   }
 
   function categoryStyle(cat) {
+    // Check user-defined categories first
+    var user = loadUserCategories();
+    var u = user.find(function(x){ return x.key === cat; });
+    if (u) return { color: u.color || "#6b7280", bg: u.bg || "rgba(107,114,128,0.10)", border: u.border || "rgba(107,114,128,0.25)" };
     switch (cat) {
       case "debt":         return { color: "#dc2626", bg: "rgba(220,38,38,0.10)", border: "rgba(220,38,38,0.25)" };
       case "subscription": return { color: "#7c3aed", bg: "rgba(124,58,237,0.10)", border: "rgba(124,58,237,0.25)" };
@@ -198,6 +219,8 @@
       case "insurance":    return { color: "#c99a2a", bg: "rgba(201,154,42,0.12)", border: "rgba(201,154,42,0.30)" };
       case "income":       return { color: "#1f7a4a", bg: "rgba(31,122,74,0.12)", border: "rgba(31,122,74,0.30)" };
       case "transfers":    return { color: "#0891b2", bg: "rgba(8,145,178,0.10)", border: "rgba(8,145,178,0.25)" };
+      case "car":          return { color: "#ea580c", bg: "rgba(234,88,12,0.10)",  border: "rgba(234,88,12,0.25)" };
+      case "business":     return { color: "#475569", bg: "rgba(71,85,105,0.10)",  border: "rgba(71,85,105,0.25)" };
       case "housing":      return { color: "#9a3412", bg: "rgba(154,52,18,0.10)", border: "rgba(154,52,18,0.25)" };
       default:             return { color: "#6b7280", bg: "rgba(107,114,128,0.10)", border: "rgba(107,114,128,0.20)" };
     }
@@ -717,17 +740,21 @@
     var netColor = net >= 0 ? "#1f7a4a" : "#dc2626";
 
     var FILTERS = [
-      { k: "all",          label: "All",         count: events.length },
-      { k: "debt",         label: "Debts",       count: events.filter(function(e){return e.category==="debt";}).length },
-      { k: "housing",      label: "Rent/Home",   count: events.filter(function(e){return e.category==="housing";}).length },
-      { k: "car",          label: "Car",         count: events.filter(function(e){return e.category==="car";}).length },
-      { k: "business",     label: "Business",    count: events.filter(function(e){return e.category==="business";}).length },
-      { k: "subscription", label: "Subs",        count: events.filter(function(e){return e.category==="subscription";}).length },
-      { k: "utility",      label: "Utilities",   count: events.filter(function(e){return e.category==="utility";}).length },
-      { k: "insurance",    label: "Insurance",   count: events.filter(function(e){return e.category==="insurance";}).length },
-      { k: "income",       label: "Income",      count: events.filter(function(e){return e.category==="income";}).length },
-      { k: "transfers",    label: "Transfers",   count: events.filter(function(e){return e.category==="transfers";}).length }
+      { k: "all",          label: "All",         count: events.length, builtin: true },
+      { k: "debt",         label: "Debts",       count: events.filter(function(e){return e.category==="debt";}).length, builtin: true },
+      { k: "housing",      label: "Rent/Home",   count: events.filter(function(e){return e.category==="housing";}).length, builtin: true },
+      { k: "car",          label: "Car",         count: events.filter(function(e){return e.category==="car";}).length, builtin: true },
+      { k: "business",     label: "Business",    count: events.filter(function(e){return e.category==="business";}).length, builtin: true },
+      { k: "subscription", label: "Subs",        count: events.filter(function(e){return e.category==="subscription";}).length, builtin: true },
+      { k: "utility",      label: "Utilities",   count: events.filter(function(e){return e.category==="utility";}).length, builtin: true },
+      { k: "insurance",    label: "Insurance",   count: events.filter(function(e){return e.category==="insurance";}).length, builtin: true },
+      { k: "income",       label: "Income",      count: events.filter(function(e){return e.category==="income";}).length, builtin: true },
+      { k: "transfers",    label: "Transfers",   count: events.filter(function(e){return e.category==="transfers";}).length, builtin: true }
     ];
+    // Append user-defined categories
+    loadUserCategories().forEach(function(u){
+      FILTERS.push({ k: u.key, label: u.label, count: events.filter(function(e){return e.category===u.key;}).length, builtin: false });
+    });
 
     var titleStr = state.view === "quarter"
       ? `Quarter starting ${MONTHS_SHORT[state.viewMonth]} ${state.viewYear}`
@@ -735,12 +762,14 @@
 
     var filterChips = FILTERS.map(function (f) {
       var active = state.filter === f.k;
-      var cs = f.k === "all" ? { color: "#0a0a0a", bg: "rgba(0,0,0,0.06)", border: "rgba(0,0,0,0.10)" } : categoryStyle(f.k);
+      var cs = f.k === "all" ? { color: "var(--ink, #0a0a0a)", bg: "var(--bg-2, rgba(0,0,0,0.06))", border: "var(--border, rgba(0,0,0,0.10))" } : categoryStyle(f.k);
+      var removeBtn = (!f.builtin) ? `<span data-cal-remove-cat="${escapeHTML(f.k)}" title="Remove category" style="margin-left:2px;font-weight:800;cursor:pointer;opacity:.6;">×</span>` : "";
       return `<button type="button" data-cal-filter="${f.k}"
         style="border:1px solid ${active ? cs.color : cs.border};background:${active ? cs.color : cs.bg};color:${active ? "#fff" : cs.color};padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:-0.005em;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;">
-        ${escapeHTML(f.label)}<span style="font-weight:600;opacity:.7;">${f.count}</span>
+        ${escapeHTML(f.label)}<span style="font-weight:600;opacity:.7;">${f.count}</span>${removeBtn}
       </button>`;
-    }).join("");
+    }).join("") + `<button type="button" data-cal-add-cat
+      style="border:1px dashed var(--border, rgba(0,0,0,0.25));background:transparent;color:var(--ink-dim, #6b7280);padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:-0.005em;cursor:pointer;font-family:inherit;">+ Add</button>`;
 
     var monthBtnStyle = `border:0;background:${state.view==="month"?"#0a0a0a":"transparent"};color:${state.view==="month"?"#fff":"#6b7280"};font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
     var quarterBtnStyle = `border:0;background:${state.view==="quarter"?"#0a0a0a":"transparent"};color:${state.view==="quarter"?"#fff":"#6b7280"};font-size:11px;padding:5px 12px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;`;
@@ -796,7 +825,7 @@
         var ovBadge = e.categorySource === "override" ? `<span title="You set this category" style="font-size:9px;color:#1f7a4a;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-left:6px;">SAVED</span>` : "";
         var picker = (state.catEditingFor && state.catEditingFor.eventId === e.id) ? `
           <div class="wjp-cal-cat-picker">
-            ${CATEGORIES.map(function (c) {
+            ${allCategories().map(function (c) {
               var cs2 = categoryStyle(c);
               var active = e.category === c;
               var bg = active ? cs2.color : "#fff";
@@ -941,11 +970,47 @@
 
     // Filter chips
     Array.from(root.querySelectorAll("[data-cal-filter]")).forEach(function (b) {
-      b.addEventListener("click", function () {
+      b.addEventListener("click", function (ev) {
+        // Stop click if user clicked the remove × inside the button
+        if (ev.target && ev.target.dataset && ev.target.dataset.calRemoveCat) {
+          ev.stopPropagation();
+          var k = ev.target.dataset.calRemoveCat;
+          if (!confirm("Remove category \"" + k + "\"? Events in this category will fall back to auto-classification.")) return;
+          var arr = loadUserCategories().filter(function(u){return u.key !== k;});
+          saveUserCategories(arr);
+          if (state.filter === k) state.filter = "all";
+          rerender(host);
+          return;
+        }
         state.filter = b.dataset.calFilter;
         try { localStorage.setItem(LS_FILTER, state.filter); } catch (_) {}
         rerender(host);
       });
+    });
+    // "+ Add" button
+    var addBtn = root.querySelector("[data-cal-add-cat]");
+    if (addBtn) addBtn.addEventListener("click", function () {
+      var label = prompt("Category name (e.g. \"Pets\", \"Travel\", \"Health\")");
+      if (!label) return;
+      label = label.trim().slice(0, 24);
+      if (!label) return;
+      var key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 24);
+      if (!key) return;
+      // Pick a color from a curated palette (rotate to avoid exact built-in matches)
+      var palette = [
+        { color: "#db2777", bg: "rgba(219,39,119,0.10)", border: "rgba(219,39,119,0.25)" }, // pink
+        { color: "#16a34a", bg: "rgba(22,163,74,0.10)",  border: "rgba(22,163,74,0.25)" },  // green-600
+        { color: "#ca8a04", bg: "rgba(202,138,4,0.10)",  border: "rgba(202,138,4,0.25)" },  // amber
+        { color: "#0d9488", bg: "rgba(13,148,136,0.10)", border: "rgba(13,148,136,0.25)" }, // teal
+        { color: "#9333ea", bg: "rgba(147,51,234,0.10)", border: "rgba(147,51,234,0.25)" }, // violet
+        { color: "#65a30d", bg: "rgba(101,163,13,0.10)", border: "rgba(101,163,13,0.25)" }  // lime
+      ];
+      var existing = loadUserCategories();
+      if (existing.some(function(u){return u.key === key;})) { alert("That category already exists."); return; }
+      var c = palette[existing.length % palette.length];
+      existing.push({ key: key, label: label, color: c.color, bg: c.bg, border: c.border });
+      saveUserCategories(existing);
+      rerender(host);
     });
 
     // View toggle
