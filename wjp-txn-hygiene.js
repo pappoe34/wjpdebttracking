@@ -1,4 +1,4 @@
-/* wjp-txn-hygiene.js v3 — robust Spending Tracker hygiene.
+/* wjp-txn-hygiene.js v4 — robust Spending Tracker hygiene.
  *
  * v1 mutated appState.transactions then hoped the host re-rendered. The
  * host's drawCharts/renderTransactions read appState.transactions directly
@@ -96,19 +96,24 @@
     return out;
   }
 
-  // Wrap a function so it sees a cleaned appState.transactions for its
-  // duration. The original reference is restored synchronously after the
-  // call returns (or throws).
+  // v4: app.js declares `let appState = null` at top level. That binding is
+  // visible globally by name (other top-level scripts can read it) but it
+  // is NOT on `window`. So we use the bare identifier here. The IIFE
+  // wrapper sees the script-level lexical scope.
+  function getAppState() {
+    try { return appState; } catch (_) { return null; }
+  }
   function wrapWithClean(fn) {
     return function () {
-      var raw = window.appState && window.appState.transactions;
-      if (!raw) return fn.apply(this, arguments);
+      var s = getAppState();
+      var raw = s && s.transactions;
+      if (!raw || !raw.length) return fn.apply(this, arguments);
       var clean = buildClean(raw);
-      window.appState.transactions = clean;
+      s.transactions = clean;
       try {
         return fn.apply(this, arguments);
       } finally {
-        window.appState.transactions = raw;
+        s.transactions = raw;
       }
     };
   }
@@ -140,10 +145,13 @@
   }
 
   function whenReady(fn) {
-    if (window.appState) return fn();
+    function ready() {
+      try { return typeof appState !== 'undefined' && appState && Array.isArray(appState.transactions); } catch (_) { return false; }
+    }
+    if (ready()) return fn();
     var tries = 0;
     var iv = setInterval(function () {
-      if (window.appState) { clearInterval(iv); fn(); }
+      if (ready()) { clearInterval(iv); fn(); }
       else if (++tries > 60) clearInterval(iv);
     }, 400);
   }
