@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.2 — Plaid feed + merchant overrides + 3-dot menu.
+/* wjp-calendar-redesign.js v6.3 — Plaid feed + merchant overrides + 3-dot menu.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -313,7 +313,28 @@
     var ovDate = loadOverrides();
 
     // === PAST + TODAY: only Plaid transactions (the truth) ===
-    // Dedupe pending+posted by (cleanMerchant, signedAmount, date).
+    //
+    // v6.3: Two-pass approach. First, build a set of (merchant, amount) keys
+    // that have at least one "completed" Plaid txn — those are the source of
+    // truth and any matching "pending" is its precursor (skip).  Then iterate
+    // and emit, preferring completed over pending when both exist for the
+    // same merchant+amount within ±3 days.
+    var completedKeys = {};
+    (raw.transactions || []).forEach(function (tx) {
+      if (!tx || !tx.date || tx.amount == null) return;
+      if (String(tx.status || "").toLowerCase() !== "completed") return;
+      var idChk = String(tx.id || "");
+      if (/^rec-/i.test(idChk) || /^plaid_rec/i.test(idChk) || idChk.indexOf("-rec-") >= 0) return;
+      var rawAmt = Number(tx.amount);
+      if (!isFinite(rawAmt)) return;
+      var cm = (tx.merchant || "").trim().toLowerCase();
+      var key = cm + "|" + rawAmt.toFixed(2);
+      var d = String(tx.date).slice(0, 10);
+      var dayMs = new Date(d + "T12:00:00").getTime();
+      if (!completedKeys[key]) completedKeys[key] = [];
+      completedKeys[key].push(dayMs);
+    });
+
     var seenPlaid = {};
     (raw.transactions || []).forEach(function (tx) {
       if (!tx || !tx.date || tx.amount == null) return;
@@ -326,24 +347,29 @@
       if (Math.abs(rawAmt) < 25) return; // significance gate
       if (isNoisyTransaction(tx)) return;
 
-      // v6.1: Skip recurring-schedule projections that leaked into state.transactions.
-      // These have tx.id like "rec-r1777346994683848-2026-05-08" — weekly forecasts
-      // injected into the transactions array. They are NOT real bank transactions.
+      // Skip recurring-schedule projections that leaked into state.transactions.
       var txIdRaw = String(tx.id || "");
       if (/^rec-/i.test(txIdRaw)) return;
       if (/^plaid_rec/i.test(txIdRaw)) return;
       if (txIdRaw.indexOf("-rec-") >= 0) return;
 
-      // v6.1: Only count completed Plaid transactions; skip pending duplicates.
-      // Plaid often emits both a pending row (date X) and a completed row (date X+1)
-      // for the same charge — we only want the completed one.
-      if (String(tx.status || "").toLowerCase() === "pending") return;
-
-      // Dedup: same merchant + signed amount within a ±3-day window (catches the
-      // pending→posted pairs whose dates differ by 1-2 days).
+      // v6.3: Skip pending ONLY if a completed twin exists within ±3 days
+      // for the same merchant+amount. Otherwise keep the pending row so
+      // today's paychecks (which start as pending) still show.
+      var statusLower = String(tx.status || "").toLowerCase();
       var cleanMerchant = (tx.merchant || "").trim().toLowerCase();
       var amtKey = cleanMerchant + "|" + rawAmt.toFixed(2);
-      var dayMs = new Date(dateOnly + "T12:00:00").getTime();
+      var dayMs = t;
+      if (statusLower === "pending") {
+        var twins = completedKeys[amtKey] || [];
+        var hasTwin = false;
+        for (var ti = 0; ti < twins.length; ti++) {
+          if (Math.abs(twins[ti] - dayMs) <= 3 * 24 * 3600 * 1000) { hasTwin = true; break; }
+        }
+        if (hasTwin) return; // skip — the completed row will be emitted instead
+      }
+
+      // Generic dedup within ±3 days at same (merchant, amount).
       var dupHit = false;
       if (seenPlaid[amtKey]) {
         for (var di = 0; di < seenPlaid[amtKey].length; di++) {
