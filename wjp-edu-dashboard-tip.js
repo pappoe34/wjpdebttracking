@@ -81,11 +81,11 @@
         <span style="font-size: 22px; line-height: 1;">📚</span>
         <div style="flex: 1; min-width: 0;">
           <div style="font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #1f7a4a; font-weight: 800; margin-bottom: 2px;">Financial education tip</div>
-          <div style="font-size: 13.5px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.3;">${escapeHTML(tip.title)}</div>
+          <div style="font-size: 13.5px; font-weight: 700; color: var(--ink, #0a0a0a); letter-spacing: -0.01em; line-height: 1.3;">${escapeHTML(tip.title)}</div>
           <div style="font-size: 12px; color: #4b5563; margin-top: 2px; line-height: 1.45;">${escapeHTML(tip.body)}</div>
         </div>
         <button type="button" data-wjp-tip-action="open" style="background:#1f7a4a;color:#fff;border:0;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Read more</button>
-        <button type="button" data-wjp-tip-action="dismiss" title="Hide for today" style="background:transparent;border:0;color:#9ca3af;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px;">×</button>
+        <button type="button" data-wjp-tip-action="dismiss" title="Hide for today" style="background:transparent;border:0;color:var(--ink-faint, #9ca3af);font-size:18px;cursor:pointer;line-height:1;padding:4px 8px;">×</button>
       </div>
     `;
   }
