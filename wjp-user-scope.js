@@ -1,4 +1,4 @@
-/* wjp-user-scope.js — per-user storage isolation for new features.
+/* wjp-user-scope.js v2 — per-user storage isolation (Firebase v9 modular SDK) for new features.
  *
  * Why: localStorage is per-domain per-browser, NOT per-user. Two people
  * sharing a browser would see each other's data unless we namespace by
@@ -38,6 +38,11 @@
 
   function uid() {
     try {
+      // Real auth pattern (index.html uses Firebase v9 modular SDK and
+      // exposes the User object at window.__wjpUser, Auth at window.__wjpAuth).
+      if (window.__wjpUser && window.__wjpUser.uid) return String(window.__wjpUser.uid);
+      if (window.__wjpAuth && window.__wjpAuth.currentUser && window.__wjpAuth.currentUser.uid) return String(window.__wjpAuth.currentUser.uid);
+      // Legacy compat SDK fallback (just in case)
       if (window.firebase && firebase.auth) {
         var u = firebase.auth().currentUser;
         if (u && u.uid) return String(u.uid);
@@ -102,27 +107,41 @@
 
   // Hook into Firebase Auth state changes
   function attachAuthListener() {
+    var attached = false;
+    // 1. Listen for the custom event dispatched by index.html when auth resolves
     try {
-      if (window.firebase && firebase.auth) {
-        firebase.auth().onAuthStateChanged(function () { fireAuthChange(); });
-        // Also fire once with current state in case the listener
-        // subscribed late (Firebase already resolved before we attached).
-        setTimeout(fireAuthChange, 50);
-        return true;
+      window.addEventListener('wjp-auth-ready', function () { fireAuthChange(); });
+      attached = true;
+    } catch (_) {}
+    // 2. If Firebase v9 modular Auth object is already exposed, attach
+    //    onAuthStateChanged (instance method works on v9 Auth objects).
+    try {
+      if (window.__wjpAuth && typeof window.__wjpAuth.onAuthStateChanged === 'function') {
+        window.__wjpAuth.onAuthStateChanged(function () { fireAuthChange(); });
+        attached = true;
       }
     } catch (_) {}
-    return false;
+    // 3. Legacy compat SDK
+    try {
+      if (window.firebase && firebase.auth && typeof firebase.auth().onAuthStateChanged === 'function') {
+        firebase.auth().onAuthStateChanged(function () { fireAuthChange(); });
+        attached = true;
+      }
+    } catch (_) {}
+    // 4. Fire immediately if we already have a UID (caller subscribed late)
+    if (uid()) setTimeout(fireAuthChange, 50);
+    return attached;
   }
 
   function init() {
-    if (attachAuthListener()) return;
-    // Firebase not loaded yet — poll briefly
-    var attempts = 0;
-    var iv = setInterval(function () {
-      attempts++;
-      if (attachAuthListener()) { clearInterval(iv); return; }
-      if (attempts > 60) { clearInterval(iv); fireAuthChange(); /* give up gracefully */ }
-    }, 200);
+    attachAuthListener();
+    // v2: continuously watch for UID changes (signin/signout). Cheap — just
+    // a polling check against window.__wjpUser. The listener-based path is
+    // still preferred but this is a belt-and-suspenders safety net.
+    setInterval(function () {
+      var current = uid();
+      if (current !== lastUid) fireAuthChange();
+    }, 1000);
   }
 
   if (document.readyState === "loading") {
