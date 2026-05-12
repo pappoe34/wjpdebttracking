@@ -1,4 +1,4 @@
-/* wjp-financial-resilience.js v1 — dashboard card for Financial Resilience
+/* wjp-financial-resilience.js v2 — dashboard card for Financial Resilience
  *
  * Shows at-a-glance health score from the user's own state:
  *   - Liquid cash (linked assets, type: checking/savings — investments excluded)
@@ -13,6 +13,7 @@
   'use strict';
   if (window._wjpResilienceInstalled) return;
   window._wjpResilienceInstalled = true;
+  function getState() { try { return appState; } catch (e) { return (window.appState || null); } }
 
   var CARD_ID = 'dash-resilience-card';
 
@@ -45,7 +46,7 @@
   }
 
   function computeResilience() {
-    var s = window.appState || {};
+    var s = getState() || {};
     // Liquid cash from linked assets — checking + savings only (not investments)
     var liquidCash = (s.assets || [])
       .filter(function (a) {
@@ -231,7 +232,7 @@
   }
 
   function tick() {
-    var s = window.appState;
+    var s = getState();
     if (!s) return;
     var dashVisible = document.getElementById('dash-money-left-card') || document.querySelector('.dash-grid');
     if (!dashVisible) return;

@@ -1,4 +1,4 @@
-/* wjp-money-left-fix.js v1 — corrects Money Left math
+/* wjp-money-left-fix.js v2 — corrects Money Left math
  * Wraps computeRealMonthlyIncome + computeMoneyLeft so income includes
  * recurring income (monthly-equivalent) and spent excludes Zelle/transfers.
  */
@@ -6,6 +6,7 @@
   'use strict';
   if (window._wjpMoneyLeftFixInstalled) return;
   window._wjpMoneyLeftFixInstalled = true;
+  function getState() { try { return appState; } catch (e) { return (window.appState || null); } }
 
   var TRANSFER_RE = /\bzelle\b|cash\s*app|venmo|paypal\s+(transfer|send)|transfer\s+(from|to)|ach\s+(debit|credit|transfer|payment)|\binternal\s+xfer\b|online\s+(banking\s+)?transfer|external\s+transfer|wire\s+(in|out)|\bcc\s+payment\b|credit\s+card\s+payment|investment\s+(transfer|deposit)|brokerage|bkofamerica\s+atm|coinbase|robinhood|\bstash\b|\bvanguard\b|\bfidelity\b|charles\s+schwab|\bira\b\s+(deposit|contribution)/i;
 
@@ -34,7 +35,7 @@
 
   function fixedComputeRealMonthlyIncome() {
     try {
-      var s = window.appState || {};
+      var s = getState() || {};
       var now = new Date();
       var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       var plaidIncome = (s.transactions || [])
@@ -59,7 +60,7 @@
 
   function fixedComputeMoneyLeft() {
     try {
-      var s = window.appState || {};
+      var s = getState() || {};
       var now = new Date();
       var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       var monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
