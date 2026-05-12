@@ -1,13 +1,4 @@
-/* wjp-calendar-enhancements.js v4 — click any event to edit, AI Coach in its
- * own collapsible footer.
- *
- * Mechanism: a single click listener delegated on the day panel intercepts
- * clicks on event rows. Opens a per-event action dialog with Edit date /
- * Scan statement / Ask Coach. No row mutation, no DOM walking — just listens.
- *
- * Below, a separate collapsible "Ask AI Coach about this day" dropdown for
- * day-level questions.
- */
+/* wjp-calendar-enhancements.js v7 — bubble-phase click delegation. */
 (function () {
   'use strict';
   if (window._wjpCalEnhInstalled) return;
@@ -16,16 +7,16 @@
 
   var FOOTER_ID = 'wjp-cal-day-tools';
 
-  function getAppState() { try { return (typeof appState !== 'undefined') ? appState : null; } catch (_) { return null; } }
-  function fmtUSD(n) { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n||0); }
-  function escHtml(s) { return String(s||'').replace(/[&<>"']/g, function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+  function getAppState() { try { return (typeof appState !== 'undefined') ? appState : null; } catch (e) { return null; } }
+  function fmtUSD(n) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0); }
+  function escHtml(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
   function showToast(msg, kind) {
-    try { if (typeof window.showToast === 'function') return window.showToast(msg); } catch (_) {}
+    try { if (typeof window.showToast === 'function') return window.showToast(msg); } catch (e) {}
     var el = document.createElement('div');
     el.textContent = msg;
     el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:' + (kind === 'err' ? '#ef4444' : '#1f7a4a') + ';color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;z-index:99999;';
     document.body.appendChild(el);
-    setTimeout(function () { try { el.remove(); } catch (_) {} }, 3000);
+    setTimeout(function () { try { el.remove(); } catch (e) {} }, 3000);
   }
 
   function parseDayPanelDate() {
@@ -35,6 +26,269 @@
     if (!headerEl) return null;
     var d = new Date((headerEl.textContent || '').trim());
     return isNaN(d.getTime()) ? null : d;
+  }
+
+  function findEventForRow(rowEl, date) {
+    if (!rowEl) return null;
+    var nameEl = rowEl.querySelector('span[style*="font-weight:700"]');
+    if (!nameEl) return null;
+    var name = (nameEl.textContent || '').replace(/[↻↑↓]/g, '').trim();
+    if (!name) return null;
+    var srcEl = rowEl.querySelector('span[style*="font-size:10.5px"]');
+    var srcText = srcEl ? (srcEl.textContent || '').toLowerCase() : '';
+    var isPlaid = srcText.indexOf('plaid') >= 0;
+
+    var s = getAppState();
+    if (s && s.recurringPayments) {
+      var lo = name.toLowerCase();
+      var rec = s.recurringPayments.find(function (r) { return (r.name || '').toLowerCase() === lo; });
+      if (rec) return { kind: 'recurring', rp: rec, name: name, date: date };
+    }
+
+    if (isPlaid && s && s.transactions) {
+      var ymd = date.toISOString().slice(0, 10);
+      var amtEl = rowEl.querySelector('span[style*="white-space:nowrap"]:last-of-type');
+      var amtText = amtEl ? (amtEl.textContent || '') : '';
+      var amt = parseFloat(amtText.replace(/[^0-9.\-]/g, '') || '0');
+      var match = s.transactions.find(function (t) {
+        if (!t) return false;
+        if (String(t.date).slice(0, 10) !== ymd) return false;
+        var n = (t.merchant || '').toLowerCase();
+        var lname = name.toLowerCase();
+        if (n !== lname && n.indexOf(lname) < 0 && lname.indexOf(n.split(' ')[0] || '') < 0) return false;
+        if (amt > 0 && Math.abs(Math.abs(t.amount) - amt) > 1) return false;
+        return true;
+      });
+      return { kind: 'plaid', tx: match || null, name: name, date: date };
+    }
+
+    return { kind: 'unknown', name: name, date: date };
+  }
+
+  function askCoach(prompt) {
+    try {
+      var fab = document.getElementById('ai-chat-fab');
+      var panel = document.getElementById('ai-chat-panel');
+      if (panel && !panel.classList.contains('active') && fab) fab.click();
+      setTimeout(function () {
+        var inp = document.getElementById('chat-input-v2') || document.getElementById('chat-input');
+        if (inp) { inp.value = prompt; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+        if (window.WJP_ChatCore && typeof window.WJP_ChatCore.send === 'function') {
+          try { window.WJP_ChatCore.send(prompt); return; } catch (e) {}
+        }
+        var btn = document.getElementById('chat-send-v2') || document.getElementById('chat-send');
+        if (btn) btn.click();
+      }, 350);
+    } catch (e) {}
+  }
+
+  function openDateEditor(rp) {
+    var pop = document.createElement('div');
+    pop.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+    pop.innerHTML =
+      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:12px;padding:16px;min-width:280px;max-width:340px;">' +
+      '<div style="font-size:10px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;margin-bottom:6px;">EDIT DUE DATE</div>' +
+      '<div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-bottom:10px;">' + escHtml(rp.name) + '</div>' +
+      '<input type="date" id="wjp-cal-date-inp" value="' + (rp.nextDate ? String(rp.nextDate).slice(0, 10) : '') + '" style="width:100%;padding:9px 11px;border:1px solid var(--border,rgba(0,0,0,0.15));border-radius:6px;font-family:inherit;font-size:13px;color:var(--ink,#0a0a0a);background:var(--card,#fff);">' +
+      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">' +
+      '<button id="wjp-cal-date-cancel" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>' +
+      '<button id="wjp-cal-date-save" type="button" style="background:var(--accent,#22c55e);color:#fff;border:0;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Save</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(pop);
+    pop.addEventListener('click', function (e) { if (e.target === pop) pop.remove(); });
+    pop.querySelector('#wjp-cal-date-cancel').onclick = function () { pop.remove(); };
+    pop.querySelector('#wjp-cal-date-save').onclick = function () {
+      var newDate = pop.querySelector('#wjp-cal-date-inp').value;
+      if (!newDate) { showToast('Pick a date first.', 'err'); return; }
+      rp.nextDate = newDate;
+      try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
+      pop.remove();
+      showToast(rp.name + ' moved to ' + new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 'ok');
+    };
+  }
+
+  function openStatementScanner(rp) {
+    var dialog = document.createElement('div');
+    dialog.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+    dialog.innerHTML =
+      '<div style="background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.10));border-radius:14px;padding:18px;max-width:440px;width:100%;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div><div style="font-size:9px;color:#a78bfa;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">CONFIRM ' + escHtml(rp.name) + '</div><div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">Upload a statement / receipt</div></div>' +
+      '<button id="wjp-cal-sc-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;">x</button>' +
+      '</div>' +
+      '<div id="wjp-cal-sc-drop" style="border:2px dashed var(--border,rgba(255,255,255,0.20));border-radius:12px;padding:20px;text-align:center;cursor:pointer;margin-top:8px;"><div style="font-size:24px;">Image</div><div style="font-size:12px;font-weight:700;color:var(--ink,#0a0a0a);margin-top:4px;">Click or drop an image</div><input type="file" accept="image/*" id="wjp-cal-sc-file" style="display:none;"></div>' +
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;"><div style="flex:1;height:6px;background:var(--card-2,rgba(255,255,255,0.06));border-radius:999px;overflow:hidden;"><div class="wjp-cal-sc-bar" style="height:100%;width:0%;background:#a78bfa;transition:width 0.3s;"></div></div><div class="wjp-cal-sc-lbl" style="font-size:11px;font-weight:700;color:var(--ink-dim,#94a3b8);min-width:120px;text-align:right;"></div></div>' +
+      '</div>';
+    document.body.appendChild(dialog);
+    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.remove(); });
+    dialog.querySelector('#wjp-cal-sc-close').onclick = function () { dialog.remove(); };
+
+    function setProg(pct, text) {
+      var bar = dialog.querySelector('.wjp-cal-sc-bar');
+      var lbl = dialog.querySelector('.wjp-cal-sc-lbl');
+      if (bar) bar.style.width = pct + '%';
+      if (lbl) lbl.textContent = text || '';
+    }
+    function ensureTesseract() {
+      return new Promise(function (res, rej) {
+        if (typeof window.Tesseract !== 'undefined') return res();
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
+        s.onload = function () { res(); };
+        s.onerror = function () { rej(new Error('Tesseract CDN failed')); };
+        document.head.appendChild(s);
+      });
+    }
+    function processFile(file) {
+      if (!file || !/^image\//.test((file.type || '').toLowerCase())) { showToast('Pick an image.', 'err'); return; }
+      setProg(5, 'Loading OCR...');
+      ensureTesseract().then(function () {
+        setProg(15, 'Reading...');
+        return window.Tesseract.recognize(file, 'eng', { logger: function (m) { if (m && typeof m.progress === 'number' && m.status === 'recognizing text') setProg(15 + m.progress * 75, 'Reading... ' + Math.round(m.progress * 100) + '%'); } });
+      }).then(function (r) {
+        var text = (r && r.data && r.data.text) || '';
+        var lo = text.toLowerCase();
+        var amt = Math.abs(parseFloat(rp.amount) || 0);
+        var matched = false;
+        if (amt > 0) {
+          var nums = text.match(/\d[\d,]*\.?\d{0,2}/g) || [];
+          for (var i = 0; i < nums.length; i++) {
+            var v = parseFloat(nums[i].replace(/,/g, ''));
+            if (isFinite(v) && Math.abs(v - amt) <= 1) { matched = true; break; }
+          }
+        }
+        var paid = /\b(paid|payment\s+received|thank\s+you\s+for\s+your\s+payment|balance\s*[:$]?\s*\$?0\.?00?)\b/.test(lo);
+        if (matched || paid) {
+          setProg(100, 'Confirmed');
+          showToast('Confirmed - ' + rp.name + ' marked paid + cycle advanced.', 'ok');
+          try {
+            if (window.WJP_PaymentStatus) {
+              window.WJP_PaymentStatus.markPaidThrough(rp.id, new Date(Date.now() + 35 * 86400000).toISOString().slice(0, 10));
+              if (typeof window.WJP_PaymentStatus.advanceRecurringByOneCycle === 'function') window.WJP_PaymentStatus.advanceRecurringByOneCycle(rp.id);
+            }
+            if (typeof window.saveState === 'function') window.saveState();
+          } catch (e) {}
+          setTimeout(function () { dialog.remove(); }, 800);
+        } else {
+          setProg(0, '');
+          showToast("Couldn't confirm payment. Try a clearer crop.", 'err');
+        }
+      }).catch(function (e) { setProg(0, ''); showToast('OCR failed: ' + (e && e.message || 'unknown'), 'err'); });
+    }
+    var drop = dialog.querySelector('#wjp-cal-sc-drop');
+    var file = dialog.querySelector('#wjp-cal-sc-file');
+    drop.onclick = function () { file.click(); };
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.style.borderColor = '#a78bfa'; });
+    drop.addEventListener('dragleave', function () { drop.style.borderColor = ''; });
+    drop.addEventListener('drop', function (e) {
+      e.preventDefault(); drop.style.borderColor = '';
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) processFile(f);
+    });
+    file.addEventListener('change', function () { var f = this.files && this.files[0]; if (f) processFile(f); this.value = ''; });
+  }
+
+  function openEventDialog(hit) {
+    try {
+      var name = hit.name;
+      var subtitle = '';
+      var actionsHTML = '';
+      if (hit.kind === 'recurring' && hit.rp) {
+        var rp = hit.rp;
+        subtitle = fmtUSD(Math.abs(rp.amount)) + ' / ' + (rp.frequency || 'monthly') + ' / next due ' + (rp.nextDate || 'unset');
+        actionsHTML =
+          '<button id="wjp-cal-evt-edit" type="button" style="background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid #22c55e;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Edit due date<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Change when this bill is due</span></button>' +
+          '<button id="wjp-cal-evt-scan" type="button" style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Scan statement<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">OCR confirms payment</span></button>' +
+          '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this bill<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">History, suggestions, tips</span></button>';
+      } else if (hit.kind === 'plaid') {
+        var tx = hit.tx;
+        subtitle = tx ? ((tx.method || 'Plaid') + ' / ' + tx.date) : 'Plaid transaction (historical)';
+        actionsHTML =
+          '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this transaction<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Is it normal? Any pattern?</span></button>' +
+          '<div style="padding:8px 12px;background:var(--card-2,rgba(255,255,255,0.04));border-radius:8px;font-size:11px;color:var(--ink-dim,#94a3b8);line-height:1.5;">Historical Plaid records cant be edited. To change the category, click the colored pill on the event row.</div>';
+      } else {
+        subtitle = 'Event details';
+        actionsHTML = '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this event</button>';
+      }
+
+      var dialog = document.createElement('div');
+      dialog.id = 'wjp-cal-evt-dialog';
+      dialog.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+      dialog.innerHTML =
+        '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:14px;padding:18px 20px;max-width:380px;width:100%;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+        '<div><div style="font-size:9px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">EVENT ACTIONS</div><div style="font-size:15px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">' + escHtml(name) + '</div><div style="font-size:11px;color:var(--ink-dim,#94a3b8);font-weight:600;margin-top:2px;">' + escHtml(subtitle) + '</div></div>' +
+        '<button id="wjp-cal-evt-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1;">x</button>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">' + actionsHTML + '</div>' +
+        '</div>';
+      document.body.appendChild(dialog);
+      dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.remove(); });
+      dialog.querySelector('#wjp-cal-evt-close').onclick = function () { dialog.remove(); };
+      if (hit.kind === 'recurring' && hit.rp) {
+        var rp2 = hit.rp;
+        dialog.querySelector('#wjp-cal-evt-edit').onclick = function () { dialog.remove(); openDateEditor(rp2); };
+        dialog.querySelector('#wjp-cal-evt-scan').onclick = function () { dialog.remove(); openStatementScanner(rp2); };
+        dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
+          dialog.remove();
+          askCoach('Tell me about my "' + rp2.name + '" bill (' + fmtUSD(Math.abs(rp2.amount)) + ', ' + (rp2.frequency || 'monthly') + ', next due ' + (rp2.nextDate || 'unset') + '). Have I been paying it on time? Suggest improvements.');
+        };
+      } else if (hit.kind === 'plaid') {
+        var tx2 = hit.tx;
+        dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
+          dialog.remove();
+          var amt = tx2 ? Math.abs(parseFloat(tx2.amount)) : 0;
+          askCoach('Tell me about my transaction "' + name + '" (' + (tx2 ? fmtUSD(amt) + ' on ' + tx2.date : 'Plaid record') + '). Is this normal for me?');
+        };
+      } else {
+        dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
+          dialog.remove();
+          askCoach('Tell me about the event "' + name + '" on my calendar on ' + hit.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '.');
+        };
+      }
+    } catch (e) {
+      try { console.warn('[wjp-cal-enh v7] openEventDialog threw', e); } catch (x) {}
+      showToast('Could not open event dialog: ' + (e && e.message || 'unknown'), 'err');
+    }
+  }
+
+  function onClick(e) {
+    try {
+      var panel = document.getElementById('wjp-cal-day-panel');
+      if (!panel || !panel.contains(e.target)) return;
+      var ignore = e.target.closest('[data-cal-close], [data-cal-cat-edit], [data-cal-cat-pick], [data-cal-cat-clear], [data-cal-note], [data-cal-reminder], [data-cal-save], [data-cal-delete], #' + FOOTER_ID);
+      if (ignore) return;
+      var node = e.target;
+      var row = null;
+      while (node && node !== panel) {
+        if (node.nodeType === 1 && node.querySelector && node.querySelector('[data-cal-cat-edit]')) {
+          row = node;
+          break;
+        }
+        node = node.parentNode;
+      }
+      if (!row) return;
+      var date = parseDayPanelDate();
+      if (!date) return;
+      var hit = findEventForRow(row, date);
+      if (!hit) return;
+      e.stopPropagation();
+      openEventDialog(hit);
+    } catch (err) {
+      try { console.warn('[wjp-cal-enh v7] click handler threw', err); } catch (e) {}
+    }
+  }
+
+  function dayCtxPrompt(date, events, action) {
+    var pretty = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    var evtLines = events.length ? events.map(function (r) { return '- ' + r.name + ' (' + fmtUSD(Math.abs(r.amount)) + ', ' + (r.frequency || 'monthly') + ')'; }).join('\n') : '(no scheduled bills)';
+    var prefix = action;
+    if (action === 'whats_due') prefix = 'Walk me through every bill due on ' + pretty + '. Use my real numbers. Tell me what to do today, in priority order.';
+    else if (action === 'conflicts') prefix = 'On ' + pretty + ', do any of my bills fall before my paycheck arrives? If so which one and what should I do?';
+    else if (action === 'reschedule') prefix = 'Of the bills on ' + pretty + ', pick the one with the smallest amount and suggest a better day. Walk me through how it improves cash flow.';
+    else if (action === 'history') prefix = 'For each bill due on ' + pretty + ', tell me whether I have been paying it consistently based on my Plaid data over the past 90 days.';
+    return prefix + '\n\nBills due ' + pretty + ':\n' + evtLines;
   }
 
   function recurringForDay(date) {
@@ -47,223 +301,6 @@
     });
   }
 
-  // Find the recurringPayment that matches a clicked event row's name + amount
-  function findEventForRow(rowEl, date) {
-    if (!rowEl) return null;
-    var nameEl = rowEl.querySelector('span[style*="font-weight:700"]');
-    if (!nameEl) return null;
-    // Strip the ↻ "moved" marker and other suffixes
-    var name = (nameEl.textContent || '').replace(/↻/g, '').trim();
-    if (!name) return null;
-    var candidates = recurringForDay(date);
-    // First try exact match
-    var hit = candidates.find(function (r) { return (r.name || '').trim() === name; });
-    if (hit) return hit;
-    // Fallback: case-insensitive match
-    var lo = name.toLowerCase();
-    return candidates.find(function (r) { return (r.name || '').toLowerCase() === lo; }) || null;
-  }
-
-  // ── Per-event action dialog ─────────────────────────────────────────
-  function openEventDialog(hit) {
-    var dialog = document.createElement('div');
-    dialog.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
-    var name = hit.name;
-    var subtitle = '';
-    var actionsHTML = '';
-    if (hit.kind === 'recurring' && hit.rp) {
-      var rp = hit.rp;
-      subtitle = fmtUSD(Math.abs(rp.amount)) + ' . ' + (rp.frequency || 'monthly') + ' . next due ' + (rp.nextDate || 'unset');
-      actionsHTML =
-        '<button id="wjp-cal-evt-edit" type="button" style="background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid #22c55e;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Edit due date<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Change when this bill is due</span></button>' +
-        '<button id="wjp-cal-evt-scan" type="button" style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Scan statement<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">OCR confirms payment</span></button>' +
-        '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this bill<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Pay history, suggestions, tips</span></button>';
-    } else if (hit.kind === 'plaid') {
-      var tx = hit.tx;
-      subtitle = tx ? ((tx.method || 'Plaid') + ' . ' + tx.date) : 'Plaid transaction (historical)';
-      actionsHTML =
-        '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this transaction<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Is it normal? Any pattern?</span></button>' +
-        '<div style="padding:8px 12px;background:var(--card-2,rgba(255,255,255,0.04));border-radius:8px;font-size:11px;color:var(--ink-dim,#94a3b8);line-height:1.5;">Historical Plaid records cant be edited. To change the category, click the colored pill on the event row.</div>';
-    } else {
-      subtitle = 'Event details';
-      actionsHTML = '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this event</button>';
-    }
-    dialog.innerHTML =
-      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:14px;padding:18px 20px;max-width:380px;width:100%;">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-      '<div>' +
-      '<div style="font-size:9px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">EVENT ACTIONS</div>' +
-      '<div style="font-size:15px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">' + escHtml(name) + '</div>' +
-      '<div style="font-size:11px;color:var(--ink-dim,#94a3b8);font-weight:600;margin-top:2px;">' + escHtml(subtitle) + '</div>' +
-      '</div>' +
-      '<button id="wjp-cal-evt-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1;">x</button>' +
-      '</div>' +
-      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">' + actionsHTML + '</div>' +
-      '</div>';
-    document.body.appendChild(dialog);
-    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.remove(); });
-    dialog.querySelector('#wjp-cal-evt-close').onclick = function () { dialog.remove(); };
-    if (hit.kind === 'recurring' && hit.rp) {
-      var rp2 = hit.rp;
-      dialog.querySelector('#wjp-cal-evt-edit').onclick = function () { dialog.remove(); openDateEditor(rp2); };
-      dialog.querySelector('#wjp-cal-evt-scan').onclick = function () { dialog.remove(); openStatementScanner(rp2); };
-      dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
-        dialog.remove();
-        askCoach('Tell me about my "' + rp2.name + '" bill (' + fmtUSD(Math.abs(rp2.amount)) + ' . ' + (rp2.frequency || 'monthly') + ' . next due ' + (rp2.nextDate || 'unset') + '). Have I been paying it on time based on my Plaid data? Suggest any improvements.');
-      };
-    } else if (hit.kind === 'plaid') {
-      var tx2 = hit.tx;
-      dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
-        dialog.remove();
-        var amt = tx2 ? Math.abs(parseFloat(tx2.amount)) : 0;
-        askCoach('Tell me about my transaction "' + name + '" (' + (tx2 ? fmtUSD(amt) + ' on ' + tx2.date : 'Plaid record') + '). Is this normal for me? Any pattern I should know about?');
-      };
-    } else {
-      dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
-        dialog.remove();
-        askCoach('Tell me about the event "' + name + '" on my calendar on ' + hit.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '.');
-      };
-    }
-  }
-
-  function openDateEditor(rp) {
-    var pop = document.createElement('div');
-    pop.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
-    pop.innerHTML =
-      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:12px;padding:16px;min-width:280px;max-width:340px;">'
-    + '  <div style="font-size:10px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;margin-bottom:6px;">EDIT DUE DATE</div>'
-    + '  <div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-bottom:10px;">' + escHtml(rp.name) + '</div>'
-    + '  <input type="date" id="wjp-cal-enh-date" value="' + (rp.nextDate ? String(rp.nextDate).slice(0,10) : '') + '" style="width:100%;padding:9px 11px;border:1px solid var(--border,rgba(0,0,0,0.15));border-radius:6px;font-family:inherit;font-size:13px;color:var(--ink,#0a0a0a);background:var(--card,#fff);">'
-    + '  <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">'
-    + '    <button id="wjp-cal-enh-cancel" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>'
-    + '    <button id="wjp-cal-enh-save" type="button" style="background:var(--accent,#22c55e);color:#fff;border:0;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Save</button>'
-    + '  </div>'
-    + '</div>';
-    document.body.appendChild(pop);
-    pop.addEventListener('click', function (e) { if (e.target === pop) pop.remove(); });
-    var dateInp = pop.querySelector('#wjp-cal-enh-date');
-    pop.querySelector('#wjp-cal-enh-cancel').onclick = function () { pop.remove(); };
-    pop.querySelector('#wjp-cal-enh-save').onclick = function () {
-      var newDate = dateInp.value;
-      if (!newDate) { showToast('Pick a date first.', 'err'); return; }
-      rp.nextDate = newDate;
-      try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
-      pop.remove();
-      showToast(rp.name + ' moved to ' + new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' }), 'ok');
-    };
-  }
-
-  function openStatementScanner(rp) {
-    var dialog = document.createElement('div');
-    dialog.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
-    dialog.innerHTML =
-      '<div style="background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.10));border-radius:14px;padding:18px;max-width:440px;width:100%;">'
-    + '  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-    + '    <div>'
-    + '      <div style="font-size:9px;color:#a78bfa;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">CONFIRM ' + escHtml(rp.name) + '</div>'
-    + '      <div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">Upload a statement / receipt</div>'
-    + '    </div>'
-    + '    <button id="wjp-calsc-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;">×</button>'
-    + '  </div>'
-    + '  <div id="wjp-calsc-drop" style="border:2px dashed var(--border,rgba(255,255,255,0.20));border-radius:12px;padding:20px;text-align:center;cursor:pointer;margin-top:8px;">'
-    + '    <div style="font-size:24px;">📄</div>'
-    + '    <div style="font-size:12px;font-weight:700;color:var(--ink,#0a0a0a);margin-top:4px;">Click or drop an image</div>'
-    + '    <input type="file" accept="image/*" id="wjp-calsc-file" style="display:none;">'
-    + '  </div>'
-    + '  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">'
-    + '    <div style="flex:1;height:6px;background:var(--card-2,rgba(255,255,255,0.06));border-radius:999px;overflow:hidden;"><div class="wjp-calsc-bar" style="height:100%;width:0%;background:#a78bfa;transition:width 0.3s;"></div></div>'
-    + '    <div class="wjp-calsc-lbl" style="font-size:11px;font-weight:700;color:var(--ink-dim,#94a3b8);min-width:120px;text-align:right;"></div>'
-    + '  </div>'
-    + '</div>';
-    document.body.appendChild(dialog);
-    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.remove(); });
-    dialog.querySelector('#wjp-calsc-close').onclick = function () { dialog.remove(); };
-
-    function setProg(pct, text) {
-      var bar = dialog.querySelector('.wjp-calsc-bar'); var lbl = dialog.querySelector('.wjp-calsc-lbl');
-      if (bar) bar.style.width = pct + '%'; if (lbl) lbl.textContent = text || '';
-    }
-    function ensureTesseract() {
-      return new Promise(function (resolve, reject) {
-        if (typeof window.Tesseract !== 'undefined') return resolve();
-        var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
-        s.onload = function () { resolve(); }; s.onerror = function () { reject(new Error('Tesseract CDN failed')); };
-        document.head.appendChild(s);
-      });
-    }
-    function processFile(file) {
-      if (!file || !/^image\//.test((file.type || '').toLowerCase())) { showToast('Pick an image.', 'err'); return; }
-      setProg(5, 'Loading OCR…');
-      ensureTesseract()
-        .then(function () { setProg(15, 'Reading…'); return window.Tesseract.recognize(file, 'eng', { logger: function (m) { if (m && typeof m.progress === 'number' && m.status === 'recognizing text') setProg(15 + m.progress * 75, 'Reading… ' + Math.round(m.progress * 100) + '%'); } }); })
-        .then(function (r) {
-          var text = (r && r.data && r.data.text) || ''; var lo = text.toLowerCase();
-          var amt = Math.abs(parseFloat(rp.amount) || 0); var matched = false;
-          if (amt > 0) {
-            var nums = text.match(/\d[\d,]*\.?\d{0,2}/g) || [];
-            for (var i = 0; i < nums.length; i++) {
-              var v = parseFloat(nums[i].replace(/,/g,''));
-              if (isFinite(v) && Math.abs(v - amt) <= 1) { matched = true; break; }
-            }
-          }
-          var paid = /\b(paid|payment\s+received|thank\s+you\s+for\s+your\s+payment|balance\s*[:$]?\s*\$?0\.?00?)\b/.test(lo);
-          if (matched || paid) {
-            setProg(100, 'Confirmed');
-            showToast('Confirmed — ' + rp.name + ' marked paid + cycle advanced.', 'ok');
-            try {
-              if (window.WJP_PaymentStatus) {
-                window.WJP_PaymentStatus.markPaidThrough(rp.id, new Date(Date.now() + 35*86400000).toISOString().slice(0,10));
-                if (typeof window.WJP_PaymentStatus.advanceRecurringByOneCycle === 'function') window.WJP_PaymentStatus.advanceRecurringByOneCycle(rp.id);
-              }
-              if (typeof window.saveState === 'function') window.saveState();
-            } catch (_) {}
-            setTimeout(function () { dialog.remove(); }, 800);
-          } else { setProg(0, ''); showToast("Couldn't confirm payment. Try a clearer crop.", 'err'); }
-        })
-        .catch(function (e) { setProg(0, ''); showToast('OCR failed: ' + (e && e.message || 'unknown'), 'err'); });
-    }
-    var drop = dialog.querySelector('#wjp-calsc-drop'); var file = dialog.querySelector('#wjp-calsc-file');
-    drop.onclick = function () { file.click(); };
-    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.style.borderColor = '#a78bfa'; });
-    drop.addEventListener('dragleave', function () { drop.style.borderColor = ''; });
-    drop.addEventListener('drop', function (e) {
-      e.preventDefault(); drop.style.borderColor = '';
-      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) processFile(f);
-    });
-    file.addEventListener('change', function () { var f = this.files && this.files[0]; if (f) processFile(f); this.value = ''; });
-  }
-
-  function askCoach(prompt) {
-    try {
-      var fab = document.getElementById('ai-chat-fab');
-      var panel = document.getElementById('ai-chat-panel');
-      if (panel && !panel.classList.contains('active') && fab) fab.click();
-      setTimeout(function () {
-        var inp = document.getElementById('chat-input-v2') || document.getElementById('chat-input');
-        if (inp) { inp.value = prompt; inp.dispatchEvent(new Event('input', { bubbles: true })); }
-        if (window.WJP_ChatCore && typeof window.WJP_ChatCore.send === 'function') {
-          try { window.WJP_ChatCore.send(prompt); return; } catch (_) {}
-        }
-        var btn = document.getElementById('chat-send-v2') || document.getElementById('chat-send');
-        if (btn) btn.click();
-      }, 350);
-    } catch (_) {}
-  }
-
-  function dayCtxPrompt(date, events, action) {
-    var pretty = date.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric', year:'numeric' });
-    var evtLines = events.length ? events.map(function (r) { return '  • ' + r.name + ' · ' + fmtUSD(Math.abs(r.amount)) + ' · ' + (r.frequency || 'monthly'); }).join('\n') : '  (no scheduled bills)';
-    var prefix = action;
-    if (action === 'whats_due') prefix = 'Walk me through every bill due on ' + pretty + '. Use my real numbers. Tell me what to do today, in priority order.';
-    else if (action === 'conflicts') prefix = 'On ' + pretty + ', do any of my bills fall before my paycheck arrives? If so, which one and what should I do?';
-    else if (action === 'reschedule') prefix = 'Of the bills on ' + pretty + ', pick the one with the smallest amount and suggest a better day to move it to. Walk me through how it improves cash flow.';
-    else if (action === 'history') prefix = 'For each bill due on ' + pretty + ', tell me whether I have paid it consistently based on my Plaid data over the past 90 days.';
-    return prefix + '\n\nBills due ' + pretty + ':\n' + evtLines;
-  }
-
-  // ── Footer mount (AI Coach only) ─────────────────────────────────────
   function mountFooter() {
     try {
       var panel = document.getElementById('wjp-cal-day-panel');
@@ -283,75 +320,35 @@
       footer.id = FOOTER_ID;
       footer.style.cssText = 'margin-top:14px;padding-top:14px;border-top:1px solid var(--border,rgba(0,0,0,0.06));';
       footer.innerHTML =
-        '<details style="border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;background:rgba(167,139,250,0.04);">'
-      + '  <summary style="cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;color:#a78bfa;outline:none;">'
-      + '    <div style="width:24px;height:24px;border-radius:6px;background:rgba(167,139,250,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-robot" style="font-size:13px;color:#a78bfa;"></i></div>'
-      + '    <div style="flex:1;text-align:left;">Ask AI Coach about this day</div>'
-      + '    <span style="font-size:14px;color:#a78bfa;">▾</span>'
-      + '  </summary>'
-      + '  <div style="padding:12px 14px;border-top:1px solid var(--border,rgba(0,0,0,0.10));display:flex;flex-direction:column;gap:8px;">'
-      + '    <button data-q="whats_due" class="wjp-cal-tools-q" type="button" style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">What\'s due here?</button>'
-      + '    <button data-q="conflicts" class="wjp-cal-tools-q" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Any conflicts with my paycheck?</button>'
-      + '    <button data-q="reschedule" class="wjp-cal-tools-q" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Reschedule the lightest bill</button>'
-      + '    <button data-q="history" class="wjp-cal-tools-q" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Have I been paying these consistently?</button>'
-      + '  </div>'
-      + '</details>';
+        '<details style="border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;background:rgba(167,139,250,0.04);">' +
+        '<summary style="cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;color:#a78bfa;outline:none;">' +
+        '<div style="width:24px;height:24px;border-radius:6px;background:rgba(167,139,250,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-robot" style="font-size:13px;color:#a78bfa;"></i></div>' +
+        '<div style="flex:1;text-align:left;">Ask AI Coach about this day</div>' +
+        '<span style="font-size:14px;color:#a78bfa;">v</span>' +
+        '</summary>' +
+        '<div style="padding:12px 14px;border-top:1px solid var(--border,rgba(0,0,0,0.10));display:flex;flex-direction:column;gap:8px;">' +
+        '<button data-q="whats_due" class="wjp-cal-tools-q" type="button" style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Whats due here?</button>' +
+        '<button data-q="conflicts" class="wjp-cal-tools-q" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Any conflicts with my paycheck?</button>' +
+        '<button data-q="reschedule" class="wjp-cal-tools-q" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Reschedule the lightest bill</button>' +
+        '<button data-q="history" class="wjp-cal-tools-q" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;">Have I been paying these consistently?</button>' +
+        '</div>' +
+        '</details>';
       panel.appendChild(footer);
 
       var events = recurringForDay(date);
       footer.querySelectorAll('.wjp-cal-tools-q').forEach(function (btn) {
         btn.onclick = function () { askCoach(dayCtxPrompt(date, events, btn.getAttribute('data-q'))); };
       });
-    } catch (e) { try { console.warn('[wjp-calendar-enhancements v4] mount threw', e); } catch (_) {} }
-  }
-
-  // ── Single click delegate on document — opens event dialog on row click ──
-  function onDocClick(e) {
-    try {
-      var panel = document.getElementById('wjp-cal-day-panel');
-      if (!panel || !panel.contains(e.target)) return;
-      // Ignore clicks on existing controls (category badge IS clickable for
-      // the host picker — leave it alone). Footer + note inputs are also ignored.
-      var ignore = e.target.closest('[data-cal-close], [data-cal-cat-edit], [data-cal-cat-pick], [data-cal-cat-clear], [data-cal-note], [data-cal-reminder], [data-cal-save], [data-cal-delete], [data-cal-3dot], .wjp-cal-cat-picker, #' + FOOTER_ID);
-      if (ignore) return;
-      // Walk up from the click target to find the containing event row.
-      // Each event row has a category badge ([data-cal-cat-edit]) as a child,
-      // so we look for the nearest ancestor that contains one.
-      var node = e.target;
-      var row = null;
-      while (node && node !== panel) {
-        if (node.nodeType === 1 && node.querySelector && node.querySelector(':scope > div [data-cal-cat-edit], :scope > [data-cal-cat-edit]')) {
-          row = node; break;
-        }
-        node = node.parentNode;
-      }
-      // Fallback: any ancestor that contains a data-cal-cat-edit descendant
-      if (!row) {
-        node = e.target;
-        while (node && node !== panel) {
-          if (node.nodeType === 1 && node.querySelector && node.querySelector('[data-cal-cat-edit]')) {
-            row = node; break;
-          }
-          node = node.parentNode;
-        }
-      }
-      if (!row) return;
-      var date = parseDayPanelDate();
-      if (!date) return;
-      var hit = findEventForRow(row, date);
-      if (!hit) return;
-      e.stopPropagation();
-      openEventDialog(hit);
-    } catch (_) {}
+    } catch (e) { try { console.warn('[wjp-cal-enh v7] mount threw', e); } catch (x) {} }
   }
 
   function boot() {
-    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('click', onClick, false);
     setInterval(mountFooter, 1000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 800); });
   else setTimeout(boot, 800);
 
-  window.WJP_CalendarEnhancements = { mountFooter: mountFooter };
+  window.WJP_CalendarEnhancements = { mountFooter: mountFooter, openEventDialog: openEventDialog, findEventForRow: findEventForRow };
 })();
