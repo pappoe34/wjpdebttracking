@@ -1,4 +1,4 @@
-/* wjp-payment-detector.js v1 — auto-advance recurring nextDate from Plaid history
+/* wjp-payment-detector.js v2 — tighter match thresholds + earlier Looks Unused flag
  *
  * For every non-income recurring payment with nextDate in the past, scan the
  * user's Plaid transactions for a likely match (fuzzy merchant name + amount
@@ -73,8 +73,13 @@
     if (!target || !amt) return { conf: 'none' };
     var amtRatio = Math.min(amt, target) / Math.max(amt, target);
     var name = nameOverlap(rp.name, txn.merchant || txn.name || '');
-    if (name >= 0.5 && amtRatio >= 0.85) return { conf: 'high', name: name, amt: amtRatio };
-    if (name >= 0.3 && amtRatio >= 0.70) return { conf: 'medium', name: name, amt: amtRatio };
+    // v2: Stricter thresholds to avoid mismatches.
+    //   - HIGH (auto-advance): name >= 0.5 AND amount within 12% (ratio >= 0.88)
+    //   - MEDIUM (suggest):    name >= 0.5 AND amount within 25% (ratio >= 0.75)
+    //   Or: amount nearly identical (ratio >= 0.95) AND name >= 0.34 (one token from a 3-token name)
+    if (name >= 0.5 && amtRatio >= 0.88) return { conf: 'high', name: name, amt: amtRatio };
+    if (name >= 0.5 && amtRatio >= 0.75) return { conf: 'medium', name: name, amt: amtRatio };
+    if (name >= 0.34 && amtRatio >= 0.95) return { conf: 'medium', name: name, amt: amtRatio };
     return { conf: 'none' };
   }
 
@@ -160,7 +165,7 @@
         delete rp.looksUnused;
         flagged++;
         changed = true;
-      } else if (nextMs < todayMs - 60 * 86400000) {
+      } else if (nextMs < todayMs - 35 * 86400000) {  // v2: 35d ≈ 1 missed monthly cycle
         // No Plaid match found AND nextDate is >60d in the past.
         // Mark as likely unused so user can review/delete.
         if (!rp.looksUnused) {
