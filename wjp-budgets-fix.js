@@ -1,4 +1,4 @@
-/* wjp-budgets-fix.js v1 — clean up Budgets math + polish
+/* wjp-budgets-fix.js v2 — also categorize Plaid txns by merchant name (host stores all as Other)
  *
  * The host renderBudgetStatsRow / renderExpenseLegend / renderExpenseDistribution
  * count EVERY negative transaction as "spending", including Zelle, internal
@@ -28,6 +28,37 @@
     return re.test(blob);
   }
 
+  // v2: Merchant classifier — Plaid sync stores every txn as "Other".
+  // We re-classify by merchant name pattern so the Expense Distribution donut
+  // actually shows useful slices. Generic patterns only — no specific names.
+  function classifyMerchant(merchant, hostCategory) {
+    if (hostCategory && hostCategory !== 'Other' && hostCategory !== 'Uncategorized') return hostCategory;
+    var s = String(merchant || '').toLowerCase();
+    if (!s) return 'Other';
+    if (/\bzelle\b|venmo|cash\s*app|paypal|transfer|ach\b/.test(s)) return 'Transfer';
+    if (/payroll|paycheck|deposit|direct\s*dep/.test(s)) return 'Income';
+    if (/walmart|target|costco|sam'?s\s+club|whole\s*foods|kroger|aldi|trader|publix|safeway|grocery|food\s*lion|wegmans|harris\s+teeter|fresh\s*market|sprouts/.test(s)) return 'Groceries';
+    if (/shell|chevron|bp\b|exxon|mobil|sunoco|valero|conoco|76\b|arco|gulf|marathon|speedway|fuel|wawa\s+fuel/.test(s)) return 'Gas';
+    if (/uber|lyft|metro|transit|parking|toll|amtrak|greyhound|airline|delta|united|american\s+air|southwest|jetblue|spirit|frontier|hertz|avis|enterprise|budget\s+rental/.test(s)) return 'Transportation';
+    if (/mcdonald|burger\s*king|wendy|chick-?fil-?a|chipotle|taco|subway|domino|pizza|kfc|popeyes|starbucks|dunkin|panera|chipotle|olive\s+garden|cheesecake|outback|restaurant|cafe|diner|grill|kitchen|food|halal|sushi|thai|indian|chinese|mexican|deli|bistro|brewery|bar\s+\&\s+grill|seafood/.test(s)) return 'Food & Dining';
+    if (/netflix|hulu|spotify|peacock|paramount|disney|hbo|max|youtube\s+(premium|tv|music)|apple\s+(music|tv|one)|amazon\s+(prime|video|music)|sirius|pandora|tidal|audible/.test(s)) return 'Subscriptions';
+    if (/microsoft|google|adobe|github|claude|anthropic|openai|chatgpt|jetbrains|notion|figma|slack|zoom|dropbox|aws|azure|netlify|vercel|cloudflare|godaddy/.test(s)) return 'Software';
+    if (/progressive|esurance|geico|state\s+farm|allstate|liberty\s+mutual|farmers|nationwide|usaa\s+insurance|metlife|prudential|aetna|bcbs|blue\s+cross|kaiser|cigna|humana|insurance/.test(s)) return 'Insurance';
+    if (/electric|power|energy|conedison|pge|dominion|duke\s+energy|peco|pseg|gas\s+(company|utility)|water\s+(department|utility)|sewer|utility/.test(s)) return 'Utilities';
+    if (/comcast|xfinity|spectrum|verizon|att\b|t-?mobile|sprint|cox|optimum|frontier\s+communications|google\s+fiber|fios|cable/.test(s)) return 'Phone & Internet';
+    if (/cvs|walgreens|rite\s+aid|pharmacy|goodrx|drug\s*mart|prescription|medical|doctor|dentist|clinic|hospital|urgent\s+care|labcorp|quest/.test(s)) return 'Health';
+    if (/rent\b|mortgage|hoa|lease|property\s+management|landlord|apartments/.test(s)) return 'Housing';
+    if (/storage|public\s+storage|extra\s+space|cubesmart/.test(s)) return 'Storage';
+    if (/post\s*office|usps|fedex|ups\s+store|dhl|shipping/.test(s)) return 'Shipping';
+    if (/amazon\b(?!\s+(prime|video|music))|ebay|etsy|wayfair|home\s+depot|lowes|ikea|best\s+buy|macy|nordstrom|kohl|tj\s*maxx|marshalls|ross\b/.test(s)) return 'Shopping';
+    if (/klarna|affirm|afterpay|sezzle/.test(s)) return 'BNPL';
+    if (/credit\s+one|capital\s+one|chase|amex|discover|citi|wells\s+fargo|bank\s+of\s+america|bofa|barclays|synchrony|comenity|usaa\s+credit|navy\s+federal\s+credit|milestone|brightway|aspire|avant|onemain|one\s+main|sofi|westlake|aidvantage|aidadvantage|student\s+loan|car\s+loan/.test(s)) return 'Debt Payment';
+    if (/interest\s+charge|finance\s+charge|late\s+fee|nsf\s+fee/.test(s)) return 'Fees & Interest';
+    if (/gym|fitness|planet\s+fitness|equinox|crunch|yoga|peloton/.test(s)) return 'Fitness';
+    if (/atm\s+withdrawal|cash\s+withdrawal|atm\s+fee/.test(s)) return 'Cash';
+    return 'Other';
+  }
+
   function realIncome() {
     if (typeof window.computeRealMonthlyIncome === 'function') return window.computeRealMonthlyIncome();
     var s = getState();
@@ -48,7 +79,7 @@
       if (amt >= 0) return;
       if (new Date(t.date) < monthStart) return;
       if (isTransfer(t)) return;
-      var cat = (t.category || 'Other').toString().trim() || 'Other';
+      var cat = classifyMerchant(t.merchant || t.name, t.category);
       var v = Math.abs(amt);
       byCat[cat] = (byCat[cat] || 0) + v;
       total += v;
