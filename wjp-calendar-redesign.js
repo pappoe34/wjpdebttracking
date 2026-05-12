@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.16 — note text rendered inline on the calendar cell (not just hover tooltip).
+/* wjp-calendar-redesign.js v6.17 — reminder fires an in-app modal with OK + Email options; per-note Email me toggle.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -120,12 +120,10 @@
   }
   function saveStartBalance(v) { try { localStorage.setItem(LS_BALANCE, String(v)); } catch (_) {} }
 
-  function setNote(date, text, reminderAt) {
-    // v6.14: When the Notes tab module (WJP_Notes) is loaded it owns the
-    // canonical store (wjp.notes.v2). loadNotes() prefers that store, so if
-    // we only write to wjp.cal.notes.v1 here, the panel rerender reads v2
-    // (empty) and the user's note appears to vanish. Route through the
-    // public API when available — it auto-syncs v1 for back-compat readers.
+  function setNote(date, text, reminderAt, opts) {
+    opts = opts || {};
+    // v6.14/6.17: route through WJP_Notes.upsert when available so v2 store
+    // stays canonical. emailMe + fired survive across page reloads.
     var hasNotesApi = !!(window.WJP_Notes && typeof window.WJP_Notes.upsert === "function" && typeof window.WJP_Notes.delete === "function");
     if (hasNotesApi) {
       var id = "cal-" + date;
@@ -139,18 +137,18 @@
             body: text || "",
             pinnedDate: date,
             reminderAt: reminderAt || null,
-            fired: false,
+            fired: !!opts.fired,
             archived: false,
-            source: "calendar"
+            source: "calendar",
+            emailMe: !!opts.emailMe
           });
         } catch (_) {}
       }
       return;
     }
-    // Fallback (Notes tab not present): write to v1 directly.
     var o = loadNotes();
     if (!text && !reminderAt) delete o[date];
-    else o[date] = { text: text || "", reminderAt: reminderAt || null, fired: false };
+    else o[date] = { text: text || "", reminderAt: reminderAt || null, fired: !!opts.fired, emailMe: !!opts.emailMe };
     saveNotes(o);
   }
 
@@ -162,23 +160,73 @@
   }
 
   // Browser-notification reminders
+  // v6.17: In-app reminder modal — shows when one or more reminders fire.
+  // Browser Notification is a best-effort side channel; this modal is the
+  // primary signal so missed/blocked notifications still surface in the UI.
+  function showReminderModal(fired) {
+    if (!fired || !fired.length) return;
+    var existing = document.getElementById("wjp-cal-reminder-modal");
+    if (existing) existing.remove();
+    var modal = document.createElement("div");
+    modal.id = "wjp-cal-reminder-modal";
+    modal.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--sans,Inter,system-ui,sans-serif);";
+    var listHTML = fired.map(function (n) {
+      var d;
+      try { d = new Date(n.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }); } catch (_) { d = n.date; }
+      return '<div style="border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;padding:12px 14px;margin-bottom:8px;background:rgba(245,158,11,0.08);">' +
+        '<div style="font-size:10px;color:#a16207;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;margin-bottom:4px;">REMINDER · ' + escapeHTML(d) + '</div>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--ink,#0a0a0a);line-height:1.4;">' + escapeHTML(n.text || "(no note)") + '</div>' +
+      '</div>';
+    }).join("");
+    var anyEmail = fired.some(function (n) { return n.emailMe; });
+    modal.innerHTML =
+      '<div style="background:var(--card,#fff);border:1px solid #f59e0b;border-radius:14px;padding:18px 20px;max-width:460px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.25);">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
+      '<div style="width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,0.18);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-bell-ringing" style="font-size:18px;color:#f59e0b;"></i></div>' +
+      '<div><div style="font-size:9px;color:#a16207;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">WJP CALENDAR</div><div style="font-size:15px;font-weight:800;color:var(--ink,#0a0a0a);">You have ' + fired.length + ' reminder' + (fired.length > 1 ? "s" : "") + '</div></div>' +
+      '</div>' +
+      listHTML +
+      '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap;">' +
+      '<button type="button" id="wjp-cal-rem-email" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;"><i class="ph-fill ph-envelope" style="font-size:13px;"></i> ' + (anyEmail ? "Email me a copy" : "Email me") + '</button>' +
+      '<button type="button" id="wjp-cal-rem-ok" style="background:#1f7a4a;color:#fff;border:0;padding:9px 24px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">OK</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener("click", function (e) { if (e.target === modal) modal.querySelector("#wjp-cal-rem-ok").click(); });
+    modal.querySelector("#wjp-cal-rem-ok").onclick = function () { modal.remove(); };
+    modal.querySelector("#wjp-cal-rem-email").onclick = function () {
+      var subj = "WJP reminder" + (fired.length > 1 ? "s" : "");
+      var body = fired.map(function (n) { return "• " + n.date + " — " + (n.text || "(no note)"); }).join("\n\n");
+      var to = (typeof __WJP_USER_EMAIL__ === "string") ? __WJP_USER_EMAIL__ : "";
+      try { window.location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(subj) + "&body=" + encodeURIComponent(body); } catch (_) {}
+      setTimeout(function () { modal.remove(); }, 400);
+    };
+  }
+
   var lastReminderCheck = 0;
+  var firedSessionGuard = {};   // per-tab dedup so a still-pending fired flag doesn't re-pop the modal
   function checkReminders() {
     if (Date.now() - lastReminderCheck < 30000) return;
     lastReminderCheck = Date.now();
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
     var notes = loadNotes(); var now = Date.now();
+    var fired = [];
     Object.keys(notes).forEach(function (date) {
       var n = notes[date];
       if (!n || !n.reminderAt || n.fired) return;
-      if (now >= n.reminderAt) {
-        try {
+      if (now < n.reminderAt) return;
+      if (firedSessionGuard[date]) return;
+      firedSessionGuard[date] = true;
+      fired.push({ date: date, text: n.text || "", reminderAt: n.reminderAt, emailMe: !!n.emailMe });
+      // Side-channel: native Notification (best effort)
+      try {
+        if ("Notification" in window && Notification.permission === "granted") {
           new Notification("WJP reminder · " + date, { body: n.text || "(no note)" });
-          n.fired = true; saveNotes(notes);
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
+      // Persist fired:true via the canonical API (v2 + auto-sync v1)
+      setNote(date, n.text || "", n.reminderAt, { fired: true, emailMe: !!n.emailMe });
     });
+    if (fired.length) showReminderModal(fired);
   }
 
   // ============================================================
@@ -1154,6 +1202,10 @@
             Remind me at:
             <input type="datetime-local" data-cal-reminder value="${reminderVal}" style="border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px;">
           </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim, #6b7280);font-weight:600;cursor:pointer;">
+            <input type="checkbox" data-cal-email-me${note && note.emailMe ? " checked" : ""} style="accent-color:#1f7a4a;width:14px;height:14px;">
+            <span style="display:inline-flex;align-items:center;gap:3px;"><i class="ph-fill ph-envelope" style="font-size:11px;color:#6b7280;"></i> Email me too</span>
+          </label>
           <button type="button" data-cal-save style="background:#1f7a4a;color:#fff;border:0;padding:7px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Save</button>
           ${note ? `<button type="button" data-cal-delete style="background:transparent;color:#dc2626;border:1px solid rgba(220,38,38,0.30);padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Delete</button>` : ""}
           <span style="font-size:10.5px;color:var(--ink-faint, #9ca3af);flex:1;text-align:right;">Reminders use browser notifications · click to allow</span>
@@ -1471,24 +1523,26 @@
         _saveTimer = setTimeout(function () {
           try {
             var existing = (loadNotes() || {})[state.selectedDate] || {};
-            setNote(state.selectedDate, noteTA.value, existing.reminderAt || null);
+            setNote(state.selectedDate, noteTA.value, existing.reminderAt || null, { emailMe: !!existing.emailMe, fired: !!existing.fired });
           } catch (_e2) {}
         }, 600);
       });
     }
 
-    // Save note
+    // Save note (v6.17: read Email me checkbox + auto-request notification permission when a reminder is set)
     var save = root.querySelector("[data-cal-save]");
     if (save) save.addEventListener("click", function () {
       var ta = root.querySelector("[data-cal-note]");
       var rm = root.querySelector("[data-cal-reminder]");
+      var em = root.querySelector("[data-cal-email-me]");
       var reminderAt = null;
       if (rm && rm.value) { var t = new Date(rm.value).getTime(); if (isFinite(t)) reminderAt = t; }
-      setNote(state.selectedDate, ta ? ta.value : "", reminderAt);
+      var emailMe = !!(em && em.checked);
+      setNote(state.selectedDate, ta ? ta.value : "", reminderAt, { emailMe: emailMe, fired: false });
       if (reminderAt && "Notification" in window && Notification.permission === "default") {
         try { Notification.requestPermission(); } catch (_) {}
       }
-      showToast("Note saved");
+      showToast(reminderAt ? ("Reminder set for " + new Date(reminderAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + (emailMe ? " · email enabled" : "")) : "Note saved");
       rerender(host);
     });
     var del = root.querySelector("[data-cal-delete]");
