@@ -1,4 +1,4 @@
-/* wjp-budgets-fix.js v2 — also categorize Plaid txns by merchant name (host stores all as Other)
+/* wjp-budgets-fix.js v3 — Post Office >$50 = Bill Payment (money order), not Shipping
  *
  * The host renderBudgetStatsRow / renderExpenseLegend / renderExpenseDistribution
  * count EVERY negative transaction as "spending", including Zelle, internal
@@ -31,7 +31,7 @@
   // v2: Merchant classifier — Plaid sync stores every txn as "Other".
   // We re-classify by merchant name pattern so the Expense Distribution donut
   // actually shows useful slices. Generic patterns only — no specific names.
-  function classifyMerchant(merchant, hostCategory) {
+  function classifyMerchant(merchant, hostCategory, amount) {
     if (hostCategory && hostCategory !== 'Other' && hostCategory !== 'Uncategorized') return hostCategory;
     var s = String(merchant || '').toLowerCase();
     if (!s) return 'Other';
@@ -49,7 +49,11 @@
     if (/cvs|walgreens|rite\s+aid|pharmacy|goodrx|drug\s*mart|prescription|medical|doctor|dentist|clinic|hospital|urgent\s+care|labcorp|quest/.test(s)) return 'Health';
     if (/rent\b|mortgage|hoa|lease|property\s+management|landlord|apartments/.test(s)) return 'Housing';
     if (/storage|public\s+storage|extra\s+space|cubesmart/.test(s)) return 'Storage';
-    if (/post\s*office|usps|fedex|ups\s+store|dhl|shipping/.test(s)) return 'Shipping';
+    if (/post\s*office|usps/.test(s)) {
+      if (Math.abs(Number(amount)||0) > 50) return 'Bill Payment';
+      return 'Shipping';
+    }
+    if (/fedex|ups\s+store|dhl|shipping/.test(s)) return 'Shipping';
     if (/amazon\b(?!\s+(prime|video|music))|ebay|etsy|wayfair|home\s+depot|lowes|ikea|best\s+buy|macy|nordstrom|kohl|tj\s*maxx|marshalls|ross\b/.test(s)) return 'Shopping';
     if (/klarna|affirm|afterpay|sezzle/.test(s)) return 'BNPL';
     if (/credit\s+one|capital\s+one|chase|amex|discover|citi|wells\s+fargo|bank\s+of\s+america|bofa|barclays|synchrony|comenity|usaa\s+credit|navy\s+federal\s+credit|milestone|brightway|aspire|avant|onemain|one\s+main|sofi|westlake|aidvantage|aidadvantage|student\s+loan|car\s+loan/.test(s)) return 'Debt Payment';
@@ -79,7 +83,7 @@
       if (amt >= 0) return;
       if (new Date(t.date) < monthStart) return;
       if (isTransfer(t)) return;
-      var cat = classifyMerchant(t.merchant || t.name, t.category);
+      var cat = classifyMerchant(t.merchant || t.name, t.category, t.amount);
       var v = Math.abs(amt);
       byCat[cat] = (byCat[cat] || 0) + v;
       total += v;
