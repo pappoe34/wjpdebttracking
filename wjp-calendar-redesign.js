@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.11 — income strictly from Plaid.
+/* wjp-calendar-redesign.js v6.12 — income from Plaid + recurringPayments nextDate (no projection).
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -483,27 +483,40 @@
       });
     });
 
-    // === FUTURE outflows: recurring payments forecasted strictly forward ===
+    // === Recurring payments from the user's schedule ===
+    // - Outflows: strictly future (existing v6.11 behavior).
+    // - Income: ONLY on its nextDate (no week-over-week projection).
+    //   Past nextDates inside the visible window are still shown so the
+    //   user can see scheduled income on the actual day it was due. When
+    //   the user advances nextDate via Edit Due Date, the next occurrence
+    //   appears on the new date.
     (raw.recurringPayments || []).forEach(function (rp) {
       if (!rp || !rp.nextDate || rp.amount == null) return;
       var isInflow = !!rp.linkedIncome || (rp.category === "income");
-      if (isInflow) return; // income handled in the projection pass below
       var origDate = String(rp.nextDate).slice(0, 10);
       var t = new Date(origDate + "T12:00:00").getTime();
       if (!isFinite(t)) return;
-      if (t <= todayMs || t > maxMs) return; // strictly future
+
+      if (isInflow) {
+        // Income: any nextDate inside the visible window. No projection.
+        if (t < minMs || t > maxMs) return;
+      } else {
+        // Outflows: strictly future (preserve v6.11 behavior).
+        if (t <= todayMs || t > maxMs) return;
+      }
+
       var ovKey = origDate + "|" + (rp.name || "");
       var date = ovDate[ovKey] || origDate;
       events.push({
         id: "rp:" + (rp.id || (origDate + "|" + (rp.name || ""))),
         date: date,
         origDate: origDate,
-        name: rp.name || "Payment",
+        name: rp.name || (isInflow ? "Income" : "Payment"),
         merchant: rp.name || "",
         amount: Math.abs(rp.amount),
-        signedAmount: -Math.abs(rp.amount),
-        isInflow: false,
-        category: rp.category || "",
+        signedAmount: isInflow ? Math.abs(rp.amount) : -Math.abs(rp.amount),
+        isInflow: isInflow,
+        category: rp.category || (isInflow ? "income" : ""),
         rawCategory: rp.category || "",
         source: "recurring",
         type: rp.frequency || "recurring",
@@ -511,13 +524,9 @@
         moved: !!ovDate[ovKey],
         ovKey: ovKey,
         linkedDebtId: rp.linkedDebtId || null,
-        isIncome: false
+        isIncome: isInflow
       });
     });
-
-    // v6.11: income projection removed per spec — income comes ONLY
-    // from Plaid transactions (real money received). User-managed recurring
-    // income lives on the Recurring Payments tab, not the calendar.
 
     return events;
   }

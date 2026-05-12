@@ -1,4 +1,4 @@
-/* wjp-calendar-enhancements.js v9 — diagnostics + openDateEditor exposed on API. */
+/* wjp-calendar-enhancements.js v10 — MutationObserver remount (no flicker). */
 (function () {
   'use strict';
   if (window._wjpCalEnhInstalled) return;
@@ -382,7 +382,29 @@
 
   function boot() {
     document.addEventListener('click', onClick, false);
-    setInterval(mountFooter, 1000);
+
+    // Initial mount attempt
+    mountFooter();
+
+    // MutationObserver: react instantly when the host renders/removes the day panel.
+    // Cheap because we only call mountFooter when our footer is missing.
+    try {
+      var observer = new MutationObserver(function (muts) {
+        var panel = document.getElementById('wjp-cal-day-panel');
+        if (panel) {
+          if (!panel.querySelector('#' + FOOTER_ID)) {
+            mountFooter();
+          }
+        } else {
+          var orphan = document.getElementById(FOOTER_ID);
+          if (orphan && orphan.parentNode) orphan.parentNode.removeChild(orphan);
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    } catch (e) { try { console.warn('[wjp-cal-enh v10] observer failed, falling back to interval', e); } catch (x) {} }
+
+    // Safety-net: low-frequency check (5s) in case observer misses something.
+    setInterval(mountFooter, 5000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 800); });
