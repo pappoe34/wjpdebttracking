@@ -1,4 +1,4 @@
-/* wjp-budgets-fix.js v4 — also patch Debts-page Spending + Expense Categories widgets for consistency
+/* wjp-budgets-fix.js v5 — run patches on page-nav clicks + tighter 1.5s polling
  *
  * The host renderBudgetStatsRow / renderExpenseLegend / renderExpenseDistribution
  * count EVERY negative transaction as "spending", including Zelle, internal
@@ -286,7 +286,23 @@
       }
       patchDebtsPageWidgets();
     } catch (_) {}
-  }, 5000);
+  }, 1500);
+
+  // v5: When user clicks the Debts nav, the host re-renders the page and
+  // overwrites our patches. Hook the click so we re-patch immediately after.
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-page="debts"]');
+    if (t) {
+      setTimeout(patchDebtsPageWidgets, 200);
+      setTimeout(patchDebtsPageWidgets, 600);
+      setTimeout(patchDebtsPageWidgets, 1200);
+    }
+    var b = e.target.closest && e.target.closest('[data-page="budgets"]');
+    if (b) {
+      setTimeout(function(){try{fixedBudgetStatsRow();fixedExpenseRender();}catch(_){}} ,200);
+      setTimeout(function(){try{fixedBudgetStatsRow();fixedExpenseRender();}catch(_){}} ,800);
+    }
+  }, true);
 
   window.WJP_BudgetsFix = {
     realIncome: realIncome,
