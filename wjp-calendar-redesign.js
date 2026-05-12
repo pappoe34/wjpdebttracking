@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.15 — note grid indicator upgraded to a Phosphor note-icon badge (glance-readable, reminder-state aware).
+/* wjp-calendar-redesign.js v6.16 — note text rendered inline on the calendar cell (not just hover tooltip).
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -865,6 +865,33 @@
     return '<span class="wjp-cal-note-pin" title="' + safeTip + '" style="display:inline-grid;place-items:center;width:' + sz + 'px;height:' + sz + 'px;border-radius:6px;background:' + bg + ';color:' + color + ';box-shadow:0 1px 2px rgba(0,0,0,0.08);border:1px solid ' + color + ';"><i class="' + iconCls + '" style="font-size:' + fsz + 'px;line-height:1;color:' + color + ';"></i></span>';
   }
 
+  // v6.16: Inline note chip — renders the actual note body inside the cell
+  // so the user can scan a month and read every note without clicking each
+  // day. Truncates to fit the cell width; tooltip shows the full text.
+  function noteChipHTML(note, compact) {
+    if (!note) return "";
+    var text = (note.text || "").trim().replace(/\s+/g, " ");
+    if (!text && !note.reminderAt) return "";
+    var maxLen = compact ? 18 : 38;
+    var shown = text ? (text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text) : "(reminder only)";
+    var hasReminder = !!note.reminderAt && !note.fired;
+    var fired       = !!note.fired;
+    var bg, color, iconCls;
+    if (hasReminder) {
+      bg = "rgba(245,158,11,0.10)"; color = "#a16207"; iconCls = "ph-fill ph-bell-ringing";
+    } else if (fired) {
+      bg = "rgba(148,163,184,0.10)"; color = "#6b7280"; iconCls = "ph-fill ph-check-circle";
+    } else {
+      bg = "rgba(201,154,42,0.10)"; color = "#8a6b1f"; iconCls = "ph-fill ph-note-pencil";
+    }
+    var safeText = escapeHTML(shown);
+    var safeFull = escapeHTML(text || (note.reminderAt ? "Reminder" : ""));
+    var pad = compact ? "2px 5px" : "3px 7px";
+    var fsz = compact ? 8.5 : 10;
+    var iconSize = compact ? 9 : 10.5;
+    return '<div title="' + safeFull + '" style="display:flex;align-items:center;gap:4px;padding:' + pad + ';border-radius:5px;background:' + bg + ';border-left:2px solid ' + color + ';margin-top:2px;font-size:' + fsz + 'px;font-weight:700;color:' + color + ';line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="' + iconCls + '" style="font-size:' + iconSize + 'px;flex-shrink:0;"></i><span style="overflow:hidden;text-overflow:ellipsis;">' + safeText + '</span></div>';
+  }
+
   // Stub kept so existing call sites (cell HTML) still compile to empty string.
   function dayMenuHTML(date) { return ""; }
 
@@ -942,7 +969,9 @@
           !compact ? `<button type="button" class="wjp-cal-day-menu${state.dayMenuFor === cell.date ? " wjp-cal-day-menu-open" : ""}" data-cal-day-menu="${cell.date}" title="Day options" aria-label="Day options">⋮</button>` : ""
         ].join("");
         var visible = (cell.events || []).slice(0, compact ? 1 : 2);
-        var chipsHTML = visible.map(function (e) { return chipHTML(e, !compact, compact); }).join("");
+        // v6.16: render the note chip ABOVE event chips so it reads first.
+        var noteChip = noteChipHTML(cell.note, compact);
+        var chipsHTML = noteChip + visible.map(function (e) { return chipHTML(e, !compact, compact); }).join("");
         var more = (cell.events || []).length - visible.length;
         if (more > 0) chipsHTML += `<div style="font-size:${compact ? "8.5px" : "9.5px"};color:var(--ink-faint, #9ca3af);font-weight:700;">+${more} more</div>`;
         var balLine = "";
