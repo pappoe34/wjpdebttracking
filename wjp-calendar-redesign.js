@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.18 — dark-mode palette: brighter note chip, badge, modal, Email label colors for contrast on dark bg.
+/* wjp-calendar-redesign.js v6.19 — dark-mode fixes: All-filter pill no longer renders white-on-white; Remind me at datetime input theme-aware.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -1091,7 +1091,7 @@
 
     var filterChips = FILTERS.map(function (f) {
       var active = state.filter === f.k;
-      var cs = f.k === "all" ? { color: "var(--ink, #0a0a0a)", bg: "var(--bg-2, rgba(0,0,0,0.06))", border: "var(--border, rgba(0,0,0,0.10))" } : categoryStyle(f.k);
+      var cs = f.k === "all" ? { color: "var(--accent, #1f7a4a)", bg: "var(--bg-2, rgba(0,0,0,0.06))", border: "var(--border, rgba(0,0,0,0.10))" } : categoryStyle(f.k);
       var removeBtn = (!f.builtin) ? `<span data-cal-remove-cat="${escapeHTML(f.k)}" title="Remove category" style="margin-left:2px;font-weight:800;cursor:pointer;opacity:.6;">×</span>` : "";
       return `<button type="button" data-cal-filter="${f.k}"
         style="border:1px solid ${active ? cs.color : cs.border};background:${active ? cs.color : cs.bg};color:${active ? "#fff" : cs.color};padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:-0.005em;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;">
@@ -1198,7 +1198,7 @@
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
           <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-dim, #6b7280);font-weight:600;">
             Remind me at:
-            <input type="datetime-local" data-cal-reminder value="${reminderVal}" style="border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px;">
+            <input type="datetime-local" data-cal-reminder value="${reminderVal}" style="border:1px solid var(--border, rgba(0,0,0,0.12));border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px;background:var(--card, #fff);color:var(--ink, #0a0a0a);color-scheme:light dark;">
           </label>
           <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim, #6b7280);font-weight:600;cursor:pointer;">
             <input type="checkbox" data-cal-email-me${note && note.emailMe ? " checked" : ""} style="accent-color:#1f7a4a;width:14px;height:14px;">
