@@ -1,4 +1,4 @@
-/* wjp-calendar-enhancements.js v10 — MutationObserver remount (no flicker). */
+/* wjp-calendar-enhancements.js v11 — preserve AI Coach details open state across remounts. */
 (function () {
   'use strict';
   if (window._wjpCalEnhInstalled) return;
@@ -6,6 +6,7 @@
   if (location.pathname && location.pathname !== '/' && !/index\.html?$/.test(location.pathname)) return;
 
   var FOOTER_ID = 'wjp-cal-day-tools';
+  var FOOTER_OPEN = false; // remembered across remounts so host re-renders don't collapse the user's open state
 
   function getAppState() { try { return (typeof appState !== 'undefined') ? appState : null; } catch (e) { return null; } }
   function fmtUSD(n) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0); }
@@ -358,7 +359,7 @@
       footer.id = FOOTER_ID;
       footer.style.cssText = 'margin-top:14px;padding-top:14px;border-top:1px solid var(--border,rgba(0,0,0,0.06));';
       footer.innerHTML =
-        '<details style="border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;background:rgba(167,139,250,0.04);">' +
+        '<details' + (FOOTER_OPEN ? ' open' : '') + ' style="border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;background:rgba(167,139,250,0.04);">' +
         '<summary style="cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;color:#a78bfa;outline:none;">' +
         '<div style="width:24px;height:24px;border-radius:6px;background:rgba(167,139,250,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-robot" style="font-size:13px;color:#a78bfa;"></i></div>' +
         '<div style="flex:1;text-align:left;">Ask AI Coach about this day</div>' +
@@ -372,6 +373,15 @@
         '</div>' +
         '</details>';
       panel.appendChild(footer);
+
+      // Track open/closed across remounts so MutationObserver-driven rebuilds
+      // don't collapse the panel the user just opened.
+      var detailsEl = footer.querySelector('details');
+      if (detailsEl) {
+        detailsEl.addEventListener('toggle', function () {
+          FOOTER_OPEN = detailsEl.open;
+        });
+      }
 
       var events = recurringForDay(date);
       footer.querySelectorAll('.wjp-cal-tools-q').forEach(function (btn) {
