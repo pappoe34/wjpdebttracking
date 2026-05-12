@@ -1,4 +1,4 @@
-/* wjp-budgets-fix.js v3 — Post Office >$50 = Bill Payment (money order), not Shipping
+/* wjp-budgets-fix.js v4 — also patch Debts-page Spending + Expense Categories widgets for consistency
  *
  * The host renderBudgetStatsRow / renderExpenseLegend / renderExpenseDistribution
  * count EVERY negative transaction as "spending", including Zelle, internal
@@ -192,6 +192,60 @@
     }
   }
 
+  // v4: Debts page has its own Spending This Month + Expense Categories
+  // widgets driven by inline render code (not its own function). Patch the DOM
+  // directly so the Debts page numbers match Budgets.
+  function patchDebtsPageWidgets() {
+    var page = document.getElementById('page-debts');
+    if (!page || page.offsetHeight === 0) return;
+    var spend = realMonthSpend();
+    var entries = Object.entries(spend.byCat).sort(function (a, b) { return b[1] - a[1]; });
+    var PALETTE = ['#00d4a8','#667eea','#ff4d6d','#ffab40','#a78bfa','#22d3ee','#f472b6','#84cc16'];
+
+    // Spending This Month total + sub
+    var totalEl = document.getElementById('debts-spending-month-total');
+    var subEl   = document.getElementById('debts-spending-month-sub');
+    if (totalEl) totalEl.textContent = '$' + Math.round(spend.total).toLocaleString();
+    if (subEl) {
+      // Count txns that contribute to spend (already transfer-filtered)
+      var s = getState() || {};
+      var monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+      var spendTxns = (s.transactions || []).filter(function (t) {
+        if (!t || t.synthetic) return false;
+        var amt = Number(t.amount) || 0;
+        if (amt >= 0) return false;
+        if (new Date(t.date) < monthStart) return false;
+        if (isTransfer(t)) return false;
+        return true;
+      });
+      subEl.textContent = spendTxns.length + ' transaction' + (spendTxns.length === 1 ? '' : 's') + ' this month (transfers excluded)';
+    }
+
+    // Donut total
+    var donutTotalEl = document.getElementById('debts-donut-total');
+    if (donutTotalEl) {
+      donutTotalEl.textContent = spend.total >= 1000
+        ? '$' + (spend.total / 1000).toFixed(1) + 'k'
+        : '$' + Math.round(spend.total);
+    }
+
+    // Legend
+    var legendEl = document.getElementById('debts-expense-legend');
+    if (legendEl) {
+      if (!entries.length) {
+        legendEl.innerHTML = '<div class="legend-item" style="font-size:11px;color:var(--text-3);">No transactions yet — add one to see your category breakdown.</div>';
+      } else {
+        legendEl.innerHTML = entries.slice(0, 10).map(function (kv, i) {
+          var cat = kv[0]; var val = kv[1];
+          var pct = spend.total > 0 ? Math.round((val / spend.total) * 100) : 0;
+          var color = PALETTE[i % PALETTE.length];
+          var safeCat = String(cat).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+          return '<div class="legend-item"><div class="legend-dot" style="background:' + color + '"></div> ' + safeCat + ' <span style="margin-left:auto;font-weight:700">' + pct + '%</span></div>';
+        }).join('');
+      }
+    }
+  }
+
   function install() {
     if (typeof window.renderBudgetStatsRow === 'function') {
       window._wjpHostBudgetStatsRow = window._wjpHostBudgetStatsRow || window.renderBudgetStatsRow;
@@ -226,9 +280,11 @@
   setInterval(function () {
     try {
       var p = document.getElementById('page-budgets');
-      if (!p || p.offsetHeight === 0) return; // only when budgets page visible
-      fixedBudgetStatsRow();
-      fixedExpenseRender();
+      if (p && p.offsetHeight > 0) {
+        fixedBudgetStatsRow();
+        fixedExpenseRender();
+      }
+      patchDebtsPageWidgets();
     } catch (_) {}
   }, 5000);
 
