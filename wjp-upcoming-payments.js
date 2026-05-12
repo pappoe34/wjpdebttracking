@@ -1,4 +1,4 @@
-/* wjp-upcoming-payments.js v1 — replace host renderUpcomingList with clean version
+/* wjp-upcoming-payments.js v2 — show Looks Unused + Possible Match hints from payment-detector
  *
  * Fixes: dedupe debts vs "(min payment)" recurring entries, prioritize recurring's
  * nextDate over debt's day-of-month, show payment status (overdue / today / soon / scheduled),
@@ -94,7 +94,9 @@
         apr: d.apr,
         dueDate: dueDate,
         daysUntil: daysBetween(dueDate, now),
-        source: source
+        source: source,
+        looksUnused: rec && rec.looksUnused,
+        lastPossibleMatch: rec && rec.lastPossibleMatch
       });
     });
 
@@ -111,7 +113,9 @@
         apr: 0,
         dueDate: dueDate,
         daysUntil: daysBetween(dueDate, now),
-        category: r.category
+        category: r.category,
+        looksUnused: r.looksUnused,
+        lastPossibleMatch: r.lastPossibleMatch
       });
     });
 
@@ -196,6 +200,12 @@
         + '<div style="flex:1;min-width:0;">'
         +   '<div style="font-size:12.5px;font-weight:700;color:var(--text-1,#0a0a0a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(item.name) + '</div>'
         +   '<div style="font-size:10.5px;color:var(--text-3,#94a3b8);font-weight:600;margin-top:1px;">' + daysCopy(item.daysUntil) + ' · ' + fmtDate(item.dueDate) + apr + '</div>'
+        + (item.looksUnused
+            ? '<div style="font-size:10px;color:#94a3b8;font-weight:600;margin-top:3px;background:rgba(148,163,184,0.10);padding:2px 6px;border-radius:4px;display:inline-block;"><i class="ph-fill ph-question" style="font-size:10px;"></i> Looks unused — no Plaid match in 60+ days. Delete from Recurring tab if not a real bill.</div>'
+            : '')
+        + (item.lastPossibleMatch
+            ? '<div style="font-size:10px;color:#0891b2;font-weight:600;margin-top:3px;background:rgba(8,145,178,0.10);padding:2px 6px;border-radius:4px;display:inline-block;"><i class="ph-fill ph-magnifying-glass" style="font-size:10px;"></i> Possible match: ' + escapeHTML(item.lastPossibleMatch.merchant) + ' ($' + Math.round(item.lastPossibleMatch.amount) + ' on ' + item.lastPossibleMatch.date + ')</div>'
+            : '')
         + '</div>'
         + '<div style="text-align:right;flex-shrink:0;">'
         +   '<div style="font-size:13px;font-weight:800;color:var(--text-1,#0a0a0a);">' + fmtUSD(item.amount) + '</div>'
