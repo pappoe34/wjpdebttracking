@@ -61,18 +61,9 @@
     } catch (_) {}
   }
 
-  // Intercept future setItem to block writes to ALWAYS_KILL keys
+  // Block-only setItem (mirror version is installSetItemMirror below)
   function installSetItemBlock() {
-    try {
-      var origSet = localStorage.setItem.bind(localStorage);
-      localStorage.setItem = function (key, value) {
-        if (ALWAYS_KILL.indexOf(key) !== -1) {
-          try { console.warn('[wjp-storage-hygiene] Blocked write to security-risk key: ' + key); } catch (_) {}
-          return; // silently no-op
-        }
-        return origSet(key, value);
-      };
-    } catch (_) {}
+    installSetItemMirror();
   }
 
   // ── Migrate legacy bare keys to user-scoped on signin ───────────────────
@@ -147,9 +138,12 @@
     return true;
   }
 
-  // One-time migration: if bare wjp_budget_state has data and the user is
-  // signed in but the user-scoped key is empty, copy bare → scoped, then
-  // remove bare so the next user doesn't see it.
+  // Migration: keep bare wjp_budget_state IN SYNC with the user-scoped key.
+  // Previously deleted bare after migrating, but app.js's loadState runs
+  // BEFORE our wrap installs on every page load — so it read bare (empty)
+  // and the user got default state. Now we keep both keys live for the
+  // signed-in user, and clear bare ONLY on signout so the next user doesn't
+  // see prior user's data.
   function migrateBudgetStateToScope() {
     try {
       var uid = null;
@@ -159,12 +153,41 @@
       var scopedKey = 'wjp_budget_state_u_' + uid;
       var bare = localStorage.getItem(bareKey);
       var scoped = localStorage.getItem(scopedKey);
+      // If scoped exists but bare is empty (because earlier migration deleted
+      // it), restore bare from scoped so app.js's loadState finds data on
+      // the next load.
+      if (scoped !== null && bare === null) {
+        localStorage.setItem(bareKey, scoped);
+        try { console.log('[wjp-storage-hygiene] Restored bare wjp_budget_state from ' + scopedKey); } catch (_) {}
+        return;
+      }
+      // Normal case: bare has data, scoped is empty → copy bare into scoped.
       if (bare !== null && scoped === null) {
         localStorage.setItem(scopedKey, bare);
-        try { console.log('[wjp-storage-hygiene] Migrated bare wjp_budget_state → ' + scopedKey); } catch (_) {}
+        try { console.log('[wjp-storage-hygiene] Mirrored bare → ' + scopedKey); } catch (_) {}
       }
-      // Always remove the bare key — the wrap ensures future writes go to scoped
-      if (bare !== null) localStorage.removeItem(bareKey);
+    } catch (_) {}
+  }
+
+  // Mirror saveState writes to BOTH keys (scoped + bare) so bare stays
+  // fresh for the next loadState() call. Bare gets wiped on signout only.
+  function installSetItemMirror() {
+    try {
+      if (localStorage.setItem.__wjpMirroring) return;
+      var origSet = localStorage.setItem.bind(localStorage);
+      var newSet = function (key, value) {
+        if (ALWAYS_KILL.indexOf(key) !== -1) {
+          try { console.warn('[wjp-storage-hygiene] Blocked write to security-risk key: ' + key); } catch (_) {}
+          return;
+        }
+        // Mirror scoped budget state writes → bare so next loadState finds it
+        if (/^wjp_budget_state_u_/.test(key)) {
+          try { origSet('wjp_budget_state', value); } catch (_) {}
+        }
+        return origSet(key, value);
+      };
+      newSet.__wjpMirroring = true;
+      localStorage.setItem = newSet;
     } catch (_) {}
   }
 
