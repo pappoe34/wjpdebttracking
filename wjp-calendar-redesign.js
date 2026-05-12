@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.13 — preserve typing: skip rerender when day-panel input is focused, autosave note on type.
+/* wjp-calendar-redesign.js v6.14 — note save split-brain fix: route setNote through WJP_Notes when present so v2 store stays in sync with v1.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -121,6 +121,33 @@
   function saveStartBalance(v) { try { localStorage.setItem(LS_BALANCE, String(v)); } catch (_) {} }
 
   function setNote(date, text, reminderAt) {
+    // v6.14: When the Notes tab module (WJP_Notes) is loaded it owns the
+    // canonical store (wjp.notes.v2). loadNotes() prefers that store, so if
+    // we only write to wjp.cal.notes.v1 here, the panel rerender reads v2
+    // (empty) and the user's note appears to vanish. Route through the
+    // public API when available — it auto-syncs v1 for back-compat readers.
+    var hasNotesApi = !!(window.WJP_Notes && typeof window.WJP_Notes.upsert === "function" && typeof window.WJP_Notes.delete === "function");
+    if (hasNotesApi) {
+      var id = "cal-" + date;
+      if (!text && !reminderAt) {
+        try { window.WJP_Notes.delete(id); } catch (_) {}
+      } else {
+        try {
+          window.WJP_Notes.upsert({
+            id: id,
+            title: "",
+            body: text || "",
+            pinnedDate: date,
+            reminderAt: reminderAt || null,
+            fired: false,
+            archived: false,
+            source: "calendar"
+          });
+        } catch (_) {}
+      }
+      return;
+    }
+    // Fallback (Notes tab not present): write to v1 directly.
     var o = loadNotes();
     if (!text && !reminderAt) delete o[date];
     else o[date] = { text: text || "", reminderAt: reminderAt || null, fired: false };
