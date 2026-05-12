@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.12 — income from Plaid + recurringPayments nextDate (no projection).
+/* wjp-calendar-redesign.js v6.13 — preserve typing: skip rerender when day-panel input is focused, autosave note on type.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -1368,6 +1368,23 @@
     var close = root.querySelector("[data-cal-close]");
     if (close) close.addEventListener("click", function () { state.selectedDate = null; rerender(host); });
 
+    // v6.13: autosave the note as the user types (debounced 600ms).
+    // Saved silently to state — no toast, no rerender. The explicit Save
+    // button still fires the toast + rerender + reminder permission flow.
+    var noteTA = root.querySelector("[data-cal-note]");
+    if (noteTA) {
+      var _saveTimer = null;
+      noteTA.addEventListener("input", function () {
+        if (_saveTimer) clearTimeout(_saveTimer);
+        _saveTimer = setTimeout(function () {
+          try {
+            var existing = (loadNotes() || {})[state.selectedDate] || {};
+            setNote(state.selectedDate, noteTA.value, existing.reminderAt || null);
+          } catch (_e2) {}
+        }, 600);
+      });
+    }
+
     // Save note
     var save = root.querySelector("[data-cal-save]");
     if (save) save.addEventListener("click", function () {
@@ -1436,6 +1453,18 @@
   // ============================================================
   function rerender(host) {
     if (!host) return;
+
+    // v6.13: Never yank the page out from under a user who is typing.
+    // If focus is inside the day-panel textarea/input, defer this rerender
+    // — the next 4s tick will pick up where we left off.
+    try {
+      var active = document.activeElement;
+      if (active && active.closest && active.closest('#wjp-cal-day-panel')) {
+        var tag = (active.tagName || '').toLowerCase();
+        if (tag === 'textarea' || tag === 'input') return;
+      }
+    } catch (_e1) {}
+
     var events = harvestEvents();
     var root = document.getElementById(ROOT_ID);
     if (!root) {
