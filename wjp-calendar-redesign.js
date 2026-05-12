@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.10 — recurring income projected forward only.
+/* wjp-calendar-redesign.js v6.11 — income strictly from Plaid.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -515,106 +515,9 @@
       });
     });
 
-    // === INCOME projected across the WHOLE window (past + future) ===
-    // Weekly/biweekly paychecks need to appear on every payday in the visible
-    // window, not just one forward forecast. We step out from the anchor
-    // nextDate both directions using the rp's frequency, and dedup against
-    // real Plaid income transactions (same merchant fuzzy + amount within ±$5
-    // within ±3 days) so the actual May 8 FreshRealm paycheck doesn't double.
-    function stepDays(freq) {
-      var f = (freq || "monthly").toLowerCase();
-      if (f === "weekly") return 7;
-      if (f === "biweekly" || f === "fortnightly") return 14;
-      if (f === "semimonthly") return 15;
-      if (f === "quarterly") return null; // handle separately (month-based)
-      if (f === "annually" || f === "yearly") return null;
-      return null; // monthly default — month-based stepping
-    }
-    function addCycles(d, freq, n) {
-      var f = (freq || "monthly").toLowerCase();
-      var nd = new Date(d);
-      var stepD = stepDays(f);
-      if (stepD) { nd.setDate(nd.getDate() + stepD * n); return nd; }
-      if (f === "quarterly") { nd.setMonth(nd.getMonth() + 3 * n); return nd; }
-      if (f === "annually" || f === "yearly") { nd.setFullYear(nd.getFullYear() + n); return nd; }
-      nd.setMonth(nd.getMonth() + n); return nd; // monthly
-    }
-
-    // Build a set of (fuzzyMerchant, amount±$5, dayMs) from existing Plaid
-    // income events that we've already pushed, for dedup.
-    var plaidIncome = events.filter(function (e) { return e.source === "plaid" && e.isInflow === true; });
-
-    (raw.recurringPayments || []).forEach(function (rp) {
-      if (!rp || !rp.nextDate || rp.amount == null) return;
-      var isInflow = !!rp.linkedIncome || (rp.category === "income");
-      if (!isInflow) return;
-      var anchor = new Date(String(rp.nextDate).slice(0, 10) + "T12:00:00");
-      if (isNaN(anchor.getTime())) return;
-      var amt = Math.abs(rp.amount);
-      var fuzzyName = (rp.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 2).join(" ");
-
-      // v6.10: forward-only projection. Backward-projecting weekly income
-      // into the past beyond the entry's nextDate is extrapolation that
-      // doesn't reflect what the user entered. We show income on its
-      // actual nextDate (even if past) + each forward cycle within the
-      // visible window. The user (or the host materializer) advances
-      // nextDate as cycles complete.
-      var seen = {};
-      function pushCycle(dt) {
-        var t = dt.getTime();
-        if (t < minMs || t > maxMs) return false;
-        var iso = dt.toISOString().slice(0, 10);
-        if (seen[iso]) return true;
-        seen[iso] = true;
-
-        // Dedup against Plaid income on the same date ±3 days within ±5 amount
-        var hasPlaid = plaidIncome.some(function (p) {
-          var pt = new Date(p.date + "T12:00:00").getTime();
-          if (Math.abs(pt - t) > 3 * 24 * 3600 * 1000) return false;
-          if (Math.abs(p.amount - amt) > 5) return false;
-          var pn = (p.merchant || p.name || "").toLowerCase();
-          // Loose match: first 2 fuzzy words of rp appear anywhere in plaid merchant
-          var first = fuzzyName.split(" ")[0];
-          if (!first) return false;
-          return pn.indexOf(first) >= 0;
-        });
-        if (hasPlaid) return true;
-
-        var ovKey = iso + "|" + (rp.name || "");
-        var date = ovDate[ovKey] || iso;
-        events.push({
-          id: "rpi:" + (rp.id || "") + ":" + iso,
-          date: date,
-          origDate: iso,
-          name: rp.name || "Income",
-          merchant: rp.name || "",
-          amount: amt,
-          signedAmount: amt,
-          isInflow: true,
-          category: rp.category || "income",
-          rawCategory: rp.category || "income",
-          source: "recurring",
-          type: rp.frequency || "recurring",
-          status: "",
-          moved: !!ovDate[ovKey],
-          ovKey: ovKey,
-          linkedDebtId: null,
-          isIncome: true
-        });
-        return true;
-      }
-
-      // Push the entry's own nextDate first (so past-dated income shows
-      // on the date the user entered), then walk forward by cycles.
-      pushCycle(anchor);
-      var n = 1;
-      while (n < 120) {
-        var d2 = addCycles(anchor, rp.frequency, n);
-        if (d2.getTime() > maxMs) break;
-        pushCycle(d2);
-        n++;
-      }
-    });
+    // v6.11: income projection removed per spec — income comes ONLY
+    // from Plaid transactions (real money received). User-managed recurring
+    // income lives on the Recurring Payments tab, not the calendar.
 
     return events;
   }

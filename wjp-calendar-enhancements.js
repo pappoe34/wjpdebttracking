@@ -1,4 +1,4 @@
-/* wjp-calendar-enhancements.js v7 — bubble-phase click delegation. */
+/* wjp-calendar-enhancements.js v8 — bubble-phase click delegation + recurring edit options. */
 (function () {
   'use strict';
   if (window._wjpCalEnhInstalled) return;
@@ -85,26 +85,63 @@
   function openDateEditor(rp) {
     var pop = document.createElement('div');
     pop.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+    var isRecurring = !!(rp.frequency);
     pop.innerHTML =
-      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:12px;padding:16px;min-width:280px;max-width:340px;">' +
+      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:12px;padding:18px;min-width:300px;max-width:380px;">' +
       '<div style="font-size:10px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;margin-bottom:6px;">EDIT DUE DATE</div>' +
-      '<div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-bottom:10px;">' + escHtml(rp.name) + '</div>' +
+      '<div style="font-size:14px;font-weight:800;color:var(--ink,#0a0a0a);margin-bottom:4px;">' + escHtml(rp.name) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-dim,#94a3b8);font-weight:600;margin-bottom:12px;">' + (isRecurring ? (rp.frequency + ' recurring') : 'one-time') + '</div>' +
+      '<label style="display:block;font-size:10px;color:var(--ink-dim,#94a3b8);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:4px;">New date</label>' +
       '<input type="date" id="wjp-cal-date-inp" value="' + (rp.nextDate ? String(rp.nextDate).slice(0, 10) : '') + '" style="width:100%;padding:9px 11px;border:1px solid var(--border,rgba(0,0,0,0.15));border-radius:6px;font-family:inherit;font-size:13px;color:var(--ink,#0a0a0a);background:var(--card,#fff);">' +
-      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">' +
-      '<button id="wjp-cal-date-cancel" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>' +
-      '<button id="wjp-cal-date-save" type="button" style="background:var(--accent,#22c55e);color:#fff;border:0;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Save</button>' +
+      (isRecurring
+        ? '<fieldset style="border:0;padding:0;margin:12px 0 0;"><legend style="font-size:10px;color:var(--ink-dim,#94a3b8);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:0;margin-bottom:6px;">Apply to</legend>' +
+          '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink,#0a0a0a);padding:6px 0;cursor:pointer;"><input type="radio" name="wjp-cal-scope" value="this" checked style="accent-color:#22c55e;"> Just this occurrence</label>' +
+          '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink,#0a0a0a);padding:6px 0;cursor:pointer;"><input type="radio" name="wjp-cal-scope" value="series" style="accent-color:#22c55e;"> This and all future (move the series)</label>' +
+          '</fieldset>'
+        : '<div style="font-size:11px;color:var(--ink-dim,#94a3b8);margin-top:8px;line-height:1.5;">This is a one-time entry. Saving will change the due date.</div>') +
+      '<div style="display:flex;gap:8px;margin-top:14px;justify-content:space-between;align-items:center;flex-wrap:wrap;">' +
+      '<button id="wjp-cal-date-delete" type="button" style="background:transparent;color:#ef4444;border:1px solid #ef4444;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Delete</button>' +
+      '<div style="display:flex;gap:8px;"><button id="wjp-cal-date-cancel" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>' +
+      '<button id="wjp-cal-date-save" type="button" style="background:var(--accent,#22c55e);color:#fff;border:0;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Save</button></div>' +
       '</div>' +
       '</div>';
     document.body.appendChild(pop);
     pop.addEventListener('click', function (e) { if (e.target === pop) pop.remove(); });
     pop.querySelector('#wjp-cal-date-cancel').onclick = function () { pop.remove(); };
+
+    pop.querySelector('#wjp-cal-date-delete').onclick = function () {
+      if (!confirm('Delete ' + rp.name + '? This removes the recurring entry from your bill list.')) return;
+      try {
+        var s = getAppState();
+        if (s && Array.isArray(s.recurringPayments)) {
+          s.recurringPayments = s.recurringPayments.filter(function (r) { return r && r.id !== rp.id; });
+          if (typeof window.saveState === 'function') window.saveState();
+        }
+      } catch (e) {}
+      pop.remove();
+      showToast(rp.name + ' deleted.', 'ok');
+    };
+
     pop.querySelector('#wjp-cal-date-save').onclick = function () {
       var newDate = pop.querySelector('#wjp-cal-date-inp').value;
       if (!newDate) { showToast('Pick a date first.', 'err'); return; }
-      rp.nextDate = newDate;
-      try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
+      var scopeRadio = pop.querySelector('input[name="wjp-cal-scope"]:checked');
+      var scope = scopeRadio ? scopeRadio.value : 'series';
+      try {
+        var s = getAppState();
+        if (scope === 'this' && isRecurring) {
+          // Add a per-date override on the recurring entry. Don't move the series.
+          rp.dateOverrides = rp.dateOverrides || {};
+          rp.dateOverrides[String(rp.nextDate).slice(0, 10)] = newDate;
+        } else {
+          // Move the whole series — change nextDate (anchor)
+          rp.nextDate = newDate;
+        }
+        if (typeof window.saveState === 'function') window.saveState();
+      } catch (e) {}
       pop.remove();
-      showToast(rp.name + ' moved to ' + new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 'ok');
+      var prettyDate = new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      showToast(rp.name + ' (' + (scope === 'this' ? 'this occurrence' : 'series') + ') -> ' + prettyDate, 'ok');
     };
   }
 
