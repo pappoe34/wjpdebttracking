@@ -65,43 +65,65 @@
   }
 
   // ── Per-event action dialog ─────────────────────────────────────────
-  function openEventDialog(rp) {
+  function openEventDialog(hit) {
     var dialog = document.createElement('div');
     dialog.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+    var name = hit.name;
+    var subtitle = '';
+    var actionsHTML = '';
+    if (hit.kind === 'recurring' && hit.rp) {
+      var rp = hit.rp;
+      subtitle = fmtUSD(Math.abs(rp.amount)) + ' . ' + (rp.frequency || 'monthly') + ' . next due ' + (rp.nextDate || 'unset');
+      actionsHTML =
+        '<button id="wjp-cal-evt-edit" type="button" style="background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid #22c55e;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Edit due date<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Change when this bill is due</span></button>' +
+        '<button id="wjp-cal-evt-scan" type="button" style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Scan statement<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">OCR confirms payment</span></button>' +
+        '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this bill<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Pay history, suggestions, tips</span></button>';
+    } else if (hit.kind === 'plaid') {
+      var tx = hit.tx;
+      subtitle = tx ? ((tx.method || 'Plaid') + ' . ' + tx.date) : 'Plaid transaction (historical)';
+      actionsHTML =
+        '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this transaction<span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Is it normal? Any pattern?</span></button>' +
+        '<div style="padding:8px 12px;background:var(--card-2,rgba(255,255,255,0.04));border-radius:8px;font-size:11px;color:var(--ink-dim,#94a3b8);line-height:1.5;">Historical Plaid records cant be edited. To change the category, click the colored pill on the event row.</div>';
+    } else {
+      subtitle = 'Event details';
+      actionsHTML = '<button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">Ask AI Coach about this event</button>';
+    }
     dialog.innerHTML =
-      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:14px;padding:18px 20px;max-width:380px;width:100%;">'
-    + '  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-    + '    <div>'
-    + '      <div style="font-size:9px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">EVENT ACTIONS</div>'
-    + '      <div style="font-size:15px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">' + escHtml(rp.name) + '</div>'
-    + '      <div style="font-size:11px;color:var(--ink-dim,#94a3b8);font-weight:600;margin-top:2px;">' + fmtUSD(Math.abs(rp.amount)) + ' · ' + (rp.frequency || 'monthly') + ' · next due ' + (rp.nextDate || 'unset') + '</div>'
-    + '    </div>'
-    + '    <button id="wjp-cal-evt-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1;">×</button>'
-    + '  </div>'
-    + '  <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">'
-    + '    <button id="wjp-cal-evt-edit" type="button" style="background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid #22c55e;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">'
-    + '      ✎ Edit due date'
-    + '      <span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Change when this bill is due</span>'
-    + '    </button>'
-    + '    <button id="wjp-cal-evt-scan" type="button" style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid #a78bfa;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">'
-    + '      📄 Scan statement / receipt'
-    + '      <span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Upload an image — we\\'ll mark it paid if confirmed</span>'
-    + '    </button>'
-    + '    <button id="wjp-cal-evt-ask" type="button" style="background:transparent;color:var(--ink-dim,#6b7280);border:1px solid var(--border,rgba(0,0,0,0.15));padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">'
-    + '      💬 Ask AI Coach about this bill'
-    + '      <span style="display:block;font-size:10.5px;font-weight:600;color:var(--ink-dim,#94a3b8);margin-top:2px;">Pay history, suggestions, payoff tips</span>'
-    + '    </button>'
-    + '  </div>'
-    + '</div>';
+      '<div style="background:var(--card,#fff);border:1px solid var(--accent,#22c55e);border-radius:14px;padding:18px 20px;max-width:380px;width:100%;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div>' +
+      '<div style="font-size:9px;color:var(--accent,#22c55e);font-weight:800;letter-spacing:0.10em;text-transform:uppercase;">EVENT ACTIONS</div>' +
+      '<div style="font-size:15px;font-weight:800;color:var(--ink,#0a0a0a);margin-top:2px;">' + escHtml(name) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-dim,#94a3b8);font-weight:600;margin-top:2px;">' + escHtml(subtitle) + '</div>' +
+      '</div>' +
+      '<button id="wjp-cal-evt-close" style="background:transparent;border:0;font-size:22px;color:var(--ink-dim,#94a3b8);cursor:pointer;line-height:1;">x</button>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">' + actionsHTML + '</div>' +
+      '</div>';
     document.body.appendChild(dialog);
     dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.remove(); });
     dialog.querySelector('#wjp-cal-evt-close').onclick = function () { dialog.remove(); };
-    dialog.querySelector('#wjp-cal-evt-edit').onclick = function () { dialog.remove(); openDateEditor(rp); };
-    dialog.querySelector('#wjp-cal-evt-scan').onclick = function () { dialog.remove(); openStatementScanner(rp); };
-    dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
-      dialog.remove();
-      askCoach('Tell me about my "' + rp.name + '" bill (' + fmtUSD(Math.abs(rp.amount)) + ' · ' + (rp.frequency || 'monthly') + ' · next due ' + (rp.nextDate || 'unset') + '). Have I been paying it on time based on my Plaid data? Suggest any improvements.');
-    };
+    if (hit.kind === 'recurring' && hit.rp) {
+      var rp2 = hit.rp;
+      dialog.querySelector('#wjp-cal-evt-edit').onclick = function () { dialog.remove(); openDateEditor(rp2); };
+      dialog.querySelector('#wjp-cal-evt-scan').onclick = function () { dialog.remove(); openStatementScanner(rp2); };
+      dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
+        dialog.remove();
+        askCoach('Tell me about my "' + rp2.name + '" bill (' + fmtUSD(Math.abs(rp2.amount)) + ' . ' + (rp2.frequency || 'monthly') + ' . next due ' + (rp2.nextDate || 'unset') + '). Have I been paying it on time based on my Plaid data? Suggest any improvements.');
+      };
+    } else if (hit.kind === 'plaid') {
+      var tx2 = hit.tx;
+      dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
+        dialog.remove();
+        var amt = tx2 ? Math.abs(parseFloat(tx2.amount)) : 0;
+        askCoach('Tell me about my transaction "' + name + '" (' + (tx2 ? fmtUSD(amt) + ' on ' + tx2.date : 'Plaid record') + '). Is this normal for me? Any pattern I should know about?');
+      };
+    } else {
+      dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
+        dialog.remove();
+        askCoach('Tell me about the event "' + name + '" on my calendar on ' + hit.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '.');
+      };
+    }
   }
 
   function openDateEditor(rp) {
