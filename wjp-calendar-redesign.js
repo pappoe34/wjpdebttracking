@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.17 — reminder fires an in-app modal with OK + Email options; per-note Email me toggle.
+/* wjp-calendar-redesign.js v6.18 — dark-mode palette: brighter note chip, badge, modal, Email label colors for contrast on dark bg.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -877,40 +877,47 @@
       </button>
     </div>`;
   }
+  // v6.18: Per-state palette for note widgets. Brighter colors when the app
+  // is in dark mode so chips / badges / modal headers stay legible.
+  function isDarkMode() {
+    try { return document.body && document.body.classList && document.body.classList.contains("dark"); }
+    catch (_) { return false; }
+  }
+  function notePalette(state) {
+    var dark = isDarkMode();
+    // state: "reminder" | "plain" | "fired"
+    if (state === "reminder") {
+      return dark
+        ? { ink: "#fbbf24", inkSoft: "#fde68a", bg: "rgba(245,158,11,0.22)", bgSoft: "rgba(245,158,11,0.14)", border: "#f59e0b", icon: "ph-fill ph-bell-ringing", label: "Reminder set" }
+        : { ink: "#a16207", inkSoft: "#a16207", bg: "rgba(245,158,11,0.18)", bgSoft: "rgba(245,158,11,0.10)", border: "#f59e0b", icon: "ph-fill ph-bell-ringing", label: "Reminder set" };
+    }
+    if (state === "fired") {
+      return dark
+        ? { ink: "#cbd5e1", inkSoft: "#94a3b8", bg: "rgba(148,163,184,0.22)", bgSoft: "rgba(148,163,184,0.14)", border: "#94a3b8", icon: "ph-fill ph-check-circle", label: "Reminder delivered" }
+        : { ink: "#6b7280", inkSoft: "#6b7280", bg: "rgba(148,163,184,0.18)", bgSoft: "rgba(148,163,184,0.10)", border: "#94a3b8", icon: "ph-fill ph-check-circle", label: "Reminder delivered" };
+    }
+    // plain note
+    return dark
+      ? { ink: "#fcd34d", inkSoft: "#fde68a", bg: "rgba(201,154,42,0.24)", bgSoft: "rgba(201,154,42,0.16)", border: "#fbbf24", icon: "ph-fill ph-note-pencil", label: "Note" }
+      : { ink: "#8a6b1f", inkSoft: "#8a6b1f", bg: "rgba(201,154,42,0.18)", bgSoft: "rgba(201,154,42,0.10)", border: "#c99a2a", icon: "ph-fill ph-note-pencil", label: "Note" };
+  }
+  function stateOfNote(note) {
+    if (!note) return "plain";
+    if (note.reminderAt && !note.fired) return "reminder";
+    if (note.fired) return "fired";
+    return "plain";
+  }
+
   // v6.15: Glance-readable note indicator for the calendar grid.
-  // Three states (most prominent → least):
-  //   - reminder set, not yet fired  → orange bell-ringing icon ("active reminder")
-  //   - plain note (no reminder)     → gold sticky-note icon
-  //   - reminder fired or stale      → muted grey check-note icon
-  // Tooltip surfaces the first chunk of the note body so a quick hover gives context.
   function noteBadgeHTML(note, compact) {
     if (!note) return "";
-    var hasReminder = !!note.reminderAt && !note.fired;
-    var fired       = !!note.fired;
-    var iconCls, bg, color, label;
-    if (hasReminder) {
-      iconCls = "ph-fill ph-bell-ringing";
-      bg      = "rgba(245,158,11,0.18)";
-      color   = "#f59e0b";
-      label   = "Reminder set";
-    } else if (fired) {
-      iconCls = "ph-fill ph-check-circle";
-      bg      = "rgba(148,163,184,0.18)";
-      color   = "#94a3b8";
-      label   = "Reminder delivered";
-    } else {
-      iconCls = "ph-fill ph-note-pencil";
-      bg      = "rgba(201,154,42,0.18)";
-      color   = "#c99a2a";
-      label   = "Note";
-    }
+    var p = notePalette(stateOfNote(note));
     var preview = (note.text || "").trim().replace(/\s+/g, " ").slice(0, 90);
-    var tip = preview ? (label + " - " + preview + (preview.length === 90 ? "..." : "")) : label;
+    var tip = preview ? (p.label + " - " + preview + (preview.length === 90 ? "..." : "")) : p.label;
     var sz   = compact ? 14 : 18;
     var fsz  = compact ? 10 : 12;
-    // Use a real escape for the tooltip so apostrophes/<>/& are safe.
     var safeTip = escapeHTML(tip);
-    return '<span class="wjp-cal-note-pin" title="' + safeTip + '" style="display:inline-grid;place-items:center;width:' + sz + 'px;height:' + sz + 'px;border-radius:6px;background:' + bg + ';color:' + color + ';box-shadow:0 1px 2px rgba(0,0,0,0.08);border:1px solid ' + color + ';"><i class="' + iconCls + '" style="font-size:' + fsz + 'px;line-height:1;color:' + color + ';"></i></span>';
+    return '<span class="wjp-cal-note-pin" title="' + safeTip + '" style="display:inline-grid;place-items:center;width:' + sz + 'px;height:' + sz + 'px;border-radius:6px;background:' + p.bg + ';color:' + p.ink + ';box-shadow:0 1px 2px rgba(0,0,0,0.20);border:1px solid ' + p.border + ';"><i class="' + p.icon + '" style="font-size:' + fsz + 'px;line-height:1;color:' + p.ink + ';"></i></span>';
   }
 
   // v6.16: Inline note chip — renders the actual note body inside the cell
@@ -922,22 +929,13 @@
     if (!text && !note.reminderAt) return "";
     var maxLen = compact ? 18 : 38;
     var shown = text ? (text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text) : "(reminder only)";
-    var hasReminder = !!note.reminderAt && !note.fired;
-    var fired       = !!note.fired;
-    var bg, color, iconCls;
-    if (hasReminder) {
-      bg = "rgba(245,158,11,0.10)"; color = "#a16207"; iconCls = "ph-fill ph-bell-ringing";
-    } else if (fired) {
-      bg = "rgba(148,163,184,0.10)"; color = "#6b7280"; iconCls = "ph-fill ph-check-circle";
-    } else {
-      bg = "rgba(201,154,42,0.10)"; color = "#8a6b1f"; iconCls = "ph-fill ph-note-pencil";
-    }
+    var p = notePalette(stateOfNote(note));
     var safeText = escapeHTML(shown);
     var safeFull = escapeHTML(text || (note.reminderAt ? "Reminder" : ""));
     var pad = compact ? "2px 5px" : "3px 7px";
     var fsz = compact ? 8.5 : 10;
     var iconSize = compact ? 9 : 10.5;
-    return '<div title="' + safeFull + '" style="display:flex;align-items:center;gap:4px;padding:' + pad + ';border-radius:5px;background:' + bg + ';border-left:2px solid ' + color + ';margin-top:2px;font-size:' + fsz + 'px;font-weight:700;color:' + color + ';line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="' + iconCls + '" style="font-size:' + iconSize + 'px;flex-shrink:0;"></i><span style="overflow:hidden;text-overflow:ellipsis;">' + safeText + '</span></div>';
+    return '<div title="' + safeFull + '" style="display:flex;align-items:center;gap:4px;padding:' + pad + ';border-radius:5px;background:' + p.bgSoft + ';border-left:2px solid ' + p.border + ';margin-top:2px;font-size:' + fsz + 'px;font-weight:700;color:' + p.ink + ';line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="' + p.icon + '" style="font-size:' + iconSize + 'px;flex-shrink:0;color:' + p.ink + ';"></i><span style="overflow:hidden;text-overflow:ellipsis;">' + safeText + '</span></div>';
   }
 
   // Stub kept so existing call sites (cell HTML) still compile to empty string.
@@ -1204,7 +1202,7 @@
           </label>
           <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim, #6b7280);font-weight:600;cursor:pointer;">
             <input type="checkbox" data-cal-email-me${note && note.emailMe ? " checked" : ""} style="accent-color:#1f7a4a;width:14px;height:14px;">
-            <span style="display:inline-flex;align-items:center;gap:3px;"><i class="ph-fill ph-envelope" style="font-size:11px;color:#6b7280;"></i> Email me too</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;"><i class="ph-fill ph-envelope" style="font-size:11px;color:var(--ink-dim, #6b7280);"></i> Email me too</span>
           </label>
           <button type="button" data-cal-save style="background:#1f7a4a;color:#fff;border:0;padding:7px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Save</button>
           ${note ? `<button type="button" data-cal-delete style="background:transparent;color:#dc2626;border:1px solid rgba(220,38,38,0.30);padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Delete</button>` : ""}
