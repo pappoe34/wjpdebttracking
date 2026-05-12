@@ -1,4 +1,4 @@
-/* wjp-budgets-fix.js v5 — run patches on page-nav clicks + tighter 1.5s polling
+/* wjp-budgets-fix.js v6 — wrap drawCharts() to re-patch after every host render
  *
  * The host renderBudgetStatsRow / renderExpenseLegend / renderExpenseDistribution
  * count EVERY negative transaction as "spending", including Zelle, internal
@@ -247,6 +247,17 @@
   }
 
   function install() {
+    // v6: wrap drawCharts so our Debts-page patch always runs after the host
+    // renders. drawCharts is the host fn that does inline Debts spending math.
+    if (typeof window.drawCharts === 'function' && !window._wjpHostDrawCharts) {
+      window._wjpHostDrawCharts = window.drawCharts;
+      window.drawCharts = function () {
+        var r;
+        try { r = window._wjpHostDrawCharts.apply(this, arguments); } catch (_) {}
+        try { patchDebtsPageWidgets(); } catch (_) {}
+        return r;
+      };
+    }
     if (typeof window.renderBudgetStatsRow === 'function') {
       window._wjpHostBudgetStatsRow = window._wjpHostBudgetStatsRow || window.renderBudgetStatsRow;
       window.renderBudgetStatsRow = function () { try { fixedBudgetStatsRow(); } catch (e) { try { console.warn('[wjp-budgets-fix] stats', e); } catch (_) {} } };
