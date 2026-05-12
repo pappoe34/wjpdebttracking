@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.9 — recurring income projected across the window.
+/* wjp-calendar-redesign.js v6.10 — recurring income projected forward only.
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -553,7 +553,12 @@
       var amt = Math.abs(rp.amount);
       var fuzzyName = (rp.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 2).join(" ");
 
-      // Walk backward then forward within [minMs, maxMs]
+      // v6.10: forward-only projection. Backward-projecting weekly income
+      // into the past beyond the entry's nextDate is extrapolation that
+      // doesn't reflect what the user entered. We show income on its
+      // actual nextDate (even if past) + each forward cycle within the
+      // visible window. The user (or the host materializer) advances
+      // nextDate as cycles complete.
       var seen = {};
       function pushCycle(dt) {
         var t = dt.getTime();
@@ -599,16 +604,10 @@
         return true;
       }
 
-      // Backward from anchor
-      var n = 0;
-      while (n < 120) {
-        var d = addCycles(anchor, rp.frequency, -n);
-        if (d.getTime() < minMs) break;
-        pushCycle(d);
-        n++;
-      }
-      // Forward from anchor (skip n=0 since backward already covered it)
-      n = 1;
+      // Push the entry's own nextDate first (so past-dated income shows
+      // on the date the user entered), then walk forward by cycles.
+      pushCycle(anchor);
+      var n = 1;
       while (n < 120) {
         var d2 = addCycles(anchor, rp.frequency, n);
         if (d2.getTime() > maxMs) break;

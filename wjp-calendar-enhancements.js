@@ -310,20 +310,38 @@
     try {
       var panel = document.getElementById('wjp-cal-day-panel');
       if (!panel || !panel.contains(e.target)) return;
-      // Ignore clicks on existing controls (close button, category pill, picker, save button etc.)
-      var ignore = e.target.closest('[data-cal-close], [data-cal-cat-edit], [data-cal-cat-pick], [data-cal-cat-clear], [data-cal-note], [data-cal-reminder], [data-cal-save], [data-cal-delete], [data-cal-3dot], .wjp-cal-cat-picker, .wjp-cal-tools-q, #' + FOOTER_ID + ', details, summary');
+      // Ignore clicks on existing controls (category badge IS clickable for
+      // the host picker — leave it alone). Footer + note inputs are also ignored.
+      var ignore = e.target.closest('[data-cal-close], [data-cal-cat-edit], [data-cal-cat-pick], [data-cal-cat-clear], [data-cal-note], [data-cal-reminder], [data-cal-save], [data-cal-delete], [data-cal-3dot], .wjp-cal-cat-picker, #' + FOOTER_ID);
       if (ignore) return;
-      // Find the event row that the click landed in
-      var row = e.target.closest('[style*="border-radius:8px"]');
-      if (!row || !panel.contains(row)) return;
-      // Ensure this is an event row inside the panel (has the inner structure)
-      if (!row.querySelector('span[style*="font-weight:700"]')) return;
+      // Walk up from the click target to find the containing event row.
+      // Each event row has a category badge ([data-cal-cat-edit]) as a child,
+      // so we look for the nearest ancestor that contains one.
+      var node = e.target;
+      var row = null;
+      while (node && node !== panel) {
+        if (node.nodeType === 1 && node.querySelector && node.querySelector(':scope > div [data-cal-cat-edit], :scope > [data-cal-cat-edit]')) {
+          row = node; break;
+        }
+        node = node.parentNode;
+      }
+      // Fallback: any ancestor that contains a data-cal-cat-edit descendant
+      if (!row) {
+        node = e.target;
+        while (node && node !== panel) {
+          if (node.nodeType === 1 && node.querySelector && node.querySelector('[data-cal-cat-edit]')) {
+            row = node; break;
+          }
+          node = node.parentNode;
+        }
+      }
+      if (!row) return;
       var date = parseDayPanelDate();
       if (!date) return;
-      var rp = findEventForRow(row, date);
-      if (!rp) return;
+      var hit = findEventForRow(row, date);
+      if (!hit) return;
       e.stopPropagation();
-      openEventDialog(rp);
+      openEventDialog(hit);
     } catch (_) {}
   }
 
