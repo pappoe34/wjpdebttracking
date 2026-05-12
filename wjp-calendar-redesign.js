@@ -1,4 +1,4 @@
-/* wjp-calendar-redesign.js v6.14 — note save split-brain fix: route setNote through WJP_Notes when present so v2 store stays in sync with v1.
+/* wjp-calendar-redesign.js v6.15 — note grid indicator upgraded to a Phosphor note-icon badge (glance-readable, reminder-state aware).
  *
  * Sources data directly from localStorage.wjp_budget_state — both
  * recurringPayments (scheduled) and transactions (Plaid history). Auto-
@@ -829,6 +829,42 @@
       </button>
     </div>`;
   }
+  // v6.15: Glance-readable note indicator for the calendar grid.
+  // Three states (most prominent → least):
+  //   - reminder set, not yet fired  → orange bell-ringing icon ("active reminder")
+  //   - plain note (no reminder)     → gold sticky-note icon
+  //   - reminder fired or stale      → muted grey check-note icon
+  // Tooltip surfaces the first chunk of the note body so a quick hover gives context.
+  function noteBadgeHTML(note, compact) {
+    if (!note) return "";
+    var hasReminder = !!note.reminderAt && !note.fired;
+    var fired       = !!note.fired;
+    var iconCls, bg, color, label;
+    if (hasReminder) {
+      iconCls = "ph-fill ph-bell-ringing";
+      bg      = "rgba(245,158,11,0.18)";
+      color   = "#f59e0b";
+      label   = "Reminder set";
+    } else if (fired) {
+      iconCls = "ph-fill ph-check-circle";
+      bg      = "rgba(148,163,184,0.18)";
+      color   = "#94a3b8";
+      label   = "Reminder delivered";
+    } else {
+      iconCls = "ph-fill ph-note-pencil";
+      bg      = "rgba(201,154,42,0.18)";
+      color   = "#c99a2a";
+      label   = "Note";
+    }
+    var preview = (note.text || "").trim().replace(/\s+/g, " ").slice(0, 90);
+    var tip = preview ? (label + " - " + preview + (preview.length === 90 ? "..." : "")) : label;
+    var sz   = compact ? 14 : 18;
+    var fsz  = compact ? 10 : 12;
+    // Use a real escape for the tooltip so apostrophes/<>/& are safe.
+    var safeTip = escapeHTML(tip);
+    return '<span class="wjp-cal-note-pin" title="' + safeTip + '" style="display:inline-grid;place-items:center;width:' + sz + 'px;height:' + sz + 'px;border-radius:6px;background:' + bg + ';color:' + color + ';box-shadow:0 1px 2px rgba(0,0,0,0.08);border:1px solid ' + color + ';"><i class="' + iconCls + '" style="font-size:' + fsz + 'px;line-height:1;color:' + color + ';"></i></span>';
+  }
+
   // Stub kept so existing call sites (cell HTML) still compile to empty string.
   function dayMenuHTML(date) { return ""; }
 
@@ -900,7 +936,7 @@
           ? `<span class="wjp-cal-day-num" style="font-size:${compact ? "10px" : "11.5px"};font-weight:700;color:#fff;background:#1f7a4a;width:${compact ? "16px" : "20px"};height:${compact ? "16px" : "20px"};border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">${cell.day}</span>`
           : `<span class="wjp-cal-day-num" style="font-size:${compact ? "10px" : "11.5px"};font-weight:700;color:var(--ink, #0a0a0a);">${cell.day}</span>`;
         var dotsAndTotal = [
-          cell.note ? `<span title="Has note" style="width:5px;height:5px;border-radius:50%;background:#c99a2a;"></span>` : "",
+          noteBadgeHTML(cell.note, compact),
           hasOverdue ? `<span title="Overdue/late" style="width:6px;height:6px;border-radius:50%;background:#dc2626;"></span>` : "",
           (total > 0 && !compact) ? `<span style="font-size:9.5px;color:var(--ink-dim, #6b7280);font-weight:700;">${fmtUSD(total)}</span>` : "",
           !compact ? `<button type="button" class="wjp-cal-day-menu${state.dayMenuFor === cell.date ? " wjp-cal-day-menu-open" : ""}" data-cal-day-menu="${cell.date}" title="Day options" aria-label="Day options">⋮</button>` : ""
