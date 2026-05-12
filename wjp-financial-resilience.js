@@ -1,4 +1,4 @@
-/* wjp-financial-resilience.js v2 — dashboard card for Financial Resilience
+/* wjp-financial-resilience.js v3 — dashboard Resilience card + fix Connect bank button (host used wrong fn name)
  *
  * Shows at-a-glance health score from the user's own state:
  *   - Liquid cash (linked assets, type: checking/savings — investments excluded)
@@ -231,12 +231,32 @@
     }
   }
 
+  // v3: The host's renderLinkedAssets wires Connect bank to openPlaid /
+  // launchPlaid (neither exists). Real function is openPlaidLink. Re-wire it
+  // every tick, with a fallback for when Plaid Link isn't loaded yet.
+  function fixConnectBankBtn() {
+    var btn = document.getElementById('linked-assets-cta-bank');
+    if (!btn) return;
+    if (btn.__wjpRewired) return;
+    btn.__wjpRewired = true;
+    btn.onclick = function () {
+      if (typeof window.openPlaidLink === 'function') {
+        try { window.openPlaidLink(); return; } catch (e) { try { console.warn('[wjp-resilience] openPlaidLink threw', e); } catch (_) {} }
+      }
+      // Fallback: try the Sync Bank header button
+      var sync = document.getElementById('sync-bank-btn') || document.querySelector('[data-sync-bank], [data-plaid-sync]');
+      if (sync) { sync.click(); return; }
+      if (typeof window.showToast === 'function') window.showToast('Plaid Link not loaded yet — try again in a moment.');
+    };
+  }
+
   function tick() {
     var s = getState();
     if (!s) return;
     var dashVisible = document.getElementById('dash-money-left-card') || document.querySelector('.dash-grid');
     if (!dashVisible) return;
     mount();
+    fixConnectBankBtn();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(tick, 1200); });
