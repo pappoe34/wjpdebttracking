@@ -1,4 +1,4 @@
-/* wjp-calendar-enhancements.js v8 — bubble-phase click delegation + recurring edit options. */
+/* wjp-calendar-enhancements.js v9 — diagnostics + openDateEditor exposed on API. */
 (function () {
   'use strict';
   if (window._wjpCalEnhInstalled) return;
@@ -83,6 +83,7 @@
   }
 
   function openDateEditor(rp) {
+    try { console.log('[wjp-cal-enh v9] openDateEditor invoked for', rp && rp.name); } catch (x) {}
     var pop = document.createElement('div');
     pop.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px;';
     var isRecurring = !!(rp.frequency);
@@ -265,7 +266,7 @@
       dialog.querySelector('#wjp-cal-evt-close').onclick = function () { dialog.remove(); };
       if (hit.kind === 'recurring' && hit.rp) {
         var rp2 = hit.rp;
-        dialog.querySelector('#wjp-cal-evt-edit').onclick = function () { dialog.remove(); openDateEditor(rp2); };
+        dialog.querySelector('#wjp-cal-evt-edit').onclick = function () { try { dialog.remove(); openDateEditor(rp2); } catch (err) { try { console.error('[wjp-cal-enh v9] edit onclick threw', err); } catch (x) {} showToast('Edit failed: ' + (err && err.message || 'unknown'), 'err'); } };
         dialog.querySelector('#wjp-cal-evt-scan').onclick = function () { dialog.remove(); openStatementScanner(rp2); };
         dialog.querySelector('#wjp-cal-evt-ask').onclick = function () {
           dialog.remove();
@@ -387,5 +388,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 800); });
   else setTimeout(boot, 800);
 
-  window.WJP_CalendarEnhancements = { mountFooter: mountFooter, openEventDialog: openEventDialog, findEventForRow: findEventForRow };
+  window.WJP_CalendarEnhancements = { mountFooter: mountFooter, openEventDialog: openEventDialog, findEventForRow: findEventForRow, openDateEditor: openDateEditor };
 })();
