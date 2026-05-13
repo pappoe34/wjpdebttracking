@@ -1,4 +1,4 @@
-/* wjp-goals.js v1 — Goals: Plan for a Purchase tab
+/* wjp-goals.js v2 — Goals: Plan for a Purchase tab (fix UserScope.scopeKey)
  *
  * New sidebar tab + page. Lets users define savings goals (emergency fund,
  * down payment, wedding, car, vacation, education, custom). Each goal has:
@@ -18,7 +18,7 @@
   function getState() { try { return appState; } catch (e) { return (window.appState || null); } }
   function isDark() { try { return document.body.classList.contains('dark'); } catch (_) { return false; } }
   function userKey(b) {
-    if (window.WJP_UserScope && typeof window.WJP_UserScope.key === 'function') return window.WJP_UserScope.key(b);
+    if (window.WJP_UserScope && typeof window.WJP_UserScope.scopeKey === 'function') return window.WJP_UserScope.scopeKey(b);
     return b;
   }
   function loadJSON(k, def) { try { var v = localStorage.getItem(userKey(k)); return v ? JSON.parse(v) : def; } catch (_) { return def; } }

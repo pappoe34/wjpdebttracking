@@ -1,4 +1,4 @@
-/* wjp-snapshots.js v1 — daily snapshot engine for progress tracking
+/* wjp-snapshots.js v2 — daily snapshot engine for progress tracking (fix UserScope.scopeKey)
  *
  * Takes a daily snapshot of the user's headline numbers so the Momentum
  * layer can show "you're $X ahead vs 7 days ago" deltas. Without history,
@@ -29,8 +29,8 @@
 
   // ---------- Storage helpers (user-scoped via WJP_UserScope) ----------
   function userKey(base) {
-    if (window.WJP_UserScope && typeof window.WJP_UserScope.key === 'function') {
-      return window.WJP_UserScope.key(base);
+    if (window.WJP_UserScope && typeof window.WJP_UserScope.scopeKey === 'function') {
+      return window.WJP_UserScope.scopeKey(base);
     }
     return base;
   }

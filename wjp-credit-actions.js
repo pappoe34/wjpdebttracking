@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v1 — Credit Fix Action Loop
+/* wjp-credit-actions.js v2 — Credit Fix Action Loop (fix UserScope.scopeKey)
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -19,7 +19,7 @@
 
   function getState() { try { return appState; } catch (e) { return (window.appState || null); } }
   function userKey(b) {
-    if (window.WJP_UserScope && typeof window.WJP_UserScope.key === 'function') return window.WJP_UserScope.key(b);
+    if (window.WJP_UserScope && typeof window.WJP_UserScope.scopeKey === 'function') return window.WJP_UserScope.scopeKey(b);
     return b;
   }
   function loadJSON(k, def) { try { var v = localStorage.getItem(userKey(k)); return v ? JSON.parse(v) : def; } catch (_) { return def; } }
@@ -36,8 +36,8 @@
   function loadCreditInputs() {
     // Try user-scoped first
     try {
-      if (window.WJP_UserScope && typeof window.WJP_UserScope.key === 'function') {
-        var v = localStorage.getItem(window.WJP_UserScope.key('wjp_credit_inputs'));
+      if (window.WJP_UserScope && typeof window.WJP_UserScope.scopeKey === 'function') {
+        var v = localStorage.getItem(window.WJP_UserScope.scopeKey('wjp_credit_inputs'));
         if (v) return JSON.parse(v);
       }
     } catch (_) {}
