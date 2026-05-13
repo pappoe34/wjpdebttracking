@@ -1,4 +1,4 @@
-/* wjp-goals.js v3 — scroll fix, AI Coach per template, % financing option
+/* wjp-goals.js v4 — financePct = down-payment % (was inverted in v3)
  *
  * New sidebar tab + page. Lets users define savings goals (emergency fund,
  * down payment, wedding, car, vacation, education, custom). Each goal has:
@@ -41,9 +41,9 @@
   var TEMPLATES = [
     { key: 'emergency', label: 'Emergency Fund',     icon: 'ph-fill ph-shield-check', color: '#10b981', defaultAmt: 5000,  defaultMo: 6,  financePct: 0,
       coach: 'Aim for 3-6 months of essential expenses. Park it in a high-yield savings account (4-5% APY) so it grows while you sleep — but stays liquid.' },
-    { key: 'house',     label: 'House Down Payment', icon: 'ph-fill ph-house',        color: '#3b82f6', defaultAmt: 30000, defaultMo: 36, financePct: 80,
+    { key: 'house',     label: 'House Down Payment', icon: 'ph-fill ph-house',        color: '#3b82f6', defaultAmt: 30000, defaultMo: 36, financePct: 20,
       coach: 'Conventional loans want 20% down to skip PMI. FHA accepts 3.5%. Plan for down payment + 3% closing costs; the rest is mortgaged.' },
-    { key: 'car',       label: 'Car',                icon: 'ph-fill ph-car',          color: '#f59e0b', defaultAmt: 10000, defaultMo: 18, financePct: 80,
+    { key: 'car',       label: 'Car',                icon: 'ph-fill ph-car',          color: '#f59e0b', defaultAmt: 10000, defaultMo: 18, financePct: 20,
       coach: 'Save 20% down to keep monthly payments under 10% of take-home and avoid being underwater. Higher down = lower APR offered.' },
     { key: 'wedding',   label: 'Wedding',            icon: 'ph-fill ph-heart',        color: '#ec4899', defaultAmt: 25000, defaultMo: 18, financePct: 0,
       coach: 'US median wedding is $20K. Pay cash — wedding debt is the #1 source of first-year marital stress. Venue + ring + photo are the big rocks.' },
