@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v7 — listen to host nav clicks, yield immediately: detect host active page, restore inline display: clear inline display so host pages can re-show: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
+/* wjp-credit-actions.js v9 — adds Array partner sections: Pre-qualified Offers + BuildCredit (Account + Rent) Pro-gated
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -326,6 +326,239 @@
     renderPage(page);
   }
 
+  // ---------- v9: Array Partner Sections (Offers Engine + BuildCredit) ----------
+  // Pre-qualified offers (Array Offers Engine) — placeholder until partnership is live.
+  // Renders a polished section that signals the feature to users + lets us start
+  // capturing demand. When Array integration ships, this populates from
+  // window.WJP_CreditPull.fetchOffersFromBackend(uid) which returns
+  // { cards: [...], loans: [...] }.
+  function buildOffersHTML(p) {
+    var live = window._wjpArrayOffersLive === true;
+    if (!live) {
+      return ''
+        + '<div style="margin-bottom:24px;">'
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+        +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Pre-qualified Offers</div><div style="font-size:15px;font-weight:800;color:var(--text-1,#0a0a0a);margin-top:2px;">Credit cards + loans you\'re likely approved for</div></div>'
+        +     '<span style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(168,85,247,0.15);color:#a855f7;text-transform:uppercase;">Coming Soon</span>'
+        +   '</div>'
+        +   '<div style="background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(236,72,153,0.08));border:1px solid rgba(168,85,247,0.25);border-radius:14px;padding:18px 22px;">'
+        +     '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
+        +       '<div style="width:48px;height:48px;border-radius:12px;background:rgba(168,85,247,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-sparkle" style="font-size:24px;color:#a855f7;"></i></div>'
+        +       '<div style="flex:1;min-width:240px;">'
+        +         '<div style="font-size:14px;font-weight:800;color:var(--text-1,#0a0a0a);">Personalized offers, soft-pull matched to your real credit profile</div>'
+        +         '<div style="font-size:11.5px;color:var(--text-3,#94a3b8);font-weight:600;line-height:1.5;margin-top:4px;">No more wasted hard inquiries. We show only cards and loans you\'re statistically likely to be approved for. <strong>Soft-pull only</strong> — your score isn\'t affected.</div>'
+        +       '</div>'
+        +     '</div>'
+        +     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:14px;">'
+        +       partnerTeaser('Cash-back cards', 'ph-credit-card', '#a855f7', 'Earn on everyday spend')
+        +       partnerTeaser('0% APR balance transfer', 'ph-arrows-counter-clockwise', '#ec4899', 'Move high-APR debt to 0% intro')
+        +       partnerTeaser('Personal loans', 'ph-hand-coins', '#8b5cf6', 'Consolidate, lower your monthly')
+        +       partnerTeaser('Secured cards', 'ph-shield-check', '#f43f5e', 'Rebuild fast with $0 deposit risk')
+        +     '</div>'
+        +   '</div>'
+        + '</div>';
+    }
+    return '';
+  }
+
+  function partnerTeaser(title, icon, color, sub) {
+    return '<div style="padding:10px 12px;background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:10px;display:flex;align-items:center;gap:9px;">'
+      + '<div style="width:28px;height:28px;border-radius:7px;background:' + color + '22;display:grid;place-items:center;color:' + color + ';flex-shrink:0;"><i class="ph-fill ' + icon + '" style="font-size:14px;"></i></div>'
+      + '<div style="min-width:0;"><div style="font-size:11px;font-weight:800;color:var(--text-1,#0a0a0a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div><div style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sub + '</div></div>'
+      + '</div>';
+  }
+
+  // BuildCredit (Account + Rent Reporting) — Array partner products that help users
+  // with low or thin credit profiles rebuild. We show these when overall utilization
+  // is high OR credit age is thin OR score < 670, which signals the user would benefit.
+  function shouldShowBuildCredit(p) {
+    if (!p) return false;
+    if (p.currentScore && p.currentScore < 670) return true;
+    if (p.overallUtil && p.overallUtil > 50) return true;
+    if (p.oldestYears != null && p.oldestYears < 3) return true;
+    if (!p.perCard || p.perCard.length === 0) return true; // no cards yet
+    return false;
+  }
+
+  function buildBuildCreditHTML(p) {
+    if (!shouldShowBuildCredit(p)) return '';
+    return ''
+      + '<div style="margin-bottom:24px;">'
+      +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Credit Builder Tools</div><div style="font-size:15px;font-weight:800;color:var(--text-1,#0a0a0a);margin-top:2px;">Move the needle on the factors holding you back</div></div>'
+      +     '<span style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(6,182,212,0.15);color:#0891b2;text-transform:uppercase;">Coming Soon</span>'
+      +   '</div>'
+      +   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">'
+      +     buildCreditCard(
+            'BuildCredit Account',
+            'ph-fill ph-piggy-bank',
+            '#06b6d4',
+            'Secured credit-builder account with $0 hard pull. You deposit, the account reports to all 3 bureaus monthly. Most users see a 30-70 point lift within 6 months.',
+            ['Reports to Equifax / Experian / TransUnion', 'No credit check', '6-month average score lift: +40 points', 'Money is yours — get it back when you close']
+          )
+      +     buildCreditCard(
+            'BuildCredit Rent Reporting',
+            'ph-fill ph-house-line',
+            '#0e7490',
+            'Your rent payments get reported to the bureaus as positive payment history. Past 24 months can be reported retroactively (Experian / TransUnion).',
+            ['On-time rent reported monthly', 'Retro-report up to 24 months', 'Boosts the 35% "payment history" factor', 'No impact on your landlord']
+          )
+      +   '</div>'
+      + '</div>';
+  }
+
+  function buildCreditCard(title, icon, color, summary, bullets) {
+    return ''
+      + '<div style="background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;padding:16px 18px;border-left:4px solid ' + color + ';">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+      +   '<div style="width:36px;height:36px;border-radius:10px;background:' + color + '22;display:grid;place-items:center;color:' + color + ';flex-shrink:0;"><i class="' + icon + '" style="font-size:18px;"></i></div>'
+      +   '<div style="font-size:14px;font-weight:800;color:var(--text-1,#0a0a0a);">' + title + '</div>'
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--text-3,#94a3b8);font-weight:600;line-height:1.5;margin-bottom:10px;">' + summary + '</div>'
+      + '<ul style="margin:0;padding-left:18px;font-size:11.5px;color:var(--text-1,#0a0a0a);line-height:1.6;list-style-type:disc;">'
+      + bullets.map(function (b) { return '<li>' + b + '</li>'; }).join('')
+      + '</ul>'
+      + '<button type="button" data-bc-interest="' + title + '" style="margin-top:12px;width:100%;background:transparent;color:' + color + ';border:1px solid ' + color + ';padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Notify me when live</button>'
+      + '</div>';
+  }
+
+  // ---------- v8: Score Detail (big number + bureau breakdown + range scale) ----------
+  function scoreBand(s) {
+    if (!s) return { band: 'Not set', color: '#94a3b8', pct: 0 };
+    if (s >= 800) return { band: 'Exceptional', color: '#10b981', pct: ((s - 300) / 550) * 100 };
+    if (s >= 740) return { band: 'Very Good',   color: '#22c55e', pct: ((s - 300) / 550) * 100 };
+    if (s >= 670) return { band: 'Good',        color: '#84cc16', pct: ((s - 300) / 550) * 100 };
+    if (s >= 580) return { band: 'Fair',        color: '#f59e0b', pct: ((s - 300) / 550) * 100 };
+    return { band: 'Poor', color: '#ef4444', pct: ((s - 300) / 550) * 100 };
+  }
+
+  function buildScoreDetailHTML(p) {
+    var score = p.currentScore || 0;
+    var band = scoreBand(score);
+    var bureaus = p.bureauScores || {};
+    var bureauOrder = ['equifax', 'experian', 'transunion'];
+    var bureauColors = { equifax: '#a855f7', experian: '#0891b2', transunion: '#f97316' };
+
+    var bureausHTML = bureauOrder.map(function (k) {
+      var v = bureaus[k]; var val = v && v.value ? v.value : (typeof v === 'number' ? v : null);
+      if (!val) return '<div style="flex:1;min-width:140px;padding:12px 14px;background:var(--card-2,rgba(255,255,255,0.04));border:1px dashed var(--border,rgba(255,255,255,0.10));border-radius:10px;text-align:center;"><div style="font-size:9.5px;letter-spacing:0.10em;color:var(--text-3,#94a3b8);font-weight:800;text-transform:uppercase;">' + k + '</div><div style="font-size:18px;font-weight:800;color:var(--text-3,#94a3b8);margin-top:2px;">—</div><div style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;margin-top:2px;">not pulled yet</div></div>';
+      var b = scoreBand(val);
+      return '<div style="flex:1;min-width:140px;padding:12px 14px;background:var(--card-2,rgba(255,255,255,0.04));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:10px;border-left:3px solid ' + bureauColors[k] + ';">'
+        + '<div style="font-size:9.5px;letter-spacing:0.10em;color:' + bureauColors[k] + ';font-weight:800;text-transform:uppercase;">' + k + '</div>'
+        + '<div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;"><span style="font-size:22px;font-weight:900;color:var(--text-1,#0a0a0a);letter-spacing:-0.01em;">' + val + '</span><span style="font-size:10px;font-weight:700;color:' + b.color + ';">' + b.band + '</span></div>'
+        + '</div>';
+    }).join('');
+
+    var fillPct = score ? Math.min(100, Math.max(0, ((score - 300) / 550) * 100)) : 0;
+
+    return ''
+      + '<div style="margin-bottom:24px;">'
+      +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Score Detail</div><div style="font-size:15px;font-weight:800;color:var(--text-1,#0a0a0a);margin-top:2px;">FICO 8 · range 300 to 850</div></div>'
+      +   '</div>'
+      // Big score band card
+      +   '<div style="background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;padding:18px 22px;">'
+      +     '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;">'
+      +       '<div><div style="font-size:9.5px;letter-spacing:0.10em;color:' + band.color + ';font-weight:800;text-transform:uppercase;">' + band.band + '</div>'
+      +         '<div style="font-size:42px;font-weight:900;color:var(--text-1,#0a0a0a);letter-spacing:-0.02em;line-height:1.05;">' + (score || '—') + '<span style="font-size:18px;color:var(--text-3,#94a3b8);font-weight:700;"> / 850</span></div></div>'
+      +       '<div style="text-align:right;"><div style="font-size:9.5px;letter-spacing:0.10em;color:var(--text-3,#94a3b8);font-weight:800;text-transform:uppercase;">Last updated</div><div style="font-size:13px;font-weight:700;color:var(--text-1,#0a0a0a);margin-top:2px;">' + (p.bureauScores && p.bureauScores.equifax && p.bureauScores.equifax.capturedAt ? new Date(p.bureauScores.equifax.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not pulled yet') + '</div></div>'
+      +     '</div>'
+      // Range gradient bar
+      +     '<div style="position:relative;height:12px;border-radius:999px;background:linear-gradient(90deg,#ef4444 0%,#f59e0b 33%,#84cc16 53%,#22c55e 73%,#10b981 92%);overflow:visible;margin:18px 0 6px;">'
+      +       '<div style="position:absolute;left:' + fillPct + '%;top:-6px;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid ' + band.color + ';transform:translateX(-50%);box-shadow:0 2px 6px rgba(0,0,0,0.20);"></div>'
+      +     '</div>'
+      +     '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;margin-bottom:14px;">'
+      +       '<span>300</span><span>Poor 580</span><span>Fair 670</span><span>Good 740</span><span>Very Good 800</span><span>850</span>'
+      +     '</div>'
+      // Bureau breakdown
+      +     '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">' + bureausHTML + '</div>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  // ---------- v8: Factor Breakdown (5 FICO factors with grades from real data) ----------
+  function gradeFor(metric, value, p) {
+    // Returns { grade: 'A+'..'F', color, label, reason }
+    if (metric === 'utilization') {
+      if (value == null) return { grade: '—', color: '#94a3b8', label: 'No data', reason: 'Add card limits to grade' };
+      if (value <= 10) return { grade: 'A+', color: '#10b981', label: 'Excellent', reason: 'Under 10% — ideal' };
+      if (value <= 30) return { grade: 'A',  color: '#22c55e', label: 'Good',      reason: 'Under 30% threshold' };
+      if (value <= 50) return { grade: 'C',  color: '#f59e0b', label: 'Moderate',  reason: 'Push under 30% for a quick lift' };
+      if (value <= 80) return { grade: 'D',  color: '#ef4444', label: 'High',      reason: 'Costs ~30-60 points' };
+      return { grade: 'F', color: '#dc2626', label: 'Critical', reason: 'Above 80% costs ~60-100 points' };
+    }
+    if (metric === 'payment') {
+      if (value === 0) return { grade: 'A+', color: '#10b981', label: 'Spotless',  reason: 'Zero lates — strongest signal' };
+      if (value === 1) return { grade: 'C',  color: '#f59e0b', label: 'One slip',  reason: '1 late in last 12 mo' };
+      if (value <= 3) return { grade: 'D',   color: '#ef4444', label: 'Bumpy',     reason: value + ' lates in last 12 mo' };
+      return { grade: 'F', color: '#dc2626', label: 'Critical', reason: value + ' lates damages most' };
+    }
+    if (metric === 'age') {
+      if (!value || value < 1) return { grade: 'F', color: '#dc2626', label: 'New',  reason: 'Less than 1 year of history' };
+      if (value < 3) return { grade: 'D', color: '#ef4444', label: 'Thin', reason: 'Under 3 years average' };
+      if (value < 7) return { grade: 'C', color: '#f59e0b', label: 'Building', reason: value + ' years — keep oldest open' };
+      if (value < 15) return { grade: 'B', color: '#84cc16', label: 'Established', reason: value + ' years — solid base' };
+      return { grade: 'A', color: '#10b981', label: 'Mature', reason: value + ' years — strong asset' };
+    }
+    if (metric === 'mix') {
+      // value = { hasRevolving, hasInstallment, hasMortgage }
+      var count = 0;
+      if (value && value.hasRevolving) count++;
+      if (value && value.hasInstallment) count++;
+      if (value && value.hasMortgage) count++;
+      if (count >= 3) return { grade: 'A',  color: '#10b981', label: 'Diverse',     reason: 'Revolving + installment + mortgage' };
+      if (count === 2) return { grade: 'B', color: '#84cc16', label: 'Mixed',       reason: 'Two types — ideal balance' };
+      if (count === 1) return { grade: 'C', color: '#f59e0b', label: 'Single-type', reason: 'One type — add another over time' };
+      return { grade: 'D', color: '#ef4444', label: 'Empty', reason: 'Add a credit account' };
+    }
+    if (metric === 'newcredit') {
+      var inq = value && value.inquiries != null ? value.inquiries : 0;
+      var newAcct = value && value.newAccounts != null ? value.newAccounts : 0;
+      var total = inq + newAcct;
+      if (total === 0) return { grade: 'A+', color: '#10b981', label: 'Quiet',   reason: 'No recent applications' };
+      if (total <= 2) return { grade: 'A',   color: '#22c55e', label: 'Light',   reason: total + ' recent — minor impact' };
+      if (total <= 5) return { grade: 'C',   color: '#f59e0b', label: 'Moderate', reason: total + ' in last 12 mo' };
+      return { grade: 'D', color: '#ef4444', label: 'Active',  reason: total + ' new credit events — pause apps' };
+    }
+    return { grade: '—', color: '#94a3b8', label: 'No data', reason: '' };
+  }
+
+  function buildFactorBreakdownHTML(p) {
+    var s = getState() || {};
+    var debts = s.debts || [];
+    var hasRevolving = debts.some(function (d) { var t = (d.type || '').toLowerCase(); return /credit|card|cc|revolving/.test(t); });
+    var hasInstallment = debts.some(function (d) { var t = (d.type || '').toLowerCase(); return /loan|installment|student|personal|auto|car/.test(t); });
+    var hasMortgage = debts.some(function (d) { var t = (d.type || '').toLowerCase(); return /mortgage|home/.test(t); });
+
+    var factors = [
+      { name: 'Payment History',   weight: 35, metric: 'payment',     value: p.lates,        why: 'On-time payments are the single biggest factor.' },
+      { name: 'Credit Utilization',weight: 30, metric: 'utilization', value: p.overallUtil,  why: 'How much of your card limits you\'re using.' },
+      { name: 'Credit Age',        weight: 15, metric: 'age',         value: p.oldestYears,  why: 'Years of established credit history.' },
+      { name: 'Credit Mix',        weight: 10, metric: 'mix',         value: { hasRevolving: hasRevolving, hasInstallment: hasInstallment, hasMortgage: hasMortgage }, why: 'Variety of credit types — revolving + installment + mortgage.' },
+      { name: 'New Credit',        weight: 10, metric: 'newcredit',   value: { inquiries: p.inquiries, newAccounts: p.newAccts }, why: 'Recent hard inquiries and new accounts.' }
+    ];
+
+    var cardsHTML = factors.map(function (f) {
+      var g = gradeFor(f.metric, f.value, p);
+      return ''
+        + '<div style="flex:1;min-width:170px;background:var(--card,#fff);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:12px;padding:14px 16px;border-top:3px solid ' + g.color + ';">'
+        +   '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px;">'
+        +     '<div><div style="font-size:11.5px;font-weight:800;color:var(--text-1,#0a0a0a);">' + f.name + '</div><div style="font-size:9.5px;letter-spacing:0.08em;color:var(--text-3,#94a3b8);font-weight:700;text-transform:uppercase;margin-top:2px;">' + f.weight + '% of score</div></div>'
+        +     '<div style="text-align:right;"><div style="font-size:20px;font-weight:900;color:' + g.color + ';line-height:1;letter-spacing:-0.02em;">' + g.grade + '</div><div style="font-size:9.5px;font-weight:800;color:' + g.color + ';margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">' + g.label + '</div></div>'
+        +   '</div>'
+        +   '<div style="font-size:11px;color:var(--text-3,#94a3b8);font-weight:600;line-height:1.45;margin-top:6px;">' + g.reason + '</div>'
+        + '</div>';
+    }).join('');
+
+    return ''
+      + '<div style="margin-bottom:24px;">'
+      +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Factor Breakdown</div><div style="font-size:15px;font-weight:800;color:var(--text-1,#0a0a0a);margin-top:2px;">What\'s shaping your score, graded from your real data</div></div>'
+      +   '</div>'
+      +   '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + cardsHTML + '</div>'
+      + '</div>';
+  }
+
   // ---------- Page render ----------
   function renderPage(page) {
     var p = computeCreditProfile();
@@ -371,7 +604,7 @@
         +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
         +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Card Utilization</div><div style="font-size:15px;font-weight:800;color:var(--text-1,#0a0a0a);margin-top:2px;">Overall ' + (p.overallUtil != null ? Math.round(p.overallUtil) + '%' : '—') + ' · target under 30%</div></div>'
         +   '</div>'
-        +   '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">'
+        +   '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">'
         +     p.perCard.map(function (c) {
                 var u = c.util;
                 var color = u == null ? '#94a3b8' : u <= 30 ? '#10b981' : u <= 60 ? '#f59e0b' : '#ef4444';
@@ -407,20 +640,37 @@
       +   '</div>'
       + '</div>' : '';
 
-    // v4: Embed the host's rich Credit Score view (FICO gauge, factor breakdown,
-    // what-if simulator) so the user has ONE Credit page instead of two.
-    var hostScoreEmbedHTML = ''
-      + '<div style="margin-bottom:24px;">'
-      +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;margin-bottom:10px;">Score detail · factor breakdown · what-if</div>'
-      +   '<div id="credit-score-tab-content" style="min-height:200px;"></div>'
-      + '</div>';
+    // v8: Replace the failing host embed with our own polished Score Detail
+    // + Factor Breakdown sections. Cleaner, fully visible, Array-ready.
+    var scoreDetailHTML = buildScoreDetailHTML(p);
+    var factorBreakdownHTML = buildFactorBreakdownHTML(p);
 
-    page.innerHTML = heroHTML + utilGridHTML + hostScoreEmbedHTML + actionCardsHTML + projectionHTML;
-
-    // Trigger the host renderer to populate our embedded container
-    try { if (typeof window.renderCreditScoreTab === 'function') window.renderCreditScoreTab(); } catch (_) {}
+    var offersHTML = buildOffersHTML(p);
+    var buildCreditHTML = buildBuildCreditHTML(p);
+    page.innerHTML = heroHTML + scoreDetailHTML + factorBreakdownHTML + utilGridHTML + actionCardsHTML + offersHTML + buildCreditHTML + projectionHTML;
 
     // Wire action buttons
+    Array.from(page.querySelectorAll('[data-bc-interest]')).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-bc-interest');
+        try {
+          var key = 'wjp.array.partner.interest';
+          var rec = loadJSON(key, {});
+          rec[p] = { ts: Date.now() };
+          saveJSON(key, rec);
+        } catch (_) {}
+        if (window.WJP_Momentum && typeof window.WJP_Momentum.showToast === 'function') {
+          window.WJP_Momentum.showToast({
+            eyebrow: 'INTEREST REGISTERED',
+            title: 'We\'ll email you when ' + p + ' goes live',
+            sub: 'Targeting launch within 4-6 weeks via our partnership with Array.',
+            color: '#06b6d4',
+            icon: 'ph-fill ph-bell'
+          });
+        }
+      });
+    });
+
     Array.from(page.querySelectorAll('[data-action-cta]')).forEach(function (b) {
       b.addEventListener('click', function (e) {
         e.stopPropagation();
