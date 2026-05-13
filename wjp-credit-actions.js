@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v3 — scroll fix + plaid auto-refresh on debt changes
+/* wjp-credit-actions.js v4 — consolidate: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -271,6 +271,25 @@
   }
 
   // ---------- Sidebar nav injection ----------
+  // v4: Hide the duplicate Debts > Credit Score subtab so the user has ONE Credit home.
+  function hideDuplicateSubtab() {
+    try {
+      // The host subtab is a clickable element with data-subtab-target or similar.
+      // Search both common patterns.
+      var candidates = Array.from(document.querySelectorAll('[data-debts-sub], [data-subtab], .debts-subtab-link, .subtab-link, .debts-sub-nav a, [data-tab]')).filter(function (el) {
+        var v = (el.getAttribute('data-debts-sub') || el.getAttribute('data-subtab') || el.getAttribute('data-tab') || '').toLowerCase();
+        if (v === 'credit-score') return true;
+        var t = (el.textContent || '').trim().toLowerCase();
+        return t === 'credit score';
+      });
+      candidates.forEach(function (el) {
+        if (el.dataset.wjpHidden) return;
+        el.dataset.wjpHidden = '1';
+        el.style.display = 'none';
+      });
+    } catch (_) {}
+  }
+
   function ensureNavItem() {
     if (document.getElementById(NAV_ID)) return;
     var anchor = document.getElementById('nav-goals-wjp');
@@ -388,7 +407,18 @@
       +   '</div>'
       + '</div>' : '';
 
-    page.innerHTML = heroHTML + utilGridHTML + actionCardsHTML + projectionHTML;
+    // v4: Embed the host's rich Credit Score view (FICO gauge, factor breakdown,
+    // what-if simulator) so the user has ONE Credit page instead of two.
+    var hostScoreEmbedHTML = ''
+      + '<div style="margin-bottom:24px;">'
+      +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;margin-bottom:10px;">Score detail · factor breakdown · what-if</div>'
+      +   '<div id="credit-score-tab-content" style="min-height:200px;"></div>'
+      + '</div>';
+
+    page.innerHTML = heroHTML + utilGridHTML + hostScoreEmbedHTML + actionCardsHTML + projectionHTML;
+
+    // Trigger the host renderer to populate our embedded container
+    try { if (typeof window.renderCreditScoreTab === 'function') window.renderCreditScoreTab(); } catch (_) {}
 
     // Wire action buttons
     Array.from(page.querySelectorAll('[data-action-cta]')).forEach(function (b) {
@@ -458,6 +488,7 @@
   function tick() {
     try {
       ensureNavItem();
+      hideDuplicateSubtab();
       var creditActive = document.getElementById(NAV_ID) && document.getElementById(NAV_ID).classList.contains('active');
       var anyHostActive = Array.from(document.querySelectorAll('.nav-item.active')).some(function (n) { return n.id !== NAV_ID; });
       if (anyHostActive && creditActive) {
