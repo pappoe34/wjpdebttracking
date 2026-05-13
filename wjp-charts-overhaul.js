@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v4 — force redraw via window.drawCharts + loosened gating.
+/* wjp-charts-overhaul.js v5 — read activeStyle from DOM button (appState is not on window).
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -407,9 +407,12 @@
 
     // Read the active style (line/area/bar) from appState — host's chartType folds
     // line+area into the same Chart.js 'line' type, so we must disambiguate here.
+    // v5: host keeps appState local to its IIFE, so read the active button instead.
+    // The button DOM is the source of truth for which view the user has selected.
     var activeStyle = 'line';
     try {
-      activeStyle = (window.appState && window.appState.settings && window.appState.settings.activeChartStyle) || 'line';
+      var activeBtn = document.querySelector('#ai-chart-switcher .style-btn.active');
+      if (activeBtn && activeBtn.dataset && activeBtn.dataset.style) activeStyle = activeBtn.dataset.style;
     } catch (_) {}
 
     // Identify the two series
