@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v2 — Credit Fix Action Loop (fix UserScope.scopeKey)
+/* wjp-credit-actions.js v3 — scroll fix + plaid auto-refresh on debt changes
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -297,7 +297,7 @@
       page = document.createElement('div');
       page.id = PAGE_ID;
       page.className = 'page active';
-      page.style.cssText = 'padding:24px;max-width:1400px;margin:0 auto;';
+      page.style.cssText = 'padding:24px 24px 80px;max-width:1400px;margin:0 auto;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;';
       var ca = document.querySelector('.content-area, main, .main-area');
       if (ca) ca.appendChild(page);
       else document.body.appendChild(page);
@@ -464,6 +464,17 @@
         var page = document.getElementById(PAGE_ID);
         if (page) { page.style.display = 'none'; page.classList.remove('active'); }
         var nav = document.getElementById(NAV_ID); if (nav) nav.classList.remove('active');
+      } else if (creditActive) {
+        // Auto-refresh while visible — picks up Plaid balance changes
+        var page = document.getElementById(PAGE_ID);
+        if (page && page.offsetHeight > 0) {
+          // Only re-render if numbers actually changed (cheap check)
+          var sig = (function () { var p = computeCreditProfile(); return p.totalBalance + '|' + p.totalLimit + '|' + (p.currentScore||0); })();
+          if (window._wjpCreditLastSig !== sig) {
+            window._wjpCreditLastSig = sig;
+            renderPage(page);
+          }
+        }
       }
     } catch (_) {}
   }

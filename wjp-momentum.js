@@ -1,4 +1,4 @@
-/* wjp-momentum.js v1 — the retention layer
+/* wjp-momentum.js v3 — refined streak design + per-debt payoff milestones (5/15/30/50/75/100%)
  *
  * Three surfaces that make progress feel real:
  *   1. Weekly Progress hero strip on dashboard — 3 chips with deltas vs 7d ago
@@ -133,11 +133,11 @@
       if (!pill) {
         pill = document.createElement('div');
         pill.id = STREAK_ID;
-        pill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:linear-gradient(135deg,#f59e0b,#dc2626);color:#fff;border-radius:999px;font-size:12px;font-weight:800;font-family:inherit;cursor:default;box-shadow:0 2px 8px rgba(245,158,11,0.30);user-select:none;';
+        pill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;background:rgba(245,158,11,0.10);color:#f59e0b;border:1px solid rgba(245,158,11,0.35);border-radius:999px;font-size:11.5px;font-weight:800;font-family:inherit;cursor:default;user-select:none;margin-right:6px;';
         pill.title = 'Days in a row using WJP — longest: ' + s.longest;
         topbar.insertBefore(pill, topbar.firstChild);
       }
-      pill.innerHTML = '<i class="ph-fill ph-flame" style="font-size:13px;"></i><span>' + s.current + '-day</span><span style="font-weight:600;opacity:0.85;font-size:10.5px;">streak</span>';
+      pill.innerHTML = '<i class="ph-fill ph-flame" style="font-size:12px;color:#f59e0b;"></i><span style="font-weight:800;">' + s.current + '</span><span style="font-weight:600;opacity:0.75;letter-spacing:0.04em;">DAY</span>';
     } catch (e) { try { console.warn('[wjp-momentum] streak mount', e); } catch (_) {} }
   }
 
@@ -179,6 +179,10 @@
     }, 8000);
   }
 
+  var PER_DEBT_PCT_TIERS = [5, 15, 30, 50, 75, 100];
+
+  function getState() { try { return appState; } catch (e) { return (window.appState || null); } }
+
   function fireMilestones() {
     if (!window.WJP_Snapshots) return;
     var today = window.WJP_Snapshots.today();
@@ -191,7 +195,7 @@
         window.WJP_Snapshots.markFired(id);
         showToast({
           eyebrow: 'PAID OFF MILESTONE',
-          title: 'You\'ve paid off $' + t.toLocaleString() + '! 🎉',
+          title: 'You\'ve paid off $' + t.toLocaleString() + '!',
           sub: 'Every dollar gone is interest you\'ll never pay. Keep stacking.',
           color: '#10b981',
           icon: 'ph-fill ph-trophy'
@@ -228,6 +232,37 @@
           icon: 'ph-fill ph-piggy-bank'
         });
       }
+    });
+
+    // Per-debt payoff milestones (5/15/30/50/75/100%)
+    var s = getState();
+    if (!s || !Array.isArray(s.debts)) return;
+    s.debts.forEach(function (d) {
+      if (!d || !d.id) return;
+      var start = Number(d.startingBalance || d.originalBalance || 0);
+      var bal = Number(d.balance || 0);
+      if (!start || start <= 0) return;
+      var paid = Math.max(0, start - bal);
+      var pct = (paid / start) * 100;
+      PER_DEBT_PCT_TIERS.forEach(function (tier) {
+        if (pct < tier) return;
+        var id = 'debt-' + d.id + '-' + tier;
+        if (window.WJP_Snapshots.hasFired(id)) return;
+        window.WJP_Snapshots.markFired(id);
+        var emoji = tier === 100 ? '🏆' : tier >= 75 ? '🚀' : tier >= 50 ? '⚡' : tier >= 30 ? '🎯' : tier >= 15 ? '💪' : '✨';
+        var name = String(d.name || 'this debt').slice(0, 36);
+        showToast({
+          eyebrow: tier === 100 ? 'DEBT ELIMINATED' : 'PAYOFF MILESTONE',
+          title: tier === 100
+            ? name + ' — PAID OFF ' + emoji
+            : tier + '% paid on ' + name + ' ' + emoji,
+          sub: tier === 100
+            ? 'That\'s one debt off the list. Roll its minimum into the next priority.'
+            : 'Paid $' + Math.round(paid).toLocaleString() + ' of $' + Math.round(start).toLocaleString() + '. Stay on it.',
+          color: tier === 100 ? '#10b981' : tier >= 50 ? '#a855f7' : '#3b82f6',
+          icon: tier === 100 ? 'ph-fill ph-confetti' : 'ph-fill ph-flag-checkered'
+        });
+      });
     });
   }
 

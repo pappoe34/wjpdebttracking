@@ -1,4 +1,4 @@
-/* wjp-goals.js v2 — Goals: Plan for a Purchase tab (fix UserScope.scopeKey)
+/* wjp-goals.js v3 — scroll fix, AI Coach per template, % financing option
  *
  * New sidebar tab + page. Lets users define savings goals (emergency fund,
  * down payment, wedding, car, vacation, education, custom). Each goal has:
@@ -37,15 +37,24 @@
   function uuid() { return 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
 
   // ---------- Templates (categories with sensible defaults) ----------
+  // v3: each template has an AI Coach hint + a default financing split.
   var TEMPLATES = [
-    { key: 'emergency', label: 'Emergency Fund',    icon: 'ph-fill ph-shield-check', color: '#10b981', defaultAmt: 5000,  defaultMo: 6  },
-    { key: 'house',     label: 'House Down Payment',icon: 'ph-fill ph-house',        color: '#3b82f6', defaultAmt: 30000, defaultMo: 36 },
-    { key: 'car',       label: 'Car',               icon: 'ph-fill ph-car',          color: '#f59e0b', defaultAmt: 10000, defaultMo: 18 },
-    { key: 'wedding',   label: 'Wedding',           icon: 'ph-fill ph-heart',        color: '#ec4899', defaultAmt: 25000, defaultMo: 18 },
-    { key: 'vacation',  label: 'Vacation',          icon: 'ph-fill ph-airplane-tilt',color: '#06b6d4', defaultAmt: 3000,  defaultMo: 6  },
-    { key: 'education', label: 'Education',         icon: 'ph-fill ph-graduation-cap',color:'#a855f7', defaultAmt: 10000, defaultMo: 12 },
-    { key: 'baby',      label: 'New Baby',          icon: 'ph-fill ph-baby',         color: '#f472b6', defaultAmt: 8000,  defaultMo: 9  },
-    { key: 'custom',    label: 'Custom Goal',       icon: 'ph-fill ph-target',       color: '#64748b', defaultAmt: 1000,  defaultMo: 6  }
+    { key: 'emergency', label: 'Emergency Fund',     icon: 'ph-fill ph-shield-check', color: '#10b981', defaultAmt: 5000,  defaultMo: 6,  financePct: 0,
+      coach: 'Aim for 3-6 months of essential expenses. Park it in a high-yield savings account (4-5% APY) so it grows while you sleep — but stays liquid.' },
+    { key: 'house',     label: 'House Down Payment', icon: 'ph-fill ph-house',        color: '#3b82f6', defaultAmt: 30000, defaultMo: 36, financePct: 80,
+      coach: 'Conventional loans want 20% down to skip PMI. FHA accepts 3.5%. Plan for down payment + 3% closing costs; the rest is mortgaged.' },
+    { key: 'car',       label: 'Car',                icon: 'ph-fill ph-car',          color: '#f59e0b', defaultAmt: 10000, defaultMo: 18, financePct: 80,
+      coach: 'Save 20% down to keep monthly payments under 10% of take-home and avoid being underwater. Higher down = lower APR offered.' },
+    { key: 'wedding',   label: 'Wedding',            icon: 'ph-fill ph-heart',        color: '#ec4899', defaultAmt: 25000, defaultMo: 18, financePct: 0,
+      coach: 'US median wedding is $20K. Pay cash — wedding debt is the #1 source of first-year marital stress. Venue + ring + photo are the big rocks.' },
+    { key: 'vacation',  label: 'Vacation',           icon: 'ph-fill ph-airplane-tilt',color: '#06b6d4', defaultAmt: 3000,  defaultMo: 6,  financePct: 0,
+      coach: 'Pay cash, never finance. Book flights 6-8 weeks out domestic, 3-5 months international. Use a travel rewards card, pay it off same week.' },
+    { key: 'education', label: 'Education',          icon: 'ph-fill ph-graduation-cap',color:'#a855f7', defaultAmt: 10000, defaultMo: 12, financePct: 50,
+      coach: 'Federal subsidized loans first (deferred interest), then unsubsidized, then private. Keep total loans under projected first-year salary.' },
+    { key: 'baby',      label: 'New Baby',           icon: 'ph-fill ph-baby',         color: '#f472b6', defaultAmt: 8000,  defaultMo: 9,  financePct: 0,
+      coach: 'Hospital + first-year baseline runs $8-15K. Build buffer BEFORE the bump because saving with a newborn is brutal.' },
+    { key: 'custom',    label: 'Custom Goal',        icon: 'ph-fill ph-target',       color: '#64748b', defaultAmt: 1000,  defaultMo: 6,  financePct: 0,
+      coach: 'Pick a target, a date, a monthly. The runway will tell you if you can hit it. Adjust either side as you learn.' }
   ];
 
   function templateByKey(k) { return TEMPLATES.find(function (t) { return t.key === k; }) || TEMPLATES[TEMPLATES.length - 1]; }
@@ -124,7 +133,7 @@
       page = document.createElement('div');
       page.id = PAGE_ID;
       page.className = 'page active';
-      page.style.cssText = 'padding:24px;max-width:1400px;margin:0 auto;';
+      page.style.cssText = 'padding:24px 24px 80px;max-width:1400px;margin:0 auto;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;';
       // Find content-area and append
       var contentArea = document.querySelector('.content-area, main, .main-area');
       if (contentArea) contentArea.appendChild(page);
@@ -237,7 +246,7 @@
       + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">'
       +   '<div style="display:flex;align-items:center;gap:10px;min-width:0;">'
       +     '<div style="width:36px;height:36px;border-radius:10px;background:' + tpl.color + '22;display:grid;place-items:center;color:' + tpl.color + ';flex-shrink:0;"><i class="' + tpl.icon + '" style="font-size:17px;"></i></div>'
-      +     '<div style="min-width:0;"><div style="font-size:14.5px;font-weight:800;color:var(--text-1,#0a0a0a);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(g.name) + '</div><div style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">' + tpl.label + (g.targetDate ? ' · by ' + fmtDate(g.targetDate) : '') + '</div></div>'
+      +     '<div style="min-width:0;"><div style="font-size:14.5px;font-weight:800;color:var(--text-1,#0a0a0a);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(g.name) + '</div><div style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">' + tpl.label + (g.targetDate ? ' · by ' + fmtDate(g.targetDate) : '') + (g.purchasePrice && g.financePct ? ' · ' + g.financePct + '% down on $' + Math.round(g.purchasePrice).toLocaleString() : '') + '</div></div>'
       +   '</div>'
       +   statusBadge
       + '</div>'
@@ -319,6 +328,8 @@
       targetDate: (function () { var d = new Date(); d.setMonth(d.getMonth() + tpl.defaultMo); return d.toISOString().slice(0, 10); })(),
       savedSoFar: 0,
       monthlyContribution: Math.ceil(tpl.defaultAmt / tpl.defaultMo),
+      purchasePrice: tpl.financePct > 0 ? Math.round(tpl.defaultAmt / (tpl.financePct / 100)) : 0,
+      financePct: tpl.financePct || 0,
       createdAt: Date.now()
     };
     var isNew = !existing;
@@ -332,8 +343,26 @@
       +   '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;border-radius:10px;background:' + tpl.color + '22;display:grid;place-items:center;color:' + tpl.color + ';"><i class="' + tpl.icon + '" style="font-size:19px;"></i></div><div><div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:' + tpl.color + ';">' + (isNew ? 'NEW GOAL' : 'EDIT GOAL') + '</div><div style="font-size:17px;font-weight:900;color:var(--text-1,#0a0a0a);">' + tpl.label + '</div></div></div>'
       +   '<button id="wjp-goal-modal-close" type="button" style="background:transparent;border:0;font-size:22px;color:var(--text-3,#94a3b8);cursor:pointer;line-height:1;">×</button>'
       + '</div>'
+      + (tpl.coach
+          ? '<div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;">'
+            + '<div style="width:32px;height:32px;border-radius:9px;background:rgba(99,102,241,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-sparkle" style="font-size:15px;color:#818cf8;"></i></div>'
+            + '<div style="flex:1;min-width:0;"><div style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;color:#818cf8;text-transform:uppercase;margin-bottom:3px;">AI Coach</div><div style="font-size:11.5px;color:var(--text-1,#0a0a0a);font-weight:600;line-height:1.5;">' + escapeHTML(tpl.coach) + '</div></div>'
+          + '</div>'
+          : '')
       + '<div style="display:flex;flex-direction:column;gap:12px;">'
       +   field('Name', '<input id="wjp-goal-name" type="text" value="' + escapeHTML(goal.name) + '" style="' + inputCSS() + '">')
+      +   (tpl.financePct > 0
+            ? '<div style="background:var(--card-2,rgba(255,255,255,0.04));border:1px solid var(--border,rgba(255,255,255,0.10));border-radius:10px;padding:12px 14px;">'
+              + '<label style="display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:var(--text-1,#0a0a0a);cursor:pointer;margin-bottom:8px;"><input type="checkbox" id="wjp-goal-finance-on" ' + ((goal.financePct||0) > 0 ? 'checked' : '') + ' style="accent-color:#10b981;width:14px;height:14px;">Plan as a down-payment (finance the rest)</label>'
+              + '<div id="wjp-goal-finance-section" style="display:' + ((goal.financePct||0) > 0 ? 'block' : 'none') + ';">'
+              +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;">'
+              +     field('Total purchase price $', '<input id="wjp-goal-price" type="number" min="0" step="500" value="' + (goal.purchasePrice || tpl.defaultAmt) + '" style="' + inputCSS() + '">')
+              +     field('Down payment %', '<input id="wjp-goal-pct" type="number" min="0" max="100" step="5" value="' + (goal.financePct || tpl.financePct) + '" style="' + inputCSS() + '">')
+              +   '</div>'
+              +   '<div style="font-size:10.5px;color:var(--text-3,#94a3b8);font-weight:600;line-height:1.5;"><i class="ph ph-info" style="margin-right:4px;"></i>Target $ below auto-fills from purchase × down %.</div>'
+              + '</div>'
+            + '</div>'
+            : '')
       +   field('Target $', '<input id="wjp-goal-target" type="number" min="0" step="100" value="' + goal.targetAmount + '" style="' + inputCSS() + '">')
       +   field('Target date', '<input id="wjp-goal-date" type="date" value="' + (goal.targetDate || '') + '" style="' + inputCSS() + 'color-scheme:light dark;">')
       +   field('Saved so far $', '<input id="wjp-goal-saved" type="number" min="0" step="50" value="' + (goal.savedSoFar || 0) + '" style="' + inputCSS() + '">')
@@ -349,12 +378,33 @@
     modal.addEventListener('click', function (e) { if (e.target === modal) closeAnyModal(); });
     modal.querySelector('#wjp-goal-modal-close').onclick = closeAnyModal;
     modal.querySelector('#wjp-goal-cancel').onclick = closeAnyModal;
+    var finOn = modal.querySelector('#wjp-goal-finance-on');
+    var finSection = modal.querySelector('#wjp-goal-finance-section');
+    var finPrice = modal.querySelector('#wjp-goal-price');
+    var finPct = modal.querySelector('#wjp-goal-pct');
+    var targetInp = modal.querySelector('#wjp-goal-target');
+    function recalcTarget() {
+      if (finOn && finOn.checked && finPrice && finPct && targetInp) {
+        var p = parseFloat(finPrice.value) || 0;
+        var pct = parseFloat(finPct.value) || 0;
+        targetInp.value = Math.round(p * pct / 100);
+      }
+    }
+    if (finOn) finOn.addEventListener('change', function () {
+      if (finSection) finSection.style.display = finOn.checked ? 'block' : 'none';
+      if (finOn.checked) recalcTarget();
+    });
+    if (finPrice) finPrice.addEventListener('input', recalcTarget);
+    if (finPct) finPct.addEventListener('input', recalcTarget);
+
     modal.querySelector('#wjp-goal-save').onclick = function () {
       goal.name = (modal.querySelector('#wjp-goal-name').value || '').trim() || tpl.label;
       goal.targetAmount = parseFloat(modal.querySelector('#wjp-goal-target').value) || 0;
       goal.targetDate = modal.querySelector('#wjp-goal-date').value || null;
       goal.savedSoFar = parseFloat(modal.querySelector('#wjp-goal-saved').value) || 0;
       goal.monthlyContribution = parseFloat(modal.querySelector('#wjp-goal-monthly').value) || 0;
+      goal.purchasePrice = finOn && finOn.checked ? (parseFloat(finPrice.value) || 0) : 0;
+      goal.financePct = finOn && finOn.checked ? (parseFloat(finPct.value) || 0) : 0;
       goal.updatedAt = Date.now();
       var r = loadGoals();
       r.byId[goal.id] = goal;
