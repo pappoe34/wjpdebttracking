@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v13 — hide Debts subtab + dark-mode text contrast (all variants of var--text-1/text-3)
+/* wjp-credit-actions.js v14 — rename tab Credit → Credit Health
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -308,7 +308,7 @@
     nav.id = NAV_ID;
     nav.className = anchor.className.replace(/active/g, '').trim();
     nav.setAttribute('data-page', 'credit-wjp');
-    nav.innerHTML = '<i class="ph ph-shield-star" style="margin-right:8px;"></i>Credit';
+    nav.innerHTML = '<i class="ph ph-shield-star" style="margin-right:8px;"></i>Credit Health';
     if (anchor.nextSibling) anchor.parentNode.insertBefore(nav, anchor.nextSibling);
     else anchor.parentNode.appendChild(nav);
     nav.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); showCreditPage(); });
@@ -347,15 +347,15 @@
       return ''
         + '<div style="margin-bottom:24px;">'
         +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
-        +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Pre-qualified Offers</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">Credit cards + loans you\'re likely approved for</div></div>'
+        +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Pre-qualified Offers</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">Credit cards + loans you\'re likely approved for</div></div>'
         +     '<span style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(168,85,247,0.15);color:#a855f7;text-transform:uppercase;">Coming Soon</span>'
         +   '</div>'
         +   '<div style="background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(236,72,153,0.08));border:1px solid rgba(168,85,247,0.25);border-radius:14px;padding:18px 22px;">'
         +     '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
         +       '<div style="width:48px;height:48px;border-radius:12px;background:rgba(168,85,247,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-sparkle" style="font-size:24px;color:#a855f7;"></i></div>'
         +       '<div style="flex:1;min-width:240px;">'
-        +         '<div style="font-size:14px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));">Personalized offers, soft-pull matched to your real credit profile</div>'
-        +         '<div style="font-size:11.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;line-height:1.5;margin-top:4px;">No more wasted hard inquiries. We show only cards and loans you\'re statistically likely to be approved for. <strong>Soft-pull only</strong> — your score isn\'t affected.</div>'
+        +         '<div style="font-size:14px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));">Personalized offers, soft-pull matched to your real credit profile</div>'
+        +         '<div style="font-size:11.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;line-height:1.5;margin-top:4px;">No more wasted hard inquiries. We show only cards and loans you\'re statistically likely to be approved for. <strong>Soft-pull only</strong> — your score isn\'t affected.</div>'
         +       '</div>'
         +     '</div>'
         +     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:14px;">'
@@ -373,7 +373,7 @@
   function partnerTeaser(title, icon, color, sub) {
     return '<div style="padding:10px 12px;background:var(--card, var(--bg-2, #fff));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:10px;display:flex;align-items:center;gap:9px;">'
       + '<div style="width:28px;height:28px;border-radius:7px;background:' + color + '22;display:grid;place-items:center;color:' + color + ';flex-shrink:0;"><i class="ph-fill ' + icon + '" style="font-size:14px;"></i></div>'
-      + '<div style="min-width:0;"><div style="font-size:11px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div><div style="font-size:9.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sub + '</div></div>'
+      + '<div style="min-width:0;"><div style="font-size:11px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div><div style="font-size:9.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sub + '</div></div>'
       + '</div>';
   }
 
@@ -394,7 +394,7 @@
     return ''
       + '<div style="margin-bottom:24px;">'
       +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
-      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Credit Builder Tools</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">Move the needle on the factors holding you back</div></div>'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Credit Builder Tools</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">Move the needle on the factors holding you back</div></div>'
       +     '<span style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(6,182,212,0.15);color:#0891b2;text-transform:uppercase;">Coming Soon</span>'
       +   '</div>'
       +   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">'
@@ -421,10 +421,10 @@
       + '<div style="background:var(--card, var(--bg-2, #fff));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;padding:16px 18px;border-left:4px solid ' + color + ';">'
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
       +   '<div style="width:36px;height:36px;border-radius:10px;background:' + color + '22;display:grid;place-items:center;color:' + color + ';flex-shrink:0;"><i class="' + icon + '" style="font-size:18px;"></i></div>'
-      +   '<div style="font-size:14px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));">' + title + '</div>'
+      +   '<div style="font-size:14px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));">' + title + '</div>'
       + '</div>'
-      + '<div style="font-size:12px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;line-height:1.5;margin-bottom:10px;">' + summary + '</div>'
-      + '<ul style="margin:0;padding-left:18px;font-size:11.5px;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));line-height:1.6;list-style-type:disc;">'
+      + '<div style="font-size:12px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;line-height:1.5;margin-bottom:10px;">' + summary + '</div>'
+      + '<ul style="margin:0;padding-left:18px;font-size:11.5px;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));line-height:1.6;list-style-type:disc;">'
       + bullets.map(function (b) { return '<li>' + b + '</li>'; }).join('')
       + '</ul>'
       + '<button type="button" data-bc-interest="' + title + '" style="margin-top:12px;width:100%;background:transparent;color:' + color + ';border:1px solid ' + color + ';padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Notify me when live</button>'
@@ -450,11 +450,11 @@
 
     var bureausHTML = bureauOrder.map(function (k) {
       var v = bureaus[k]; var val = v && v.value ? v.value : (typeof v === 'number' ? v : null);
-      if (!val) return '<div style="flex:1;min-width:140px;padding:12px 14px;background:var(--card-2,rgba(255,255,255,0.04));border:1px dashed var(--border,rgba(255,255,255,0.10));border-radius:10px;text-align:center;"><div style="font-size:9.5px;letter-spacing:0.10em;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:800;text-transform:uppercase;">' + k + '</div><div style="font-size:18px;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));margin-top:2px;">—</div><div style="font-size:9.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;margin-top:2px;">not pulled yet</div></div>';
+      if (!val) return '<div style="flex:1;min-width:140px;padding:12px 14px;background:var(--card-2,rgba(255,255,255,0.04));border:1px dashed var(--border,rgba(255,255,255,0.10));border-radius:10px;text-align:center;"><div style="font-size:9.5px;letter-spacing:0.10em;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:800;text-transform:uppercase;">' + k + '</div><div style="font-size:18px;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));margin-top:2px;">—</div><div style="font-size:9.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;margin-top:2px;">not pulled yet</div></div>';
       var b = scoreBand(val);
       return '<div style="flex:1;min-width:140px;padding:12px 14px;background:var(--card-2,rgba(255,255,255,0.04));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:10px;border-left:3px solid ' + bureauColors[k] + ';">'
         + '<div style="font-size:9.5px;letter-spacing:0.10em;color:' + bureauColors[k] + ';font-weight:800;text-transform:uppercase;">' + k + '</div>'
-        + '<div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;"><span style="font-size:22px;font-weight:900;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));letter-spacing:-0.01em;">' + val + '</span><span style="font-size:10px;font-weight:700;color:' + b.color + ';">' + b.band + '</span></div>'
+        + '<div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;"><span style="font-size:22px;font-weight:900;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));letter-spacing:-0.01em;">' + val + '</span><span style="font-size:10px;font-weight:700;color:' + b.color + ';">' + b.band + '</span></div>'
         + '</div>';
     }).join('');
 
@@ -463,20 +463,20 @@
     return ''
       + '<div style="margin-bottom:24px;">'
       +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">'
-      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Score Detail</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">FICO 8 · range 300 to 850</div></div>'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Score Detail</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">FICO 8 · range 300 to 850</div></div>'
       +   '</div>'
       // Big score band card
       +   '<div style="background:var(--card, var(--bg-2, #fff));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;padding:18px 22px;">'
       +     '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;">'
       +       '<div><div style="font-size:9.5px;letter-spacing:0.10em;color:' + band.color + ';font-weight:800;text-transform:uppercase;">' + band.band + '</div>'
-      +         '<div style="font-size:42px;font-weight:900;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));letter-spacing:-0.02em;line-height:1.05;">' + (score || '—') + '<span style="font-size:18px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:700;"> / 850</span></div></div>'
-      +       '<div style="text-align:right;"><div style="font-size:9.5px;letter-spacing:0.10em;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:800;text-transform:uppercase;">Last updated</div><div style="font-size:13px;font-weight:700;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">' + (p.bureauScores && p.bureauScores.equifax && p.bureauScores.equifax.capturedAt ? new Date(p.bureauScores.equifax.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not pulled yet') + '</div></div>'
+      +         '<div style="font-size:42px;font-weight:900;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));letter-spacing:-0.02em;line-height:1.05;">' + (score || '—') + '<span style="font-size:18px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:700;"> / 850</span></div></div>'
+      +       '<div style="text-align:right;"><div style="font-size:9.5px;letter-spacing:0.10em;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:800;text-transform:uppercase;">Last updated</div><div style="font-size:13px;font-weight:700;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">' + (p.bureauScores && p.bureauScores.equifax && p.bureauScores.equifax.capturedAt ? new Date(p.bureauScores.equifax.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not pulled yet') + '</div></div>'
       +     '</div>'
       // Range gradient bar
       +     '<div style="position:relative;height:12px;border-radius:999px;background:linear-gradient(90deg,#ef4444 0%,#f59e0b 33%,#84cc16 53%,#22c55e 73%,#10b981 92%);overflow:visible;margin:18px 0 6px;">'
       +       '<div style="position:absolute;left:' + fillPct + '%;top:-6px;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid ' + band.color + ';transform:translateX(-50%);box-shadow:0 2px 6px rgba(0,0,0,0.20);"></div>'
       +     '</div>'
-      +     '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;margin-bottom:14px;">'
+      +     '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;margin-bottom:14px;">'
       +       '<span>300</span><span>Poor 580</span><span>Fair 670</span><span>Good 740</span><span>Very Good 800</span><span>850</span>'
       +     '</div>'
       // Bureau breakdown
@@ -552,17 +552,17 @@
       return ''
         + '<div style="flex:1;min-width:170px;background:var(--card, var(--bg-2, #fff));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:12px;padding:14px 16px;border-top:3px solid ' + g.color + ';">'
         +   '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px;">'
-        +     '<div><div style="font-size:11.5px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));">' + f.name + '</div><div style="font-size:9.5px;letter-spacing:0.08em;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:700;text-transform:uppercase;margin-top:2px;">' + f.weight + '% of score</div></div>'
+        +     '<div><div style="font-size:11.5px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));">' + f.name + '</div><div style="font-size:9.5px;letter-spacing:0.08em;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:700;text-transform:uppercase;margin-top:2px;">' + f.weight + '% of score</div></div>'
         +     '<div style="text-align:right;"><div style="font-size:20px;font-weight:900;color:' + g.color + ';line-height:1;letter-spacing:-0.02em;">' + g.grade + '</div><div style="font-size:9.5px;font-weight:800;color:' + g.color + ';margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">' + g.label + '</div></div>'
         +   '</div>'
-        +   '<div style="font-size:11px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;line-height:1.45;margin-top:6px;">' + g.reason + '</div>'
+        +   '<div style="font-size:11px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;line-height:1.45;margin-top:6px;">' + g.reason + '</div>'
         + '</div>';
     }).join('');
 
     return ''
       + '<div style="margin-bottom:24px;">'
       +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
-      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Factor Breakdown</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">What\'s shaping your score, graded from your real data</div></div>'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Factor Breakdown</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">What\'s shaping your score, graded from your real data</div></div>'
       +   '</div>'
       +   '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + cardsHTML + '</div>'
       + '</div>';
@@ -581,7 +581,7 @@
       var b = [];
       Object.keys(p.bureauScores).forEach(function (k) {
         var v = p.bureauScores[k]; var val = v && v.value ? v.value : v;
-        if (val) b.push('<span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#a855f7;"></span>' + k.charAt(0).toUpperCase() + k.slice(1) + ' <strong style="color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));">' + val + '</strong></span>');
+        if (val) b.push('<span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#a855f7;"></span>' + k.charAt(0).toUpperCase() + k.slice(1) + ' <strong style="color:var(--ink, var(--ink, var(--text-1, #0a0a0a));">' + val + '</strong></span>');
       });
       bureauStr = b.join('<span style="color:var(--text-3);opacity:0.5;margin:0 6px;">·</span>');
     }
@@ -597,12 +597,12 @@
 
     var heroHTML = ''
       + '<div style="margin-bottom:20px;">'
-      +   '<div style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Credit Fix</div>'
+      +   '<div style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Credit Health</div>'
       +   '<div style="display:flex;align-items:baseline;gap:14px;margin:6px 0 4px;flex-wrap:wrap;">'
-      +     '<h1 style="font-size:30px;font-weight:900;letter-spacing:-0.02em;margin:0;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));">Score ' + (p.currentScore || '—') + scoreTrendStr + '</h1>'
+      +     '<h1 style="font-size:30px;font-weight:900;letter-spacing:-0.02em;margin:0;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));">Score ' + (p.currentScore || '—') + scoreTrendStr + '</h1>'
       +   '</div>'
       +   (bureauStr ? '<div style="margin:6px 0;">' + bureauStr + '</div>' : '')
-      +   '<p style="font-size:13px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:500;max-width:660px;margin:8px 0 0;line-height:1.5;">' + openCount + ' action' + (openCount !== 1 ? 's' : '') + ' open · est. <strong style="color:#10b981;">+' + projected + ' points</strong> if you finish them all.</p>'
+      +   '<p style="font-size:13px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:500;max-width:660px;margin:8px 0 0;line-height:1.5;">' + openCount + ' action' + (openCount !== 1 ? 's' : '') + ' open · est. <strong style="color:#10b981;">+' + projected + ' points</strong> if you finish them all.</p>'
       + '</div>';
 
     // Utilization grid (always show — utilization is the #1 lever)
@@ -611,7 +611,7 @@
       utilGridHTML = ''
         + '<div style="margin-bottom:24px;">'
         +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Card Utilization</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">Overall ' + (p.overallUtil != null ? Math.round(p.overallUtil) + '%' : '—') + ' · target under 30%</div></div>'
+        +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Card Utilization</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">Overall ' + (p.overallUtil != null ? Math.round(p.overallUtil) + '%' : '—') + ' · target under 30%</div></div>'
         +   '</div>'
         +   '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">'
         +     p.perCard.map(function (c) {
@@ -620,10 +620,10 @@
                 var bar = u == null ? 0 : Math.min(100, u);
                 return ''
                   + '<div style="padding:11px 14px;background:var(--card, var(--bg-2, #fff));border:1px solid ' + color + '33;border-radius:10px;border-left:3px solid ' + color + ';">'
-                  +   '<div style="font-size:11.5px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(c.name) + '</div>'
-                  +   '<div style="font-size:10px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;margin-bottom:6px;">' + fmtUSD(c.balance) + ' of ' + (c.limit > 0 ? fmtUSD(c.limit) : '—') + '</div>'
+                  +   '<div style="font-size:11.5px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(c.name) + '</div>'
+                  +   '<div style="font-size:10px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;margin-bottom:6px;">' + fmtUSD(c.balance) + ' of ' + (c.limit > 0 ? fmtUSD(c.limit) : '—') + '</div>'
                   +   '<div style="height:6px;background:var(--card-2,rgba(255,255,255,0.06));border-radius:999px;overflow:hidden;"><div style="height:100%;width:' + bar + '%;background:' + color + ';"></div></div>'
-                  +   '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:800;color:' + color + ';margin-top:4px;"><span>' + (u != null ? Math.round(u) + '%' : 'no limit') + '</span>' + (u != null && u > 30 ? '<span style="font-weight:600;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));">pay ' + fmtUSD(c.balance - c.limit * 0.30) + ' to hit 30%</span>' : '') + '</div>'
+                  +   '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:800;color:' + color + ';margin-top:4px;"><span>' + (u != null ? Math.round(u) + '%' : 'no limit') + '</span>' + (u != null && u > 30 ? '<span style="font-weight:600;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));">pay ' + fmtUSD(c.balance - c.limit * 0.30) + ' to hit 30%</span>' : '') + '</div>'
                   + '</div>';
               }).join('')
         +   '</div>'
@@ -633,7 +633,7 @@
     // Action cards
     var actionCardsHTML = ''
       + '<div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'
-      +   '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));text-transform:uppercase;">Action Plan</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">Your highest-impact moves</div></div>'
+      +   '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Action Plan</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">Your highest-impact moves</div></div>'
       +   '<div style="display:flex;gap:8px;font-size:10px;font-weight:700;"><span style="padding:4px 10px;border-radius:999px;background:#10b98122;color:#10b981;">' + doneCount + ' done</span><span style="padding:4px 10px;border-radius:999px;background:rgba(148,163,184,0.15);color:#94a3b8;">' + openCount + ' open</span></div>'
       + '</div>'
       + '<div style="display:flex;flex-direction:column;gap:10px;">'
@@ -645,7 +645,7 @@
       + '<div style="margin-top:24px;padding:18px 22px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(99,102,241,0.10));border:1px solid rgba(16,185,129,0.30);border-radius:14px;">'
       +   '<div style="display:flex;align-items:center;gap:12px;">'
       +     '<div style="width:42px;height:42px;border-radius:11px;background:rgba(16,185,129,0.20);display:grid;place-items:center;"><i class="ph-fill ph-rocket-launch" style="font-size:20px;color:#10b981;"></i></div>'
-      +     '<div style="flex:1;"><div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:#10b981;">If you finish everything open</div><div style="font-size:18px;font-weight:900;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));margin-top:2px;">Your score could move from ' + (p.currentScore || '—') + ' to ~' + ((p.currentScore || 0) + projected) + ' (+' + projected + ' pts)</div><div style="font-size:11px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:600;margin-top:4px;">Rough estimate · actual gain depends on reporting cycles, bureau timing, and which factors move first.</div></div>'
+      +     '<div style="flex:1;"><div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:#10b981;">If you finish everything open</div><div style="font-size:18px;font-weight:900;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">Your score could move from ' + (p.currentScore || '—') + ' to ~' + ((p.currentScore || 0) + projected) + ' (+' + projected + ' pts)</div><div style="font-size:11px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:600;margin-top:4px;">Rough estimate · actual gain depends on reporting cycles, bureau timing, and which factors move first.</div></div>'
       +   '</div>'
       + '</div>' : '';
 
@@ -730,14 +730,14 @@
       +   '<div style="width:38px;height:38px;border-radius:10px;background:' + a.accent + '22;display:grid;place-items:center;color:' + a.accent + ';flex-shrink:0;"><i class="' + a.icon + '" style="font-size:18px;"></i></div>'
       +   '<div style="flex:1;min-width:0;">'
       +     '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px;flex-wrap:wrap;">'
-      +       '<div style="font-size:14px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a)));line-height:1.3;flex:1;min-width:200px;">' + escapeHTML(a.title) + '</div>'
+      +       '<div style="font-size:14px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));line-height:1.3;flex:1;min-width:200px;">' + escapeHTML(a.title) + '</div>'
       +       '<div style="display:flex;gap:6px;align-items:center;">'
       +         (a.estGain > 0 ? '<span style="font-size:9.5px;font-weight:800;padding:3px 9px;border-radius:999px;background:#10b98122;color:#10b981;letter-spacing:0.05em;">+' + a.estGain + ' pts</span>' : '')
       +         '<span style="font-size:9.5px;font-weight:800;padding:3px 9px;border-radius:999px;background:' + diffColor + '22;color:' + diffColor + ';letter-spacing:0.06em;text-transform:uppercase;">' + a.difficulty + '</span>'
       +         statusBadge
       +       '</div>'
       +     '</div>'
-      +     '<div style="font-size:12px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8)));font-weight:500;line-height:1.5;margin-bottom:10px;">' + escapeHTML(a.summary) + '</div>'
+      +     '<div style="font-size:12px;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));font-weight:500;line-height:1.5;margin-bottom:10px;">' + escapeHTML(a.summary) + '</div>'
       +     '<div style="display:flex;gap:8px;">' + ctaButtons + '</div>'
       +   '</div>'
       + '</div>';
