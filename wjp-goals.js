@@ -1,4 +1,4 @@
-/* wjp-goals.js v5 — fix navigation: clear inline display so host pages can re-show
+/* wjp-goals.js v6 — fix navigation properly: detect host active page, restore inline display
  *
  * New sidebar tab + page. Lets users define savings goals (emergency fund,
  * down payment, wedding, car, vacation, education, custom). Each goal has:
@@ -449,15 +449,20 @@
   function tick() {
     try {
       ensureNavItem();
-      // Detect when other host navs are clicked — hide our page
-      var goalsActive = document.getElementById(NAV_ID) && document.getElementById(NAV_ID).classList.contains('active');
-      var anyHostActive = Array.from(document.querySelectorAll('.nav-item.active')).some(function (n) { return n.id !== NAV_ID; });
-      if (anyHostActive && goalsActive) {
-        var page = document.getElementById(PAGE_ID);
-        if (page) { page.style.display = 'none'; page.classList.remove('active'); }
-        var nav = document.getElementById(NAV_ID); if (nav) nav.classList.remove('active');
+      var ourNav = document.getElementById(NAV_ID);
+      var ourPage = document.getElementById(PAGE_ID);
+      var ourNavActive = ourNav && ourNav.classList.contains('active');
+      var hostActiveNav = Array.from(document.querySelectorAll('.nav-item.active')).find(function (n) { return n.id !== NAV_ID; });
+      var hostActivePage = Array.from(document.querySelectorAll('.page.active, [id^="page-"].active')).find(function (p) { return p.id !== PAGE_ID; });
+
+      if (hostActiveNav || hostActivePage) {
+        if (ourPage) { ourPage.style.display = 'none'; ourPage.classList.remove('active'); }
+        if (ourNav) ourNav.classList.remove('active');
         Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
-          if (p.id !== PAGE_ID) p.style.display = '';
+          if (p.id !== PAGE_ID && p.dataset.wjpDeactivated) {
+            p.style.display = '';
+            delete p.dataset.wjpDeactivated;
+          }
         });
       }
     } catch (_) {}

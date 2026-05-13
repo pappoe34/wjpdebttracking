@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v5 — fix navigation: clear inline display so host pages can re-show: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
+/* wjp-credit-actions.js v6 — fix navigation properly: detect host active page, restore inline display: clear inline display so host pages can re-show: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -489,25 +489,32 @@
     try {
       ensureNavItem();
       hideDuplicateSubtab();
-      var creditActive = document.getElementById(NAV_ID) && document.getElementById(NAV_ID).classList.contains('active');
-      var anyHostActive = Array.from(document.querySelectorAll('.nav-item.active')).some(function (n) { return n.id !== NAV_ID; });
-      if (anyHostActive && creditActive) {
-        var page = document.getElementById(PAGE_ID);
-        if (page) { page.style.display = 'none'; page.classList.remove('active'); }
-        var nav = document.getElementById(NAV_ID); if (nav) nav.classList.remove('active');
-        // Restore inline display on host pages so .page.active CSS rule controls them
+      var ourNav = document.getElementById(NAV_ID);
+      var ourPage = document.getElementById(PAGE_ID);
+      var ourNavActive = ourNav && ourNav.classList.contains('active');
+      // Detect if a host nav is active (any nav-item with .active that isn't ours)
+      var hostActiveNav = Array.from(document.querySelectorAll('.nav-item.active')).find(function (n) { return n.id !== NAV_ID; });
+      // Detect a host page that has .active class (host's render put it there)
+      var hostActivePage = Array.from(document.querySelectorAll('.page.active, [id^="page-"].active')).find(function (p) { return p.id !== PAGE_ID; });
+
+      // RULE 1: If host nav or page is now active, retire ours.
+      if (hostActiveNav || hostActivePage) {
+        if (ourPage) { ourPage.style.display = 'none'; ourPage.classList.remove('active'); }
+        if (ourNav) ourNav.classList.remove('active');
+        // Clear inline display we set on other pages so host CSS owns them again.
         Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
-          if (p.id !== PAGE_ID) p.style.display = '';
+          if (p.id !== PAGE_ID && p.dataset.wjpDeactivated) {
+            p.style.display = '';
+            delete p.dataset.wjpDeactivated;
+          }
         });
-      } else if (creditActive) {
-        // Auto-refresh while visible — picks up Plaid balance changes
-        var page = document.getElementById(PAGE_ID);
-        if (page && page.offsetHeight > 0) {
-          // Only re-render if numbers actually changed (cheap check)
-          var sig = (function () { var p = computeCreditProfile(); return p.totalBalance + '|' + p.totalLimit + '|' + (p.currentScore||0); })();
+      } else if (ourNavActive) {
+        // We're the active page — auto-refresh data
+        if (ourPage && ourPage.offsetHeight > 0) {
+          var sig = (function () { var p = computeCreditProfile(); return p.totalBalance + '|' + p.totalLimit + '|' + (p.currentScore || 0); })();
           if (window._wjpCreditLastSig !== sig) {
             window._wjpCreditLastSig = sig;
-            renderPage(page);
+            renderPage(ourPage);
           }
         }
       }
