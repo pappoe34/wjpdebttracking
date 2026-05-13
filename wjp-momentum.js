@@ -1,4 +1,6 @@
-/* wjp-momentum.js v3 — refined streak design + per-debt payoff milestones (5/15/30/50/75/100%)
+/* wjp-momentum.js v4 — Exec Summary first, then momentum (consistent sage palette)
+ *
+ * Original:  v3 — refined streak design + per-debt payoff milestones (5/15/30/50/75/100%)
  *
  * Three surfaces that make progress feel real:
  *   1. Weekly Progress hero strip on dashboard — 3 chips with deltas vs 7d ago
@@ -33,9 +35,9 @@
     if (!d) {
       // No history yet — show a friendly "starting fresh" state
       return ''
-        + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(99,102,241,0.10));border:1px solid rgba(16,185,129,0.30);border-radius:12px;margin:14px 0;">'
-        +   '<div style="width:30px;height:30px;border-radius:8px;background:rgba(16,185,129,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-rocket-launch" style="font-size:16px;color:#10b981;"></i></div>'
-        +   '<div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:var(--text-1,#0a0a0a);">Day one — let\'s build your momentum.</div><div style="font-size:10.5px;color:var(--text-3,#94a3b8);font-weight:600;margin-top:1px;">Check in tomorrow to see your first 24-hour delta.</div></div>'
+        + '<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:14px;margin:14px 0;">'
+        +   '<div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.18);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-rocket-launch" style="font-size:18px;color:#10b981;"></i></div>'
+        +   '<div style="flex:1;"><div style="font-size:13px;font-weight:800;color:var(--ink, var(--text-1, #0a0a0a));">Day one — let\'s build your momentum.</div><div style="font-size:11px;color:var(--text-3, rgba(255,255,255,0.65));font-weight:600;margin-top:2px;">Check in tomorrow to see your first 24-hour delta.</div></div>'
         + '</div>';
     }
 
@@ -100,11 +102,12 @@
         card.id = HERO_ID;
         card.className = 'card reveal';
         card.style.cssText = 'padding:14px 16px;margin-top:10px;';
-        // Insert right after the greeting (before edu tip / executive summary)
-        var greeting = document.getElementById('dash-greeting');
-        if (greeting && greeting.parentNode) {
-          if (greeting.nextSibling) greeting.parentNode.insertBefore(card, greeting.nextSibling);
-          else greeting.parentNode.appendChild(card);
+        // v4: Insert AFTER the Executive Summary (#dfd-hero) so it doesn't push the
+        // headline below. Fall back to after greeting if exec summary not present yet.
+        var anchor = document.getElementById('dfd-hero') || document.getElementById('dash-greeting');
+        if (anchor && anchor.parentNode) {
+          if (anchor.nextSibling) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+          else anchor.parentNode.appendChild(card);
         } else {
           page.insertBefore(card, page.firstChild);
         }
