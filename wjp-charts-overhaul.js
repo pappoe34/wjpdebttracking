@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v3 — typography + palette uniformity (matches site weights).
+/* wjp-charts-overhaul.js v4 — force redraw via window.drawCharts + loosened gating.
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -447,7 +447,7 @@
     }
 
     // -------- LINE — dual trajectory, NO fills, clean geometric comparison --------
-    if (chartType === 'line' && activeStyle === 'line' && optSeries.length && minSeries.length) {
+    if (chartType === 'line' && activeStyle === 'line' && optSeries.length) {
       // Strip fills from both — line view is about the path, not the area.
       if (optDS) {
         optDS.fill = false;
@@ -494,7 +494,7 @@
     }
 
     // -------- AREA — savings visualization: fill the gap (interest saved wash) --------
-    if (chartType === 'line' && activeStyle === 'area' && optSeries.length && minSeries.length) {
+    if (chartType === 'line' && activeStyle === 'area' && optSeries.length) {
       // Optimized: solid line with subtle gradient fill from line down to zero
       if (optDS) {
         optDS.fill = 'origin';
@@ -671,24 +671,26 @@
     window.Chart = WJPChart;
     try { console.log('[wjp-charts] Chart wrapped — spending + payoff overhaul live'); } catch (_) {}
 
-    // Force a redraw of currently mounted charts so the overhaul takes effect immediately
-    try {
-      ['spendingBarChart', 'projectionChartDash'].forEach(function (id) {
-        var cvs = document.getElementById(id);
-        if (!cvs) return;
-        var existing = _RealChart.getChart && _RealChart.getChart(cvs);
-        if (existing) existing.destroy();
-      });
-      // app.js will recreate them on next data update; nudge with a state change ping
-      setTimeout(function () {
-        try { if (typeof window.refreshAll === 'function') window.refreshAll(); } catch (_) {}
-        try { if (typeof window.updateDashboard === 'function') window.updateDashboard(); } catch (_) {}
-        try {
-          // Best-effort: simulate a settings change so charts redraw
-          var evt = new Event('storage'); window.dispatchEvent(evt);
-        } catch (_) {}
-      }, 60);
-    } catch (_) {}
+    // Force a redraw of currently mounted charts so the overhaul takes effect immediately.
+    // The right global hook is window.drawCharts() — app.js exposes it and it routes through
+    // drawSpendingChart + drawDashProjection, both of which go through our wrapped Chart now.
+    function nudgeRedraw() {
+      try {
+        ['spendingBarChart', 'projectionChartDash'].forEach(function (id) {
+          var cvs = document.getElementById(id);
+          if (!cvs) return;
+          var existing = _RealChart.getChart && _RealChart.getChart(cvs);
+          if (existing) try { existing.destroy(); } catch (_) {}
+        });
+      } catch (_) {}
+      try { if (typeof window.drawCharts === 'function') window.drawCharts(); } catch (_) {}
+    }
+    // First nudge soon after patch (give app.js a beat to settle)
+    setTimeout(nudgeRedraw, 80);
+    // Belt + suspenders: second nudge after 500ms in case the first ran while
+    // drawCharts wasn't yet hoisted to window.
+    setTimeout(nudgeRedraw, 500);
+    window._wjpChartsNudge = nudgeRedraw;
 
     return true;
   }
@@ -706,17 +708,7 @@
   function observeTheme() {
     try {
       var mo = new MutationObserver(function () {
-        ['spendingBarChart', 'projectionChartDash'].forEach(function (id) {
-          try {
-            var cvs = document.getElementById(id);
-            if (!cvs || !window.Chart || !window.Chart.getChart) return;
-            var existing = window.Chart.getChart(cvs);
-            if (existing) existing.destroy();
-          } catch (_) {}
-        });
-        // Nudge a redraw — host code rebuilds on storage / state events
-        try { window.dispatchEvent(new Event('storage')); } catch (_) {}
-        try { if (typeof window.updateDashboard === 'function') window.updateDashboard(); } catch (_) {}
+        if (typeof window._wjpChartsNudge === 'function') window._wjpChartsNudge();
       });
       mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
       mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
