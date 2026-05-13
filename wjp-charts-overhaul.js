@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v1 — finance-level redesigns for dashboard charts.
+/* wjp-charts-overhaul.js v2 — theme-aware + differentiated AI Coach line/area/bar.
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -31,13 +31,31 @@
     if (Math.abs(n) >= 1000) return '$' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
     return '$' + Math.round(n).toLocaleString('en-US');
   }
+  // Theme detection — host uses data-theme="dark" on <html>, NOT a class.
+  // Some sub-pages also set body.classList.add('dark') so we check both for safety.
   function isDark() {
-    try { return document.documentElement.classList.contains('dark') || document.body.classList.contains('dark'); }
-    catch (_) { return false; }
+    try {
+      var html = document.documentElement;
+      var attr = html.getAttribute('data-theme');
+      if (attr === 'dark') return true;
+      if (attr === 'light') return false;
+      if (html.classList.contains('dark') || document.body.classList.contains('dark')) return true;
+      // Fall back to OS preference
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (_) { return false; }
   }
-  function ink() { return isDark() ? '#f1f5f9' : '#0a0a0a'; }
-  function muted() { return isDark() ? 'rgba(241,245,249,0.55)' : 'rgba(10,10,10,0.55)'; }
-  function gridCol() { return isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(10,10,10,0.06)'; }
+  // Pull live CSS vars whenever possible so charts inherit the host's exact theme.
+  // Fallback colors used only if the var is empty.
+  function cssVar(name, fallback) {
+    try {
+      var v = getComputedStyle(document.body).getPropertyValue(name).trim();
+      return v || fallback;
+    } catch (_) { return fallback; }
+  }
+  function ink()    { return cssVar('--ink', cssVar('--text-1', isDark() ? '#f1f5f9' : '#0a0a0a')); }
+  function muted()  { return cssVar('--text-3', isDark() ? 'rgba(241,245,249,0.55)' : 'rgba(10,10,10,0.55)'); }
+  function gridCol(){ return cssVar('--border', isDark() ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.08)'); }
+  function surface(){ return cssVar('--card-2', isDark() ? '#0b0f1a' : '#ffffff'); }
 
   // Brand-aligned sage palette + accents for slice differentiation
   var SAGE_RAMP = [
@@ -369,11 +387,22 @@
   }
 
   // ===== AI Coach Payoff upgrades =====
+  // Three distinct visual stories per toggle:
+  //   LINE  → dual trajectory (Optimized solid + Minimums dashed, no fills) + milestones
+  //   AREA  → savings visualization: fill the gap between optimized & minimums (interest saved)
+  //   BAR   → monthly balance step-down with minimums-only ghost line overlay + avg ref
   function upgradePayoff(config) {
     var datasets = (config.data && config.data.datasets) || [];
     var labels = (config.data && config.data.labels) || [];
     var chartType = config.type;
     if (!datasets.length || datasets[0].label === 'No debts yet') return config;
+
+    // Read the active style (line/area/bar) from appState — host's chartType folds
+    // line+area into the same Chart.js 'line' type, so we must disambiguate here.
+    var activeStyle = 'line';
+    try {
+      activeStyle = (window.appState && window.appState.settings && window.appState.settings.activeChartStyle) || 'line';
+    } catch (_) {}
 
     // Identify the two series
     var optDS = datasets[0];   // optimized (extra)
@@ -382,31 +411,55 @@
     var optSeries = (optDS && optDS.data) || [];
     var minSeries = (minDS && minDS.data) || [];
 
-    // LINE/AREA — fill the gap between optimized and minimums (interest saved area)
-    if (chartType === 'line' && optSeries.length && minSeries.length) {
-      // Insert a hidden "ghost" series whose .fill targets the minimums line
-      // creating a translucent green wash between the two lines.
-      var savedDataset = {
-        label: 'Interest saved',
-        data: optSeries.slice(),
-        borderColor: 'rgba(16,185,129,0.0)',
-        borderWidth: 0,
-        backgroundColor: 'rgba(16,185,129,0.16)',
-        fill: { target: 1, above: 'rgba(16,185,129,0.16)', below: 'rgba(16,185,129,0)' },
-        tension: 0.45,
-        pointRadius: 0,
-        order: 5
-      };
-      // Insert savedDataset between optimized (index 0) and minimums (index 1)
-      config.data.datasets = [optDS, minDS, savedDataset];
+    // Shared: milestones along the optimized trajectory
+    var startBal = optSeries[0] || 0;
+    var milestones = startBal ? [0.75, 0.5, 0.25].map(function (frac) {
+      var target = startBal * frac;
+      var idx = optSeries.findIndex(function (v) { return v <= target; });
+      return idx > 0 ? { idx: idx, pct: Math.round((1 - frac) * 100), bal: optSeries[idx] } : null;
+    }).filter(Boolean) : [];
 
-      // Add 25/50/75 milestone markers
-      var startBal = optSeries[0] || 0;
-      var milestones = [0.75, 0.5, 0.25].map(function (frac) {
-        var target = startBal * frac;
-        var idx = optSeries.findIndex(function (v) { return v <= target; });
-        return idx > 0 ? { idx: idx, pct: Math.round((1 - frac) * 100), bal: optSeries[idx] } : null;
-      }).filter(Boolean);
+    // Shared tooltip enhancement — "Ahead by $X" callout
+    function applyAheadTooltip() {
+      try {
+        config.options = config.options || {};
+        config.options.plugins = config.options.plugins || {};
+        var prev = (config.options.plugins.tooltip && config.options.plugins.tooltip.callbacks) || {};
+        config.options.plugins.tooltip = config.options.plugins.tooltip || {};
+        config.options.plugins.tooltip.callbacks = Object.assign({}, prev, {
+          afterBody: function (items) {
+            if (!items.length) return '';
+            var i = items[0].dataIndex;
+            var diff = (minSeries[i] || 0) - (optSeries[i] || 0);
+            if (diff <= 0) return '';
+            return ['', 'Ahead by ' + fmtUSD(diff)];
+          }
+        });
+      } catch (_) {}
+    }
+
+    // -------- LINE — dual trajectory, NO fills, clean geometric comparison --------
+    if (chartType === 'line' && activeStyle === 'line' && optSeries.length && minSeries.length) {
+      // Strip fills from both — line view is about the path, not the area.
+      if (optDS) {
+        optDS.fill = false;
+        optDS.backgroundColor = 'transparent';
+        optDS.tension = 0.4;
+        // Bring back subtle points along the optimized line every ~20% of the journey
+        var totalLen = optSeries.length;
+        optDS.pointRadius = optSeries.map(function (_, i) {
+          if (i === 0) return 6; // today marker stays bold
+          if (totalLen <= 6) return 3;
+          return (i % Math.max(1, Math.floor(totalLen / 6)) === 0) ? 2.5 : 0;
+        });
+      }
+      if (minDS) {
+        minDS.fill = false;
+        minDS.backgroundColor = 'transparent';
+        minDS.borderDash = [6, 5];
+        minDS.borderColor = muted();
+        minDS.tension = 0.4;
+      }
 
       var existingPlugins = config.plugins || [];
       config.plugins = existingPlugins.concat([{
@@ -418,40 +471,140 @@
           milestones.forEach(function (m) {
             var x = xs.getPixelForValue(m.idx);
             var y = ys.getPixelForValue(m.bal);
-            // small marker dot
             c.fillStyle = 'rgba(16,185,129,0.95)';
-            c.strokeStyle = isDark() ? '#0b0f1a' : '#ffffff';
+            c.strokeStyle = surface();
             c.lineWidth = 2;
-            c.beginPath(); c.arc(x, y, 4, 0, Math.PI * 2); c.fill(); c.stroke();
-            // tiny label above
+            c.beginPath(); c.arc(x, y, 4.5, 0, Math.PI * 2); c.fill(); c.stroke();
             c.fillStyle = ink(); c.font = '800 9px Inter'; c.textAlign = 'center';
-            c.fillText(m.pct + '%', x, y - 9);
+            c.fillText(m.pct + '%', x, y - 10);
           });
           c.restore();
         }
       }]);
-
-      // Enhance tooltip to surface running savings
-      try {
-        config.options = config.options || {};
-        config.options.plugins = config.options.plugins || {};
-        var prevCallback = (config.options.plugins.tooltip && config.options.plugins.tooltip.callbacks) || {};
-        config.options.plugins.tooltip = config.options.plugins.tooltip || {};
-        config.options.plugins.tooltip.callbacks = Object.assign({}, prevCallback, {
-          afterBody: function (items) {
-            if (!items.length) return '';
-            var i = items[0].dataIndex;
-            var diff = (minSeries[i] || 0) - (optSeries[i] || 0);
-            if (diff <= 0) return '';
-            return ['', 'Ahead by ' + fmtUSD(diff)];
-          }
-        });
-      } catch (_) {}
+      applyAheadTooltip();
       return config;
     }
 
-    // BAR — add average monthly payoff reference line
+    // -------- AREA — savings visualization: fill the gap (interest saved wash) --------
+    if (chartType === 'line' && activeStyle === 'area' && optSeries.length && minSeries.length) {
+      // Optimized: solid line with subtle gradient fill from line down to zero
+      if (optDS) {
+        optDS.fill = 'origin';
+        optDS.backgroundColor = function (ctx) {
+          try {
+            var ch = ctx.chart, a = ch.chartArea;
+            if (!a) return 'rgba(16,185,129,0.10)';
+            var g = ch.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+            g.addColorStop(0, 'rgba(16,185,129,0.32)');
+            g.addColorStop(1, 'rgba(16,185,129,0.02)');
+            return g;
+          } catch (_) { return 'rgba(16,185,129,0.10)'; }
+        };
+        optDS.tension = 0.45;
+      }
+      if (minDS) {
+        minDS.borderDash = [4, 4];
+        minDS.borderColor = 'rgba(239,68,68,0.55)';
+        minDS.fill = false;
+        minDS.backgroundColor = 'transparent';
+      }
+      // The "interest saved" wash — a ghost dataset filling from optimized UP to minimums
+      var savedDataset = {
+        label: 'Interest saved',
+        data: minSeries.slice(),
+        borderColor: 'rgba(0,0,0,0)',
+        borderWidth: 0,
+        backgroundColor: 'rgba(239,68,68,0.15)',
+        fill: '-1', // fill toward previous dataset
+        tension: 0.45,
+        pointRadius: 0,
+        order: 10
+      };
+      // Order: optimized(0) → minimums(1) → savedWash(2 fills -1 to minimums)
+      // Actually we want fill BETWEEN optimized and minimums. Easier: replace minDS slot
+      // with a saved-wash dataset and keep minimums as a separate borderless reference.
+      config.data.datasets = [optDS, {
+        label: 'Minimums (reference)',
+        data: minSeries,
+        borderColor: 'rgba(239,68,68,0.55)',
+        borderDash: [4, 4],
+        borderWidth: 2,
+        backgroundColor: 'rgba(239,68,68,0.12)',
+        fill: { target: '-1', above: 'rgba(239,68,68,0.14)', below: 'rgba(0,0,0,0)' },
+        tension: 0.45,
+        pointRadius: 0
+      }];
+
+      var existingPlugins2 = config.plugins || [];
+      config.plugins = existingPlugins2.concat([{
+        id: 'wjpPayoffAreaLabel',
+        afterDraw: function (chart) {
+          var c = chart.ctx, a = chart.chartArea;
+          if (!a) return;
+          c.save();
+          // "Interest saved" badge in the middle of the gap
+          var midIdx = Math.floor(optSeries.length * 0.45);
+          var xs = chart.scales.x, ys = chart.scales.y;
+          if (xs && ys && optSeries[midIdx] != null && minSeries[midIdx] != null) {
+            var mx = xs.getPixelForValue(midIdx);
+            var my = ys.getPixelForValue((optSeries[midIdx] + minSeries[midIdx]) / 2);
+            var totalSaved = (minSeries[minSeries.length-1] || 0) ? 0 : 0;
+            // Use cumulative gap at end-of-window as proxy
+            var endGap = (minSeries[minSeries.length-1] || 0) - (optSeries[optSeries.length-1] || 0);
+            // Friendlier: max gap reached
+            var maxGap = 0;
+            optSeries.forEach(function (_, i) {
+              var d = (minSeries[i] || 0) - (optSeries[i] || 0);
+              if (d > maxGap) maxGap = d;
+            });
+            var txt = 'Saving up to ' + fmtUSDk(maxGap);
+            c.font = '800 10px Inter';
+            var w = c.measureText(txt).width + 14, h = 18;
+            var cx = mx - w / 2, cy = my - h / 2;
+            c.fillStyle = 'rgba(239,68,68,0.92)';
+            if (c.roundRect) { c.beginPath(); c.roundRect(cx, cy, w, h, 9); c.fill(); } else c.fillRect(cx, cy, w, h);
+            c.fillStyle = '#ffffff'; c.textBaseline = 'middle'; c.textAlign = 'center';
+            c.fillText(txt, mx, my + 0.5);
+          }
+          c.restore();
+        }
+      }]);
+      applyAheadTooltip();
+      return config;
+    }
+
+    // -------- BAR — monthly balance step-down with minimums ghost LINE overlay --------
     if (chartType === 'bar' && optSeries.length) {
+      // Restyle the optimized bars: emerald with gradient
+      if (optDS) {
+        optDS.backgroundColor = function (ctx) {
+          try {
+            var ch = ctx.chart, a = ch.chartArea;
+            if (!a) return 'rgba(16,185,129,0.85)';
+            var g = ch.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+            g.addColorStop(0, 'rgba(16,185,129,0.95)');
+            g.addColorStop(1, 'rgba(16,185,129,0.55)');
+            return g;
+          } catch (_) { return 'rgba(16,185,129,0.85)'; }
+        };
+        optDS.borderRadius = 4;
+        optDS.borderSkipped = false;
+        optDS.barPercentage = 0.7;
+        optDS.categoryPercentage = 0.85;
+      }
+      // Drop the minimums BAR — convert it to a LINE overlay on the bar chart
+      if (minDS) {
+        minDS.type = 'line';
+        minDS.borderColor = 'rgba(239,68,68,0.85)';
+        minDS.backgroundColor = 'rgba(239,68,68,0.10)';
+        minDS.borderDash = [4, 4];
+        minDS.borderWidth = 2.5;
+        minDS.fill = false;
+        minDS.pointRadius = 0;
+        minDS.tension = 0.4;
+        minDS.order = 0; // draw on top
+      }
+
       var firstNonZero = optSeries[0] || 0;
       var lastNonZero = 0;
       for (var k = optSeries.length - 1; k >= 0; k--) {
@@ -460,22 +613,28 @@
       var monthsActive = lastNonZero || optSeries.length;
       var avgMonthlyPay = monthsActive ? firstNonZero / monthsActive : 0;
 
-      var existing = config.plugins || [];
-      config.plugins = existing.concat([{
+      var existingBar = config.plugins || [];
+      config.plugins = existingBar.concat([{
         id: 'wjpPayoffBarOverlay',
         afterDraw: function (chart) {
           var c = chart.ctx, a = chart.chartArea, ys = chart.scales.y;
-          if (!a || !avgMonthlyPay) return;
-          var y = ys.getPixelForValue(avgMonthlyPay);
-          if (y < a.top || y > a.bottom) return;
+          if (!a) return;
           c.save();
-          c.strokeStyle = 'rgba(16,185,129,0.6)'; c.lineWidth = 1.2; c.setLineDash([4, 3]);
-          c.beginPath(); c.moveTo(a.left, y); c.lineTo(a.right, y); c.stroke(); c.setLineDash([]);
-          c.fillStyle = '#10b981'; c.font = '700 9px Inter';
-          c.fillText('avg ' + fmtUSDk(avgMonthlyPay) + '/mo', a.right - 88, y - 4);
+          // Average monthly payoff reference line
+          if (avgMonthlyPay) {
+            var y = ys.getPixelForValue(avgMonthlyPay);
+            if (y >= a.top && y <= a.bottom) {
+              c.strokeStyle = muted(); c.lineWidth = 1; c.setLineDash([3, 3]);
+              c.beginPath(); c.moveTo(a.left, y); c.lineTo(a.right, y); c.stroke();
+              c.setLineDash([]);
+              c.fillStyle = muted(); c.font = '700 9px Inter';
+              c.fillText('avg balance ' + fmtUSDk(avgMonthlyPay), a.right - 110, y - 4);
+            }
+          }
           c.restore();
         }
       }]);
+      applyAheadTooltip();
       return config;
     }
 
@@ -527,9 +686,35 @@
   }
 
   function tryPatch() {
-    if (patchChart()) return;
+    if (patchChart()) {
+      observeTheme();
+      return;
+    }
     setTimeout(tryPatch, 300);
   }
+
+  // When the user toggles theme, destroy both upgraded charts so app.js recreates them
+  // with the new theme colors. This keeps tooltips/axes/labels in sync with the palette.
+  function observeTheme() {
+    try {
+      var mo = new MutationObserver(function () {
+        ['spendingBarChart', 'projectionChartDash'].forEach(function (id) {
+          try {
+            var cvs = document.getElementById(id);
+            if (!cvs || !window.Chart || !window.Chart.getChart) return;
+            var existing = window.Chart.getChart(cvs);
+            if (existing) existing.destroy();
+          } catch (_) {}
+        });
+        // Nudge a redraw — host code rebuilds on storage / state events
+        try { window.dispatchEvent(new Event('storage')); } catch (_) {}
+        try { if (typeof window.updateDashboard === 'function') window.updateDashboard(); } catch (_) {}
+      });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+      mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    } catch (_) {}
+  }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryPatch);
   else tryPatch();
 })();
