@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v9 — adds Array partner sections: Pre-qualified Offers + BuildCredit (Account + Rent) Pro-gated
+/* wjp-credit-actions.js v10 — properly hide Debts > Credit Score subtab nav + content + auto-redirect Debts subtab clicks
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -271,22 +271,37 @@
   }
 
   // ---------- Sidebar nav injection ----------
-  // v4: Hide the duplicate Debts > Credit Score subtab so the user has ONE Credit home.
+  // v10: Hide the duplicate Debts > Credit Score subtab so the user has ONE Credit home.
+  // Real selectors found by inspection:
+  //   - Nav: .debts-subtabs .subtab (filter by textContent === 'Credit Score')
+  //   - Content: #credit-score-tab-content (direct child of #page-debts)
   function hideDuplicateSubtab() {
     try {
-      // The host subtab is a clickable element with data-subtab-target or similar.
-      // Search both common patterns.
-      var candidates = Array.from(document.querySelectorAll('[data-debts-sub], [data-subtab], .debts-subtab-link, .subtab-link, .debts-sub-nav a, [data-tab]')).filter(function (el) {
-        var v = (el.getAttribute('data-debts-sub') || el.getAttribute('data-subtab') || el.getAttribute('data-tab') || '').toLowerCase();
-        if (v === 'credit-score') return true;
-        var t = (el.textContent || '').trim().toLowerCase();
-        return t === 'credit score';
+      // Hide nav
+      var subtabs = document.querySelectorAll('.debts-subtabs .subtab, .debts-subtabs > .subtab');
+      Array.from(subtabs).forEach(function (el) {
+        var t = (el.textContent || '').trim();
+        if (t === 'Credit Score' && !el.dataset.wjpHidden) {
+          el.dataset.wjpHidden = '1';
+          el.style.display = 'none';
+          // If it was active, also remove .active so the host doesn't try to show its content
+          el.classList.remove('active');
+        }
       });
-      candidates.forEach(function (el) {
-        if (el.dataset.wjpHidden) return;
-        el.dataset.wjpHidden = '1';
-        el.style.display = 'none';
-      });
+      // Hide content div + force any sibling subtab content to NOT be active
+      var content = document.getElementById('credit-score-tab-content');
+      if (content && !content.dataset.wjpHidden) {
+        content.dataset.wjpHidden = '1';
+        content.style.display = 'none';
+        content.classList.remove('active');
+      }
+      // If the host had Credit Score selected as the active subtab, activate the first remaining visible subtab so the user isn't staring at a blank Debts page.
+      var allSubtabs = document.querySelectorAll('.debts-subtabs .subtab');
+      var anyActive = Array.from(allSubtabs).some(function (s) { return s.classList.contains('active') && s.style.display !== 'none'; });
+      if (!anyActive) {
+        var firstVisible = Array.from(allSubtabs).find(function (s) { return s.style.display !== 'none'; });
+        if (firstVisible) firstVisible.click();
+      }
     } catch (_) {}
   }
 
