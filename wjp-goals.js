@@ -1,4 +1,4 @@
-/* wjp-goals.js v6 — fix navigation properly: detect host active page, restore inline display
+/* wjp-goals.js v7 — listen to host nav clicks, yield immediately: detect host active page, restore inline display
  *
  * New sidebar tab + page. Lets users define savings goals (emergency fund,
  * down payment, wedding, car, vacation, education, custom). Each goal has:
@@ -467,6 +467,22 @@
       }
     } catch (_) {}
   }
+    document.addEventListener('click', function (e) {
+    var hostNav = e.target.closest && e.target.closest('.nav-item[data-page]');
+    if (!hostNav) return;
+    if (hostNav.id === NAV_ID) return;
+    var ourPage = document.getElementById(PAGE_ID);
+    var ourNav = document.getElementById(NAV_ID);
+    if (ourPage) { ourPage.style.display = 'none'; ourPage.classList.remove('active'); }
+    if (ourNav) ourNav.classList.remove('active');
+    Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
+      if (p.id !== PAGE_ID && p.style.display === 'none') {
+        p.style.display = '';
+        delete p.dataset.wjpDeactivated;
+      }
+    });
+  }, true);
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(tick, 1500); });
   else setTimeout(tick, 1500);
   setInterval(tick, 1500);

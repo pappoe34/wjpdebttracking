@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v6 — fix navigation properly: detect host active page, restore inline display: clear inline display so host pages can re-show: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
+/* wjp-credit-actions.js v7 — listen to host nav clicks, yield immediately: detect host active page, restore inline display: clear inline display so host pages can re-show: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -520,6 +520,22 @@
       }
     } catch (_) {}
   }
+    document.addEventListener('click', function (e) {
+    var hostNav = e.target.closest && e.target.closest('.nav-item[data-page]');
+    if (!hostNav) return;
+    if (hostNav.id === NAV_ID) return;
+    var ourPage = document.getElementById(PAGE_ID);
+    var ourNav = document.getElementById(NAV_ID);
+    if (ourPage) { ourPage.style.display = 'none'; ourPage.classList.remove('active'); }
+    if (ourNav) ourNav.classList.remove('active');
+    Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
+      if (p.id !== PAGE_ID && p.style.display === 'none') {
+        p.style.display = '';
+        delete p.dataset.wjpDeactivated;
+      }
+    });
+  }, true);
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(tick, 2000); });
   else setTimeout(tick, 2000);
   setInterval(tick, 1500);
