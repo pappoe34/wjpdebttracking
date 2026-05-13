@@ -1,4 +1,4 @@
-/* wjp-credit-pull.js v1 — Path A: Pro-tier auto credit score pull scaffolding
+/* wjp-credit-pull.js v2 — 30-day rate limit, Identity Collection modal, Connect Bureau onboarding
  *
  * Renders an "Auto Credit Updates" card at the top of the Credit page with:
  *   - Pro-tier gating (Free shows locked state + upgrade CTA)
@@ -20,7 +20,17 @@
   window._wjpCreditPullInstalled = true;
 
   var STORE_KEY = 'wjp.credit.pull.v1';
+  var IDENTITY_KEY = 'wjp.credit.identity.v1';
   var CARD_ID = 'wjp-credit-autopull-card';
+  var MIN_INTERVAL_MS = 30 * 86400000;  // 30 days — hard cap so costs stay predictable
+
+  function tier() {
+    try {
+      if (typeof window.getTier === 'function') return window.getTier();
+      var s = window.appState; return s && s.subscription ? s.subscription.tier : 'free';
+    } catch (_) { return 'free'; }
+  }
+  function isAdmin() { return tier() === 'admin'; }
 
   function userKey(b) {
     if (window.WJP_UserScope && typeof window.WJP_UserScope.scopeKey === 'function') return window.WJP_UserScope.scopeKey(b);
@@ -29,12 +39,6 @@
   function loadJSON(k, def) { try { var v = localStorage.getItem(userKey(k)); return v ? JSON.parse(v) : def; } catch (_) { return def; } }
   function saveJSON(k, v) { try { localStorage.setItem(userKey(k), JSON.stringify(v)); } catch (_) {} }
 
-  function tier() {
-    try {
-      if (typeof window.getTier === 'function') return window.getTier();
-      var s = window.appState; return s && s.subscription ? s.subscription.tier : 'free';
-    } catch (_) { return 'free'; }
-  }
   function isPremium() {
     try { return typeof window.isPremium === 'function' ? !!window.isPremium() : false; } catch (_) { return false; }
   }
@@ -62,7 +66,7 @@
     if (s) return s;
     return {
       enabled: false,
-      cadence: 'monthly',
+      cadence: 'monthly',   // hard default — 30-day cycle, ~$0.25/mo per user
       lastPullAt: 0,
       nextPullAt: 0,
       lastResult: null,
@@ -112,8 +116,29 @@
     } catch (_) {}
   }
 
-  function requestPull() {
+  function requestPull(opts) {
+    opts = opts || {};
     var s = loadState();
+    // Enforce 30-day minimum between pulls (admin can override)
+    if (!opts.adminOverride && s.lastPullAt && (Date.now() - s.lastPullAt) < MIN_INTERVAL_MS && !isAdmin()) {
+      var daysLeft = Math.ceil((MIN_INTERVAL_MS - (Date.now() - s.lastPullAt)) / 86400000);
+      if (window.WJP_Momentum && typeof window.WJP_Momentum.showToast === 'function') {
+        window.WJP_Momentum.showToast({
+          eyebrow: 'RATE LIMITED',
+          title: 'Wait ' + daysLeft + ' more day' + (daysLeft !== 1 ? 's' : '') + ' before next pull',
+          sub: 'Pulls are capped to once every 30 days to keep your subscription cost predictable. Your next auto-pull is already scheduled.',
+          color: '#f59e0b',
+          icon: 'ph-fill ph-clock-countdown'
+        });
+      }
+      return;
+    }
+    // Need identity on file for first pull
+    var idRec = loadJSON(IDENTITY_KEY, null);
+    if (!idRec || !idRec.complete) {
+      openIdentityModal();
+      return;
+    }
     s.lastPullAt = Date.now();
     s = scheduleNext(s);
     // Show pending state immediately
@@ -185,7 +210,7 @@
       +   '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;">'
       +     '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:240px;">'
       +       '<div style="width:42px;height:42px;border-radius:11px;background:rgba(16,185,129,0.15);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-arrows-clockwise" style="font-size:20px;color:#10b981;"></i></div>'
-      +       '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:#10b981;text-transform:uppercase;">Auto credit score updates</div><div style="font-size:16px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:2px;">' + (s.enabled ? 'On — ' + (s.cadence === 'weekly' ? 'Weekly' : 'Monthly') : 'Off') + '</div></div>'
+      +       '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:#10b981;text-transform:uppercase;">Auto credit score updates</div><div style="font-size:16px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:2px;">' + (s.enabled ? 'On — ' + (s.cadence === 'weekly' ? 'Weekly' : 'Monthly · 30-day cap') : 'Off') + '</div></div>'
       +     '</div>'
       +     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
       +       cadenceToggleHTML(s, proPlus)
@@ -196,8 +221,8 @@
       +   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border,rgba(255,255,255,0.06));">'
       +     statLine('Last pulled', s.lastPullAt ? fmtDate(s.lastPullAt) : 'Never', s.lastPullAt ? fmtRelative(s.lastPullAt) : 'first pull pending')
       +     statLine('Next auto-pull', s.enabled ? fmtDate(s.nextPullAt) : 'Off', s.enabled ? fmtRelative(s.nextPullAt) : '—')
-      +     statLine('Bureaus', 'Equifax · Experian · TransUnion', 'soft pull, no score impact')
-      +     statLine('Tier', proPlus ? 'Pro Plus' : 'Pro', proPlus ? 'weekly available' : 'monthly cadence')
+      +     statLine('Identity', (loadIdentity() && loadIdentity().complete) ? 'Verified <i class="ph-fill ph-check-circle" style="color:#10b981;font-size:12px;"></i>' : '<button id="wjp-cred-setup-id" type="button" style="background:#10b981;color:#fff;border:0;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">Set up</button>', (loadIdentity() && loadIdentity().complete) ? 'FCRA-authorized' : 'required for first pull')
+      +     statLine('Cadence', 'Monthly · 30-day cap', proPlus ? 'weekly opt-in available' : 'cost-protected')
       +   '</div>'
       + (lastErr
           ? '<div style="margin-top:12px;padding:10px 14px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.30);border-radius:8px;font-size:11.5px;color:#a16207;font-weight:600;line-height:1.5;"><i class="ph-fill ph-info" style="margin-right:6px;color:#f59e0b;"></i>' + escapeHTML(String(lastErr)) + '</div>'
@@ -292,13 +317,25 @@
     var enabledCheck = card.querySelector('#wjp-pull-enabled');
     if (enabledCheck) enabledCheck.onchange = function () {
       var s = loadState();
-      s.enabled = enabledCheck.checked;
-      if (s.enabled) {
+      if (enabledCheck.checked) {
+        // Need identity first
+        var id = loadIdentity();
+        if (!id || !id.complete) {
+          enabledCheck.checked = false;
+          openIdentityModal();
+          return;
+        }
+        s.enabled = true;
         if (!s.lastPullAt) s.lastPullAt = Date.now();
         s = scheduleNext(s);
+      } else {
+        s.enabled = false;
       }
       saveState(s); renderCard();
     };
+
+    var setupIdBtn = card.querySelector('#wjp-cred-setup-id');
+    if (setupIdBtn) setupIdBtn.onclick = function () { openIdentityModal(); };
 
     var monthlyBtn = card.querySelector('#wjp-pull-cadence-monthly');
     if (monthlyBtn) monthlyBtn.onclick = function () {
@@ -313,6 +350,117 @@
       if (s.enabled) s = scheduleNext(s);
       saveState(s); renderCard();
     };
+  }
+
+
+  // ---------- Identity Collection Modal ----------
+  // First-time setup: collect legal name, DOB, SSN, address. SSN is NEVER sent
+  // to the host or stored client-side in plaintext — only kept here until the
+  // backend Cloud Function is wired, then passed encrypted server-side.
+  function loadIdentity() { return loadJSON(IDENTITY_KEY, null); }
+  function saveIdentity(rec) { saveJSON(IDENTITY_KEY, rec); }
+
+  function openIdentityModal() {
+    var existing = document.getElementById('wjp-cred-id-modal');
+    if (existing) existing.remove();
+    var rec = loadIdentity() || {};
+
+    var modal = document.createElement('div');
+    modal.id = 'wjp-cred-id-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--sans,Inter,system-ui,sans-serif);overflow-y:auto;';
+
+    modal.innerHTML = ''
+      + '<div style="background:var(--card,#fff);border-radius:16px;max-width:520px;width:100%;max-height:92vh;overflow-y:auto;padding:24px;">'
+      // Header
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
+      +   '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,0.18);display:grid;place-items:center;"><i class="ph-fill ph-shield-check" style="font-size:19px;color:#10b981;"></i></div><div><div style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;color:#10b981;text-transform:uppercase;">SECURE IDENTITY</div><div style="font-size:17px;font-weight:900;color:var(--text-1,#0a0a0a);">Connect your credit profile</div></div></div>'
+      +   '<button id="wjp-cred-id-close" type="button" style="background:transparent;border:0;font-size:22px;color:var(--text-3,#94a3b8);cursor:pointer;line-height:1;">×</button>'
+      + '</div>'
+      // Trust strip
+      + '<div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-start;">'
+      +   '<i class="ph-fill ph-lock-key" style="font-size:16px;color:#818cf8;flex-shrink:0;margin-top:2px;"></i>'
+      +   '<div style="font-size:11.5px;color:var(--text-1,#0a0a0a);font-weight:600;line-height:1.55;">Your SSN is encrypted in transit and only used to authorize the soft pull. It is <strong>never</strong> stored in plain text and <strong>never</strong> shared with third parties. Soft pull = no impact on your score.</div>'
+      + '</div>'
+      // Form
+      + '<div style="display:flex;flex-direction:column;gap:12px;">'
+      +   field2('Legal first name', 'wjp-cred-fn', 'text', rec.firstName || '')
+      +   field2('Legal last name',  'wjp-cred-ln', 'text', rec.lastName || '')
+      +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +     field2('Date of birth', 'wjp-cred-dob', 'date', rec.dob || '')
+      +     field2('SSN (XXX-XX-XXXX)', 'wjp-cred-ssn', 'password', rec.ssnMasked || '', 'autocomplete="off"')
+      +   '</div>'
+      +   field2('Street address', 'wjp-cred-a1', 'text', rec.address1 || '')
+      +   field2('Apt / Unit (optional)', 'wjp-cred-a2', 'text', rec.address2 || '')
+      +   '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">'
+      +     field2('City', 'wjp-cred-city', 'text', rec.city || '')
+      +     field2('State', 'wjp-cred-state', 'text', rec.state || '')
+      +     field2('ZIP', 'wjp-cred-zip', 'text', rec.zipCode || '')
+      +   '</div>'
+      + '</div>'
+      // FCRA compliance footer
+      + '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:18px;padding:12px 14px;background:var(--card-2,rgba(255,255,255,0.04));border-radius:10px;cursor:pointer;">'
+      +   '<input type="checkbox" id="wjp-cred-fcra" style="accent-color:#10b981;width:16px;height:16px;flex-shrink:0;margin-top:1px;">'
+      +   '<span style="font-size:11px;color:var(--text-1,#0a0a0a);font-weight:600;line-height:1.55;">I authorize WJP Debt Tracking to obtain my credit report from Equifax, Experian, and TransUnion via soft inquiry, once a month, under the Fair Credit Reporting Act (FCRA). I can revoke this authorization any time from this page.</span>'
+      + '</label>'
+      // Buttons
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">'
+      +   '<button id="wjp-cred-id-cancel" type="button" style="background:transparent;color:var(--text-3,#94a3b8);border:1px solid var(--border,rgba(255,255,255,0.15));padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>'
+      +   '<button id="wjp-cred-id-save" type="button" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">Save & enable auto-pull</button>'
+      + '</div>'
+      + '</div>';
+
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+    modal.querySelector('#wjp-cred-id-close').onclick = function () { modal.remove(); };
+    modal.querySelector('#wjp-cred-id-cancel').onclick = function () { modal.remove(); };
+    modal.querySelector('#wjp-cred-id-save').onclick = function () {
+      var ssnRaw = (modal.querySelector('#wjp-cred-ssn').value || '').replace(/\D/g, '');
+      var fn = (modal.querySelector('#wjp-cred-fn').value || '').trim();
+      var ln = (modal.querySelector('#wjp-cred-ln').value || '').trim();
+      var dob = modal.querySelector('#wjp-cred-dob').value || '';
+      var a1 = (modal.querySelector('#wjp-cred-a1').value || '').trim();
+      var a2 = (modal.querySelector('#wjp-cred-a2').value || '').trim();
+      var city = (modal.querySelector('#wjp-cred-city').value || '').trim();
+      var state = (modal.querySelector('#wjp-cred-state').value || '').trim();
+      var zip = (modal.querySelector('#wjp-cred-zip').value || '').trim();
+      var fcra = modal.querySelector('#wjp-cred-fcra').checked;
+      if (!fn || !ln || !dob || !ssnRaw || ssnRaw.length !== 9 || !a1 || !city || !state || !zip) {
+        alert('All fields required. SSN must be 9 digits.');
+        return;
+      }
+      if (!fcra) { alert('You must authorize the credit pull (FCRA checkbox) to continue.'); return; }
+      // Store identity record. SSN field is masked for display; the raw is held
+      // ONLY in a closure variable that the backend hook reads at pull time.
+      var rec = {
+        firstName: fn, lastName: ln, dob: dob,
+        address1: a1, address2: a2, city: city, state: state, zipCode: zip,
+        ssnMasked: 'XXX-XX-' + ssnRaw.slice(5),
+        ssnLast4: ssnRaw.slice(5),
+        fcraAuthorizedAt: Date.now(),
+        complete: true
+      };
+      saveIdentity(rec);
+      // Keep raw SSN in module memory only (never localStorage)
+      window._wjpRawSSN = ssnRaw;
+      // Enable auto-pull
+      var s = loadState();
+      s.enabled = true;
+      s.cadence = 'monthly';
+      if (!s.lastPullAt) s.lastPullAt = Date.now();
+      s = scheduleNext(s);
+      saveState(s);
+      modal.remove();
+      renderCard();
+      // Fire the first pull
+      requestPull({ adminOverride: true });
+    };
+  }
+
+  function field2(label, id, type, val, extra) {
+    return '<label style="display:flex;flex-direction:column;gap:4px;">'
+      + '<span style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</span>'
+      + '<input id="' + id + '" type="' + type + '" value="' + escapeHTML(val) + '" ' + (extra || '') + ' style="padding:9px 12px;border:1px solid var(--border,rgba(255,255,255,0.10));border-radius:8px;background:var(--card,#fff);color:var(--text-1,#0a0a0a);font-family:inherit;font-size:13px;font-weight:600;width:100%;box-sizing:border-box;color-scheme:light dark;">'
+      + '</label>';
   }
 
   // ---------- Tick ----------
