@@ -1,4 +1,4 @@
-/* wjp-upcoming-payments.js v3 — roll-forward stale recurring nextDate at read time
+/* wjp-upcoming-payments.js v4 — match Calendar parity: roll forward ANY past nextDate
  *
  * v3 fixes the "stale overdue" bug: when a recurring's stored nextDate is more than
  * one cycle in the past, Calendar simply hides it (filters t <= todayMs), but this
@@ -61,17 +61,14 @@
     var d = parseDateSafe(rp.nextDate);
     if (!d) return null;
     var freq = rp.frequency || 'monthly';
-    // Determine cycle threshold in days
-    var cycleDays = ({weekly:7, biweekly:14, 'bi-weekly':14, semimonthly:15, 'semi-monthly':15, monthly:30, quarterly:91, yearly:365, annual:365, annually:365}[(freq||'monthly').toLowerCase()]) || 30;
-    var daysStale = (now.getTime() - d.getTime()) / 86400000;
-    // If stale by more than 1.2 cycles AND there's a recent lastPaidDate within the cycle window
-    // OR no Plaid txns at all, roll forward. Otherwise leave to surface as OVERDUE.
-    if (daysStale > cycleDays * 1.2) {
-      var guard = 0;
-      while (d.getTime() < now.getTime() && guard < 60) {
-        d = addCycle(d, freq);
-        guard++;
-      }
+    // v4: Match Calendar parity — Calendar drops any recurring with t <= todayMs, so users
+    // perceive past-due recurrings as already advanced. Mirror that here by rolling forward
+    // ANY past nextDate to its next occurrence on-or-after today. Truly missed bills are
+    // already surfaced via the payment-detector's looksUnused flag (filtered upstream).
+    var guard = 0;
+    while (d.getTime() < now.getTime() && guard < 60) {
+      d = addCycle(d, freq);
+      guard++;
     }
     return d;
   }
