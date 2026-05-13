@@ -1,4 +1,4 @@
-/* wjp-goals.js v4 — financePct = down-payment % (was inverted in v3)
+/* wjp-goals.js v5 — fix navigation: clear inline display so host pages can re-show
  *
  * New sidebar tab + page. Lets users define savings goals (emergency fund,
  * down payment, wedding, car, vacation, education, custom). Each goal has:
@@ -117,10 +117,16 @@
 
   function showGoalsPage() {
     // Hide all host pages
+    // v5: remove .active to deactivate other pages; don't set inline display.
+    // Inline display:none would beat the host's .page.active CSS rule when user
+    // navigates back, leaving them stuck on a blank page.
     Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
       if (p.id !== PAGE_ID) {
         p.classList.remove('active');
+        // Set inline display so they hide immediately, but our tick() clears it
+        // the moment another host nav activates.
         p.style.display = 'none';
+        p.dataset.wjpDeactivated = '1';
       }
     });
     // Mark our nav active, others inactive
@@ -447,10 +453,12 @@
       var goalsActive = document.getElementById(NAV_ID) && document.getElementById(NAV_ID).classList.contains('active');
       var anyHostActive = Array.from(document.querySelectorAll('.nav-item.active')).some(function (n) { return n.id !== NAV_ID; });
       if (anyHostActive && goalsActive) {
-        // The user clicked a host nav — let host take over
         var page = document.getElementById(PAGE_ID);
         if (page) { page.style.display = 'none'; page.classList.remove('active'); }
         var nav = document.getElementById(NAV_ID); if (nav) nav.classList.remove('active');
+        Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
+          if (p.id !== PAGE_ID) p.style.display = '';
+        });
       }
     } catch (_) {}
   }

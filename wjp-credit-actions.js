@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v4 — consolidate: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
+/* wjp-credit-actions.js v5 — fix navigation: clear inline display so host pages can re-show: embed host renderCreditScoreTab inside our page, hide duplicate Debts subtab
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -495,6 +495,10 @@
         var page = document.getElementById(PAGE_ID);
         if (page) { page.style.display = 'none'; page.classList.remove('active'); }
         var nav = document.getElementById(NAV_ID); if (nav) nav.classList.remove('active');
+        // Restore inline display on host pages so .page.active CSS rule controls them
+        Array.from(document.querySelectorAll('[id^="page-"]')).forEach(function (p) {
+          if (p.id !== PAGE_ID) p.style.display = '';
+        });
       } else if (creditActive) {
         // Auto-refresh while visible — picks up Plaid balance changes
         var page = document.getElementById(PAGE_ID);
