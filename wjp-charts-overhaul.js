@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v2 — theme-aware + differentiated AI Coach line/area/bar.
+/* wjp-charts-overhaul.js v3 — typography + palette uniformity (matches site weights).
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -57,15 +57,17 @@
   function gridCol(){ return cssVar('--border', isDark() ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.08)'); }
   function surface(){ return cssVar('--card-2', isDark() ? '#0b0f1a' : '#ffffff'); }
 
-  // Brand-aligned sage palette + accents for slice differentiation
+  // Alternating-hue ramp so adjacent slices visually contrast even when one slice
+  // dominates. Primary is brand emerald, then it rotates indigo → amber → teal →
+  // purple → coral → sky → slate. No two greens neighbor each other.
   var SAGE_RAMP = [
-    '#10b981', // emerald — primary
-    '#34d399', // teal
-    '#0891b2', // sky-deep
-    '#6366f1', // indigo (accent for variety)
+    '#10b981', // emerald — primary brand
+    '#6366f1', // indigo
+    '#f59e0b', // amber
+    '#0891b2', // deep teal
     '#a78bfa', // soft purple
-    '#f59e0b', // honey
-    '#fb7185', // coral (last-resort spend warning)
+    '#fb7185', // coral
+    '#34d399', // light teal
     '#94a3b8'  // slate
   ];
 
@@ -174,11 +176,11 @@
             c.strokeStyle = r.color; c.lineWidth = 1; c.setLineDash([3, 3]);
             c.beginPath(); c.moveTo(area.left, y); c.lineTo(area.right, y); c.stroke();
             c.setLineDash([]);
-            c.fillStyle = r.color; c.font = '700 9px Inter';
+            c.fillStyle = r.color; c.font = '600 9.5px Inter';
             c.fillText(r.label + ' ' + fmtUSDk(Math.abs(r.v)), area.right - 64, y - 4);
           });
           // Net chip per bin (small badge above each x label)
-          c.font = '800 9px Inter';
+          c.font = '700 9.5px Inter';
           labels.forEach(function (_, i) {
             var net = netVals[i] || 0;
             if (net === 0) return;
@@ -292,7 +294,7 @@
           c.strokeStyle = muted(); c.lineWidth = 1; c.setLineDash([4, 3]);
           c.beginPath(); c.moveTo(area.left, y0); c.lineTo(area.right, y0); c.stroke();
           c.setLineDash([]);
-          c.fillStyle = muted(); c.font = '700 9px Inter';
+          c.fillStyle = muted(); c.font = '600 9.5px Inter';
           c.fillText('break-even', area.right - 58, y0 - 4);
           // peak/trough labels
           if (netSeries.length >= 2) {
@@ -300,7 +302,7 @@
              { idx: troughIdx, v: netSeries[troughIdx], lbl: '▼ Worst', color: '#ef4444' }].forEach(function (m) {
               if (m.idx === undefined || m.v === 0) return;
               var x = xs.getPixelForValue(m.idx), y = ys.getPixelForValue(m.v);
-              c.fillStyle = m.color; c.font = '800 9px Inter'; c.textBaseline = 'middle';
+              c.fillStyle = m.color; c.font = '700 9.5px Inter'; c.textBaseline = 'middle';
               c.fillText(m.lbl + ' ' + (m.v >= 0 ? '+' : '−') + '$' + Math.abs(Math.round(m.v)).toLocaleString('en-US'), x + 6, y - 8);
             });
           }
@@ -316,10 +318,10 @@
       var total = dataArr.reduce(function (s, v) { return s + v; }, 0);
       // Recolor with sage ramp
       datasets[0].backgroundColor = dataArr.map(function (_, i) { return SAGE_RAMP[i % SAGE_RAMP.length]; });
-      datasets[0].borderColor = isDark() ? '#0b0f1a' : '#ffffff';
-      datasets[0].borderWidth = 3;
-      datasets[0].hoverOffset = 14;
-      datasets[0].cutout = '72%';
+      datasets[0].borderColor = surface();
+      datasets[0].borderWidth = 2;
+      datasets[0].hoverOffset = 12;
+      datasets[0].cutout = '70%';
 
       config.options = config.options || {};
       config.options.responsive = true; config.options.maintainAspectRatio = false;
@@ -369,11 +371,17 @@
           if (!a) return;
           var cx = (a.left + a.right) / 2, cy = (a.top + a.bottom) / 2;
           c.save(); c.textAlign = 'center';
-          c.font = '800 10px Inter'; c.fillStyle = muted();
-          c.fillText('TOTAL SPENT', cx, cy - 18);
-          c.font = '900 22px Inter'; c.fillStyle = ink();
+          // Eyebrow matches the site's section-label style: 10px / weight 700 / muted
+          c.font = '700 10px Inter';
+          c.fillStyle = muted();
+          c.fillText('TOTAL SPENT', cx, cy - 16);
+          // Hero number matches dashboard hero numbers (debt-free date, Spent total): 700 weight
+          c.font = '700 22px Inter';
+          c.fillStyle = ink();
           c.fillText(fmtUSDk(total), cx, cy + 6);
-          c.font = '600 9.5px Inter'; c.fillStyle = muted();
+          // Sub-line — secondary metadata, 600 weight 10px
+          c.font = '600 10px Inter';
+          c.fillStyle = muted();
           if (top3.length) {
             c.fillText('Top: ' + top3[0].l + ' ' + (total ? Math.round((top3[0].v / total) * 100) : 0) + '%', cx, cy + 24);
           }
@@ -475,7 +483,7 @@
             c.strokeStyle = surface();
             c.lineWidth = 2;
             c.beginPath(); c.arc(x, y, 4.5, 0, Math.PI * 2); c.fill(); c.stroke();
-            c.fillStyle = ink(); c.font = '800 9px Inter'; c.textAlign = 'center';
+            c.fillStyle = ink(); c.font = '700 9.5px Inter'; c.textAlign = 'center';
             c.fillText(m.pct + '%', x, y - 10);
           });
           c.restore();
@@ -558,7 +566,7 @@
               if (d > maxGap) maxGap = d;
             });
             var txt = 'Saving up to ' + fmtUSDk(maxGap);
-            c.font = '800 10px Inter';
+            c.font = '700 10px Inter';
             var w = c.measureText(txt).width + 14, h = 18;
             var cx = mx - w / 2, cy = my - h / 2;
             c.fillStyle = 'rgba(239,68,68,0.92)';
@@ -627,7 +635,7 @@
               c.strokeStyle = muted(); c.lineWidth = 1; c.setLineDash([3, 3]);
               c.beginPath(); c.moveTo(a.left, y); c.lineTo(a.right, y); c.stroke();
               c.setLineDash([]);
-              c.fillStyle = muted(); c.font = '700 9px Inter';
+              c.fillStyle = muted(); c.font = '600 9.5px Inter';
               c.fillText('avg balance ' + fmtUSDk(avgMonthlyPay), a.right - 110, y - 4);
             }
           }
