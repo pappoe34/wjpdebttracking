@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v2 — theme-correct color resolution (was rendering dark in light mode).
+/* wjp-portfolio.js v3 — no Dashboard header tab + better trajectory + lighter typography.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -356,35 +356,42 @@
     var monthDelta = nw.net - firstWindowVal;
     var trendIcon = monthDelta >= 0 ? 'ph-trending-up' : 'ph-trending-down';
     var trendColor = monthDelta >= 0 ? '#10b981' : '#ef4444';
+    // Final projected value (last point of projection series)
+    var finalProj = series.projected[series.projected.length - 1] || nw.net;
+    var projLabel = series.labels[series.labels.length - 1] || '';
 
     return ''
-      + '<div class="wjp-pf-card" style="padding:22px 24px;background:var(--card-2,#1c2540);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:18px;">'
-      +   '<div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">'
+      + '<div class="wjp-pf-card" style="padding:24px 26px;background:' + surface() + ';border:1px solid ' + gridCol() + ';border-radius:16px;">'
+      +   '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:16px;">'
       +     '<div>'
-      +       '<div style="font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:' + muted() + ';">YOUR NET WORTH</div>'
-      +       '<div style="font-size:34px;font-weight:800;color:' + ink() + ';letter-spacing:-0.02em;line-height:1.1;margin-top:4px;">' + fmtUSD(nw.net) + '</div>'
+      +       '<div style="font-size:10px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + muted() + ';">Your Net Worth</div>'
+      +       '<div style="font-size:32px;font-weight:700;color:' + ink() + ';letter-spacing:-0.02em;line-height:1.1;margin-top:6px;">' + fmtUSD(nw.net) + '</div>'
       +       '<div style="margin-top:6px;display:flex;align-items:center;gap:6px;">'
       +         '<i class="ph-fill ' + trendIcon + '" style="color:' + trendColor + ';font-size:14px;"></i>'
-      +         '<span style="color:' + trendColor + ';font-weight:700;font-size:12.5px;">' + (monthDelta >= 0 ? '+' : '−') + fmtUSD(Math.abs(monthDelta)).replace('−','').replace('$','$') + '</span>'
-      +         '<span style="color:' + muted() + ';font-size:12.5px;font-weight:600;">over visible window</span>'
+      +         '<span style="color:' + trendColor + ';font-weight:600;font-size:12.5px;">' + (monthDelta >= 0 ? '+' : '−') + '$' + Math.abs(Math.round(monthDelta)).toLocaleString('en-US') + '</span>'
+      +         '<span style="color:' + muted() + ';font-size:12.5px;font-weight:500;">over visible window</span>'
       +       '</div>'
       +     '</div>'
       +     '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
-      +       '<div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.30);border-radius:10px;padding:10px 14px;">'
-      +         '<div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;font-weight:800;">ASSETS</div>'
-      +         '<div style="font-size:16px;font-weight:800;color:' + ink() + ';margin-top:2px;">' + fmtUSD(nw.assets) + '</div>'
+      +       '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:9px 14px;">'
+      +         '<div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:#059669;font-weight:700;">Assets</div>'
+      +         '<div style="font-size:15px;font-weight:700;color:' + ink() + ';margin-top:2px;">' + fmtUSD(nw.assets) + '</div>'
       +       '</div>'
-      +       '<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:10px 14px;">'
-      +         '<div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:#ef4444;font-weight:800;">LIABILITIES</div>'
-      +         '<div style="font-size:16px;font-weight:800;color:' + ink() + ';margin-top:2px;">' + fmtUSD(nw.liabilities) + '</div>'
+      +       '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:9px 14px;">'
+      +         '<div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:#dc2626;font-weight:700;">Liabilities</div>'
+      +         '<div style="font-size:15px;font-weight:700;color:' + ink() + ';margin-top:2px;">' + fmtUSD(nw.liabilities) + '</div>'
       +       '</div>'
-      +       '<div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:10px 14px;">'
-      +         '<div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:#818cf8;font-weight:800;">A:D RATIO</div>'
-      +         '<div style="font-size:16px;font-weight:800;color:' + ink() + ';margin-top:2px;">' + (nw.liabilities > 0 ? (nw.assets / nw.liabilities).toFixed(2) : '∞') + '</div>'
+      +       '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:9px 14px;">'
+      +         '<div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:#6366f1;font-weight:700;">A:D Ratio</div>'
+      +         '<div style="font-size:15px;font-weight:700;color:' + ink() + ';margin-top:2px;">' + (nw.liabilities > 0 ? (nw.assets / nw.liabilities).toFixed(2) : '∞') + '</div>'
       +       '</div>'
       +     '</div>'
       +   '</div>'
-      +   '<div style="height:200px;position:relative;margin-top:8px;">'
+      +   '<div style="display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:600;color:' + muted() + ';margin-bottom:8px;">'
+      +     '<div><span style="color:' + ink() + ';font-weight:600;">12-month trajectory</span> · solid = actual · dashed = 6-month projection</div>'
+      +     '<div>Projected ' + projLabel + ': <span style="color:' + ink() + ';font-weight:600;">' + fmtUSD(finalProj) + '</span></div>'
+      +   '</div>'
+      +   '<div style="height:240px;position:relative;">'
       +     '<canvas id="wjp-pf-trajectory"></canvas>'
       +   '</div>'
       + '</div>';
@@ -396,7 +403,7 @@
       var pct = (sub.score / sub.max) * 100;
       return ''
         + '<div style="margin-bottom:10px;">'
-        +   '<div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:' + ink() + ';margin-bottom:4px;">'
+        +   '<div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;color:' + ink() + ';margin-bottom:4px;">'
         +     '<span>' + escapeHTML(sub.label) + '</span>'
         +     '<span style="color:' + muted() + ';font-weight:600;">' + Math.round(sub.score) + '/' + sub.max + '</span>'
         +   '</div>'
@@ -413,7 +420,7 @@
       +     '<div style="position:relative;width:180px;height:180px;">'
       +       '<canvas id="wjp-pf-health-gauge" width="180" height="180"></canvas>'
       +       '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-      +         '<div style="font-size:32px;font-weight:800;color:' + ink() + ';line-height:1;">' + hs.total + '</div>'
+      +         '<div style="font-size:32px;font-weight:700;color:' + ink() + ';line-height:1;">' + hs.total + '</div>'
       +         '<div style="font-size:10px;letter-spacing:0.1em;color:' + muted() + ';margin-top:4px;font-weight:700;">OF 1000</div>'
       +       '</div>'
       +     '</div>'
@@ -609,12 +616,12 @@
       +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">'
       +     '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:14px 16px;">'
       +       '<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;font-weight:800;">EARNED / YR</div>'
-      +       '<div style="font-size:22px;font-weight:800;color:' + ink() + ';margin-top:4px;">' + fmtUSD(interestEarned) + '</div>'
+      +       '<div style="font-size:22px;font-weight:700;color:' + ink() + ';margin-top:4px;">' + fmtUSD(interestEarned) + '</div>'
       +       '<div style="font-size:10.5px;color:' + muted() + ';font-weight:600;margin-top:3px;">interest on ' + fmtUSDk(liquid) + ' liquid</div>'
       +     '</div>'
       +     '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:14px 16px;">'
       +       '<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#ef4444;font-weight:800;">PAID / YR</div>'
-      +       '<div style="font-size:22px;font-weight:800;color:' + ink() + ';margin-top:4px;">' + fmtUSD(interestPaid) + '</div>'
+      +       '<div style="font-size:22px;font-weight:700;color:' + ink() + ';margin-top:4px;">' + fmtUSD(interestPaid) + '</div>'
       +       '<div style="font-size:10.5px;color:' + muted() + ';font-weight:600;margin-top:3px;">interest on ' + fmtUSDk(nw.liabilities) + ' in debt</div>'
       +     '</div>'
       +   '</div>'
@@ -635,7 +642,7 @@
         + '<div style="display:flex;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.02);border:1px solid ' + gridCol() + ';border-radius:10px;">'
         +   '<div style="width:36px;height:36px;border-radius:9px;background:rgba(99,102,241,0.12);display:grid;place-items:center;flex-shrink:0;color:#818cf8;"><i class="ph ' + i.icon + '" style="font-size:18px;"></i></div>'
         +   '<div style="flex:1;min-width:0;">'
-        +     '<div style="font-size:12.5px;font-weight:800;color:' + ink() + ';">' + escapeHTML(i.title) + '</div>'
+        +     '<div style="font-size:12.5px;font-weight:700;color:' + ink() + ';">' + escapeHTML(i.title) + '</div>'
         +     '<div style="font-size:11.5px;color:' + muted() + ';font-weight:600;margin-top:3px;line-height:1.4;">' + escapeHTML(i.body) + '</div>'
         +   '</div>'
         + '</div>';
@@ -689,6 +696,13 @@
     var existing = window.Chart.getChart && window.Chart.getChart(cvs);
     if (existing) try { existing.destroy(); } catch (_) {}
     var series = getNetWorthSeries();
+    var todayIdx = series.todayIdx;
+    var currentNet = series.actual[todayIdx];
+    var inkLive = isDark() ? '#ffffff' : '#0a0a0a';
+    var mutedLive = isDark() ? 'rgba(241,245,249,0.6)' : 'rgba(10,10,10,0.55)';
+    var gridLive = isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(10,10,10,0.06)';
+    var accentLive = '#10b981';
+
     new window.Chart(cvs, {
       type: 'line',
       data: {
@@ -697,49 +711,105 @@
           {
             label: 'Actual',
             data: series.actual,
-            borderColor: accent(),
+            borderColor: accentLive,
             backgroundColor: function (ctx) {
               try {
                 var a = ctx.chart.chartArea;
-                if (!a) return 'rgba(16,185,129,0.18)';
+                if (!a) return 'rgba(16,185,129,0.15)';
                 var g = ctx.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
-                g.addColorStop(0, 'rgba(16,185,129,0.32)');
-                g.addColorStop(1, 'rgba(16,185,129,0.02)');
+                g.addColorStop(0, 'rgba(16,185,129,0.28)');
+                g.addColorStop(1, 'rgba(16,185,129,0.01)');
                 return g;
-              } catch (_) { return 'rgba(16,185,129,0.18)'; }
+              } catch (_) { return 'rgba(16,185,129,0.15)'; }
             },
-            borderWidth: 3, fill: true, tension: 0.4, pointRadius: 0,
-            pointHoverRadius: 5, pointBackgroundColor: accent()
+            borderWidth: 2.5, fill: true, tension: 0.35,
+            // Render "today" as a bigger dot, rest hidden
+            pointRadius: series.labels.map(function (_, i) { return i === todayIdx ? 5 : 0; }),
+            pointBackgroundColor: series.labels.map(function (_, i) { return i === todayIdx ? accentLive : 'transparent'; }),
+            pointBorderColor: isDark() ? '#0b0f1a' : '#ffffff',
+            pointBorderWidth: 2,
+            pointHoverRadius: 5
           },
           {
             label: 'Projected',
             data: series.projected,
-            borderColor: 'rgba(99,102,241,0.85)',
-            borderDash: [6, 5], borderWidth: 2.5, fill: false, tension: 0.4, pointRadius: 0
+            borderColor: 'rgba(99,102,241,0.75)',
+            borderDash: [5, 5], borderWidth: 2, fill: false, tension: 0.35, pointRadius: 0,
+            pointHoverRadius: 4, pointBackgroundColor: 'rgba(99,102,241,1)'
           }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 14, right: 8 } },
         plugins: {
-          legend: { display: true, position: 'top', align: 'end',
-            labels: { color: isDark() ? '#ffffff' : '#0a0a0a', font: { size: 11, weight: '700' }, usePointStyle: true, boxWidth: 8, padding: 12 }
-          },
+          legend: { display: false }, // section header explains both lines
           tooltip: {
             backgroundColor: isDark() ? 'rgba(11,15,26,0.96)' : 'rgba(255,255,255,0.98)',
-            titleColor: isDark() ? '#ffffff' : '#0a0a0a', bodyColor: isDark() ? '#ffffff' : '#0a0a0a',
-            borderColor: gridCol(), borderWidth: 1, padding: 12,
+            titleColor: inkLive, bodyColor: inkLive,
+            borderColor: gridLive, borderWidth: 1, padding: 10,
+            titleFont: { size: 12, weight: '600', family: 'Inter' },
+            bodyFont: { size: 12, weight: '500', family: 'Inter' },
             callbacks: {
-              label: function (ctx) { return ' ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y || 0); }
+              title: function (items) { return items[0] ? items[0].label : ''; },
+              label: function (ctx) {
+                var v = ctx.parsed.y;
+                if (v == null) return '';
+                return ' ' + ctx.dataset.label + ': ' + fmtUSD(v);
+              },
+              afterBody: function (items) {
+                if (!items.length) return '';
+                var i = items[0].dataIndex;
+                if (i === todayIdx) return ['', 'Today']; 
+                return '';
+              }
             }
           }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { color: muted(), font: { size: 10, weight: '600' } } },
-          y: { grid: { color: gridCol(), drawBorder: false }, ticks: { color: muted(), font: { size: 10 }, callback: function (v) { return fmtUSDk(v); } } }
+          x: { grid: { display: false }, ticks: { color: mutedLive, font: { size: 10.5, weight: '500', family: 'Inter' }, maxRotation: 0 } },
+          y: { grid: { color: gridLive, drawBorder: false }, ticks: { color: mutedLive, font: { size: 10.5, weight: '500', family: 'Inter' }, callback: function (v) { return fmtUSDk(v); } } }
         }
-      }
+      },
+      plugins: [{
+        id: 'wjpZeroLine',
+        afterDraw: function (chart) {
+          var c = chart.ctx, a = chart.chartArea, ys = chart.scales.y, xs = chart.scales.x;
+          if (!a) return;
+          c.save();
+          // Break-even reference at $0
+          if (ys.min < 0 && ys.max > 0) {
+            var y0 = ys.getPixelForValue(0);
+            if (y0 > a.top && y0 < a.bottom) {
+              c.strokeStyle = mutedLive; c.lineWidth = 1; c.setLineDash([3, 3]);
+              c.beginPath(); c.moveTo(a.left, y0); c.lineTo(a.right, y0); c.stroke();
+              c.setLineDash([]);
+              c.fillStyle = mutedLive; c.font = '600 9.5px Inter';
+              c.fillText('break-even', a.right - 60, y0 - 4);
+            }
+          }
+          // "Today" vertical line
+          if (todayIdx >= 0) {
+            var xT = xs.getPixelForValue(todayIdx);
+            c.strokeStyle = accentLive; c.lineWidth = 1; c.setLineDash([3, 3]);
+            c.beginPath(); c.moveTo(xT, a.top); c.lineTo(xT, a.bottom); c.stroke();
+            c.setLineDash([]);
+            // "Today" pill
+            var txt = 'TODAY';
+            c.font = '700 9px Inter';
+            var w = c.measureText(txt).width + 10;
+            var pillY = a.top + 2;
+            c.fillStyle = accentLive;
+            if (c.roundRect) { c.beginPath(); c.roundRect(xT - w/2, pillY, w, 14, 7); c.fill(); }
+            else c.fillRect(xT - w/2, pillY, w, 14);
+            c.fillStyle = '#ffffff';
+            c.textAlign = 'center'; c.textBaseline = 'middle';
+            c.fillText(txt, xT, pillY + 7);
+          }
+          c.restore();
+        }
+      }]
     });
   }
 
@@ -885,34 +955,33 @@
   }
 
   function installHeaderTab() {
-    // Find existing "Portfolio" header tab (currently data-page="dashboard")
+    // v3: keep header tab text "Portfolio" — sidebar Dashboard is the only Dashboard entry.
+    // Just intercept clicks on the existing tab and reroute to our new page.
     var existing = [...document.querySelectorAll('.header-nav-item')].find(function (b) { return b.textContent.trim() === 'Portfolio'; });
-    if (!existing || existing._wjpRenamed) return false;
+    if (!existing || existing._wjpPortfolioBound) return false;
+    existing._wjpPortfolioBound = true;
+    // Mark with our data-page for state tracking
+    existing.setAttribute('data-page', 'wjp-portfolio');
 
-    // Rename existing one → "Dashboard"
-    existing.textContent = 'Dashboard';
-    existing._wjpRenamed = true;
-    existing.setAttribute('data-page', 'dashboard');
-
-    // Create new Portfolio tab AFTER the renamed Dashboard
-    var newTab = document.createElement('div');
-    newTab.className = 'header-nav-item';
-    newTab.setAttribute('data-page', 'wjp-portfolio');
-    newTab.textContent = 'Portfolio';
-    existing.parentNode.insertBefore(newTab, existing.nextSibling);
-
-    // Wire clicks
-    newTab.addEventListener('click', function (e) {
+    existing.addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation();
       showPortfolio();
     }, true);
 
-    // Hook other header tabs to hide page-portfolio when clicked
+    // Other header tabs: hide our page when clicked so host can restore its own
     document.querySelectorAll('.header-nav-item').forEach(function (b) {
-      if (b === newTab) return;
+      if (b === existing) return;
       b.addEventListener('click', function () {
         var pf = document.getElementById('page-portfolio');
-        if (pf) { pf.style.display = 'none'; pf.classList.remove('active'); }
+        if (pf) { pf.style.cssText = 'display:none;'; pf.classList.remove('active'); }
+      }, true);
+    });
+
+    // Also: if sidebar Dashboard is clicked, hide our portfolio page so user lands on dashboard
+    document.querySelectorAll('.nav-item, [data-page="dashboard"]').forEach(function (n) {
+      n.addEventListener('click', function () {
+        var pf = document.getElementById('page-portfolio');
+        if (pf) { pf.style.cssText = 'display:none;'; pf.classList.remove('active'); }
       }, true);
     });
 
