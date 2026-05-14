@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v8 — strong canvas legend (pure white, 13px/800) for dark-mode contrast.
+/* wjp-charts-overhaul.js v9 — strong canvas legend (pure white, 13px/800) for dark-mode contrast.
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -329,7 +329,18 @@
       // v8: keep canvas legend (Chart.js needs it to size the donut), but
       // crank weight + size + per-label fontColor so dark-mode digits no longer
       // antialias into dim greys. Pure white text in dark mode for max contrast.
-      var legendInk = isDark() ? '#ffffff' : '#0a0a0a';
+      // v9: read the live --ink CSS var so the legend is theme-correct at render
+      // time — isDark() branching baked #ffffff into a chart that then went stale
+      // when the user switched to light mode.
+      var legendInk = (function () {
+        try {
+          var v = getComputedStyle(document.body).getPropertyValue('--ink').trim();
+          if (v) return v;
+          var v2 = getComputedStyle(document.body).getPropertyValue('--text-1').trim();
+          if (v2) return v2;
+        } catch (_) {}
+        return isDark() ? '#ffffff' : '#0a0a0a';
+      })();
       config.options.plugins.legend = {
         display: true, position: 'right', align: 'center',
         labels: {
@@ -720,6 +731,9 @@
     try {
       var mo = new MutationObserver(function () {
         if (typeof window._wjpChartsNudge === 'function') window._wjpChartsNudge();
+        // Re-nudge shortly after — host sometimes re-renders the chart on theme
+        // toggle, which would re-bake the old color before our nudge lands.
+        setTimeout(function () { if (typeof window._wjpChartsNudge === 'function') window._wjpChartsNudge(); }, 250);
       });
       mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
       mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
