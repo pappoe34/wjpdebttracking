@@ -1,4 +1,4 @@
-// netlify/functions/ai-cloud.js — P27 rewrite
+// netlify/functions/ai-cloud.js — P27 rewrite + P28 server-side rate limiting
 //
 // Routes AI chat to Anthropic Claude Haiku 4.5 (preferred) or Groq Llama 3.3 70B (fallback).
 // Streams responses back to browser as SSE so tokens render as they arrive.
@@ -6,10 +6,99 @@
 // Env vars (Netlify):
 //   ANTHROPIC_API_KEY — preferred. Get one at console.anthropic.com/settings/keys
 //   GROQ_API_KEY      — fallback if Anthropic key not set or Anthropic call fails
+//   FIREBASE_SERVICE_ACCOUNT_JSON — used to verify Firebase ID tokens for rate limiting
+//
+// P28 — SERVER-SIDE RATE LIMITING (abuse backstop; client still enforces product tiers):
+//   Authenticated users: 120 AI calls / day  (way above any honest use — client caps at 5/50/∞)
+//   Anonymous / no-token: 8 AI calls / day, tracked by client IP
+//   Admin (ADMIN_EMAILS): unlimited
+//   Counters live in Firestore: _ai_usage/{uid}_{YYYY-MM-DD} and _ai_anon_usage/{ipKey}_{YYYY-MM-DD}
+//   On exceed: 429 with a friendly message. Failure to verify token => treated as anonymous.
 
 const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 const GROQ_MODEL_DEEP = 'llama-3.3-70b-versatile';
 const GROQ_MODEL_FAST = 'llama-3.1-8b-instant';
+
+// P28 — rate-limit config
+const AUTHED_DAILY_CAP = 120;   // abuse ceiling for signed-in users
+const ANON_DAILY_CAP   = 8;     // strict cap for no-token / cached-old-client requests
+const ADMIN_EMAILS     = ['pappoe34@gmail.com'];
+
+// Lazily required so a missing Firebase env var never hard-crashes the AI feature.
+let _fb = null;
+function fb() {
+  if (_fb) return _fb;
+  try { _fb = require('./_shared/firebase'); } catch (_) { _fb = false; }
+  return _fb;
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+}
+function sanitize(s) {
+  return String(s || 'unknown').replace(/[^a-zA-Z0-9_.:-]/g, '_').slice(0, 80);
+}
+
+// Returns { allowed, used, cap, identity, decoded } — never throws.
+async function checkRateLimit(event) {
+  const F = fb();
+  // If Firebase isn't wired, we can't track counters — fail OPEN (don't break the
+  // feature) but this should never happen in prod since other functions need it.
+  if (!F || !F.verifyIdToken || !F.getFirestore) {
+    return { allowed: true, used: 0, cap: Infinity, identity: 'no-firebase', decoded: null };
+  }
+
+  let decoded = null;
+  try {
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    if (authHeader) decoded = await F.verifyIdToken(authHeader);
+  } catch (_) { decoded = null; } // invalid/expired token => treat as anonymous
+
+  const db = F.getFirestore();
+  const date = todayKey();
+  let docRef, cap, identity;
+
+  if (decoded && decoded.uid) {
+    // Admin bypass
+    if (decoded.email && ADMIN_EMAILS.indexOf(String(decoded.email).toLowerCase()) !== -1) {
+      return { allowed: true, used: 0, cap: Infinity, identity: 'admin:' + decoded.uid, decoded };
+    }
+    cap = AUTHED_DAILY_CAP;
+    identity = 'uid:' + decoded.uid;
+    docRef = db.collection('_ai_usage').doc(sanitize(decoded.uid) + '_' + date);
+  } else {
+    cap = ANON_DAILY_CAP;
+    var ip = event.headers['x-nf-client-connection-ip']
+          || event.headers['client-ip']
+          || event.headers['x-forwarded-for']
+          || 'unknown-ip';
+    ip = String(ip).split(',')[0].trim();
+    identity = 'ip:' + ip;
+    docRef = db.collection('_ai_anon_usage').doc(sanitize(ip) + '_' + date);
+  }
+
+  let used = 0;
+  try {
+    const snap = await docRef.get();
+    used = (snap.exists && snap.data() && Number(snap.data().count)) || 0;
+  } catch (_) { used = 0; }
+
+  return { allowed: used < cap, used, cap, identity, decoded, _docRef: docRef };
+}
+
+async function bumpUsage(rl) {
+  if (!rl || !rl._docRef) return;
+  const F = fb();
+  if (!F) return;
+  try {
+    const admin = require('firebase-admin');
+    await rl._docRef.set({
+      count: admin.firestore.FieldValue.increment(1),
+      updatedAt: new Date().toISOString(),
+      identity: rl.identity
+    }, { merge: true });
+  } catch (_) { /* counter bump is best-effort — never block the response */ }
+}
 
 function buildSystemPrompt(context, tone, length) {
   const toneDirective = {
@@ -115,7 +204,6 @@ async function streamGroq({ apiKey, system, messages, maxTokens, model, signal }
 
 // ============================================================
 // SSE adapters: convert provider-specific stream → unified text frames
-// We re-emit as our own SSE: `data: {"text": "...", "done": false}\n\n`
 // ============================================================
 async function* iterateAnthropicSSE(stream) {
   const reader = stream.getReader();
@@ -169,23 +257,21 @@ async function* iterateGroqSSE(stream) {
 }
 
 // ============================================================
-// Netlify handler — STREAMING via the response body iterator
-// We use Netlify's "stream" handler form: return ReadableStream.
+// Netlify handler
 // ============================================================
 exports.handler = async (event) => {
+  const CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  };
+
   // OPTIONS -> CORS preflight + admin-page health pinger
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
-    };
+    return { statusCode: 204, headers: CORS };
   }
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method not allowed' };
+    return { statusCode: 405, headers: CORS, body: 'Method not allowed' };
   }
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -193,37 +279,50 @@ exports.handler = async (event) => {
   if (!anthropicKey && !groqKey) {
     return {
       statusCode: 503,
+      headers: CORS,
       body: JSON.stringify({ error: 'AI not configured. Add ANTHROPIC_API_KEY (preferred) or GROQ_API_KEY in Netlify env vars.' })
+    };
+  }
+
+  // ---- P28: server-side rate limiting (abuse backstop) ----
+  let rl;
+  try {
+    rl = await checkRateLimit(event);
+  } catch (_) {
+    rl = { allowed: true, used: 0, cap: Infinity, identity: 'rl-error', decoded: null };
+  }
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },
+      body: JSON.stringify({
+        error: 'rate_limited',
+        message: "You've reached today's AI usage limit. It resets at midnight UTC. If you hit this often, reach out at legal@wjpdebttracking.com.",
+        used: rl.used,
+        cap: rl.cap
+      })
     };
   }
 
   let payload;
   try { payload = JSON.parse(event.body || '{}'); }
-  catch { return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) }; }
+  catch { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON' }) }; }
 
   const question = String(payload.question || '').trim();
   const context  = String(payload.context  || '').slice(0, 12000);
   const tone     = String(payload.tone     || 'friendly').toLowerCase();
   const length   = String(payload.length   || 'standard').toLowerCase();
   const history  = Array.isArray(payload.history) ? payload.history.slice(-10) : [];
-  if (!question) return { statusCode: 400, body: JSON.stringify({ error: 'Missing question' }) };
+  if (!question) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing question' }) };
 
   const maxTokens = length === 'brief' ? 350 : length === 'detailed' ? 1500 : 1100;
   const system = buildSystemPrompt(context, tone, length);
 
-  // Build conversation messages: [...history, current question]
   const messages = [...history.map(m => ({ role: m.role, content: String(m.content || '').slice(0, 4000) })), { role: 'user', content: question }];
 
-  // Pick provider
   const useAnthropic = !!anthropicKey;
   const provider = useAnthropic ? 'anthropic' : 'groq';
 
-  // === NON-STREAMING fallback path ===
-  // Netlify's standard handler doesn't easily support streaming response bodies
-  // through `exports.handler`. Easier: collect the stream server-side then
-  // return as one JSON response. UI can simulate typing animation.
-  // (For true SSE we'd need handler.builder + ResponseStream, which Netlify
-  // exposes via @netlify/functions/stream — adds dependency. Skipping.)
   let text = '';
   try {
     if (useAnthropic) {
@@ -240,17 +339,21 @@ exports.handler = async (event) => {
         text = '';
         const stream = await streamGroq({ apiKey: groqKey, system, messages, maxTokens, model: GROQ_MODEL_DEEP });
         for await (const chunk of iterateGroqSSE(stream)) text += chunk;
-        return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reply: text || '(empty)', model: GROQ_MODEL_DEEP, provider: 'groq-fallback', warning: String(err.message || err).slice(0, 200) }) };
+        await bumpUsage(rl);
+        return { statusCode: 200, headers: { ...CORS, 'Content-Type': 'application/json' }, body: JSON.stringify({ reply: text || '(empty)', model: GROQ_MODEL_DEEP, provider: 'groq-fallback', warning: String(err.message || err).slice(0, 200) }) };
       } catch (err2) {
-        return { statusCode: 502, body: JSON.stringify({ error: 'Both providers failed', anthropic: String(err.message||err).slice(0,200), groq: String(err2.message||err2).slice(0,200) }) };
+        return { statusCode: 502, headers: CORS, body: JSON.stringify({ error: 'Both providers failed', anthropic: String(err.message||err).slice(0,200), groq: String(err2.message||err2).slice(0,200) }) };
       }
     }
-    return { statusCode: 502, body: JSON.stringify({ error: `${provider} failed`, detail: String(err.message || err).slice(0, 300) }) };
+    return { statusCode: 502, headers: CORS, body: JSON.stringify({ error: `${provider} failed`, detail: String(err.message || err).slice(0, 300) }) };
   }
+
+  // Successful response — count it against the daily limit
+  await bumpUsage(rl);
 
   return {
     statusCode: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { ...CORS, 'Content-Type': 'application/json' },
     body: JSON.stringify({ reply: text || '(empty)', model: useAnthropic ? ANTHROPIC_MODEL : GROQ_MODEL_DEEP, provider })
   };
 };
