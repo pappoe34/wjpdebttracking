@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v3 — no Dashboard header tab + better trajectory + lighter typography.
+/* wjp-portfolio.js v4 — auto-detect Plaid institutions + Sync Bank CTA + fix income source.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -115,6 +115,23 @@
     return { assets: assets, liabilities: debts, net: assets - debts, plaidAssets: plaidAssets, manualAssets: manual };
   }
 
+  // Linked Plaid institutions — derived from transactions since host doesn't
+  // store depository accounts separately
+  function getLinkedInstitutions() {
+    var s = getAppState() || {};
+    var byInst = {};
+    (s.transactions || []).forEach(function (t) {
+      if (!t || t.source !== 'plaid') return;
+      var name = (t.institutionName || '').trim();
+      if (!name) return;
+      if (!byInst[name]) byInst[name] = { name: name, txnCount: 0, lastSeen: 0 };
+      byInst[name].txnCount++;
+      var ts = new Date(t.date).getTime();
+      if (ts > byInst[name].lastSeen) byInst[name].lastSeen = ts;
+    });
+    return Object.values(byInst);
+  }
+
   // =====================================================================
   // Health Score (composite 0-1000)
   // =====================================================================
@@ -122,8 +139,8 @@
     var s = getAppState() || {};
     var nw = getNetWorth();
 
-    // 1. Debt management (0-200): debt-to-income ratio
-    var income = (s.profile && s.profile.monthlyIncome) || 0;
+    // 1. Debt management (0-200): debt-to-income ratio — host stores monthlyIncome under s.balances
+    var income = (s.balances && s.balances.monthlyIncome) || (s.profile && s.profile.monthlyIncome) || 0;
     if (!income) {
       // Estimate from inflows over last 90 days
       var txns = s.transactions || [];
@@ -497,10 +514,41 @@
         + '</div>';
     }
 
-    var assetRows = Object.keys(assetCats).filter(function (k) { return assetCats[k] > 0; })
+    // Linked Plaid institutions (excluding debt-only institutions already in liabilities)
+    var linkedInsts = getLinkedInstitutions();
+    var debtInsts = {};
+    (s.debts || []).forEach(function (d) { if (d && d.institutionName) debtInsts[d.institutionName] = (debtInsts[d.institutionName] || 0) + 1; });
+    var depositoryInsts = linkedInsts.filter(function (i) {
+      // Keep institutions whose txn count exceeds their debt count (indicates depository activity)
+      return !debtInsts[i.name] || i.txnCount > (debtInsts[i.name] || 0) * 2;
+    });
+
+    var instCards = depositoryInsts.map(function (i) {
+      var last = i.lastSeen ? new Date(i.lastSeen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+      return ''
+        + '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.20);border-radius:8px;margin:6px 0;">'
+        +   '<div style="width:28px;height:28px;border-radius:7px;background:rgba(99,102,241,0.15);display:grid;place-items:center;color:#6366f1;flex-shrink:0;"><i class="ph-fill ph-bank" style="font-size:14px;"></i></div>'
+        +   '<div style="flex:1;min-width:0;">'
+        +     '<div style="font-size:12.5px;font-weight:600;color:' + ink() + ';">' + escapeHTML(i.name) + '</div>'
+        +     '<div style="font-size:10.5px;color:' + muted() + ';font-weight:500;">Linked · ' + i.txnCount + ' txns · last ' + last + '</div>'
+        +   '</div>'
+        +   '<button class="wjp-pf-set-balance" data-inst="' + escapeHTML(i.name) + '" style="background:transparent;border:1px solid #6366f1;color:#6366f1;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;cursor:pointer;font-family:inherit;">Set balance</button>'
+        + '</div>';
+    }).join('');
+
+    var assetRowsRendered = Object.keys(assetCats).filter(function (k) { return assetCats[k] > 0; })
                           .sort(function (a, b) { return assetCats[b] - assetCats[a]; })
-                          .map(function (k) { return row(k, assetCats[k], nw.assets, '#10b981'); }).join('') ||
-                    '<div style="text-align:center;color:' + muted() + ';font-size:12px;padding:20px;">No assets tracked yet. <button class="wjp-pf-add-asset" style="background:transparent;border:1px solid ' + accent() + ';color:' + accent() + ';padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;font-family:inherit;">+ Add asset</button></div>';
+                          .map(function (k) { return row(k, assetCats[k], nw.assets, '#10b981'); }).join('');
+
+    var assetRows;
+    if (assetRowsRendered || instCards) {
+      var sep = (assetRowsRendered && instCards)
+        ? '<div style="margin:10px 0 6px;font-size:9.5px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:' + muted() + ';">PLAID-LINKED · NEEDS BALANCE</div>'
+        : '';
+      assetRows = assetRowsRendered + sep + instCards;
+    } else {
+      assetRows = '<div style="text-align:center;color:' + muted() + ';font-size:12px;padding:20px;">No assets tracked yet. Sync a bank or add manually above.</div>';
+    }
 
     var liabRows = Object.keys(liabCats).sort(function (a, b) { return liabCats[b] - liabCats[a]; })
                          .map(function (k) { return row(k, liabCats[k], nw.liabilities, '#ef4444'); }).join('') ||
@@ -508,10 +556,13 @@
 
     return ''
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">'
-      +   '<div class="wjp-pf-card" style="padding:18px 20px;background:var(--card-2,#1c2540);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;">'
-      +     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-      +       '<div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;font-weight:800;"><i class="ph-fill ph-piggy-bank"></i> ASSETS · ' + fmtUSD(nw.assets) + '</div>'
-      +       '<button class="wjp-pf-add-asset" style="background:transparent;border:1px solid ' + accent() + ';color:' + accent() + ';padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">+ Add</button>'
+      +   '<div class="wjp-pf-card" style="padding:18px 20px;background:' + surface() + ';border:1px solid ' + gridCol() + ';border-radius:14px;">'
+      +     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">'
+      +       '<div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#10b981;font-weight:700;"><i class="ph-fill ph-piggy-bank"></i> ASSETS · ' + fmtUSD(nw.assets) + '</div>'
+      +       '<div style="display:flex;gap:6px;">'
+      +         '<button class="wjp-pf-sync-bank" style="background:#10b981;border:none;color:#0b0f1a;padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;"><i class="ph-bold ph-arrows-clockwise" style="font-size:11px;"></i>Sync Bank</button>'
+      +         '<button class="wjp-pf-add-asset" style="background:transparent;border:1px solid ' + gridCol() + ';color:' + ink() + ';padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">+ Manual</button>'
+      +       '</div>'
       +     '</div>'
       +     assetRows
       +   '</div>'
@@ -849,7 +900,8 @@
   // =====================================================================
   // manual-asset add modal
   // =====================================================================
-  function openAddAssetModal() {
+  function openAddAssetModal(preset) {
+    preset = preset || {};
     if (document.getElementById('wjp-pf-modal')) return;
     var overlay = document.createElement('div');
     overlay.id = 'wjp-pf-modal';
@@ -879,6 +931,9 @@
     document.body.appendChild(overlay);
     document.getElementById('wjp-pf-cancel').onclick = function () { overlay.remove(); };
     overlay.onclick = function (e) { if (e.target === overlay) overlay.remove(); };
+    if (preset.presetType) document.getElementById('wjp-pf-asset-type').value = preset.presetType;
+    if (preset.presetName) document.getElementById('wjp-pf-asset-name').value = preset.presetName;
+
     document.getElementById('wjp-pf-save').onclick = function () {
       var t = document.getElementById('wjp-pf-asset-type').value;
       var n = document.getElementById('wjp-pf-asset-name').value.trim();
@@ -923,8 +978,18 @@
       +   s6Insights()
       +   s7Milestones()
       + '</div>';
-    // Wire up
-    page.querySelectorAll('.wjp-pf-add-asset').forEach(function (b) { b.onclick = openAddAssetModal; });
+    // Wire up — Add Manual, Sync Bank, Set-Balance per institution
+    page.querySelectorAll('.wjp-pf-add-asset').forEach(function (b) { b.onclick = function () { openAddAssetModal(); }; });
+    page.querySelectorAll('.wjp-pf-sync-bank').forEach(function (b) {
+      b.onclick = function () {
+        var hostBtn = document.getElementById('btn-link-bank')
+                   || document.getElementById('linked-assets-cta-bank');
+        if (hostBtn) hostBtn.click();
+      };
+    });
+    page.querySelectorAll('.wjp-pf-set-balance').forEach(function (b) {
+      b.onclick = function () { openAddAssetModal({ presetName: b.getAttribute('data-inst'), presetType: 'checking' }); };
+    });
     // Draw charts after DOM paints
     setTimeout(function () { try { drawTrajectory(); drawHealthGauge(); } catch (_) {} }, 50);
   }
@@ -1016,4 +1081,9 @@
 
   // Expose for debugging
   window.WJP_Portfolio = {
-    show: showPort
+    show: showPortfolio,
+    render: renderPortfolio,
+    getNetWorth: getNetWorth,
+    getHealthScore: getHealthScore
+  };
+})();
