@@ -421,11 +421,30 @@
       model = 'local-rules';
     } else {
       try {
+        // Attach Firebase ID token so the server can rate-limit per-user (P28).
+        let authHeaders = {};
+        try {
+          const u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+          if (u) {
+            const idToken = await u.getIdToken();
+            if (idToken) authHeaders['Authorization'] = 'Bearer ' + idToken;
+          }
+        } catch (_) { /* no token — server treats as anonymous, strict cap */ }
         const resp = await fetch('/.netlify/functions/ai-cloud', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify({ question, context: ctx, tone, length, history })
         });
+        if (resp.status === 429) {
+          const j = await resp.json().catch(() => ({}));
+          reply = j.message || "You've reached today's AI usage limit. It resets at midnight UTC.";
+          provider = 'rate-limited';
+          model = '';
+          conv.push({ role: 'assistant', content: reply, model, provider });
+          saveHistory(conv);
+          try { window.dispatchEvent(new CustomEvent('wjp:aichat:usage', { detail: getUsageInfo() })); } catch {}
+          return reply;
+        }
         if (!resp.ok) {
           const t = await resp.text().catch(()=>'');
           throw new Error(`${resp.status}: ${t.slice(0,200)}`);
