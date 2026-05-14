@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v5 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -1052,9 +1052,7 @@
     page.classList.add('active');
     renderPortfolio();
     // Toggle header nav active state
-    document.querySelectorAll('.header-nav-item').forEach(function (b) { b.classList.remove('active'); });
-    var pfBtn = document.querySelector('.header-nav-item[data-page="wjp-portfolio"]');
-    if (pfBtn) pfBtn.classList.add('active');
+    setActiveTab('portfolio');
   }
 
   function showOtherPage(pageId) {
@@ -1064,12 +1062,41 @@
     if (target) { target.style.display = 'block'; target.classList.add('active'); }
   }
 
+  // v6: keep the header tab active-state honest. On the dashboard, "Your Dashboard"
+  // (the #header-title element) should read as selected — NOT the Portfolio tab.
+  function injectActiveStyle() {
+    if (document.getElementById('wjp-pf-active-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-pf-active-style';
+    st.textContent =
+      '#header-title.wjp-dash-active{color:var(--accent,#10b981) !important;font-weight:700;}'
+      + '#header-title{cursor:pointer;transition:color .12s;}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  // which: 'dashboard' | 'portfolio' | 'other'
+  function setActiveTab(which) {
+    var title = document.getElementById('header-title');
+    var pfTab = document.querySelector('.header-nav-item[data-page="wjp-portfolio"]');
+    if (which === 'portfolio') {
+      if (title) title.classList.remove('wjp-dash-active');
+      document.querySelectorAll('.header-nav-item').forEach(function (b) { b.classList.remove('active'); });
+      if (pfTab) pfTab.classList.add('active');
+    } else if (which === 'dashboard') {
+      if (pfTab) pfTab.classList.remove('active');
+      if (title) title.classList.add('wjp-dash-active');
+    } else { // other (budgets / strategy) — host owns nav-item active, we just clear our bits
+      if (title) title.classList.remove('wjp-dash-active');
+      if (pfTab) pfTab.classList.remove('active');
+    }
+  }
+
   function installHeaderTab() {
     // v3: keep header tab text "Portfolio" — sidebar Dashboard is the only Dashboard entry.
     // Just intercept clicks on the existing tab and reroute to our new page.
     var existing = [...document.querySelectorAll('.header-nav-item')].find(function (b) { return b.textContent.trim() === 'Portfolio'; });
     if (!existing || existing._wjpPortfolioBound) return false;
     existing._wjpPortfolioBound = true;
+    injectActiveStyle();
     // Mark with our data-page for state tracking
     existing.setAttribute('data-page', 'wjp-portfolio');
 
@@ -1084,6 +1111,7 @@
       b.addEventListener('click', function () {
         var pf = document.getElementById('page-portfolio');
         if (pf) { pf.style.cssText = 'display:none;'; pf.classList.remove('active'); }
+        setActiveTab('other');
       }, true);
     });
 
@@ -1092,8 +1120,43 @@
       n.addEventListener('click', function () {
         var pf = document.getElementById('page-portfolio');
         if (pf) { pf.style.cssText = 'display:none;'; pf.classList.remove('active'); }
+        setActiveTab('dashboard');
       }, true);
     });
+
+    // The header title itself becomes a Dashboard affordance — click it to go home.
+    var title = document.getElementById('header-title');
+    if (title && !title._wjpBound) {
+      title._wjpBound = true;
+      title.addEventListener('click', function () {
+        var dashNav = document.querySelector('.nav-item[data-page="dashboard"], .nav-item');
+        if (dashNav) dashNav.click();
+        setActiveTab('dashboard');
+      });
+    }
+
+    // Initial state: dashboard is the default landing page.
+    setActiveTab('dashboard');
+
+    // Guard: the host may re-assert .active on the Portfolio tab during its own
+    // nav routing. Watch for it and correct whenever the dashboard is the visible page.
+    try {
+      var navMo = new MutationObserver(function () {
+        var pf = document.getElementById('page-portfolio');
+        var pfVisible = pf && pf.style.display === 'block';
+        if (!pfVisible) {
+          var pfTab = document.querySelector('.header-nav-item[data-page="wjp-portfolio"]');
+          var dash = document.getElementById('page-dashboard');
+          var dashVisible = dash && getComputedStyle(dash).display !== 'none';
+          if (pfTab && pfTab.classList.contains('active') && dashVisible) {
+            setActiveTab('dashboard');
+          }
+        }
+      });
+      document.querySelectorAll('.header-nav-item').forEach(function (b) {
+        navMo.observe(b, { attributes: true, attributeFilter: ['class'] });
+      });
+    } catch (_) {}
 
     return true;
   }
