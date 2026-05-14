@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v7 — switch donut legend to crisp HTML (canvas antialiasing fix).
+/* wjp-charts-overhaul.js v8 — strong canvas legend (pure white, 13px/800) for dark-mode contrast.
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -326,10 +326,36 @@
       config.options = config.options || {};
       config.options.responsive = true; config.options.maintainAspectRatio = false;
       config.options.plugins = config.options.plugins || {};
-      // v7: native canvas legend antialiasing rendered digits ("74%", "10%") thin/dim
-      // in dark mode. Switch to a true HTML legend rendered alongside the canvas — full
-      // CSS control means crisp text at any weight/size with no antialiasing artifacts.
-      config.options.plugins.legend = { display: false };
+      // v8: keep canvas legend (Chart.js needs it to size the donut), but
+      // crank weight + size + per-label fontColor so dark-mode digits no longer
+      // antialias into dim greys. Pure white text in dark mode for max contrast.
+      var legendInk = isDark() ? '#ffffff' : '#0a0a0a';
+      config.options.plugins.legend = {
+        display: true, position: 'right', align: 'center',
+        labels: {
+          color: legendInk,
+          font: { size: 13, weight: '800', family: 'Inter' },
+          usePointStyle: true,
+          boxWidth: 11, boxHeight: 11, padding: 14,
+          generateLabels: function (chart) {
+            var d = chart.data, ds = d.datasets[0];
+            return d.labels.map(function (lbl, i) {
+              var v = ds.data[i] || 0;
+              var pct = total ? Math.round((v / total) * 100) : 0;
+              return {
+                text: lbl + '   ' + pct + '%   $' + Math.round(v).toLocaleString('en-US'),
+                fillStyle: ds.backgroundColor[i],
+                strokeStyle: ds.backgroundColor[i],
+                fontColor: legendInk,
+                lineWidth: 0,
+                hidden: false,
+                index: i,
+                pointStyle: 'circle'
+              };
+            });
+          }
+        }
+      };
       config.options.plugins.tooltip = {
         backgroundColor: isDark() ? 'rgba(11,15,26,0.96)' : 'rgba(255,255,255,0.98)',
         titleColor: ink(), bodyColor: ink(), borderColor: 'rgba(16,185,129,0.4)', borderWidth: 1, padding: 12,
@@ -365,52 +391,11 @@
           }
           c.restore();
         }
-      }, {
-        id: 'wjpDonutHtmlLegend',
-        afterRender: function (chart) {
-          // Render an HTML legend in a sibling div next to the canvas — crisp text.
-          try {
-            var canvas = chart.canvas;
-            if (!canvas) return;
-            var wrap = canvas.closest('.chart-wrap, .spending-chart-wrap') || canvas.parentElement;
-            if (!wrap) return;
-            var legendId = 'wjp-donut-html-legend';
-            var legend = wrap.querySelector('#' + legendId);
-            if (!legend) {
-              legend = document.createElement('div');
-              legend.id = legendId;
-              legend.style.cssText = [
-                'position:absolute',
-                'top:50%','right:14px','transform:translateY(-50%)',
-                'display:flex','flex-direction:column','gap:8px',
-                'pointer-events:none',
-                'max-width:42%',
-                'font-family:Inter, system-ui, sans-serif'
-              ].join(';');
-              // Make wrap relative so the absolute legend anchors correctly
-              if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
-              wrap.appendChild(legend);
-            }
-            // Build legend rows from chart data
-            var data = chart.data, ds = data.datasets[0];
-            var rows = data.labels.map(function (lbl, i) {
-              var v = ds.data[i] || 0;
-              var pct = total ? Math.round((v / total) * 100) : 0;
-              var bg = ds.backgroundColor[i];
-              return ''
-                + '<div style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--ink, var(--text-1, #0a0a0a));line-height:1.25;">'
-                +   '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:' + bg + ';flex-shrink:0;"></span>'
-                +   '<span style="display:inline-flex;align-items:baseline;gap:8px;">'
-                +     '<span style="color:var(--ink, var(--text-1, #0a0a0a));">' + lbl + '</span>'
-                +     '<span style="color:var(--text-3, #94a3b8);font-weight:600;font-size:12px;">' + pct + '%</span>'
-                +     '<span style="color:var(--ink, var(--text-1, #0a0a0a));font-weight:700;font-size:12.5px;">$' + Math.round(v).toLocaleString('en-US') + '</span>'
-                +   '</span>'
-                + '</div>';
-            }).join('');
-            legend.innerHTML = rows;
-          } catch (e) { try { console.warn('[wjp-charts] html legend failed', e); } catch (_) {} }
-        }
       }];
+      // v8: clean up any leftover HTML legend from v7
+      try {
+        document.querySelectorAll('#wjp-donut-html-legend').forEach(function (el) { el.remove(); });
+      } catch (_) {}
       return config;
     }
 
