@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v1 — unified Portfolio tab combining Net Worth, Health Score,
+/* wjp-portfolio.js v2 — theme-correct color resolution (was rendering dark in light mode).
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -32,25 +32,28 @@
     if (Math.abs(n) >= 1000) return (n < 0 ? '−$' : '$') + (Math.abs(n) / 1000).toFixed(Math.abs(n) >= 10000 ? 0 : 1) + 'k';
     return (n < 0 ? '−$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
   }
+  // v2: trust ONLY the site's explicit theme — OS preference fallback caused
+  // light-mode pages to render with dark-mode colors (white text on cream cards).
   function isDark() {
     try {
       var html = document.documentElement;
       var attr = html.getAttribute('data-theme');
       if (attr === 'dark') return true;
       if (attr === 'light') return false;
-      if (html.classList.contains('dark') || document.body.classList.contains('dark')) return true;
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return html.classList.contains('dark') || document.body.classList.contains('dark');
     } catch (_) { return false; }
   }
   function cssVar(name, fallback) {
     try { var v = getComputedStyle(document.body).getPropertyValue(name).trim(); return v || fallback; }
     catch (_) { return fallback; }
   }
-  function ink()       { return isDark() ? '#ffffff' : cssVar('--ink', cssVar('--text-1', '#0a0a0a')); }
-  function muted()     { return cssVar('--text-3', isDark() ? 'rgba(241,245,249,0.65)' : 'rgba(10,10,10,0.55)'); }
-  function surface()   { return cssVar('--card-2', isDark() ? '#1c2540' : '#ffffff'); }
-  function gridCol()   { return cssVar('--border', isDark() ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.08)'); }
-  function accent()    { return cssVar('--accent', '#10b981'); }
+  // v2: return CSS-variable strings so each theme inherits its own palette at paint time.
+  // No more JS-side branching that can desync from the site's actual theme.
+  function ink()     { return 'var(--ink, var(--text-1, #0a0a0a))'; }
+  function muted()   { return 'var(--text-3, #94a3b8)'; }
+  function surface() { return 'var(--card-2, #ffffff)'; }
+  function gridCol() { return 'var(--border, rgba(10,10,10,0.08))'; }
+  function accent()  { return 'var(--accent, #10b981)'; }
   function escapeHTML(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
@@ -856,14 +859,16 @@
 
   function showPortfolio() {
     var host = getHostContainer();
-    // Hide other pages
+    // Hide other pages — use cssText with !important to beat any host CSS
     host.querySelectorAll('.page, [id^="page-"]').forEach(function (p) {
       if (p.id === 'page-portfolio') return;
-      p.style.display = 'none';
+      p.style.cssText = 'display:none !important;';
       p.classList.remove('active');
     });
     var page = ensurePage();
-    page.style.display = 'block';
+    // v2: give page-portfolio an opaque min-height background so the host's
+    // gradient doesn't bleed through gaps between our cards.
+    page.style.cssText = 'display:block;padding:20px 24px;min-height:calc(100vh - 80px);background:var(--bg, var(--canvas, transparent));';
     page.classList.add('active');
     renderPortfolio();
     // Toggle header nav active state
