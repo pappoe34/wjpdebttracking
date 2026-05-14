@@ -1,4 +1,5 @@
-/* wjp-momentum.js v4 — Exec Summary first, then momentum (consistent sage palette)
+/* wjp-momentum.js v5 — delta fallback to oldest snapshot (was stuck on Day One)
+ * Original: v4 — Exec Summary first, then momentum (consistent sage palette)
  *
  * Original:  v3 — refined streak design + per-debt payoff milestones (5/15/30/50/75/100%)
  *
@@ -29,9 +30,34 @@
   var HERO_ID = 'wjp-momentum-hero';
   var STREAK_ID = 'wjp-momentum-streak';
 
+  // v5: delta(7) returns null until there's a 7-day-old snapshot. Fall back to the
+  // oldest available snapshot so the widget shows real progress from day 2 onward.
+  function getBestDelta() {
+    if (!window.WJP_Snapshots) return null;
+    var d = window.WJP_Snapshots.delta(7);
+    if (d) return d;
+    try {
+      var all = window.WJP_Snapshots.loadAll ? window.WJP_Snapshots.loadAll() : {};
+      var keys = Object.keys(all).sort();
+      if (keys.length < 2) return null; // genuinely day one
+      var oldest = all[keys[0]];
+      var newest = all[keys[keys.length - 1]];
+      var days = Math.max(1, Math.round((new Date(keys[keys.length - 1]) - new Date(keys[0])) / 86400000));
+      return {
+        totalDebt:      (newest.totalDebt || 0) - (oldest.totalDebt || 0),
+        totalPaid:      (newest.totalPaid || 0) - (oldest.totalPaid || 0),
+        liquidCash:     (newest.liquidCash || 0) - (oldest.liquidCash || 0),
+        score:          (newest.score || 0) - (oldest.score || 0),
+        debtFreeMonths: (oldest.debtFreeMonths || 0) - (newest.debtFreeMonths || 0),
+        daysCovered:    days,
+        today: newest, then: oldest
+      };
+    } catch (_) { return null; }
+  }
+
   function buildHeroHTML() {
     if (!window.WJP_Snapshots) return '';
-    var d = window.WJP_Snapshots.delta(7);
+    var d = getBestDelta();
     if (!d) {
       // No history yet — show a friendly "starting fresh" state
       return ''
@@ -86,7 +112,7 @@
 
     return ''
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-      +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Last 7 days</div>'
+      +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Last ' + (d.daysCovered === 1 ? '24 hours' : d.daysCovered + ' days') + '</div>'
       +   '<div style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;">vs ' + d.daysCovered + ' days ago</div>'
       + '</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + debtChip + cashChip + scoreChip + '</div>';
