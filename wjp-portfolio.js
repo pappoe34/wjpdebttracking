@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v4 — auto-detect Plaid institutions + Sync Bank CTA + fix income source.
+/* wjp-portfolio.js v5 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -454,36 +454,35 @@
       + '</div>';
   }
 
+  // v5 helpers — type meta + edit/delete
+  function assetTypeMeta(type) {
+    var map = {
+      checking:   { label: 'Checking',     icon: 'ph-wallet',         color: '#10b981' },
+      savings:    { label: 'Savings',      icon: 'ph-piggy-bank',     color: '#10b981' },
+      cash:       { label: 'Cash',         icon: 'ph-coins',          color: '#f59e0b' },
+      investment: { label: 'Investment',   icon: 'ph-chart-line-up',  color: '#a78bfa' },
+      retirement: { label: 'Retirement',   icon: 'ph-tree',           color: '#a78bfa' },
+      realestate: { label: 'Real Estate',  icon: 'ph-house',          color: '#0891b2' },
+      vehicle:    { label: 'Vehicle',      icon: 'ph-car',            color: '#6366f1' },
+      other:      { label: 'Other',        icon: 'ph-currency-dollar',color: '#94a3b8' }
+    };
+    return map[type] || map.other;
+  }
+  function deleteManualAsset(id) {
+    var arr = getManualAssets().filter(function (a) { return a.id !== id; });
+    setManualAssets(arr);
+    renderPortfolio();
+  }
+  function editManualAsset(id) {
+    var arr = getManualAssets();
+    var a = arr.find(function (x) { return x.id === id; });
+    if (!a) return;
+    openAddAssetModal({ presetType: a.type, presetName: a.name, presetValue: a.value, editId: id });
+  }
+
   function s3AssetsLiabilities() {
     var s = getAppState() || {};
     var nw = getNetWorth();
-
-    // Aggregate assets by category
-    var assetCats = { 'Checking': 0, 'Savings': 0, 'Investments': 0, 'Real Estate': 0, 'Vehicles': 0, 'Cash': 0, 'Other': 0 };
-    var balances = s.balances || {};
-    if (Array.isArray(balances) || typeof balances === 'object') {
-      var iter = Array.isArray(balances) ? balances : Object.values(balances);
-      iter.forEach(function (b) {
-        if (!b) return;
-        var bal = Number(b.balance || b.current || b.available || 0);
-        var t = (b.type || '').toLowerCase();
-        var st = (b.subtype || '').toLowerCase();
-        if (t === 'credit' || t === 'loan' || st === 'credit card') return;
-        if (st === 'checking') assetCats.Checking += bal;
-        else if (st === 'savings' || st === 'money market') assetCats.Savings += bal;
-        else if (t === 'investment' || st === 'brokerage' || st === '401k' || st === 'ira') assetCats.Investments += bal;
-        else assetCats.Other += bal;
-      });
-    }
-    getManualAssets().forEach(function (a) {
-      var v = Number(a.value) || 0;
-      var t = a.type || 'Other';
-      if (t === 'realestate') assetCats['Real Estate'] += v;
-      else if (t === 'vehicle') assetCats.Vehicles += v;
-      else if (t === 'cash') assetCats.Cash += v;
-      else if (t === 'investment') assetCats.Investments += v;
-      else assetCats.Other += v;
-    });
 
     // Aggregate liabilities by debt category
     var liabCats = {};
@@ -499,12 +498,13 @@
       liabCats[cat] = (liabCats[cat] || 0) + Number(d.balance);
     });
 
+    // Liability bar helper (keeps aggregation on liabilities side)
     function row(label, amount, total, color) {
       var pct = total > 0 ? Math.round((amount / total) * 100) : 0;
       return ''
         + '<div style="display:flex;align-items:center;gap:10px;margin:7px 0;">'
         +   '<div style="flex:1;min-width:0;">'
-        +     '<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:' + ink() + ';">'
+        +     '<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:' + ink() + ';">'
         +       '<span>' + escapeHTML(label) + '</span><span>' + fmtUSD(amount) + '</span>'
         +     '</div>'
         +     '<div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:4px;overflow:hidden;">'
@@ -514,12 +514,36 @@
         + '</div>';
     }
 
-    // Linked Plaid institutions (excluding debt-only institutions already in liabilities)
+    // v5: render EVERY manual asset as its own row with edit + delete
+    var manualAssets = getManualAssets();
+
+    function assetRow(a) {
+      var meta = assetTypeMeta(a.type);
+      return ''
+        + '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.20);border-radius:8px;margin:6px 0;">'
+        +   '<div style="width:30px;height:30px;border-radius:8px;background:' + meta.color + '22;display:grid;place-items:center;color:' + meta.color + ';flex-shrink:0;"><i class="ph-fill ' + meta.icon + '" style="font-size:14px;"></i></div>'
+        +   '<div style="flex:1;min-width:0;">'
+        +     '<div style="font-size:12.5px;font-weight:600;color:' + ink() + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(a.name) + '</div>'
+        +     '<div style="font-size:10.5px;color:' + muted() + ';font-weight:500;">' + escapeHTML(meta.label) + (a.institution ? ' · ' + escapeHTML(a.institution) : '') + '</div>'
+        +   '</div>'
+        +   '<div style="font-size:13.5px;font-weight:700;color:' + ink() + ';margin-right:6px;">' + fmtUSD(a.value) + '</div>'
+        +   '<button class="wjp-pf-edit" data-id="' + escapeHTML(a.id) + '" title="Edit" style="background:transparent;border:none;color:' + muted() + ';padding:4px 6px;cursor:pointer;font-family:inherit;border-radius:5px;"><i class="ph ph-pencil-simple" style="font-size:14px;"></i></button>'
+        +   '<button class="wjp-pf-delete" data-id="' + escapeHTML(a.id) + '" title="Delete" style="background:transparent;border:none;color:#ef4444;padding:4px 6px;cursor:pointer;font-family:inherit;border-radius:5px;"><i class="ph ph-trash" style="font-size:14px;"></i></button>'
+        + '</div>';
+    }
+    var assetRowsRendered = manualAssets.map(assetRow).join('');
+
+    // Plaid institutions WITHOUT a saved balance — "Set balance" cards
     var linkedInsts = getLinkedInstitutions();
     var debtInsts = {};
     (s.debts || []).forEach(function (d) { if (d && d.institutionName) debtInsts[d.institutionName] = (debtInsts[d.institutionName] || 0) + 1; });
+    var alreadyHas = {};
+    manualAssets.forEach(function (a) {
+      if (a.institution) alreadyHas[a.institution.toLowerCase()] = true;
+      if (a.name) alreadyHas[a.name.toLowerCase()] = true;
+    });
     var depositoryInsts = linkedInsts.filter(function (i) {
-      // Keep institutions whose txn count exceeds their debt count (indicates depository activity)
+      if (alreadyHas[i.name.toLowerCase()]) return false;
       return !debtInsts[i.name] || i.txnCount > (debtInsts[i.name] || 0) * 2;
     });
 
@@ -536,14 +560,10 @@
         + '</div>';
     }).join('');
 
-    var assetRowsRendered = Object.keys(assetCats).filter(function (k) { return assetCats[k] > 0; })
-                          .sort(function (a, b) { return assetCats[b] - assetCats[a]; })
-                          .map(function (k) { return row(k, assetCats[k], nw.assets, '#10b981'); }).join('');
-
     var assetRows;
     if (assetRowsRendered || instCards) {
       var sep = (assetRowsRendered && instCards)
-        ? '<div style="margin:10px 0 6px;font-size:9.5px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:' + muted() + ';">PLAID-LINKED · NEEDS BALANCE</div>'
+        ? '<div style="margin:14px 0 6px;font-size:9.5px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:' + muted() + ';">PLAID-LINKED · NEEDS BALANCE</div>'
         : '';
       assetRows = assetRowsRendered + sep + instCards;
     } else {
@@ -933,14 +953,25 @@
     overlay.onclick = function (e) { if (e.target === overlay) overlay.remove(); };
     if (preset.presetType) document.getElementById('wjp-pf-asset-type').value = preset.presetType;
     if (preset.presetName) document.getElementById('wjp-pf-asset-name').value = preset.presetName;
+    if (preset.presetValue) document.getElementById('wjp-pf-asset-value').value = preset.presetValue;
+    if (preset.editId) {
+      var t0 = overlay.querySelector('div > div');
+      if (t0) t0.textContent = 'Edit Asset';
+    }
 
     document.getElementById('wjp-pf-save').onclick = function () {
       var t = document.getElementById('wjp-pf-asset-type').value;
       var n = document.getElementById('wjp-pf-asset-name').value.trim();
       var v = Number(document.getElementById('wjp-pf-asset-value').value) || 0;
-      if (!n || v <= 0) return;
+      if (!n) { alert('Please enter a label.'); return; }
+      if (v <= 0) { alert('Please enter a positive value.'); return; }
       var arr = getManualAssets();
-      arr.push({ id: 'a_' + Date.now(), type: t, name: n, value: v, createdAt: new Date().toISOString() });
+      if (preset.editId) {
+        var idx = arr.findIndex(function (x) { return x.id === preset.editId; });
+        if (idx >= 0) arr[idx] = Object.assign({}, arr[idx], { type: t, name: n, value: v, institution: preset.presetInstitution || arr[idx].institution, updatedAt: new Date().toISOString() });
+      } else {
+        arr.push({ id: 'a_' + Date.now(), type: t, name: n, value: v, institution: preset.presetInstitution || null, createdAt: new Date().toISOString() });
+      }
       setManualAssets(arr);
       overlay.remove();
       renderPortfolio();
@@ -988,7 +1019,19 @@
       };
     });
     page.querySelectorAll('.wjp-pf-set-balance').forEach(function (b) {
-      b.onclick = function () { openAddAssetModal({ presetName: b.getAttribute('data-inst'), presetType: 'checking' }); };
+      b.onclick = function () {
+        var inst = b.getAttribute('data-inst');
+        openAddAssetModal({ presetName: inst, presetType: 'checking', presetInstitution: inst });
+      };
+    });
+    page.querySelectorAll('.wjp-pf-edit').forEach(function (b) {
+      b.onclick = function () { editManualAsset(b.getAttribute('data-id')); };
+    });
+    page.querySelectorAll('.wjp-pf-delete').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-id');
+        if (confirm('Delete this asset?')) deleteManualAsset(id);
+      };
     });
     // Draw charts after DOM paints
     setTimeout(function () { try { drawTrajectory(); drawHealthGauge(); } catch (_) {} }, 50);
