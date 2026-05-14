@@ -1,4 +1,4 @@
-/* wjp-charts-overhaul.js v5 — read activeStyle from DOM button (appState is not on window).
+/* wjp-charts-overhaul.js v6 — donut legend typography for dark-mode legibility.
  *
  * Strategy: monkey-patch window.Chart so that whenever app.js constructs a chart
  * on a target canvas (spendingBarChart / projectionChartDash), we upgrade the
@@ -329,8 +329,9 @@
       config.options.plugins.legend = {
         display: true, position: 'right', align: 'center',
         labels: {
-          color: ink(), font: { size: 11, weight: '600' }, usePointStyle: true,
-          boxWidth: 10, boxHeight: 10, padding: 10,
+          // v6: bump size + weight for dark-mode legibility (was 11/600 — too thin)
+          color: ink(), font: { size: 12.5, weight: '700', family: 'Inter' }, usePointStyle: true,
+          boxWidth: 11, boxHeight: 11, padding: 12,
           generateLabels: function (chart) {
             var d = chart.data, ds = d.datasets[0];
             return d.labels.map(function (lbl, i) {
