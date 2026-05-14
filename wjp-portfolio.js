@@ -859,6 +859,8 @@
       +   '<div style="font-size:16px;font-weight:800;margin-bottom:14px;">Add Manual Asset</div>'
       +   '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:' + muted() + ';display:block;">Type</label>'
       +   '<select id="wjp-pf-asset-type" style="width:100%;padding:9px 11px;margin-top:4px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid ' + gridCol() + ';color:' + ink() + ';font-family:inherit;font-size:13px;">'
+      +     '<option value="checking">Checking</option>'
+      +     '<option value="savings">Savings</option>'
       +     '<option value="cash">Cash on hand</option>'
       +     '<option value="realestate">Real Estate</option>'
       +     '<option value="vehicle">Vehicle</option>'
@@ -1014,9 +1016,4 @@
 
   // Expose for debugging
   window.WJP_Portfolio = {
-    show: showPortfolio,
-    render: renderPortfolio,
-    getNetWorth: getNetWorth,
-    getHealthScore: getHealthScore
-  };
-})();
+    show: showPort
