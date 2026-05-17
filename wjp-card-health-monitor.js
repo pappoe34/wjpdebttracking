@@ -1,26 +1,18 @@
-/* wjp-card-health-monitor.js v1 — Keep-cards-active monitor
+/* wjp-card-health-monitor.js v2 — Keep-cards-active monitor with mark-paid integration
  *
- * For every credit-card debt, computes:
- *   • days since last charge (uses transactions matched by plaid accountId
- *     OR by institutionName fallback)
- *   • days since last payment to that card
- *   • the resulting "card health" status:
- *        ACTIVE   — used in the last 30 days
- *        DORMANT  — 30–60 days since last charge (issuer may flag soon)
- *        AT-RISK  — 60+ days (issuers commonly close after 12 months but
- *                    DORMANT is the right time to act)
- *        UNPAID   — balance > 0 and no payment posted in 35+ days
+ * Status taxonomy:
+ *   ACTIVE   — used in the last 30 days
+ *   DORMANT  — 30–60 days since last charge (issuer may flag soon)
+ *   AT-RISK  — 60+ days (issuers commonly close inactive cards)
+ *   NO-DATA  — could not match transactions (card may not be Plaid-synced)
+ *   UNPAID   — balance > $5 AND no payment posted in 35+ days AND no pending
+ *   PENDING  — user marked-paid; suppresses UNPAID for 14 days while real tx posts
+ *   UNCONFIRMED — pending expired without a matching transaction
  *
- * Two outputs:
- *   1) A "Card health" panel injected near the Current Obligations section
- *      so the user sees status per card at a glance.
- *   2) Inbox dispatches via window.pushNotification(...) so the user gets
- *      reminded in the standard notifications bell + Inbox tab.
+ * Renders a Card Health panel above Current Obligations + dispatches reminders
+ * via window.pushNotification (throttled 1×/7d per card per alert type).
  *
- * Throttling: each card+type combination is throttled to once per 7 days so
- * the inbox doesn't get spammed. State stored in localStorage scoped by uid.
- *
- * Safe: does NOT touch Sync Bank / Plaid Link. Read-only on the data side.
+ * Safe: read-only on data side; localStorage-only writes. No Sync Bank hooks.
  */
 (function () {
   'use strict';
@@ -34,12 +26,12 @@
 
   var PANEL_ID = 'wjp-card-health-panel';
   var DAY_MS = 24 * 60 * 60 * 1000;
-  var DORMANT_DAYS = 30;     // start warning after 30 days
-  var AT_RISK_DAYS = 60;     // serious after 60 days
-  var UNPAID_DAYS = 35;      // balance > 0 + no payment in 35 days = bug
+  var DORMANT_DAYS = 30;
+  var AT_RISK_DAYS = 60;
+  var UNPAID_DAYS = 35;
   var THROTTLE_MS = 7 * DAY_MS;
 
-  // -------------------------- helpers --------------------------
+  // ===================== helpers =====================
   async function getCurrentUid() {
     try {
       if (window.firebase && window.firebase.auth) {
@@ -64,6 +56,14 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  function fmtUsd(n) {
+    return '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function daysUntil(ts) {
+    return Math.max(0, Math.ceil((ts - Date.now()) / DAY_MS));
+  }
+
   function getBudgetState() {
     try {
       var raw = localStorage.getItem('wjp_budget_state');
@@ -74,10 +74,7 @@
   function saveBudgetState(s) {
     try {
       localStorage.setItem('wjp_budget_state', JSON.stringify(s));
-      // Also re-sync window.appState if the app exposes it
-      if (window.appState) {
-        window.appState.notifications = s.notifications;
-      }
+      if (window.appState) window.appState.notifications = s.notifications;
       return true;
     } catch (_) { return false; }
   }
@@ -110,10 +107,6 @@
     return isFinite(ms) ? ms : 0;
   }
 
-  // Match a debt to its transactions. We try in order:
-  //   1) accountId equality if the debt has plaidAccountId / accountId
-  //   2) institutionName + last-4 match (cards often have name ending in 4 digits)
-  //   3) institutionName alone (less precise — used as last resort)
   function findCardTransactions(debt, allTx) {
     var dAccountId = debt.plaidAccountId || debt.accountId || debt.plaid_account_id;
     if (dAccountId) {
@@ -122,7 +115,6 @@
       });
       if (matched.length > 0) return matched;
     }
-    // Fallback by institutionName
     if (debt.institutionName) {
       var inst = (debt.institutionName || '').toLowerCase();
       return allTx.filter(function (t) {
@@ -145,10 +137,6 @@
     var now = Date.now();
     var charges = txs.filter(function (t) { return (t.amount || 0) < 0; });
     var payments = txs.filter(function (t) {
-      // Payments to a credit card are positive on Plaid sign convention when
-      // tracked on the source account; on the credit card item they're
-      // negative-to-positive flips. Easier heuristic: payment-channel "payment"
-      // or merchant matching "payment".
       if (t.payment_channel === 'payment') return true;
       var m = ((t.merchant || t.merchant_name || t.name || '') + '').toLowerCase();
       return m.indexOf('payment') !== -1 || m.indexOf('autopay') !== -1;
@@ -176,7 +164,7 @@
       reason = 'Used ' + daysSinceCharge + ' days ago — healthy.';
     }
 
-    // Check for a pending mark-as-paid first — that suppresses UNPAID.
+    // Pending payment suppresses UNPAID.
     var pending = pendingFor(debt.id);
     var hasPending = pending && pending.status === 'pending';
     var hasExpired = pending && pending.status === 'expired';
@@ -184,10 +172,8 @@
 
     var unpaid = false;
     if (hasPending) {
-      // suppressed — user has marked paid, waiting for confirmation
       unpaid = false;
     } else if (status === 'NO-DATA') {
-      // no transactions means we can't claim UNPAID
       unpaid = false;
     } else {
       unpaid = (balance > 5 && (daysSincePayment == null || daysSincePayment > UNPAID_DAYS));
@@ -236,7 +222,6 @@
     state.notifications.unshift(notif);
     saveBudgetState(state);
 
-    // Also try pushNotification if the app exposes it (so other UI listeners fire)
     try {
       if (typeof window.pushNotification === 'function') {
         window.pushNotification(notif, 'card-health');
@@ -262,7 +247,7 @@
       var c = classifyCard(card, txs);
       results.push(c);
 
-      // Dispatch inbox reminders based on status (throttled)
+      // Inbox dispatches — only for actionable situations
       if (c.status === 'DORMANT') {
         await dispatchToInbox(card, 'dormant',
           'Keep your ' + c.name + ' active',
@@ -277,14 +262,20 @@
       if (c.unpaid) {
         await dispatchToInbox(card, 'unpaid',
           c.name + ' needs a payment',
-          'Balance is $' + c.balance.toFixed(2) + ' and no payment has posted in the last ' + UNPAID_DAYS + ' days. Even the minimum payment protects your score and avoids late fees.',
+          'Balance is ' + fmtUsd(c.balance) + ' and no payment has posted in the last ' + UNPAID_DAYS + ' days. Even the minimum payment protects your score and avoids late fees.',
+          'high');
+      }
+      if (c.expired) {
+        await dispatchToInbox(card, 'pending-expired',
+          'Pending payment didn\'t confirm — ' + c.name,
+          'You marked ' + fmtUsd(c.expired.amount) + ' as paid on ' + c.expired.paidDate + ', but no matching transaction posted in 14 days. Verify the payment cleared.',
           'high');
       }
     }
     return results;
   }
 
-  // -------------------------- visual panel --------------------------
+  // ===================== visual panel =====================
   function statusColor(status) {
     return status === 'AT-RISK' ? '#c0594a'
          : status === 'DORMANT' ? '#a16207'
@@ -305,14 +296,6 @@
       if (t === 'Current Obligations') return headings[i];
     }
     return null;
-  }
-
-  function fmtUsd(n) {
-    return '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function daysUntil(ts) {
-    return Math.max(0, Math.ceil((ts - Date.now()) / DAY_MS));
   }
 
   function rowHtml(c) {
@@ -378,4 +361,127 @@
     panel.style.cssText =
       'background:var(--card-bg,var(--bg-2,#fff));color:var(--ink,var(--text-1,#0a0a0a));' +
       'border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:14px;' +
-      'padding:18px 22px;margin:18px 0;font-family:inherit;font-size:13p
+      'padding:18px 22px;margin:18px 0;font-family:inherit;font-size:13px;' +
+      'box-shadow:0 1px 3px rgba(0,0,0,0.04);';
+
+    var counts = { ACTIVE: 0, DORMANT: 0, 'AT-RISK': 0, 'NO-DATA': 0, UNPAID: 0, PENDING: 0 };
+    results.forEach(function (c) {
+      counts[c.status] = (counts[c.status] || 0) + 1;
+      if (c.unpaid) counts.UNPAID++;
+      if (c.pending) counts.PENDING++;
+    });
+    var alertCount = counts.DORMANT + counts['AT-RISK'] + counts.UNPAID;
+
+    panel.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:800;letter-spacing:-0.01em;color:var(--ink,var(--text-1,#0a0a0a));">Card health</div>' +
+          '<div style="font-size:11.5px;color:var(--ink-dim,var(--text-2,#6b7280));margin-top:2px;">' +
+            counts.ACTIVE + ' active · ' +
+            counts.DORMANT + ' dormant · ' +
+            counts['AT-RISK'] + ' at-risk · ' +
+            counts.UNPAID + ' unpaid · ' +
+            counts.PENDING + ' pending' +
+          '</div>' +
+        '</div>' +
+        (alertCount > 0
+          ? '<span style="font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;background:rgba(192,89,74,0.10);color:#c0594a;letter-spacing:0.04em;">' + alertCount + ' need attention</span>'
+          : '<span style="font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;background:rgba(31,122,74,0.10);color:#1f7a4a;letter-spacing:0.04em;">All healthy</span>') +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;">' + results.map(rowHtml).join('') + '</div>' +
+      '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border,rgba(0,0,0,0.06));font-size:10.5px;color:var(--ink-dim,var(--text-2,#6b7280));">' +
+        'Bank-to-card payments take 3–5 business days to post. Click <strong>Mark paid</strong> to suppress late-payment alerts during that window; the app auto-confirms when the real transaction lands. Issuers may close cards inactive 6–12 months — run a small recurring charge to keep cards alive.' +
+      '</div>';
+    return panel;
+  }
+
+  async function mountPanel() {
+    if (!isOnDebts()) {
+      var old = document.getElementById(PANEL_ID);
+      if (old) try { old.remove(); } catch (_) {}
+      return;
+    }
+    var header = findCurrentObligationsHeader();
+    if (!header) return;
+
+    var results = await runMonitor();
+    if (!results.length) return;
+
+    var existing = document.getElementById(PANEL_ID);
+    if (existing) existing.remove();
+
+    var panel = buildPanel(results);
+    var insertBefore = header;
+    while (insertBefore.parentElement && !insertBefore.parentElement.classList.contains('debts-subtab-content')) {
+      insertBefore = insertBefore.parentElement;
+    }
+    if (insertBefore && insertBefore.parentElement) {
+      insertBefore.parentElement.insertBefore(panel, insertBefore);
+    }
+
+    // Wire up Mark paid + Clear pending buttons
+    Array.prototype.forEach.call(panel.querySelectorAll('.wjp-ch-mark-paid'), function (btn) {
+      btn.onclick = function () {
+        var debtId = btn.getAttribute('data-debt-id');
+        if (!debtId) return;
+        try {
+          if (window.WJP_PendingPayments && typeof window.WJP_PendingPayments.promptMarkPaid === 'function') {
+            var entry = window.WJP_PendingPayments.promptMarkPaid(debtId);
+            if (entry) {
+              btn.disabled = true;
+              btn.textContent = 'Marked';
+              setTimeout(function () { mountPanel().catch(function () {}); }, 600);
+            }
+          } else {
+            alert('Pending Payments module not loaded yet — try again in a few seconds.');
+          }
+        } catch (e) {
+          alert('Could not mark paid: ' + e.message);
+        }
+      };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll('.wjp-ch-clear-pending'), function (btn) {
+      btn.onclick = function () {
+        var debtId = btn.getAttribute('data-debt-id');
+        if (!debtId) return;
+        if (!confirm('Clear the pending payment for this card?')) return;
+        try {
+          if (window.WJP_PendingPayments && typeof window.WJP_PendingPayments.clear === 'function') {
+            window.WJP_PendingPayments.clear(debtId);
+            mountPanel().catch(function () {});
+          }
+        } catch (_) {}
+      };
+    });
+
+    // Listen for confirmations to auto-refresh the panel
+    if (!window._wjpCardHealthListening) {
+      window._wjpCardHealthListening = true;
+      window.addEventListener('wjp-pending-payment-confirmed', function () {
+        mountPanel().catch(function () {});
+      });
+      window.addEventListener('wjp-pending-payment-changed', function () {
+        mountPanel().catch(function () {});
+      });
+    }
+  }
+
+  // ===================== boot =====================
+  function start() {
+    setInterval(function () {
+      mountPanel().catch(function () {});
+    }, 3000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+
+  window.WJP_CardHealth = {
+    runMonitor: runMonitor,
+    mountPanel: mountPanel,
+    version: 2
+  };
+})();
