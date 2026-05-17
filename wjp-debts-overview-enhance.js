@@ -529,4 +529,31 @@
         var html = buildInsightsPanel(card, data);
         var wrap = document.createElement('div');
         wrap.innerHTML = html;
-        card.appendChild(wrap.fir
+        card.appendChild(wrap.firstChild);
+        // Change button label
+        btn.innerHTML = btn.innerHTML.replace('Insights', 'Hide insights');
+      };
+    });
+  }
+
+  // ===========================================================================
+  // BOOT
+  // ===========================================================================
+  function start() {
+    setInterval(function () {
+      try { mountDebitBalances(); } catch (_) {}
+      try { attachInsightsToCards(); } catch (_) {}
+    }, 1500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+
+  window.WJP_DebtsEnhance = {
+    refreshDebits: function () { return renderDebitBalances(true); },
+    version: 2
+  };
+})();
