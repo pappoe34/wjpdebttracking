@@ -88,6 +88,15 @@
     var t = window.WJP_Trial;
     if (!t) return;
     var existing = document.getElementById(BANNER_ID);
+    // Admin should never see the trial banner — they're not on trial regardless of
+    // any stale Firestore state from previous test runs.
+    try {
+      var tier = typeof window.getTier === 'function' ? String(window.getTier()).toLowerCase() : null;
+      if (tier === 'admin' || window.WJP_IS_ADMIN === true) {
+        if (existing) try { existing.remove(); document.body.classList.remove('wjp-has-trial-banner'); } catch (_) {}
+        return;
+      }
+    } catch (_) {}
 
     if (t.isActive && t.isActive()) {
       var d = t.daysLeft();
