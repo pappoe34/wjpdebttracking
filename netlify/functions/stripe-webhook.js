@@ -67,6 +67,30 @@ async function syncSubToFirestore(stripe, db, sub) {
     canceledAt: sub.canceled_at ? sub.canceled_at * 1000 : null,
     updatedAt: Date.now(),
   };
+  // Detect paid → free downgrade and start the 7-day grace clock so the
+  // cleanup-free-tier-items.js scheduled function knows when to remove Plaid items.
+  try {
+    const prevSnap = await db.collection('users').doc(uid).collection('billing').doc('subscription').get();
+    const prev = prevSnap.exists ? (prevSnap.data() || {}) : {};
+    const prevTier = String(prev.tier || 'free').toLowerCase();
+    const newTier = String(tier).toLowerCase();
+    const wasPaid = prevTier === 'pro' || prevTier === 'plus';
+    const nowFree = newTier === 'free';
+    if (wasPaid && nowFree) {
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      data.lastDowngradeAt = Date.now();
+      data.gracePeriodEndsAt = Date.now() + SEVEN_DAYS;
+      console.log('[webhook] downgrade detected, grace ends', new Date(data.gracePeriodEndsAt).toISOString());
+      try {
+        await db.collection('users').doc(uid).collection('email_sequence')
+          .doc('downgrade_grace_warning').set({
+            queuedAt: Date.now(),
+            graceEndsAt: data.gracePeriodEndsAt
+          }, { merge: true });
+      } catch (_) {}
+    }
+  } catch (e) { console.warn('[webhook] downgrade detection failed:', e.message); }
+
   await db.collection('users').doc(uid).collection('billing').doc('subscription').set(data, { merge: true });
   console.log('[webhook] synced subscription for uid', uid, 'tier=' + tier, 'status=' + sub.status);
   return uid;
