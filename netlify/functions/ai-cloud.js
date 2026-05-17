@@ -24,6 +24,26 @@ const AUTHED_DAILY_CAP = 120;   // abuse ceiling for signed-in users
 const ANON_DAILY_CAP   = 8;     // strict cap for no-token / cached-old-client requests
 const ADMIN_EMAILS     = ['pappoe34@gmail.com'];
 
+// P29 — Anthropic Haiku 4.5 pricing (USD per million tokens)
+//   Used to compute per-user cost estimates that get logged to
+//   users/{uid}/usage/anthropic/{yyyymm}. Update if Anthropic changes pricing.
+const HAIKU_INPUT_USD_PER_M  = 1.00;
+const HAIKU_OUTPUT_USD_PER_M = 5.00;
+// Char-to-token approximation when SSE response doesn't expose token counts.
+const CHARS_PER_TOKEN = 4;
+
+function estimateTokens(text) {
+  return Math.ceil((String(text || '').length) / CHARS_PER_TOKEN);
+}
+function estimateCostUsd(inTokens, outTokens) {
+  return (inTokens / 1e6) * HAIKU_INPUT_USD_PER_M + (outTokens / 1e6) * HAIKU_OUTPUT_USD_PER_M;
+}
+function yyyymm() {
+  const d = new Date();
+  const m = d.getUTCMonth() + 1;
+  return d.getUTCFullYear() + '-' + (m < 10 ? '0' + m : m);
+}
+
 // Lazily required so a missing Firebase env var never hard-crashes the AI feature.
 let _fb = null;
 function fb() {
@@ -61,11 +81,38 @@ async function checkRateLimit(event) {
   if (decoded && decoded.uid) {
     // Admin bypass
     if (decoded.email && ADMIN_EMAILS.indexOf(String(decoded.email).toLowerCase()) !== -1) {
-      return { allowed: true, used: 0, cap: Infinity, identity: 'admin:' + decoded.uid, decoded };
+      return { allowed: true, used: 0, cap: Infinity, identity: 'admin:' + decoded.uid, decoded, tier: 'admin' };
+    }
+    // P29 — Zero-AI gate for Free tier (with trial-as-Plus exception).
+    let tier = 'free';
+    let trialActive = false;
+    try {
+      const subSnap = await db.collection('users').doc(decoded.uid).collection('billing').doc('subscription').get();
+      if (subSnap.exists) {
+        const s = subSnap.data() || {};
+        tier = String(s.tier || 'free').toLowerCase();
+        const trialEnd = s.trialEndsAt || s.trialEnd;
+        if (trialEnd && Date.now() < trialEnd) {
+          trialActive = true;
+          tier = 'plus';
+        }
+      }
+    } catch (_) { /* fail safe: treat as free */ }
+    if (tier === 'free' && !trialActive) {
+      return {
+        allowed: false,
+        used: 0,
+        cap: 0,
+        identity: 'uid:' + decoded.uid,
+        decoded,
+        tier: 'free',
+        reason: 'free_tier_no_ai'
+      };
     }
     cap = AUTHED_DAILY_CAP;
     identity = 'uid:' + decoded.uid;
     docRef = db.collection('_ai_usage').doc(sanitize(decoded.uid) + '_' + date);
+    var tierField = tier;
   } else {
     cap = ANON_DAILY_CAP;
     var ip = event.headers['x-nf-client-connection-ip']
@@ -83,7 +130,36 @@ async function checkRateLimit(event) {
     used = (snap.exists && snap.data() && Number(snap.data().count)) || 0;
   } catch (_) { used = 0; }
 
-  return { allowed: used < cap, used, cap, identity, decoded, _docRef: docRef };
+  return { allowed: used < cap, used, cap, identity, decoded, _docRef: docRef, tier: typeof tierField !== 'undefined' ? tierField : null };
+}
+
+// P29 — Per-user Anthropic usage logger. Writes to users/{uid}/usage/anthropic/{yyyymm}
+// so we can compute real per-user spend instead of guessing.
+async function logAnthropicUsage(rl, payload) {
+  if (!rl || !rl.decoded || !rl.decoded.uid) return;
+  const F = fb();
+  if (!F) return;
+  try {
+    const admin = require('firebase-admin');
+    const db = F.getFirestore();
+    const uid = rl.decoded.uid;
+    const monthKey = yyyymm();
+    const docRef = db.collection('users').doc(uid).collection('usage').doc('anthropic_' + monthKey);
+    const inT  = Number(payload.inputTokens || 0);
+    const outT = Number(payload.outputTokens || 0);
+    const cost = Number(payload.costUsd || 0);
+    await docRef.set({
+      month: monthKey,
+      tier: rl.tier || null,
+      calls: admin.firestore.FieldValue.increment(1),
+      inputTokens: admin.firestore.FieldValue.increment(inT),
+      outputTokens: admin.firestore.FieldValue.increment(outT),
+      costUsd: admin.firestore.FieldValue.increment(cost),
+      lastModel: payload.model || null,
+      lastProvider: payload.provider || null,
+      lastUpdated: new Date().toISOString()
+    }, { merge: true });
+  } catch (_) { /* best-effort; never block the response */ }
 }
 
 async function bumpUsage(rl) {
@@ -292,6 +368,18 @@ exports.handler = async (event) => {
     rl = { allowed: true, used: 0, cap: Infinity, identity: 'rl-error', decoded: null };
   }
   if (!rl.allowed) {
+    if (rl.reason === 'free_tier_no_ai') {
+      return {
+        statusCode: 403,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'free_tier_no_ai',
+          message: 'AI features are part of Pro. Upgrade to access these features.',
+          tier: 'free',
+          upgrade_url: '/index.html#plans'
+        })
+      };
+    }
     return {
       statusCode: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },
@@ -348,8 +436,20 @@ exports.handler = async (event) => {
     return { statusCode: 502, headers: CORS, body: JSON.stringify({ error: `${provider} failed`, detail: String(err.message || err).slice(0, 300) }) };
   }
 
-  // Successful response — count it against the daily limit
+  // Successful response — count it against the daily limit + per-user usage log
   await bumpUsage(rl);
+  if (useAnthropic) {
+    const inputChars = (system || '').length + JSON.stringify(messages || []).length;
+    const inT = estimateTokens(inputChars);
+    const outT = estimateTokens(text);
+    await logAnthropicUsage(rl, {
+      inputTokens: inT,
+      outputTokens: outT,
+      costUsd: estimateCostUsd(inT, outT),
+      model: ANTHROPIC_MODEL,
+      provider: 'anthropic'
+    });
+  }
 
   return {
     statusCode: 200,
