@@ -33,13 +33,15 @@
     s.id = STYLE_ID;
     s.textContent = [
       '#' + BANNER_ID + ' {',
-      '  position:sticky; top:0; left:0; right:0; z-index:9000;',
+      '  position:fixed; top:0; left:0; right:0; z-index:9000;',
       '  display:flex; align-items:center; justify-content:center; gap:12px;',
       '  padding:9px 16px; font-family:Inter,system-ui,sans-serif;',
       '  font-size:12.5px; font-weight:600; cursor:pointer;',
       '  border-bottom:1px solid var(--border,rgba(0,0,0,0.08));',
-      '  letter-spacing:0.01em;',
+      '  letter-spacing:0.01em; min-height:38px; box-sizing:border-box;',
+      '  pointer-events:auto;',
       '}',
+      'body.wjp-has-trial-banner { padding-top: 38px !important; }',
       '#' + BANNER_ID + '.green { background:linear-gradient(90deg, rgba(31,122,74,0.10) 0%, rgba(31,122,74,0.05) 100%); color:#1f7a4a; }',
       '#' + BANNER_ID + '.yellow { background:linear-gradient(90deg, rgba(161,98,7,0.12) 0%, rgba(161,98,7,0.06) 100%); color:#a16207; }',
       '#' + BANNER_ID + '.red { background:linear-gradient(90deg, rgba(192,89,74,0.14) 0%, rgba(192,89,74,0.07) 100%); color:#c0594a; }',
@@ -99,7 +101,7 @@
         b.className = color;
         b.innerHTML = html;
         b.onclick = openBilling;
-        document.body.insertBefore(b, document.body.firstChild);
+        document.documentElement.appendChild(b); document.body.classList.add('wjp-has-trial-banner');
       }
       return;
     }
@@ -119,12 +121,12 @@
         bg.className = 'red';
         bg.innerHTML = htmlg;
         bg.onclick = openBilling;
-        document.body.insertBefore(bg, document.body.firstChild);
+        document.documentElement.appendChild(bg); document.body.classList.add('wjp-has-trial-banner');
       }
       return;
     }
 
-    if (existing) try { existing.remove(); } catch (_) {}
+    if (existing) try { existing.remove(); document.body.classList.remove('wjp-has-trial-banner'); } catch (_) {}
   }
 
   function showWelcomeOnce() {
