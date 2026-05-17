@@ -64,17 +64,14 @@
   }
 
   function isOnDebts() {
-    try {
-      var h = (location.hash || '').toLowerCase();
-      if (h.indexOf('debts') !== -1) return true;
-    } catch (_) {}
-    var titles = document.querySelectorAll('h1, h2, .page-title');
-    for (var i = 0; i < titles.length; i++) {
-      var t = titles[i];
-      if (t.offsetParent === null) continue;
-      var txt = (t.textContent || '').trim().toLowerCase();
-      if (txt === 'your debts' || txt === 'debts') return true;
+    // Strict: only true when #page-debts has class "active" — avoids the
+    // sidebar "Debts" label false-positive.
+    var pageEl = document.getElementById('page-debts');
+    if (pageEl && (pageEl.classList.contains('active') || pageEl.offsetParent !== null)) {
+      return true;
     }
+    var dataPage = document.querySelector('[data-page="debts"].active, [data-page="debts"]');
+    if (dataPage && dataPage.offsetParent !== null) return true;
     return false;
   }
 
@@ -146,38 +143,38 @@
     }
   }
 
+  // Overrides storage: localStorage scoped by uid. Survives session reloads,
+  // doesn't require Firestore client SDK access.
+  function overridesKey(uid) { return 'wjp.account_overrides.uid_' + uid; }
+
   async function fetchOverrides() {
     if (_overridesCache) return _overridesCache;
     var uid = await getCurrentUid();
-    var fb = firestore();
-    if (!uid || !fb) return {};
+    if (!uid) return {};
     try {
-      var snap = await fb.collection('users').doc(uid)
-        .collection('account_overrides').get();
-      var map = {};
-      snap.forEach(function (d) { map[d.id] = d.data() || {}; });
-      _overridesCache = map;
-      return map;
+      var raw = localStorage.getItem(overridesKey(uid));
+      _overridesCache = raw ? JSON.parse(raw) : {};
     } catch (_) {
       _overridesCache = {};
-      return {};
     }
+    return _overridesCache;
   }
 
   async function saveOverride(accountId, displayName) {
     var uid = await getCurrentUid();
-    var fb = firestore();
-    if (!uid || !fb) throw new Error('not signed in');
-    var doc = fb.collection('users').doc(uid)
-      .collection('account_overrides').doc(accountId);
+    if (!uid) throw new Error('not signed in');
+    var map = await fetchOverrides();
     if (displayName) {
-      await doc.set({ displayName: displayName, updatedAt: Date.now() }, { merge: true });
+      map[accountId] = { displayName: displayName, updatedAt: Date.now() };
     } else {
-      // empty = clear override
-      await doc.set({ displayName: null, updatedAt: Date.now() }, { merge: true });
+      delete map[accountId];
     }
-    if (!_overridesCache) _overridesCache = {};
-    _overridesCache[accountId] = { displayName: displayName || null };
+    try {
+      localStorage.setItem(overridesKey(uid), JSON.stringify(map));
+    } catch (e) {
+      throw new Error('storage full');
+    }
+    _overridesCache = map;
   }
 
   function extractDebitAccounts(items, overrides) {
@@ -211,26 +208,12 @@
   }
 
   function findDebtsHost() {
-    // Prefer the Debts page main container; fall back to a heading's parent
-    var candidates = [
-      '#page-debts',
-      '[data-page="debts"]',
-      '#debts-page',
-      '.debts-page',
-      '[data-page-id="debts"]'
-    ];
-    for (var i = 0; i < candidates.length; i++) {
-      var el = document.querySelector(candidates[i]);
-      if (el && el.offsetParent !== null) return el;
-    }
-    // Heuristic: find "Your Debts" / "Debts" page title and use parent
-    var titles = document.querySelectorAll('h1, h2, .page-title');
-    for (var j = 0; j < titles.length; j++) {
-      var t = titles[j];
-      if (t.offsetParent === null) continue;
-      var txt = (t.textContent || '').trim().toLowerCase();
-      if (txt === 'your debts' || txt === 'debts') return t.parentElement;
-    }
+    // Strict mount: only the active Overview subtab content. Falls back to
+    // the page container itself if subtab isn't found.
+    var subtab = document.querySelector('.debts-subtab-content.active');
+    if (subtab && subtab.offsetParent !== null) return subtab;
+    var pageEl = document.getElementById('page-debts');
+    if (pageEl && pageEl.offsetParent !== null) return pageEl;
     return null;
   }
 
@@ -561,6 +544,7 @@
 
   window.WJP_DebtsEnhance = {
     refreshDebits: function () { return renderDebitBalances(true); },
-    version: 1
+    version: 2
   };
 })();
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
