@@ -96,6 +96,15 @@ function extractMortgage(account, lia) {
   return out;
 }
 
+
+// Returns YYYY-MM for a Unix-ms timestamp (UTC).
+function ymKey(ts) {
+  if (!ts) return null;
+  const d = new Date(ts);
+  const m = d.getUTCMonth() + 1;
+  return d.getUTCFullYear() + '-' + (m < 10 ? '0' + m : m);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return json(405, { error: 'method not allowed' });
@@ -116,6 +125,28 @@ exports.handler = async (event) => {
   const tier = await userTier(db, uid);
   if (tier !== 'plus' && tier !== 'admin') {
     return json(403, { error: 'Plaid Liabilities sync is a Pro Plus feature', tier });
+  }
+
+  // ===== Calendar-month idempotency =====
+  // Plaid bills $0.10/call for on-demand Liabilities. Once we have fresh data
+  // for the current calendar month, do NOT call again (saves $0.10/card/mo).
+  // Frontend "Sync now" button can override by sending { force: true } in body.
+  const force = body.force === true;
+  if (!force) {
+    try {
+      const stateSnap0 = await db.collection('users').doc(uid).collection('state').doc('app').get();
+      const lastAt = stateSnap0.exists ? (stateSnap0.data() || {}).lastLiabilitiesSyncAt : null;
+      if (lastAt && ymKey(lastAt) === ymKey(Date.now())) {
+        return json(200, {
+          ok: true,
+          skipped: true,
+          reason: 'already_synced_this_calendar_month',
+          cachedAt: lastAt,
+          monthKey: ymKey(lastAt),
+          message: 'Liabilities cache is fresh for this month. Pass { force: true } to override.'
+        });
+      }
+    } catch (e) { /* fall through if read fails */ }
   }
 
   const plaid = getPlaidClient();
