@@ -31,9 +31,9 @@
 
   var DAY_MS = 24 * 60 * 60 * 1000;
   var THRESHOLDS = {
-    plus:  30 * DAY_MS,  // Pro Plus: monthly
-    admin: 30 * DAY_MS,  // Admin treated as Plus for sync purposes
-    pro:   90 * DAY_MS,  // Pro: quarterly
+    plus:   1 * DAY_MS,  // Pro Plus: daily (bumped 2026-05-16 per request)
+    admin:  1 * DAY_MS,  // Admin treated as Plus for sync purposes
+    pro:   30 * DAY_MS,  // Pro: monthly (bumped from quarterly 2026-05-16)
     free:  Infinity      // Free: never auto
   };
 
