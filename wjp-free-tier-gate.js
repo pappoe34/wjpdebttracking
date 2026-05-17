@@ -75,7 +75,7 @@
       '  font-family:inherit;margin-top:4px;letter-spacing:0.01em;' +
       '  box-shadow:0 1px 3px rgba(31,122,74,0.25);' +
       '}' +
-      '.' + UPGRADE_CARD_CLASS + ' .wjp-ftg-btn:hover { background:#1a6840; }' +
+      '.' + UPGRADE_CARD_CLASS + ' .wjp-ftg-btn:hover { background:#1a6840; }' +'.' + UPGRADE_CARD_CLASS + ' .wjp-ftg-btn-secondary {' +'  background:transparent;color:var(--ink,var(--text-1,#0a0a0a));' +'  border:1px solid var(--border,rgba(0,0,0,0.18));border-radius:8px;' +'  padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;' +'  font-family:inherit;letter-spacing:0.01em;' +'}' +'.' + UPGRADE_CARD_CLASS + ' .wjp-ftg-btn-secondary:hover { background:rgba(0,0,0,0.04); }' +
       'body.dark .' + UPGRADE_CARD_CLASS + ' {' +
       '  background:linear-gradient(135deg, rgba(31,122,74,0.10) 0%, rgba(31,122,74,0.04) 100%);' +
       '  border-color:rgba(31,122,74,0.35);' +
@@ -118,14 +118,15 @@
         'Bank syncing, auto-imported transactions, statement details and live balance updates are part of Pro. ' +
         'Free plan stays free — your manual entries, calendar and strategy tools keep working.' +
       '</div>' +
-      '<button type="button" class="wjp-ftg-btn">Upgrade plan</button>';
+      '<div class="wjp-ftg-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px;">' +
+        '<button type="button" class="wjp-ftg-btn">Upgrade plan</button>' +
+        '<button type="button" class="wjp-ftg-btn-secondary">Or scan a statement — free</button>' +
+      '</div>';
     var btn = card.querySelector('.wjp-ftg-btn');
     btn.onclick = function () {
       try {
-        // Navigate to billing — try multiple known routes
         if (typeof window.openBillingModal === 'function') return window.openBillingModal();
         if (typeof window.WJP_Billing === 'object' && window.WJP_Billing.open) return window.WJP_Billing.open();
-        // Settings → Billing tab as fallback
         var settingsTab = document.querySelector('[data-tab="settings"], [data-route="settings"], #nav-settings');
         if (settingsTab) settingsTab.click();
         location.hash = '#billing';
@@ -133,6 +134,18 @@
         location.hash = '#billing';
       }
     };
+    var ocrBtn = card.querySelector('.wjp-ftg-btn-secondary');
+    if (ocrBtn) {
+      ocrBtn.onclick = function () {
+        try {
+          if (window.WJP_StatementOCR && typeof window.WJP_StatementOCR.launch === 'function') {
+            window.WJP_StatementOCR.launch();
+          } else {
+            alert('Statement scanner is still loading — give it a second and try again.');
+          }
+        } catch (e) { console.warn('ocr launch failed', e); }
+      };
+    }
     return card;
   }
 
