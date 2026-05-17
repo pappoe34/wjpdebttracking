@@ -132,6 +132,15 @@
     return [];
   }
 
+  function pendingFor(debtId) {
+    try {
+      if (window.WJP_PendingPayments && typeof window.WJP_PendingPayments.getStatus === 'function') {
+        return window.WJP_PendingPayments.getStatus(debtId);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   function classifyCard(debt, txs) {
     var now = Date.now();
     var charges = txs.filter(function (t) { return (t.amount || 0) < 0; });
@@ -167,7 +176,23 @@
       reason = 'Used ' + daysSinceCharge + ' days ago — healthy.';
     }
 
-    var unpaid = (balance > 5 && (daysSincePayment == null || daysSincePayment > UNPAID_DAYS));
+    // Check for a pending mark-as-paid first — that suppresses UNPAID.
+    var pending = pendingFor(debt.id);
+    var hasPending = pending && pending.status === 'pending';
+    var hasExpired = pending && pending.status === 'expired';
+    var hasConfirmed = pending && pending.status === 'confirmed';
+
+    var unpaid = false;
+    if (hasPending) {
+      // suppressed — user has marked paid, waiting for confirmation
+      unpaid = false;
+    } else if (status === 'NO-DATA') {
+      // no transactions means we can't claim UNPAID
+      unpaid = false;
+    } else {
+      unpaid = (balance > 5 && (daysSincePayment == null || daysSincePayment > UNPAID_DAYS));
+    }
+
     return {
       name: debt.name || 'Card',
       balance: balance,
@@ -179,6 +204,9 @@
       status: status,
       reason: reason,
       unpaid: unpaid,
+      pending: hasPending ? pending : null,
+      expired: hasExpired ? pending : null,
+      confirmed: hasConfirmed ? pending : null,
       debtId: debt.id
     };
   }
@@ -279,27 +307,67 @@
     return null;
   }
 
+  function fmtUsd(n) {
+    return '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function daysUntil(ts) {
+    return Math.max(0, Math.ceil((ts - Date.now()) / DAY_MS));
+  }
+
   function rowHtml(c) {
+    var pendingLine = '';
+    if (c.pending) {
+      pendingLine = '<span style="color:#1f7a4a;font-weight:700;">Pending confirmation</span> · ' +
+        fmtUsd(c.pending.amount) + ' marked ' + c.pending.paidDate + ' · ~' + daysUntil(c.pending.expiresAt) + 'd window';
+    } else if (c.expired) {
+      pendingLine = '<span style="color:#a16207;font-weight:700;">Pending expired</span> · No matching tx posted in 14d — re-check the payment.';
+    } else if (c.confirmed) {
+      pendingLine = '<span style="color:#1f7a4a;font-weight:700;">Payment confirmed</span> · ' + fmtUsd(c.confirmed.amount);
+    }
+
     var sub = c.status === 'NO-DATA'
-      ? c.reason
-      : 'Last charge: ' + (c.daysSinceCharge != null ? c.daysSinceCharge + 'd ago' : '—') +
-        ' · Last payment: ' + (c.daysSincePayment != null ? c.daysSincePayment + 'd ago' : '—') +
-        ' · Balance: $' + (c.balance || 0).toFixed(2);
-    var actionLabel = c.status === 'AT-RISK' || c.status === 'DORMANT'
-      ? '⚠ Use it'
-      : c.unpaid ? '⚠ Pay now'
-      : '';
+      ? (pendingLine || c.reason)
+      : (pendingLine || (
+          'Last charge: ' + (c.daysSinceCharge != null ? c.daysSinceCharge + 'd ago' : '—') +
+          ' · Last payment: ' + (c.daysSincePayment != null ? c.daysSincePayment + 'd ago' : '—') +
+          ' · Balance: ' + fmtUsd(c.balance)
+        ));
+
+    var badges = [
+      '<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:' + statusBg(c.status) + ';color:' + statusColor(c.status) + ';">' + c.status + '</span>'
+    ];
+    if (c.pending) {
+      badges.push('<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:rgba(31,122,74,0.10);color:#1f7a4a;">PENDING</span>');
+    } else if (c.unpaid) {
+      badges.push('<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:rgba(192,89,74,0.10);color:#c0594a;">UNPAID</span>');
+    } else if (c.expired) {
+      badges.push('<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:rgba(161,98,7,0.10);color:#a16207;">UNCONFIRMED</span>');
+    } else if (c.status === 'NO-DATA' && c.balance > 5) {
+      badges.push('<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,0.10);color:#6b7280;">NOT SYNCED</span>');
+    }
+
+    var actionBtn = '';
+    if (c.balance > 5 && !c.pending && !c.confirmed) {
+      actionBtn = '<button type="button" class="wjp-ch-mark-paid" data-debt-id="' + escapeHtml(c.debtId) + '" ' +
+        'style="background:transparent;border:1px solid var(--border,rgba(0,0,0,0.15));color:var(--ink,var(--text-1,#0a0a0a));' +
+        'border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">Mark paid</button>';
+    } else if (c.pending) {
+      actionBtn = '<button type="button" class="wjp-ch-clear-pending" data-debt-id="' + escapeHtml(c.debtId) + '" ' +
+        'style="background:transparent;border:1px solid var(--border,rgba(0,0,0,0.15));color:var(--ink-dim,var(--text-2,#6b7280));' +
+        'border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">Clear</button>';
+    }
+
     return (
       '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-3,rgba(0,0,0,0.02));border-radius:10px;border-left:3px solid ' + statusColor(c.status) + ';">' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
             '<div style="font-weight:700;font-size:13.5px;color:var(--ink,var(--text-1,#0a0a0a));">' + escapeHtml(c.name) + '</div>' +
-            '<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:' + statusBg(c.status) + ';color:' + statusColor(c.status) + ';">' + c.status + '</span>' +
-            (c.unpaid ? '<span style="font-size:10px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:999px;background:rgba(192,89,74,0.10);color:#c0594a;">UNPAID</span>' : '') +
+            badges.join('') +
           '</div>' +
-          '<div style="font-size:11px;color:var(--ink-dim,var(--text-2,#6b7280));margin-top:3px;">' + escapeHtml(sub) + '</div>' +
+          '<div style="font-size:11px;color:var(--ink-dim,var(--text-2,#6b7280));margin-top:3px;">' + sub + '</div>' +
         '</div>' +
-        (actionLabel ? '<span style="font-size:11px;font-weight:700;color:' + statusColor(c.unpaid ? 'AT-RISK' : c.status) + ';flex-shrink:0;">' + actionLabel + '</span>' : '') +
+        actionBtn +
       '</div>'
     );
   }
@@ -310,80 +378,4 @@
     panel.style.cssText =
       'background:var(--card-bg,var(--bg-2,#fff));color:var(--ink,var(--text-1,#0a0a0a));' +
       'border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:14px;' +
-      'padding:18px 22px;margin:18px 0;font-family:inherit;font-size:13px;' +
-      'box-shadow:0 1px 3px rgba(0,0,0,0.04);';
-
-    var counts = { ACTIVE: 0, DORMANT: 0, 'AT-RISK': 0, 'NO-DATA': 0, UNPAID: 0 };
-    results.forEach(function (c) {
-      counts[c.status] = (counts[c.status] || 0) + 1;
-      if (c.unpaid) counts.UNPAID++;
-    });
-    var alertCount = counts.DORMANT + counts['AT-RISK'] + counts.UNPAID;
-
-    panel.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
-        '<div>' +
-          '<div style="font-size:15px;font-weight:800;letter-spacing:-0.01em;color:var(--ink,var(--text-1,#0a0a0a));">Card health</div>' +
-          '<div style="font-size:11.5px;color:var(--ink-dim,var(--text-2,#6b7280));margin-top:2px;">' +
-            counts.ACTIVE + ' active · ' +
-            counts.DORMANT + ' dormant · ' +
-            counts['AT-RISK'] + ' at-risk · ' +
-            counts.UNPAID + ' unpaid' +
-          '</div>' +
-        '</div>' +
-        (alertCount > 0
-          ? '<span style="font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;background:rgba(192,89,74,0.10);color:#c0594a;letter-spacing:0.04em;">' + alertCount + ' need attention</span>'
-          : '<span style="font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;background:rgba(31,122,74,0.10);color:#1f7a4a;letter-spacing:0.04em;">All healthy</span>') +
-      '</div>' +
-      '<div style="display:flex;flex-direction:column;gap:8px;">' + results.map(rowHtml).join('') + '</div>' +
-      '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border,rgba(0,0,0,0.06));font-size:10.5px;color:var(--ink-dim,var(--text-2,#6b7280));">' +
-        'Issuers may close cards inactive 6–12 months — closures hurt your FICO score 5–15 points by lowering total credit limit. Run a small recurring charge to keep cards alive.' +
-      '</div>';
-    return panel;
-  }
-
-  async function mountPanel() {
-    if (!isOnDebts()) {
-      var old = document.getElementById(PANEL_ID);
-      if (old) try { old.remove(); } catch (_) {}
-      return;
-    }
-    var header = findCurrentObligationsHeader();
-    if (!header) return;
-
-    var results = await runMonitor();
-    if (!results.length) return;
-
-    var existing = document.getElementById(PANEL_ID);
-    if (existing) existing.remove();
-
-    var panel = buildPanel(results);
-    // Insert BEFORE the Current Obligations header's parent container
-    var insertBefore = header;
-    while (insertBefore.parentElement && !insertBefore.parentElement.classList.contains('debts-subtab-content')) {
-      insertBefore = insertBefore.parentElement;
-    }
-    if (insertBefore && insertBefore.parentElement) {
-      insertBefore.parentElement.insertBefore(panel, insertBefore);
-    }
-  }
-
-  // -------------------------- boot --------------------------
-  function start() {
-    setInterval(function () {
-      mountPanel().catch(function () {});
-    }, 3000);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
-
-  window.WJP_CardHealth = {
-    runMonitor: runMonitor,
-    mountPanel: mountPanel,
-    version: 1
-  };
-})();
+      'padding:18px 22px;margin:18px 0;font-family:inherit;font-size:13p
