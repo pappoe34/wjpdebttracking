@@ -1,19 +1,18 @@
-/* wjp-liabilities-cadence.js — Auto-schedule Plaid Liabilities sync.
+/* wjp-liabilities-cadence.js v3 — Auto-schedule Plaid Liabilities sync.
  *
- * The /sync-liabilities endpoint + manual "Sync now" button shipped in
- * commit 103bacdd, but there was no automatic cadence. This module wires
- * the cadence per tier:
- *   - Pro Plus / Admin: re-sync if last sync > 30 days ago
- *   - Pro:              re-sync if last sync > 90 days ago (~quarterly)
- *   - Free:             never auto (manual upload only — already enforced
- *                       by tier gate in /sync-liabilities backend)
+ * COST MODEL: Plaid bills /liabilities/get on-demand at $0.10/call.
+ * To keep average user spend low, we sync at most ONCE per calendar month
+ * per user, anchored to the first 3 days of the month. After day 3 of
+ * the month, we won't auto-fire even if "30 days have passed" — we wait
+ * for the next month's anchor window.
  *
- * On dashboard load, checks `wjp.liabilities.lastSyncAt` localStorage
- * (already written by wjp-liabilities-sync.js when manual sync runs) and
- * fires syncNow() if past the cadence threshold for the user's tier.
+ * Tier matrix:
+ *   - Pro Plus / Admin: monthly anchored sync (~$0.10/card/mo on-demand)
+ *   - Pro:              monthly anchored sync (same)
+ *   - Free:             never auto (manual upload only)
  *
- * Surfaces a small inline status: "Last synced N days ago" near the
- * Settings → Linked Accounts panel and the dashboard +Add menu.
+ * Anchor window: day-of-month 1–3 inclusive. If user opens the app any time
+ * during that window AND last sync was in a prior calendar month, we sync.
  *
  * Hardened: IIFE, idempotent, path-guarded, no MutationObservers, polled
  * once on boot + once every 30 minutes (handles long-lived tabs).
@@ -30,12 +29,10 @@
   } catch (_) {}
 
   var DAY_MS = 24 * 60 * 60 * 1000;
-  var THRESHOLDS = {
-    plus:   1 * DAY_MS,  // Pro Plus: daily (bumped 2026-05-16 per request)
-    admin:  1 * DAY_MS,  // Admin treated as Plus for sync purposes
-    pro:   30 * DAY_MS,  // Pro: monthly (bumped from quarterly 2026-05-16)
-    free:  Infinity      // Free: never auto
-  };
+  var ANCHOR_DAYS = 3; // sync if today's date is day 1-3 of the month
+
+  // Tiers that get auto-sync at all. Free is excluded by tier gate elsewhere.
+  var AUTO_SYNC_TIERS = { plus: true, admin: true, pro: true };
 
   var LS_LAST_SYNC = 'wjp.liabilities.lastSyncAt';
   var LS_LAST_AUTO_ATTEMPT = 'wjp.liabilities.lastAutoAttemptAt';
@@ -74,36 +71,55 @@
         var auth = window.firebase.auth();
         if (auth && auth.currentUser) return true;
       }
+      if (window.__wjpAuth && window.__wjpAuth.currentUser) return true;
     } catch (_) {}
     try { if (window.WJP_IS_ADMIN === true) return true; } catch (_) {}
     return false;
   }
 
+  // Returns YYYY-MM string for a timestamp (or now if omitted).
+  function yyyymm(ts) {
+    var d = ts ? new Date(ts) : new Date();
+    var m = d.getMonth() + 1;
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m);
+  }
+
+  function isAnchorWindow() {
+    var d = new Date();
+    return d.getDate() >= 1 && d.getDate() <= ANCHOR_DAYS;
+  }
+
+  function syncedThisMonth() {
+    var last = getLastSync();
+    if (!last) return false;
+    return yyyymm(last) === yyyymm();
+  }
+
   function shouldAutoSync() {
     var tier = getTier();
-    if (!tier) return false;
-    var threshold = THRESHOLDS[tier];
-    if (threshold == null || threshold === Infinity) return false;
-    var lastSync = getLastSync();
+    if (!tier || !AUTO_SYNC_TIERS[tier]) return false;
+    if (syncedThisMonth()) return false; // already synced this calendar month
+    // Allow first-ever sync any time. After that, only fire during anchor window.
+    if (getLastSync() === 0) {
+      // Don't pile on at signup — wait until anchor window to spread cost.
+      if (!isAnchorWindow()) return false;
+    } else {
+      if (!isAnchorWindow()) return false;
+    }
     var lastAttempt = getLastAutoAttempt();
-    var now = Date.now();
-    // Don't re-attempt within 6 hours of the last attempt — avoids
-    // hammering the backend if the sync is silently failing.
-    if (now - lastAttempt < 6 * 60 * 60 * 1000) return false;
-    return (now - lastSync) > threshold;
+    // Cooldown: 6 hr between attempts to avoid hammering on silent failures.
+    if (Date.now() - lastAttempt < 6 * 60 * 60 * 1000) return false;
+    return true;
   }
 
   function tryAutoSync() {
     try {
       if (!isAuthReady()) return;
       if (!shouldAutoSync()) return;
-      // The manual sync module exposes window.WJP_LiabilitiesSync.syncNow()
-      // (per commit 103bacdd) — defer to that.
       var sync = window.WJP_LiabilitiesSync;
       if (!sync || typeof sync.syncNow !== 'function') return;
       setLastAutoAttempt();
-      try { console.log('[wjp-liabilities-cadence] auto-syncing for tier=' + getTier()); } catch (_) {}
-      // Fire and forget — the existing module handles its own UI/refresh
+      try { console.log('[wjp-liabilities-cadence v3] monthly anchor sync for tier=' + getTier()); } catch (_) {}
       Promise.resolve(sync.syncNow()).catch(function (e) {
         try { console.warn('[wjp-liabilities-cadence] auto sync failed', e); } catch (_) {}
       });
@@ -124,10 +140,25 @@
     return months === 1 ? 'Synced ~1 month ago' : 'Synced ~' + months + ' months ago';
   }
 
+  function nextSyncLabel() {
+    if (syncedThisMonth()) {
+      var d = new Date();
+      var nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      var opts = { month: 'short', day: 'numeric' };
+      return 'Next: ' + nextMonth.toLocaleDateString('en-US', opts);
+    }
+    if (!isAnchorWindow()) {
+      var dd = new Date();
+      var firstNext = new Date(dd.getFullYear(), dd.getMonth() + 1, 1);
+      return 'Next: ' + firstNext.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    return 'Next: in this anchor window';
+  }
+
   function tierCadenceLabel() {
     var t = getTier();
-    if (t === 'plus' || t === 'admin') return 'Auto-sync: monthly';
-    if (t === 'pro') return 'Auto-sync: quarterly';
+    if (t === 'plus' || t === 'admin') return 'Auto-sync: monthly (1st)';
+    if (t === 'pro') return 'Auto-sync: monthly (1st)';
     if (t === 'free') return 'Manual upload only — upgrade to auto-sync';
     return null;
   }
@@ -135,9 +166,8 @@
   function injectStatusPills() {
     try {
       var label = freshnessLabel();
+      var nxt = nextSyncLabel();
       var cadence = tierCadenceLabel();
-      // Find the Linked Accounts settings card (existing wjp-liabilities-sync.js
-      // injects a "Sync now" button there) and add the freshness label next to it.
       var anchor = document.getElementById('wjp-liabilities-sync-card')
         || document.querySelector('[data-settings-panel="linked"], #linked-accounts-panel, #settings-linked-panel');
       if (!anchor) return;
@@ -145,6 +175,7 @@
       var html = ''
         + '<div class="wjp-lc-pill" style="display:inline-flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-family:Inter,system-ui,sans-serif;">'
         +   '<span style="font-size:11px;letter-spacing:0.05em;background:rgba(31,122,74,0.08);color:var(--accent,#1f7a4a);padding:4px 10px;border-radius:999px;font-weight:600;">' + label + '</span>'
+        +   '<span style="font-size:11px;letter-spacing:0.05em;background:rgba(0,0,0,0.05);color:var(--ink-dim,#6b7280);padding:4px 10px;border-radius:999px;font-weight:600;">' + nxt + '</span>'
         +   (cadence ? '<span style="font-size:11px;letter-spacing:0.05em;background:rgba(0,0,0,0.05);color:var(--ink-dim,#6b7280);padding:4px 10px;border-radius:999px;font-weight:600;">' + cadence + '</span>' : '')
         + '</div>';
       if (existing) {
@@ -156,16 +187,13 @@
   }
 
   function boot() {
-    // Wait for auth + tier resolver
     var attempts = 0;
     function tryBoot() {
       attempts++;
       if (isAuthReady() && getTier()) {
         tryAutoSync();
         injectStatusPills();
-        // Periodic re-check (every 30 min) for long-lived tabs
         setInterval(function () { try { tryAutoSync(); injectStatusPills(); } catch (_) {} }, 30 * 60 * 1000);
-        // Also re-inject pills periodically since Settings panel may mount lazily
         setInterval(injectStatusPills, 3000);
         return;
       }
@@ -183,6 +211,9 @@
   window.WJP_LiabilitiesCadence = {
     shouldAutoSync: shouldAutoSync,
     forceSync: tryAutoSync,
-    freshnessLabel: freshnessLabel
+    freshnessLabel: freshnessLabel,
+    syncedThisMonth: syncedThisMonth,
+    isAnchorWindow: isAnchorWindow,
+    version: 3
   };
 })();
