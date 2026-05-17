@@ -3,6 +3,13 @@
 // Body: { public_token, institutionName, accounts }
 // Returns: { itemId, success }
 // NEVER returns access_token to the browser.
+//
+// v2 (2026-05-16): adds server-side duplicate-institution guard.
+// After exchanging public_token, we fetch the new item's institution_id and
+// compare against existing plaid_items for this user. If a match exists, we
+// REMOVE the just-created Plaid item (so it doesn't get billed) and return a
+// 409 with a duplicate_institution error code. The frontend can surface this
+// to the user without touching the Sync Bank flow.
 const { verifyIdToken, getFirestore, getFirebaseAdmin } = require('./_shared/firebase');
 const { getPlaidClient } = require('./_shared/plaid');
 
@@ -47,14 +54,69 @@ exports.handler = async (event) => {
     const access_token = ex.data.access_token;
     const item_id = ex.data.item_id;
 
+    // ---- DUPLICATE INSTITUTION GUARD (v2) ----
+    // Fetch the new item's institution_id, then check existing items.
+    // If the user already has a connected item from the same institution,
+    // ABORT: remove the freshly-created Plaid item (so it doesn't accrue
+    // billing) and return a 409 so the frontend can show a clean message.
+    let new_institution_id = null;
+    try {
+      const itemGet = await plaid.itemGet({ access_token });
+      new_institution_id = (itemGet.data && itemGet.data.item && itemGet.data.item.institution_id) || null;
+    } catch (e) {
+      // Log but don't fail — we'll fall through to storage with null institutionId.
+      // Without an institution_id we can't dedupe this one, but storing it is
+      // still preferable to losing the connection.
+      console.warn('itemGet for institution_id failed:', e && e.message);
+    }
+
     const admin = getFirebaseAdmin();
     const db = getFirestore();
+
+    if (new_institution_id) {
+      try {
+        const dupeSnap = await db
+          .collection('users').doc(uid)
+          .collection('plaid_items')
+          .where('institutionId', '==', new_institution_id)
+          .get();
+        if (!dupeSnap.empty) {
+          // Found an existing connection for this institution. Roll back.
+          try {
+            await plaid.itemRemove({ access_token });
+          } catch (rmErr) {
+            // Don't fail the response on cleanup error — log only.
+            console.error('cleanup itemRemove failed for duplicate:', (rmErr && rmErr.response && rmErr.response.data) || rmErr.message);
+          }
+          const existing = dupeSnap.docs.map(d => ({
+            itemId: d.id,
+            institutionName: (d.data() || {}).institutionName || null
+          }));
+          return {
+            statusCode: 409,
+            headers: CORS,
+            body: JSON.stringify({
+              error: 'duplicate_institution',
+              message: 'This bank is already connected. Open Bank Health → Manage Bank Accounts to remove or rename the existing connection before re-linking.',
+              institutionId: new_institution_id,
+              institutionName: institutionName || (existing[0] && existing[0].institutionName) || null,
+              existing
+            })
+          };
+        }
+      } catch (dupeErr) {
+        // If the dedupe query itself fails, don't block the user — log and proceed.
+        console.warn('dedupe query failed (proceeding with store):', dupeErr && dupeErr.message);
+      }
+    }
+
     await db
       .collection('users').doc(uid)
       .collection('plaid_items').doc(item_id)
       .set({
         access_token,
         institutionName: institutionName || null,
+        institutionId: new_institution_id,           // v2: persist for future dedupe checks
         accounts: Array.isArray(accounts) ? accounts : [],
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
