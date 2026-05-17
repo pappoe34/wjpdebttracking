@@ -47,20 +47,23 @@
     return null;
   }
 
-  function onBankHealth() {
-    var h = (location.hash || '').toLowerCase();
-    if (h.indexOf('bank') !== -1 && h.indexOf('health') !== -1) return true;
-    // Tab content might also be detectable by DOM
-    var tab = document.querySelector('[data-tab="bank-health"].active, [data-route="bank-health"].active, #page-bank-health.active');
-    return !!tab;
+  function bankHealthModalOpen() {
+    var ov = document.getElementById('bank-health-overlay');
+    if (!ov) return false;
+    // Visible / not display:none
+    var cs = window.getComputedStyle(ov);
+    return cs && cs.display !== 'none' && cs.visibility !== 'hidden';
   }
 
   function findInsertionPoint() {
-    var sels = ['#page-bank-health', '[data-tab="bank-health"]', '[data-route="bank-health"]', '.bank-health-panel'];
-    for (var i = 0; i < sels.length; i++) {
-      var el = document.querySelector(sels[i]);
-      if (el) return el;
-    }
+    // Bank Health is a modal in this app, not a page. Insert into #bh-body
+    // (the modal's main scrollable body) so the diagnostic card sits at the
+    // top alongside the existing item list.
+    var body = document.getElementById('bh-body');
+    if (body) return body;
+    // Fallback: overlay root
+    var ov = document.getElementById('bank-health-overlay');
+    if (ov) return ov.firstElementChild || ov;
     return null;
   }
 
@@ -95,7 +98,8 @@
         '</div>' +
       '</div>' +
       '<div id="wjp-bd-body" style="font-size:12px;color:var(--ink-dim,var(--text-2,#6b7280));"></div>';
-    host.appendChild(card);
+    // Prepend so the diagnostic card appears at the TOP of the modal body.
+    if (host.firstChild) host.insertBefore(card, host.firstChild); else host.appendChild(card);
     card.querySelector('#wjp-bd-run').onclick = runDiagnostic;
     card.querySelector('#wjp-bd-force').onclick = forceResyncAll;
     return card;
@@ -219,8 +223,7 @@
 
   function tick() {
     if (!isAdmin()) return;
-    if (!onBankHealth()) {
-      // If not on bank health, clean up any existing card
+    if (!bankHealthModalOpen()) {
       var existing = document.getElementById(CARD_ID);
       if (existing) try { existing.remove(); } catch (_) {}
       return;
