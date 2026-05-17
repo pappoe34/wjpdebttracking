@@ -82,12 +82,26 @@ exports.handler = async (event) => {
       //   Users add APR/balance via Statement OCR upload.
       // - Pro Plus: includes liabilities for real-time APR + min payment.
       let userTier = 'free';
+      let trialActive = false;
       try {
         const db = getFirestore();
         const userDoc = await db.collection('users').doc(uid).get();
         if (userDoc.exists) {
           const u = userDoc.data() || {};
           userTier = (u.tier || u.subscriptionTier || 'free').toLowerCase();
+        }
+        // Also read billing/subscription for tier + trial state (newer source of truth).
+        const subDoc = await db.collection('users').doc(uid).collection('billing').doc('subscription').get();
+        if (subDoc.exists) {
+          const s = subDoc.data() || {};
+          if (s.tier) userTier = String(s.tier).toLowerCase();
+          // Trial active if trialEndsAt is in the future (either Stripe-managed
+          // trial_end or our in-app trialEndsAt). Effective tier becomes 'plus'.
+          const trialEnd = s.trialEndsAt || s.trialEnd;
+          if (trialEnd && Date.now() < trialEnd) {
+            trialActive = true;
+            userTier = 'plus';
+          }
         }
       } catch (e) { /* default to free */ }
       console.log('[create-link-token] uid=%s tier=%s', uid, userTier);
