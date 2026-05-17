@@ -232,7 +232,8 @@
     card.style.cssText =
       'background:var(--card-bg,var(--bg-2,#fff));color:var(--ink,var(--text-1,#0a0a0a));' +
       'border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:14px;' +
-      'padding:18px 22px;margin:18px 0;font-family:inherit;font-size:13px;';
+      'padding:18px 22px;margin:14px 0 18px 0;font-family:inherit;font-size:13px;' +
+      'box-shadow:0 1px 3px rgba(0,0,0,0.04);';
     card.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
         '<div>' +
@@ -253,9 +254,17 @@
         '<span class="wjp-dt-total-val" style="font-size:18px;font-weight:800;color:var(--ink,var(--text-1,#0a0a0a));">—</span>' +
       '</div>';
 
-    // Insert as the FIRST child of the host so it appears at the top
-    if (host.firstChild) host.insertBefore(card, host.firstChild);
-    else host.appendChild(card);
+    // Insert AFTER the "What You Still Owe" hero card so the hero stays at
+    // the top. Fall back to appending to host if hero not found.
+    var hero = host.querySelector('.debts-header-card');
+    if (hero && hero.parentNode === host) {
+      if (hero.nextSibling) host.insertBefore(card, hero.nextSibling);
+      else host.appendChild(card);
+    } else if (host.firstChild) {
+      host.insertBefore(card, host.firstChild);
+    } else {
+      host.appendChild(card);
+    }
 
     var refresh = document.getElementById('wjp-debit-refresh');
     if (refresh) refresh.onclick = function () { renderDebitBalances(true); };
@@ -277,8 +286,9 @@
         '</div>' +
         '<div style="flex:1;min-width:0;">' +
           '<div class="wjp-dt-name" title="Click to rename" ' +
-            'style="font-weight:700;font-size:13.5px;color:var(--ink,var(--text-1,#0a0a0a));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' +
+            'style="font-weight:700;font-size:13.5px;color:var(--ink,var(--text-1,#0a0a0a));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">' +
             escapeHtml(name) +
+            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5;flex-shrink:0;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
           '</div>' +
           '<div style="font-size:11px;color:var(--ink-dim,var(--text-2,#6b7280));margin-top:2px;">' +
             escapeHtml(meta) + (errBadge ? ' · ' + errBadge : '') +
@@ -519,31 +529,4 @@
         var html = buildInsightsPanel(card, data);
         var wrap = document.createElement('div');
         wrap.innerHTML = html;
-        card.appendChild(wrap.firstChild);
-        // Change button label
-        btn.innerHTML = btn.innerHTML.replace('Insights', 'Hide insights');
-      };
-    });
-  }
-
-  // ===========================================================================
-  // BOOT
-  // ===========================================================================
-  function start() {
-    setInterval(function () {
-      try { mountDebitBalances(); } catch (_) {}
-      try { attachInsightsToCards(); } catch (_) {}
-    }, 1500);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
-
-  window.WJP_DebtsEnhance = {
-    refreshDebits: function () { return renderDebitBalances(true); },
-    version: 2
-  };
-})();
+        card.appendChild(wrap.fir
