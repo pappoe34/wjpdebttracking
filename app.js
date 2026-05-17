@@ -13460,8 +13460,11 @@ const SYNC_INTERVAL_PRESETS = {
 };
 
 function getSyncIntervalMs() {
-    const pref = (appState && appState.prefs && appState.prefs.syncInterval) || 'weekly';
-    return SYNC_INTERVAL_PRESETS[pref] != null ? SYNC_INTERVAL_PRESETS[pref] : SYNC_INTERVAL_PRESETS.weekly;
+    // 2026-05-18: default bumped from weekly → daily. Weekly was causing
+    // missing-tx complaints (05/12-05/17 gap) since webhook-driven syncs
+    // (now fixed to bypass throttle) and tab-focus syncs both honored it.
+    const pref = (appState && appState.prefs && appState.prefs.syncInterval) || 'daily';
+    return SYNC_INTERVAL_PRESETS[pref] != null ? SYNC_INTERVAL_PRESETS[pref] : SYNC_INTERVAL_PRESETS.daily;
 }
 
 function getLastBankSyncAt() {
@@ -13826,8 +13829,12 @@ async function pollWebhookPending() {
         // dropped.
         const ops = [];
         if (txItems.length && typeof syncBankTransactions === 'function') {
+            // BUGFIX 2026-05-18: webhook means Plaid has real new transactions waiting.
+            // Bypass the user's sync-interval throttle — otherwise weekly/monthly preferences
+            // silently swallow legitimate webhook-driven syncs and the user's tx feed
+            // appears stuck (this is what caused the 05/12-05/17 gap).
             ops.push(
-                syncBankTransactions({ silent: true })
+                syncBankTransactions({ silent: true, force: true })
                     .then(() => clearWebhookPending(token, txItems, 'transactions'))
                     .catch(() => {})
             );
