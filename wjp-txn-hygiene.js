@@ -134,13 +134,13 @@
       window.drawCharts = wrapped;
       wrappedSomething = true;
     }
-    if (window.renderTransactions && !window.renderTransactions.__wjpHygieneWrapped) {
-      var orig2 = window.renderTransactions;
-      var wrapped2 = wrapWithClean(orig2);
-      wrapped2.__wjpHygieneWrapped = true;
-      window.renderTransactions = wrapped2;
-      wrappedSomething = true;
-    }
+    // 2026-05-18 — STOP wrapping renderTransactions. Wrapping made appState
+    // .transactions temporarily 137-cleaned (Zelle/ACH/transfers stripped) for
+    // the entire render call, which propagated into the Transactions panel's
+    // txnRenderAll() — making the user's recent transactions look missing
+    // even though appState had them. Hygiene still applies to charts via the
+    // drawCharts wrap below, so spending math stays accurate. The transaction
+    // LIST shows everything with proper tags.
     return wrappedSomething;
   }
 
