@@ -92,6 +92,24 @@ exports.handler = async (event) => {
       } catch (e) { /* default to free */ }
       console.log('[create-link-token] uid=%s tier=%s', uid, userTier);
 
+      // ===== Free tier gate =====
+      // Free users cannot create NEW Plaid links — Plaid bills $0.30/account/mo
+      // for Transactions regardless of API call frequency, so any Free-tier link
+      // costs us money for $0 revenue. Update-mode (re-auth of an existing item)
+      // is allowed so a user mid-downgrade can still recover a broken connection.
+      if (userTier === 'free' || !userTier) {
+        return {
+          statusCode: 403,
+          headers: CORS,
+          body: JSON.stringify({
+            error: 'plaid_requires_pro',
+            message: 'Bank syncing requires Pro or Pro Plus. Upgrade to access these features.',
+            tier: userTier || 'free',
+            upgrade_url: '/index.html#billing'
+          })
+        };
+      }
+
       linkPayload.products = ['transactions'];
       // Only Pro Plus gets paid Plaid products (liabilities + investments).
       // Liabilities: APR, statement date, due date, min payment for credit
