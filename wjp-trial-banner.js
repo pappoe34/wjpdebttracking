@@ -63,15 +63,24 @@
     (document.head || document.documentElement).appendChild(s);
   }
 
-  function openBilling() {
+  function openBilling(e) {
+    // Stop propagation so the document doesn't intercept the click
+    if (e && e.preventDefault) { e.preventDefault(); }
+    if (e && e.stopPropagation) { e.stopPropagation(); }
     try {
+      // Preferred: the app's own SPA navigation function (handles state, tab switch, scroll)
+      if (typeof window.navigateSPA === 'function') {
+        window.navigateSPA('plans');
+        return;
+      }
+      // Fallback chain
       if (typeof window.openBillingModal === 'function') return window.openBillingModal();
       if (typeof window.WJP_Billing === 'object' && window.WJP_Billing.open) return window.WJP_Billing.open();
-      var settingsTab = document.querySelector('[data-tab="settings"], [data-route="settings"], #nav-settings');
-      if (settingsTab) settingsTab.click();
-      location.hash = '#settings/billing';
-    } catch (_) {
-      location.hash = '#settings/billing';
+      // Last resort — set hash + fire hashchange so the router picks it up
+      location.hash = '#plans';
+      try { window.dispatchEvent(new HashChangeEvent('hashchange')); } catch (_) {}
+    } catch (e2) {
+      try { location.hash = '#plans'; } catch (_) {}
     }
   }
 
