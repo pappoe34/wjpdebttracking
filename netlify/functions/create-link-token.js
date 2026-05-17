@@ -93,9 +93,15 @@ exports.handler = async (event) => {
       console.log('[create-link-token] uid=%s tier=%s', uid, userTier);
 
       linkPayload.products = ['transactions'];
-      // Only Pro Plus gets Plaid Liabilities (paid product).
+      // Only Pro Plus gets paid Plaid products (liabilities + investments).
+      // Liabilities: APR, statement date, due date, min payment for credit
+      //   cards/student loans/mortgages (on-demand billing — $0.10/call,
+      //   capped to 1 call/user/month via /sync-liabilities idempotency).
+      // Investments: holdings, positions, returns for 401k/brokerage
+      //   ($0.18/account/mo — only billed when user actually has investment
+      //   accounts; depository-only users pay $0).
       if (userTier === 'plus' || userTier === 'pro_plus' || userTier === 'proplus') {
-        linkPayload.optional_products = ['liabilities'];
+        linkPayload.optional_products = ['liabilities', 'investments'];
       }
     }
     if (webhookUrl) linkPayload.webhook = webhookUrl;
