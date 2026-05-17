@@ -39,3 +39,9 @@
 
 [functions."email-cron-w3"]
   schedule = "0 14 * * *"
+
+# P22: 14-day trial + Free-tier cleanup — runs daily at 02:00 UTC.
+# Finds users where gracePeriodEndsAt < now AND tier === 'free', then calls
+# Plaid /item/remove on their items so we stop being billed for unpaid users.
+[functions."cleanup-free-tier-items"]
+  schedule = "0 2 * * *"
