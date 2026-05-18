@@ -191,6 +191,24 @@
   // Capture-phase click interceptor. Runs BEFORE app.js's bubble-phase handlers.
   function onClickCapture(e) {
     var target = e.target;
+    // CRITICAL: skip if the click is on the wjp-hybrid-picker gear icon OR
+    // inside its popover OR inside the Hybrid Indicator's sub-strategy picker.
+    // Winston flagged 2026-05-18 that the gear click was triggering this modal
+    // and blocking access to the 6-variant hybrid algorithm picker.
+    try {
+      var t0 = target;
+      while (t0 && t0 !== document.body) {
+        if (t0.classList && (
+          t0.classList.contains('wjp-hp-gear') ||
+          t0.classList.contains('wjp-hp-popover') ||
+          t0.classList.contains('wjp-hp-option') ||
+          t0.classList.contains('wjp-hp-label') ||
+          t0.classList.contains('hybrid-sub-picker')
+        )) return;
+        if (t0.id === 'wjp-hp-popover') return;
+        t0 = t0.parentElement;
+      }
+    } catch (_) {}
     // Walk up to find a [data-strategy] element
     var match = null;
     while (target && target !== document.body) {
@@ -198,6 +216,16 @@
       target = target.parentElement;
     }
     if (!match) return;
+    // Only intercept clicks on the actual strategy CHIP/TAB, not nested controls inside it.
+    // The chip has data-strategy=... directly on it. If the click target is a deeply
+    // nested element (e.g., a gear icon that happens to be inside a card with
+    // data-strategy), let it through.
+    if (e.target !== match) {
+      // Allow if the click target is a direct child icon (text/svg) of the chip,
+      // but NOT if it's inside any kind of button or interactive sub-control.
+      var directChild = e.target.parentElement === match;
+      if (!directChild) return;
+    }
     // If bypass attribute set (we already re-fired), let through
     if (match.getAttribute(BYPASS_ATTR) === '1') {
       match.removeAttribute(BYPASS_ATTR);
