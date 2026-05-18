@@ -1,33 +1,26 @@
-/* wjp-debts-elim-chart.js — Reorder bottom grid + rebuild Elimination Projection
+/* wjp-debts-elim-chart.js v2 — real strategy-cascade payoff curve.
  *
- * Two things on the Debts → Overview page:
- *   1) Move the .debts-bottom-grid (which holds "Latest Transactions" + "WJP
- *      Elimination Projection") so it sits ABOVE the "Current Obligations"
- *      section instead of below it. Reasoning: the projection chart is a
- *      headline planning view; users want it visible before they scroll into
- *      individual card tiles.
+ * v1 used a hand-crafted ease-in approximation `1 - t^1.4`. That looked ok
+ * but didn't reflect the actual debt cascade (where the curve gets steeper
+ * as each debt clears and its minimum payment rolls forward).
  *
- *   2) Replace the placeholder #eliminationChart (currently shows 8 generic
- *      green bars labeled CURRENT → DEBT-FREE with no real numbers) with a
- *      real Chart.js line/bar chart using:
- *         • starting balance: appState totalDebt (or sum of debts[])
- *         • payoff months:    appState.payoffMonths OR derived from
- *                              wjp_budget_state.strategyComparison[Avalanche]
- *         • monthly schedule: smooth amortization curve from
- *                              startBalance → $0 over payoffMonths months,
- *                              weighted toward early plateau then steeper
- *                              late-month drop (matches APR-on-declining-
- *                              principal reality).
- *      Adds proper Y-axis dollars, month-labeled X-axis, gradient fill, and a
- *      "today" marker dot.
+ * v2 runs the same month-by-month simulation app.js does in calcSimTotals,
+ * producing a TRUE balance schedule with kinks at each debt-clearance point.
+ * Adds milestone annotations showing when each debt is paid off.
  *
- * Dark mode aware. Safe — only touches the canvas + sibling reorder; no
- * Sync Bank / Plaid hooks.
+ * Strategy rollover engine: when debt[i].balance hits 0, its minimumPayment
+ * flows into the `cascade` budget for the next-highest-priority debt the
+ * following month. Avalanche=APR-first, Snowball=balance-first, Hybrid=
+ * weighted-balance (whichever app.js's sortDebtsByStrategy returns).
+ *
+ * Uses bare appState per the permanent memory rule.
  */
 (function () {
   'use strict';
-  if (window._wjpElimChartInstalled) return;
-  window._wjpElimChartInstalled = true;
+  if (window._wjpDebtsElimChartInstalled) return;
+  window._wjpDebtsElimChartInstalled = true;
+
+  function getAppState() { try { return appState; } catch (_) { return null; } }
 
   try {
     var p = (location.pathname || '').toLowerCase();
@@ -35,302 +28,295 @@
   } catch (_) {}
 
   var CHART_ID = 'eliminationChart';
-  var REORDER_MARK = 'data-wjp-grid-reordered';
+  var STYLE_ID = 'wjp-debts-elim-chart-style';
 
-  // ---------- helpers ----------
-  function fmtMoneyShort(n) {
-    if (typeof n !== 'number' || !isFinite(n)) return '$0';
-    if (Math.abs(n) >= 1000) return '$' + (n/1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+  function isOnDebts() {
+    var p = document.getElementById('page-debts');
+    return !!(p && p.classList.contains('active'));
+  }
+
+  function fmtMoney(n) {
+    if (n == null) return '$0';
+    if (Math.abs(n) >= 1000) return '$' + (n / 1000).toFixed(1) + 'k';
     return '$' + Math.round(n);
   }
-  function fmtMoney(n) {
-    if (typeof n !== 'number' || !isFinite(n)) return '$0';
-    return '$' + Math.round(n).toLocaleString('en-US');
-  }
-  function isOnDebts() {
-    var pageEl = document.getElementById('page-debts');
-    return !!(pageEl && (pageEl.classList.contains('active') || pageEl.offsetParent !== null));
-  }
-  function cssVar(name, fallback) {
-    try {
-      var v = getComputedStyle(document.body).getPropertyValue(name).trim();
-      return v || fallback;
-    } catch (_) { return fallback; }
+
+  function getStrategy() {
+    var s = getAppState();
+    return (s && s.settings && s.settings.strategy) || 'avalanche';
   }
 
-  // ---------- 1) Reorder bottom-grid above Current Obligations ----------
-  function reorderBottomGrid() {
-    if (!isOnDebts()) return;
-    var grid = document.querySelector('.debts-bottom-grid');
-    if (!grid || grid.getAttribute(REORDER_MARK) === '1') return;
-    // Find the "Current Obligations" section by its heading
-    var headings = document.querySelectorAll('h2, h3, .card-title, [class*="title"], [class*="Title"]');
-    var curOblHeader = null;
-    for (var i = 0; i < headings.length; i++) {
-      var t = (headings[i].textContent || '').trim();
-      if (t === 'Current Obligations') { curOblHeader = headings[i]; break; }
-    }
-    if (!curOblHeader) return;
-    // Walk up until we find a sibling of `.debts-bottom-grid`'s parent OR until
-    // we have a node whose nextSibling is the parent of the grid.
-    // Simpler: insert grid IMMEDIATELY BEFORE the closest ancestor of the heading
-    // that is a direct child of the grid's parent (or any ancestor that's
-    // before the grid in the same parent).
-    var gridParent = grid.parentNode;
-    var insertBefore = curOblHeader;
-    while (insertBefore && insertBefore.parentNode !== gridParent) {
-      insertBefore = insertBefore.parentNode;
-    }
-    if (!insertBefore || insertBefore === grid) return;
-    try {
-      gridParent.insertBefore(grid, insertBefore);
-      grid.setAttribute(REORDER_MARK, '1');
-    } catch (_) {}
-  }
-
-  // ---------- 2) Rebuild #eliminationChart with real data ----------
-  function getDebtsData() {
-    // Try multiple sources for current data state
-    var totalBalance = 0;
-    var debts = [];
-    var payoffMonths = null;
-    var strategyLabel = 'Avalanche';
-
-    try {
-      if (window.appState && Array.isArray(window.appState.debts)) {
-        debts = window.appState.debts;
-      } else {
-        var raw = localStorage.getItem('wjp_budget_state');
-        if (raw) {
-          var s = JSON.parse(raw);
-          if (Array.isArray(s.debts)) debts = s.debts;
-        }
-      }
-    } catch (_) {}
-
-    debts.forEach(function (d) {
-      var b = (typeof d.balance === 'number') ? d.balance
-            : (typeof d.currentBalance === 'number') ? d.currentBalance
-            : (typeof d.amount === 'number') ? d.amount
-            : 0;
-      totalBalance += Math.abs(b);
-    });
-
-    // Try to pick up the computed payoff timeline (the dashboard already
-    // computes this — "October 2030" came from somewhere).
-    try {
-      if (window.appState) {
-        if (typeof window.appState.payoffMonths === 'number') payoffMonths = window.appState.payoffMonths;
-        else if (window.appState.strategyComparison && window.appState.strategyComparison.avalanche)
-          payoffMonths = window.appState.strategyComparison.avalanche.months;
-      }
-    } catch (_) {}
-    if (!payoffMonths) {
-      // Pull the displayed value from the hero card if visible (e.g. "53 Months")
-      var monthsText = (document.body.innerText || '').match(/(\d{1,3})\s*Months/);
-      if (monthsText) payoffMonths = parseInt(monthsText[1], 10);
-    }
-    if (!payoffMonths || payoffMonths < 1) payoffMonths = 36; // sane default
-
-    return { totalBalance: totalBalance, payoffMonths: payoffMonths, strategy: strategyLabel };
-  }
-
-  // Generate amortization-shaped schedule: starts at totalBalance, ends at 0
-  // over `months` periods. Real amortization tapers: balance falls slowly at
-  // first (most of payment goes to interest), accelerates toward the end.
-  // We approximate with a quadratic ease-in curve.
-  function buildSchedule(totalBalance, months) {
-    // Pick ~12-18 data points across the timeline so the chart reads cleanly
-    var nPoints = Math.min(18, Math.max(8, Math.round(months / 3)));
-    var points = [];
-    for (var i = 0; i <= nPoints; i++) {
-      var t = i / nPoints; // 0..1
-      // Easing: balance falls slowly first, steeper later (amortization shape)
-      // f(t) = 1 - t^1.4 produces gentle early decline, steeper late
-      var remaining = Math.max(0, 1 - Math.pow(t, 1.4));
-      var bal = totalBalance * remaining;
-      points.push({
-        monthIndex: Math.round(t * months),
-        balance: Math.round(bal)
+  // Sort debts according to strategy. Mirrors app.js's sortDebtsByStrategy.
+  function sortDebts(debts, strategy) {
+    var d = debts.slice();
+    if (strategy === 'avalanche') {
+      d.sort(function (a, b) { return (b.apr || 0) - (a.apr || 0); });
+    } else if (strategy === 'snowball') {
+      d.sort(function (a, b) { return (a.balance || 0) - (b.balance || 0); });
+    } else if (strategy === 'hybrid') {
+      // Hybrid: rank by balance × APR (interest cost contribution)
+      d.sort(function (a, b) {
+        var aScore = (a.balance || 0) * (a.apr || 0);
+        var bScore = (b.balance || 0) * (b.apr || 0);
+        return bScore - aScore;
       });
     }
-    return points;
+    return d;
+  }
+
+  // Run the month-by-month simulation. Returns:
+  //   { months, schedule: [{month, totalBalance, clearedThisMonth: [debtName,...] }, ...],
+  //     milestones: [{ month, name, label }] }
+  function simulatePayoff(strategy, extraMonthly) {
+    var state = getAppState();
+    if (!state || !Array.isArray(state.debts) || state.debts.length === 0) {
+      return null;
+    }
+    extraMonthly = Math.max(0, extraMonthly || 0);
+    var debts = state.debts.map(function (d) {
+      return {
+        id: d.id,
+        name: d.name || 'Debt',
+        balance: Number(d.balance) || 0,
+        apr: Number(d.apr) || 0,
+        minPayment: Number(d.minPayment) || 0,
+        type: (d.type || '').toString().toLowerCase()
+      };
+    }).filter(function (d) { return d.balance > 0; });
+    if (!debts.length) return null;
+    debts = sortDebts(debts, strategy);
+
+    var schedule = [];
+    var milestones = [];
+    var months = 0;
+
+    // Initial point
+    var totalBal0 = debts.reduce(function (s, d) { return s + d.balance; }, 0);
+    schedule.push({ month: 0, totalBalance: totalBal0, clearedThisMonth: [] });
+
+    while (months < 600) {
+      months++;
+      var cleared = [];
+      // Build cascade from previously-cleared debts' minimums
+      var cascade = extraMonthly;
+      debts.forEach(function (d) { if (d.balance <= 0) cascade += d.minPayment; });
+
+      var allPaid = true;
+      for (var i = 0; i < debts.length; i++) {
+        var d = debts[i];
+        if (d.balance <= 0) continue;
+        allPaid = false;
+
+        var isCard = d.type.indexOf('credit') !== -1 || d.type.indexOf('card') !== -1;
+        var pay = d.minPayment + cascade;
+        // Apply interest unless we're paying in full this cycle
+        if (!(isCard && pay >= d.balance)) {
+          var interest = d.balance * (d.apr / 100 / 12);
+          d.balance += interest;
+        }
+        cascade = 0;
+        if (d.balance <= pay) {
+          cascade += pay - d.balance;
+          d.balance = 0;
+          cleared.push(d.name);
+        } else {
+          d.balance -= pay;
+        }
+      }
+
+      var totalBalance = debts.reduce(function (s, d) { return s + Math.max(0, d.balance); }, 0);
+      schedule.push({ month: months, totalBalance: totalBalance, clearedThisMonth: cleared });
+
+      cleared.forEach(function (name) {
+        milestones.push({ month: months, name: name, label: 'Cleared ' + name });
+      });
+
+      if (allPaid) break;
+    }
+
+    return { months: months, schedule: schedule, milestones: milestones };
+  }
+
+  // Reduce schedule to a manageable number of data points (~24 max for chart clarity)
+  function downsample(schedule, maxPoints) {
+    maxPoints = maxPoints || 24;
+    if (schedule.length <= maxPoints) return schedule;
+    var step = schedule.length / maxPoints;
+    var out = [];
+    for (var i = 0; i < maxPoints; i++) {
+      out.push(schedule[Math.floor(i * step)]);
+    }
+    // Always include the last point (which has the milestone)
+    out.push(schedule[schedule.length - 1]);
+    return out;
   }
 
   function monthLabel(dt) {
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return months[dt.getMonth()] + ' ' + (dt.getFullYear() % 100 < 10 ? "'0" + (dt.getFullYear() % 100) : "'" + (dt.getFullYear() % 100));
+    return months[dt.getMonth()] + ' \'' + String(dt.getFullYear() % 100).padStart(2, '0');
   }
 
   function buildLabelsForSchedule(schedule) {
-    // Anchor at the current month; project forward by schedule[].monthIndex
     var today = new Date();
     return schedule.map(function (pt) {
-      var d = new Date(today.getFullYear(), today.getMonth() + pt.monthIndex, 1);
+      var d = new Date(today.getFullYear(), today.getMonth() + pt.month, 1);
       return monthLabel(d);
     });
   }
 
+  function strategyLabelFull(strategy) {
+    if (strategy === 'avalanche') return 'Avalanche';
+    if (strategy === 'snowball') return 'Snowball';
+    if (strategy === 'hybrid') return 'Hybrid';
+    return 'Avalanche';
+  }
+
   var _chartInstance = null;
+
   function rebuildChart() {
     if (!isOnDebts()) return;
     var canvas = document.getElementById(CHART_ID);
     if (!canvas) return;
-    if (typeof window.Chart === 'undefined') return; // Chart.js not loaded yet
+    if (typeof window.Chart === 'undefined') return;
 
-    var data = getDebtsData();
-    if (data.totalBalance <= 0) return; // nothing to chart yet
+    var strategy = getStrategy();
+    var sim = simulatePayoff(strategy, 0);
+    if (!sim || !sim.schedule.length) return;
 
-    var schedule = buildSchedule(data.totalBalance, data.payoffMonths);
-    var labels = buildLabelsForSchedule(schedule);
-    var values = schedule.map(function (p) { return p.balance; });
+    var downsampled = downsample(sim.schedule, 22);
+    var labels = buildLabelsForSchedule(downsampled);
+    var data = downsampled.map(function (pt) { return pt.totalBalance; });
 
-    var ctx = canvas.getContext('2d');
-    if (_chartInstance && typeof _chartInstance.destroy === 'function') {
+    // Identify milestones in the original (full-fidelity) schedule
+    var milestonePoints = sim.milestones.map(function (m) {
+      // Find nearest downsampled point
+      var nearestIdx = 0;
+      var minDiff = Infinity;
+      downsampled.forEach(function (pt, idx) {
+        var diff = Math.abs(pt.month - m.month);
+        if (diff < minDiff) { minDiff = diff; nearestIdx = idx; }
+      });
+      return { x: labels[nearestIdx], y: downsampled[nearestIdx].totalBalance, label: m.name };
+    });
+
+    var dark = (document.body.classList.contains('dark'));
+    var ink = dark ? '#e8e8e3' : '#0a0a0a';
+    var inkDim = dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
+    var grid = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    var lineColor = '#1f7a4a';
+    var fillTop = 'rgba(31,122,74,0.20)';
+    var fillBot = 'rgba(31,122,74,0.02)';
+
+    if (_chartInstance) {
       try { _chartInstance.destroy(); } catch (_) {}
       _chartInstance = null;
-    } else {
-      // If a non-wjp chart exists for this canvas (e.g. the placeholder),
-      // Chart.js v3+ exposes Chart.getChart()
-      try {
-        if (typeof window.Chart.getChart === 'function') {
-          var existing = window.Chart.getChart(canvas);
-          if (existing) existing.destroy();
-        }
-      } catch (_) {}
     }
-
-    var ink = cssVar('--ink', '#0a0a0a');
-    var inkDim = cssVar('--ink-dim', '#6b7280');
-    var border = cssVar('--border', 'rgba(0,0,0,0.08)');
-
-    // Build the gradient fill
-    var gradient = ctx.createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, 'rgba(31,122,74,0.32)');
-    gradient.addColorStop(1, 'rgba(31,122,74,0.02)');
+    var ctx = canvas.getContext('2d');
+    var gradient = ctx.createLinearGradient(0, 0, 0, canvas.height || 220);
+    gradient.addColorStop(0, fillTop);
+    gradient.addColorStop(1, fillBot);
 
     _chartInstance = new window.Chart(ctx, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [{
-          label: 'Projected balance',
-          data: values,
-          fill: true,
+          label: 'Total balance',
+          data: data,
+          borderColor: lineColor,
           backgroundColor: gradient,
-          borderColor: '#1f7a4a',
           borderWidth: 2.5,
-          pointBackgroundColor: '#1f7a4a',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
+          fill: true,
+          tension: 0.18, // slight smoothing but preserves kinks at milestones
           pointRadius: function (ctx) {
-            // Larger dot for first (today) and last (debt-free) points
-            var i = ctx.dataIndex;
-            if (i === 0 || i === values.length - 1) return 6;
-            return 3;
+            // Highlight milestone points
+            var idx = ctx.dataIndex;
+            var pt = downsampled[idx];
+            return pt && pt.clearedThisMonth.length > 0 ? 5 : 2;
           },
-          pointHoverRadius: 6,
-          tension: 0.32,
-          spanGaps: true
+          pointBackgroundColor: function (ctx) {
+            var idx = ctx.dataIndex;
+            var pt = downsampled[idx];
+            return pt && pt.clearedThisMonth.length > 0 ? '#a855f7' : lineColor;
+          },
+          pointBorderColor: '#fff',
+          pointBorderWidth: 1
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
+        animation: { duration: 600, easing: 'easeInOutCubic' },
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(10,10,10,0.92)',
-            titleColor: '#fff',
-            bodyColor: '#fff',
-            borderColor: '#1f7a4a',
-            borderWidth: 1,
-            padding: 10,
-            cornerRadius: 8,
             callbacks: {
               label: function (ctx) {
-                return ' Balance: ' + fmtMoney(ctx.parsed.y);
+                var idx = ctx.dataIndex;
+                var pt = downsampled[idx];
+                var lines = ['Total balance: $' + Math.round(ctx.parsed.y).toLocaleString()];
+                if (pt && pt.clearedThisMonth.length) {
+                  lines.push('🎉 Cleared: ' + pt.clearedThisMonth.join(', '));
+                }
+                return lines;
               }
             }
           }
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              color: inkDim,
-              font: { size: 10, family: 'inherit', weight: '600' },
-              callback: function (v) { return fmtMoneyShort(v); }
-            },
-            grid: { color: border, drawBorder: false, lineWidth: 0.5 }
-          },
           x: {
+            ticks: { color: inkDim, font: { size: 10 } },
+            grid: { display: false }
+          },
+          y: {
             ticks: {
               color: inkDim,
-              font: { size: 10, family: 'inherit', weight: '600' },
-              autoSkip: true,
-              maxTicksLimit: 7,
-              maxRotation: 0
+              font: { size: 10 },
+              callback: function (v) { return '$' + (v / 1000).toFixed(0) + 'k'; }
             },
-            grid: { display: false }
+            grid: { color: grid, drawBorder: false }
           }
         }
       }
     });
 
-    // Above the canvas, ensure the card shows a "current balance · debt-free month" subtitle
-    try {
-      var card = canvas.closest('.card');
-      if (card && !card.querySelector('.wjp-elim-subtitle')) {
-        var sub = document.createElement('div');
-        sub.className = 'wjp-elim-subtitle';
-        sub.style.cssText = 'font-size:12px;color:' + inkDim + ';margin-top:-4px;margin-bottom:8px;font-family:inherit;';
-        var endLabel = labels[labels.length - 1];
-        sub.innerHTML = '<strong style="color:' + ink + ';">' + fmtMoney(data.totalBalance) + '</strong> today → debt-free <strong style="color:' + ink + ';">' + endLabel + '</strong> · ' + data.payoffMonths + ' months · ' + data.strategy + ' strategy';
-        // Find the header inside the card and insert after it
-        var header = card.querySelector('h2, h3, .card-title');
-        if (header && header.parentNode) {
-          // Insert just after the header's containing block (usually a flex row)
-          var headerBlock = header.parentNode;
-          if (headerBlock && headerBlock.parentNode === card) {
-            if (headerBlock.nextSibling) card.insertBefore(sub, headerBlock.nextSibling);
-            else card.appendChild(sub);
-          } else if (header.nextSibling) {
-            header.parentNode.insertBefore(sub, header.nextSibling);
-          } else {
-            card.insertBefore(sub, canvas.parentNode);
-          }
-        }
-      }
-    } catch (_) {}
+    // Update subtitle with strategy + months + milestone count
+    var sub = document.getElementById('elim-chart-sub');
+    if (sub) {
+      var startBal = sim.schedule[0].totalBalance;
+      var today = new Date();
+      var endDate = new Date(today.getFullYear(), today.getMonth() + sim.months, 1);
+      var endLabel = monthLabel(endDate);
+      sub.innerHTML = '<strong style="color:' + ink + ';">' + fmtMoney(startBal) + '</strong> today → debt-free <strong style="color:' + ink + ';">' + endLabel + '</strong> · ' + sim.months + ' months · ' + strategyLabelFull(strategy) + ' strategy · ' + sim.milestones.length + ' debt' + (sim.milestones.length === 1 ? '' : 's') + ' cleared (rollover cascade)';
+    }
   }
 
-  // ---------- boot ----------
-  var lastDebtTotal = null;
+  function injectStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    var s = document.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent =
+      '#' + CHART_ID + '-wrap { position: relative; height: 240px; margin-top: 8px; }' +
+      '#elim-chart-sub { font-size: 12px; color: var(--ink-dim, var(--text-2, #6b7280)); margin-top: 6px; line-height: 1.5; }';
+    (document.head || document.documentElement).appendChild(s);
+  }
+
   function tick() {
-    try { reorderBottomGrid(); } catch (_) {}
-    try {
-      var data = getDebtsData();
-      if (data.totalBalance > 0 && data.totalBalance !== lastDebtTotal) {
-        lastDebtTotal = data.totalBalance;
-        rebuildChart();
-      } else if (data.totalBalance > 0 && !_chartInstance) {
-        rebuildChart();
-      }
-    } catch (_) {}
+    if (!isOnDebts()) return;
+    rebuildChart();
   }
 
   function boot() {
-    setInterval(tick, 2000);
-    // Also rebuild on theme toggle (so colors swap)
-    var obs = new MutationObserver(function () {
-      if (_chartInstance) {
-        lastDebtTotal = null; // force re-render to pick up new theme vars
-        setTimeout(rebuildChart, 200);
-      }
-    });
-    obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    injectStyle();
+    // Initial render + rebuild on hash changes + every 5s
+    setTimeout(tick, 1200);
+    setInterval(tick, 5000);
+    window.addEventListener('hashchange', tick);
+    // Listen to debt updates
+    window.addEventListener('wjp-debts-updated', tick);
+    // Theme change (light/dark)
+    var bodyObs = new MutationObserver(function () { tick(); });
+    try { bodyObs.observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (_) {}
   }
 
   if (document.readyState === 'loading') {
@@ -339,9 +325,9 @@
     boot();
   }
 
-  window.WJP_ElimChart = {
+  window.WJP_DebtsElimChart = {
     rebuild: rebuildChart,
-    reorder: reorderBottomGrid,
-    version: 1
+    simulate: simulatePayoff,
+    version: 2
   };
 })();
