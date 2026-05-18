@@ -238,7 +238,7 @@
       obs.observe(document.body, { childList: true, subtree: true });
     } catch (_) {}
     // Also periodically check
-    setInterval(enhanceContent, 1500);
+    setInterval(enhanceContent, 4000);
   }
 
   function boot() {
