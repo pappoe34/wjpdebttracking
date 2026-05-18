@@ -1039,13 +1039,10 @@
 
   function showPortfolio() {
     var host = getHostContainer();
-    // Hide other pages with INLINE display:none (no !important — that's what
-    // caused tabs to get stuck hidden permanently after Portfolio was opened
-    // once). Standard SPA nav can still override these on next click.
+    // 2026-05-18 fix: drop display:none !important — its inline cssText was
+    // sticking permanently and breaking subsequent tab navigation to Budgets/Strategy.
     host.querySelectorAll('.page, [id^="page-"]').forEach(function (p) {
       if (p.id === 'page-portfolio') return;
-      // Clear any prior !important cssText first
-      var hadActive = p.classList.contains('active');
       if (p.style.cssText && p.style.cssText.indexOf('!important') !== -1) p.style.cssText = '';
       p.style.display = 'none';
       p.classList.remove('active');
@@ -1063,13 +1060,9 @@
   function showOtherPage(pageId) {
     var pf = document.getElementById('page-portfolio');
     if (pf) { pf.style.display = 'none'; pf.classList.remove('active'); }
-    // Clear any stuck !important display:none cssText on ALL pages so the
-    // standard SPA nav can show them again. (Fix 2026-05-18: tabs got stuck
-    // hidden after Portfolio was opened.)
+    // 2026-05-18 fix: clear stuck !important display:none on all other pages
     document.querySelectorAll('.page, [id^="page-"]').forEach(function (p) {
-      if (p.style.cssText && p.style.cssText.indexOf('!important') !== -1) {
-        p.style.cssText = '';
-      }
+      if (p.style.cssText && p.style.cssText.indexOf('!important') !== -1) p.style.cssText = '';
     });
     var target = document.getElementById('page-' + pageId);
     if (target) { target.style.display = 'block'; target.classList.add('active'); }
