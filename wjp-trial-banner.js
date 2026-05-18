@@ -1,4 +1,4 @@
-/* wjp-trial-banner.js v1 — Trial UI: welcome modal + persistent banner + warnings.
+/* wjp-trial-banner.js v5_admin_gap_fix — 1 — Trial UI: welcome modal + persistent banner + warnings.
  *
  * Reads trial state from window.WJP_Trial (provided by wjp-trial-state.js).
  *
@@ -93,7 +93,8 @@
     try {
       var tier = typeof window.getTier === 'function' ? String(window.getTier()).toLowerCase() : null;
       if (tier === 'admin' || window.WJP_IS_ADMIN === true) {
-        if (existing) try { existing.remove(); document.body.classList.remove('wjp-has-trial-banner'); } catch (_) {}
+        try { document.body.classList.remove('wjp-has-trial-banner'); } catch (_) {}
+        if (existing) try { existing.remove(); } catch (_) {}
         return;
       }
     } catch (_) {}
@@ -144,7 +145,8 @@
       return;
     }
 
-    if (existing) try { existing.remove(); document.body.classList.remove('wjp-has-trial-banner'); } catch (_) {}
+    try { document.body.classList.remove('wjp-has-trial-banner'); } catch (_) {}
+    if (existing) try { existing.remove(); } catch (_) {}
   }
 
   function showWelcomeOnce() {
