@@ -187,21 +187,25 @@
     var spendByCategory = {};
     var prevSpendByCategory = {};
     current.forEach(function (t) {
-      if (isTransfer(t)) { transfers += Math.abs(t.amount); return; }
+      var amt = Number(t.amount);
+      if (!isFinite(amt)) return; // skip NaN/undefined amounts
+      if (isTransfer(t)) { transfers += Math.abs(amt); return; }
       if (isIncome(t)) {
-        income += t.amount;
+        income += amt;
         var m = t.merchant || 'Unknown';
-        incomeByMerchant[m] = (incomeByMerchant[m] || 0) + t.amount;
+        incomeByMerchant[m] = (incomeByMerchant[m] || 0) + amt;
       } else if (isExpense(t)) {
-        expenses += Math.abs(t.amount);
+        expenses += Math.abs(amt);
         var c = t.category || 'Other';
-        spendByCategory[c] = (spendByCategory[c] || 0) + Math.abs(t.amount);
+        spendByCategory[c] = (spendByCategory[c] || 0) + Math.abs(amt);
       }
     });
     previous.forEach(function (t) {
       if (isTransfer(t) || !isExpense(t)) return;
+      var amt = Number(t.amount);
+      if (!isFinite(amt)) return;
       var c = t.category || 'Other';
-      prevSpendByCategory[c] = (prevSpendByCategory[c] || 0) + Math.abs(t.amount);
+      prevSpendByCategory[c] = (prevSpendByCategory[c] || 0) + Math.abs(amt);
     });
 
     var net = income - expenses;
@@ -223,10 +227,12 @@
     var byMerchant = {};
     current.concat(previous).forEach(function (t) {
       if (!isExpense(t)) return;
+      var amt = Number(t.amount);
+      if (!isFinite(amt)) return;
       var m = t.merchant || '';
       if (!m) return;
       if (!byMerchant[m]) byMerchant[m] = [];
-      byMerchant[m].push(Math.abs(t.amount));
+      byMerchant[m].push(Math.abs(amt));
     });
     var subscriptions = [];
     Object.keys(byMerchant).forEach(function (m) {
