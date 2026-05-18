@@ -54,11 +54,19 @@
     } else if (strategy === 'snowball') {
       d.sort(function (a, b) { return (a.balance || 0) - (b.balance || 0); });
     } else if (strategy === 'hybrid') {
-      // Hybrid: rank by balance × APR (interest cost contribution)
+      // P6_HYBRID_FIX — mirrors app.js sortDebtsByStrategy. Hybrid =
+      // APR per dollar of balance, descending. Prioritises small + high-APR
+      // debts first (true blend of Snowball + Avalanche). DO NOT change to
+      // balance * APR — that's the old broken formula Phase 6 explicitly
+      // fixed and Winston flagged this regression 2026-05-18.
       d.sort(function (a, b) {
-        var aScore = (a.balance || 0) * (a.apr || 0);
-        var bScore = (b.balance || 0) * (b.apr || 0);
-        return bScore - aScore;
+        var aBal = a.balance || 0;
+        var bBal = b.balance || 0;
+        var aScore = aBal > 0 ? (a.apr || 0) / aBal : 0;
+        var bScore = bBal > 0 ? (b.apr || 0) / bBal : 0;
+        var delta = bScore - aScore;
+        if (Math.abs(delta) > 1e-9) return delta;
+        return aBal - bBal; // tie-break: smaller balance first (snowball lean)
       });
     }
     return d;
