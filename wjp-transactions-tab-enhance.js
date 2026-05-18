@@ -50,8 +50,7 @@
   function fmtUsd(n, decimals) {
     if (n == null || !isFinite(n)) return '$0';
     var d = decimals == null ? 0 : decimals;
-    return '$' + Math.round(n * Math.pow(10, d)).toLocaleString('en-US') / Math.pow(10, d) +
-      (d > 0 ? '' : '');
+    return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
   function fmtUsdSigned(n) {
     if (n == null || !isFinite(n)) return '$0';
