@@ -26,6 +26,7 @@
 (function () {
   'use strict';
   if (window._wjpTrialStateInstalled) return;
+  function getAppState(){ try { return appState; } catch(_){ return null; } }
   window._wjpTrialStateInstalled = true;
 
   try {
@@ -143,22 +144,24 @@
 
   function patchAppStateForTrial(sub) {
     try {
-      if (!window.appState) window.appState = {};
-      if (!window.appState.subscription) window.appState.subscription = {};
+      var s = getAppState();
+      if (!s) { if (!window.appState) window.appState = {}; s = window.appState; }
+      if (!s.subscription) s.subscription = {};
       // Mirror trial state into appState so existing getTier()/isPlus() see it.
-      window.appState.subscription.tier = 'plus';
-      window.appState.subscription.trialActive = true;
-      window.appState.subscription.trialStartedAt = sub.trialStartedAt;
-      window.appState.subscription.trialEndsAt = sub.trialEndsAt;
-      window.appState.subscription.status = 'trialing';
+      s.subscription.tier = 'plus';
+      s.subscription.trialActive = true;
+      s.subscription.trialStartedAt = sub.trialStartedAt;
+      s.subscription.trialEndsAt = sub.trialEndsAt;
+      s.subscription.status = 'trialing';
       try { window.dispatchEvent(new CustomEvent('wjp-trial-state', { detail: sub })); } catch (_) {}
     } catch (_) {}
   }
 
   function patchAppStateForExpired() {
     try {
-      if (!window.appState) window.appState = {};
-      if (!window.appState.subscription) window.appState.subscription = {};
+      var s = getAppState();
+      if (!s) { if (!window.appState) window.appState = {}; s = window.appState; }
+      if (!s.subscription) s.subscription = {};
       window.appState.subscription.tier = 'free';
       window.appState.subscription.trialActive = false;
       window.appState.subscription.status = 'canceled';
