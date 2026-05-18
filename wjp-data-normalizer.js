@@ -112,7 +112,7 @@
 
   function boot() {
     setTimeout(normalizeAll, 1500);
-    setInterval(normalizeAll, 4000);
+    setInterval(normalizeAll, 10000);
     window.addEventListener('wjp-transactions-rehydrated', normalizeAll);
     window.addEventListener('wjp-pending-promoted', normalizeAll);
     window.addEventListener('wjp-trial-state', normalizeAll);
