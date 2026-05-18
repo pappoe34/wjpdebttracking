@@ -33,6 +33,7 @@
 (function () {
   'use strict';
   if (window._wjpPendingPromoteInstalled) return;
+  function getAppState(){ try { return appState; } catch(_){ return null; } }
   window._wjpPendingPromoteInstalled = true;
 
   try {
@@ -77,8 +78,8 @@
   }
 
   function promoteAndDedupe() {
-    if (!window.appState || !Array.isArray(window.appState.transactions)) return { matched: 0, removed: 0 };
-    var txs = window.appState.transactions;
+    var s = getAppState(); if (!s || !Array.isArray(s.transactions)) return { matched: 0, removed: 0 };
+    var txs = s.transactions;
 
     // Build completed index by (merchantKey|amountKey)
     var completedByKey = {};
@@ -116,14 +117,14 @@
     if (toRemove.length) {
       var rmSet = {};
       toRemove.forEach(function (id) { rmSet[id] = true; });
-      window.appState.transactions = txs.filter(function (t) { return !rmSet[t.id]; });
+      s.transactions = txs.filter(function (t) { return !rmSet[t.id]; });
       // Persist + propagate
       try {
         if (typeof window.saveState === 'function') window.saveState();
       } catch (_) {}
     }
 
-    return { matched: matched, removed: toRemove.length, totalAfter: window.appState.transactions.length };
+    return { matched: matched, removed: toRemove.length, totalAfter: s.transactions.length };
   }
 
   function rerender() {
