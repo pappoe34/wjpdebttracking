@@ -66,6 +66,8 @@
       '}',
       // Hide the slide-in animation since we now use opacity
       '#txn-detail-panel[style*="right: -"] { display: none !important; }',
+      '#txn-detail-panel:not(.wjp-detail-has-content) { display: none !important; }',
+      '#txn-detail-panel.wjp-detail-empty { display: none !important; }',
       // Ensure backdrop is always visible when panel is
       '#txn-detail-backdrop {',
       '  display: block !important;',
@@ -111,10 +113,23 @@
   function repositionPanel(panel) {
     if (!panel) return;
     try {
+      var content = document.getElementById('txn-detail-content');
+      var hasContent = content && content.children.length > 0 && content.textContent.trim().length > 0;
+      if (!hasContent) {
+        // Empty modal — hide entirely, don't reposition.
+        panel.classList.add('wjp-detail-empty');
+        panel.classList.remove('wjp-detail-has-content');
+        panel.style.display = 'none';
+        var bd0 = document.getElementById('txn-detail-backdrop');
+        if (bd0) bd0.style.display = 'none';
+        return;
+      }
+      panel.classList.add('wjp-detail-has-content');
+      panel.classList.remove('wjp-detail-empty');
       panel.style.right = '';
+      panel.style.display = '';
       panel.style.opacity = '1';
       panel.style.transform = 'translate(-50%, -50%)';
-      // Ensure backdrop visible
       var bd = document.getElementById('txn-detail-backdrop');
       if (bd) bd.style.display = 'block';
     } catch (_) {}
