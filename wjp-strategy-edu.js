@@ -145,7 +145,7 @@
       hybrid: {
         name: 'Hybrid',
         pillClass: 'hybrid',
-        body: '<strong>Middle path.</strong> Ranks debts by balance × APR (the actual dollars of interest each debt is bleeding). Captures most of Avalanche\'s math advantage while still favoring smaller debts when their APR is moderate.'
+        body: '<strong>Middle path.</strong> Ranks debts by <strong>APR per dollar of balance</strong> — so a small card at 30% APR beats a big loan at 6%. Targets the highest interest-bleed-per-dollar first, blending Snowball\'s quick wins with Avalanche\'s math discipline.'
       }
     };
     return map[s] || null;
