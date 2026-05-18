@@ -73,14 +73,41 @@
     return fixed;
   }
 
+  // Recursively scrub `undefined` values throughout appState. Firestore
+  // rejects ANY undefined field. Replaces with null.
+  function scrubUndefinedDeep(obj, depth) {
+    if (depth > 6) return 0; // safety: don't recurse forever
+    if (!obj || typeof obj !== 'object') return 0;
+    var fixed = 0;
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) {
+        if (obj[i] === undefined) { obj[i] = null; fixed++; }
+        else if (obj[i] && typeof obj[i] === 'object') fixed += scrubUndefinedDeep(obj[i], depth + 1);
+      }
+      return fixed;
+    }
+    Object.keys(obj).forEach(function (k) {
+      if (obj[k] === undefined) { obj[k] = null; fixed++; }
+      else if (obj[k] && typeof obj[k] === 'object') fixed += scrubUndefinedDeep(obj[k], depth + 1);
+    });
+    return fixed;
+  }
+
+  function scrubAppStateUndefined() {
+    var s = getAppState();
+    if (!s) return 0;
+    return scrubUndefinedDeep(s, 0);
+  }
+
   function normalizeAll() {
-    var n1 = 0, n2 = 0;
+    var n1 = 0, n2 = 0, n3 = 0;
     try { n1 = normalizeTransactions(); } catch (_) {}
     try { n2 = normalizeSubscription(); } catch (_) {}
-    if (n1 || n2) {
-      try { console.log('[wjp-data-normalizer] fixed', n1, 'tx fields,', n2, 'subscription fields'); } catch (_) {}
+    try { n3 = scrubAppStateUndefined(); } catch (_) {}
+    if (n1 || n2 || n3) {
+      try { console.log('[wjp-data-normalizer] fixed', n1, 'tx fields,', n2, 'sub fields,', n3, 'undefined values'); } catch (_) {}
     }
-    return { txFixed: n1, subFixed: n2 };
+    return { txFixed: n1, subFixed: n2, undefScrubbed: n3 };
   }
 
   function boot() {
