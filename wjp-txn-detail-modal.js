@@ -68,14 +68,18 @@
       '#txn-detail-panel[style*="right: -"] { display: none !important; }',
       '#txn-detail-panel:not(.wjp-detail-has-content) { display: none !important; }',
       '#txn-detail-panel.wjp-detail-empty { display: none !important; }',
-      // Ensure backdrop is always visible when panel is
+      // Backdrop ONLY visible when modal has content. Without this guard,
+      // the backdrop covers the page even when no transaction is open.
       '#txn-detail-backdrop {',
-      '  display: block !important;',
       '  position: fixed !important;',
       '  inset: 0 !important;',
       '  background: rgba(0,0,0,0.55) !important;',
       '  z-index: 9998 !important;',
       '  cursor: pointer;',
+      '  display: none !important;',
+      '}',
+      'body.wjp-txn-detail-open #txn-detail-backdrop {',
+      '  display: block !important;',
       '}',
       // Inline category select styling
       '.wjp-detail-cat-select {',
@@ -120,6 +124,7 @@
         panel.classList.add('wjp-detail-empty');
         panel.classList.remove('wjp-detail-has-content');
         panel.style.display = 'none';
+        document.body.classList.remove('wjp-txn-detail-open');
         var bd0 = document.getElementById('txn-detail-backdrop');
         if (bd0) bd0.style.display = 'none';
         return;
@@ -130,8 +135,9 @@
       panel.style.display = '';
       panel.style.opacity = '1';
       panel.style.transform = 'translate(-50%, -50%)';
+      document.body.classList.add('wjp-txn-detail-open');
       var bd = document.getElementById('txn-detail-backdrop');
-      if (bd) bd.style.display = 'block';
+      if (bd) bd.style.display = '';
     } catch (_) {}
   }
 
