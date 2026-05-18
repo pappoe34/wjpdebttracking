@@ -84,8 +84,12 @@
       // Display fields the Calendar + Transactions UI read
       date: t.date || t.authorized_date || new Date().toISOString().slice(0, 10),
       merchant: t.merchant_name || t.name || 'Unknown',
-      category: (t.personal_finance_category && t.personal_finance_category.primary)
-        || (Array.isArray(t.category) ? t.category[0] : (t.category || 'Other')),
+      category: (function () {
+        var c = (t.personal_finance_category && t.personal_finance_category.primary)
+          || (Array.isArray(t.category) ? (t.category[0] || null) : (t.category || null));
+        if (c == null || c === '' || typeof c !== 'string') return 'Other';
+        return c;
+      })(),
       amount: -plaidAmt, // App convention: negative = outflow
       method: 'Bank',
       status: t.pending ? 'pending' : 'completed',
