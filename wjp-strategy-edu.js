@@ -188,8 +188,9 @@
     return overlay;
   }
 
-  // Capture-phase click interceptor. Runs BEFORE app.js's bubble-phase handlers.
-  function onClickCapture(e) {
+  // Click interceptor removed 2026-05-18 — modal now auto-shows once on first
+  // onboarding completion. Subsequent chip clicks go directly to app.js.
+  function onClickCapture_unused(e) {
     var target = e.target;
     // CRITICAL: skip if the click is on the wjp-hybrid-picker gear icon OR
     // inside its popover OR inside the Hybrid Indicator's sub-strategy picker.
@@ -263,10 +264,77 @@
     try { localStorage.removeItem(LS_FLAG); } catch (_) {}
   }
 
+  function autoShowIfFirstTime() {
+    if (alreadyShown()) return;
+    // Need an appState with debts to be worth showing
+    var s = getAppState();
+    if (!s || !Array.isArray(s.debts) || s.debts.length === 0) return;
+    var current = (s.settings && s.settings.strategy) || 'avalanche';
+    injectStyle();
+    var modal = buildModal(current);
+    if (!modal) return;
+    var confirmBtn = modal.querySelector('[data-action="confirm"]');
+    var cancelBtn = modal.querySelector('[data-action="cancel"]');
+    if (cancelBtn) cancelBtn.onclick = function () { modal.remove(); };
+    if (confirmBtn) {
+      confirmBtn.onclick = function () {
+        markShown();
+        // Apply the chosen strategy
+        try {
+          var st = getAppState();
+          if (st && st.settings) {
+            st.settings.strategy = current;
+            if (typeof window.saveState === 'function') window.saveState();
+            if (typeof window.updateUI === 'function') window.updateUI();
+          }
+        } catch (_) {}
+        modal.remove();
+        // If user picked Hybrid → auto-open the wjp-hybrid-picker so they
+        // pick a variant immediately.
+        if (current === 'hybrid') {
+          setTimeout(function () {
+            try {
+              if (window.WJP_HybridPicker && typeof window.WJP_HybridPicker.openPopover === 'function') {
+                window.WJP_HybridPicker.openPopover();
+              }
+            } catch (_) {}
+          }, 350);
+        }
+      };
+    }
+    // Add strategy-row click handlers so user can change the highlighted strategy
+    // in the modal before committing.
+    Array.prototype.forEach.call(modal.querySelectorAll('.strat-row'), function (row) {
+      row.style.cursor = 'pointer';
+      row.onclick = function () {
+        var pill = row.querySelector('.strat-pill');
+        if (!pill) return;
+        var picked = pill.textContent.toLowerCase().trim();
+        if (picked === 'american express') picked = 'avalanche'; // safety
+        if (['avalanche','snowball','hybrid'].indexOf(picked) === -1) return;
+        current = picked;
+        // Update highlights + confirm button label
+        Array.prototype.forEach.call(modal.querySelectorAll('.strat-row'), function (r) { r.classList.remove('selected'); });
+        row.classList.add('selected');
+        var info = getStrategyExplain(picked);
+        if (confirmBtn && info) confirmBtn.innerHTML = 'Commit to ' + info.name + ' &rarr;';
+      };
+    });
+  }
+
   function boot() {
     injectStyle();
-    // Use capture phase so we intercept BEFORE app.js's bubble handlers
-    document.addEventListener('click', onClickCapture, true);
+    // After app boot + debts settle, try to auto-show. Re-poll every 5s in case
+    // appState.debts populates late (Plaid connection, tx-bootstrap merge, etc.).
+    var attempts = 0;
+    function loop() {
+      attempts++;
+      if (alreadyShown()) return;
+      autoShowIfFirstTime();
+      if (alreadyShown()) return;
+      if (attempts < 60) setTimeout(loop, 5000);
+    }
+    setTimeout(loop, 4000);
   }
 
   if (document.readyState === 'loading') {
