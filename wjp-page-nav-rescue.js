@@ -57,7 +57,7 @@
     // Run on every click (after handler completes)
     document.addEventListener('click', function () { setTimeout(rescue, 50); });
     // Periodic safety net
-    setInterval(rescue, 1500);
+    setInterval(rescue, 5000);
     // Initial run shortly after boot
     setTimeout(rescue, 500);
     setTimeout(rescue, 2000);
