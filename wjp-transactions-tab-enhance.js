@@ -478,7 +478,7 @@
 
   function boot() {
     injectStyle();
-    setInterval(tick, 4000);
+    setInterval(tick, 6000);
     window.addEventListener('hashchange', function () { setTimeout(tick, 300); });
     window.addEventListener('wjp-tx-category-changed', tick);
     window.addEventListener('wjp-transactions-rehydrated', tick);
