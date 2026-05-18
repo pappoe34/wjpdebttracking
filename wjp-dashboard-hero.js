@@ -213,7 +213,7 @@
 
   function boot() {
     injectStyle();
-    setInterval(render, 4000);
+    setInterval(render, 6000);
     window.addEventListener('hashchange', function () { setTimeout(render, 300); });
     window.addEventListener('wjp-debts-updated', render);
     setTimeout(render, 2000);
