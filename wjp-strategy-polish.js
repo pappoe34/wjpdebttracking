@@ -439,7 +439,7 @@
 
   function start() {
     tick();
-    setInterval(tick, 4000);
+    setInterval(tick, 6000);
     // Re-render after data changes
     window.addEventListener('wjp-debts-updated', tick);
     window.addEventListener('storage', function (e) { if (e.key === 'wjp_budget_state') tick(); });
