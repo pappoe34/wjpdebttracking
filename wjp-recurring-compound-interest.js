@@ -158,7 +158,7 @@
     // Re-run every 2s for SPA mounts / pagination changes
     setInterval(function () {
       try { enhance(); } catch (_) {}
-    }, 2000);
+    }, 6000);
     // Listen for hash changes (tab switches)
     window.addEventListener('hashchange', function () { setTimeout(enhance, 300); });
     // Re-enhance after debt updates so changing balance/APR reflects
