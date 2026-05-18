@@ -35,6 +35,16 @@
     if (p.indexOf('/index') === -1 && p !== '/' && p !== '') return;
   } catch (_) {}
 
+  
+  // CRITICAL: app.js declares `let appState = null` at module scope. That binding
+  // is visible to other top-level scripts by bare identifier, but is NOT on window.
+  // Using window.appState creates a DIFFERENT object that the app's render code
+  // doesn't see — caused 2026-05-18 desync where deleted recurring came back and
+  // recent Plaid txs didn't render. Always go through getAppState() instead.
+  function getAppState() {
+    try { return appState; } catch (_) { return null; }
+  }
+
   var LS_KEY = 'wjp_budget_state';
   var LS_LAST_FETCH = 'wjp.fs.tx.lastFetchedAt';
   var MAX_DAYS = 365;
@@ -173,7 +183,8 @@
     }).filter(Boolean);
 
     // Merge into appState.transactions (the canonical in-memory store)
-    if (!window.appState) {
+    var s = getAppState();
+    if (!s) {
       // App hasn't initialized — write to localStorage and bail; app boot will re-read.
       try {
         var lsState = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
@@ -185,9 +196,9 @@
       return { ok: true, deferred: true, reason: 'appState-not-ready', count: converted.length };
     }
 
-    var existing = Array.isArray(window.appState.transactions) ? window.appState.transactions : [];
+    var existing = Array.isArray(s.transactions) ? s.transactions : [];
     var res = dedupedMerge(existing, converted);
-    window.appState.transactions = res.merged;
+    s.transactions = res.merged;
 
     // Persist via the app's own saveState() — this triggers cloudPushDebounced
     // which writes back to users/{uid}/state/main so other devices pick it up.
