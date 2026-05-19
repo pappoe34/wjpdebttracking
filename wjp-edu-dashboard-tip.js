@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js v3 — dashboard customization Stage 1 (2026-05-19):
+/* wjp-edu-dashboard-tip.js v4 — anti-flicker (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
  * Bigger, more readable banner that matches the app's color tokens in both
  * light and dark mode. Uses CSS vars (--card-2, --accent, --ink, etc.) so it
  * cascades correctly with body.light / body.dark. Maintains first position
@@ -245,17 +245,67 @@
     }
   }
 
+  // v4 2026-05-19: narrow MutationObserver on the dashboard host (childList,
+  // NOT subtree) catches the moment something rips our banner out and
+  // re-inserts it instantly. Uses disconnect/reconnect + guard flag to avoid
+  // observer recursion (per feedback_mutation_observer_recursion memory rule).
+  var _hostObs = null;
+  var _inMyMutation = false;
+
+  function reclaim() {
+    if (_inMyMutation) return;
+    var host = findDashboardHost();
+    if (!host) return;
+    var tip = getPinnedTip();
+    var dismiss = loadDismiss();
+    if (!tip || dismiss[tip.id] === todayKey()) return;
+    var existing = document.getElementById(BANNER_ID);
+    if (existing && existing.parentElement === host) {
+      // Already in place — just ensure it sits before the hero card
+      var hero = document.getElementById('wjp-dashboard-hero');
+      if (hero && hero.parentElement === host) {
+        // existing should come BEFORE hero. If not, fix.
+        if (existing.compareDocumentPosition(hero) !== Node.DOCUMENT_POSITION_FOLLOWING) {
+          _inMyMutation = true;
+          try { host.insertBefore(existing, hero); } catch (_) {}
+          _inMyMutation = false;
+        }
+      } else if (host.firstElementChild !== existing) {
+        _inMyMutation = true;
+        try { host.insertBefore(existing, host.firstElementChild); } catch (_) {}
+        _inMyMutation = false;
+      }
+      return;
+    }
+    // Banner is gone — recreate via tick(), guarded so observer doesn't loop
+    _inMyMutation = true;
+    try { tick(); } catch (_) {}
+    _inMyMutation = false;
+  }
+
+  function watchHost() {
+    var host = findDashboardHost();
+    if (!host) return;
+    try {
+      if (_hostObs) _hostObs.disconnect();
+      _hostObs = new MutationObserver(function () { reclaim(); });
+      _hostObs.observe(host, { childList: true, subtree: false });
+    } catch (_) {}
+  }
+
   function boot() {
     injectStyle();
     tick();
-    // Run faster than wjp-dashboard-hero's 6s tick so we win the position race.
-    setInterval(tick, 2500);
-    // Also re-tick on theme change so colors refresh
+    watchHost();
+    // Re-attach observer when dashboard becomes active (host may swap after
+    // initial DOMContentLoaded if app routes between pages).
+    setInterval(function () { if (!_hostObs) watchHost(); reclaim(); }, 2500);
     window.addEventListener('wjp-theme-changed', tick);
+    window.addEventListener('hashchange', function () { setTimeout(watchHost, 200); });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.WJP_EduDashTip = { refresh: tick, version: 3 };
+  window.WJP_EduDashTip = { refresh: tick, version: 4 };
 })();
