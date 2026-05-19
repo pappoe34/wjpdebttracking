@@ -667,7 +667,18 @@
       }
     }
 
-    if (document.getElementById(TRIGGER_ID)) return;
+    // v3.0.1 bug-fix — guard checks the per-page button id (TRIGGER_ID + '-' + host.id),
+    // not the bare TRIGGER_ID which is never used as an element id. Previous
+    // bug caused a new Customize button to be appended every 8s tick.
+    var btnId = TRIGGER_ID + '-' + host.id;
+    if (document.getElementById(btnId)) return;
+    // Also clean up any duplicate buttons left over from the broken v3.0 build
+    var dupes = (bar || host).querySelectorAll('.wjp-dash-customizer-trigger');
+    if (dupes.length > 0) {
+      for (var di = 0; di < dupes.length; di++) {
+        try { dupes[di].remove(); } catch (_) {}
+      }
+    }
 
     var btn = document.createElement('button');
     btn.id = TRIGGER_ID + '-' + host.id;
@@ -755,6 +766,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 3.0-multi-page
+    version: "3.0.1-fix-dup-buttons"
   };
 })();
