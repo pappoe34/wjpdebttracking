@@ -108,6 +108,11 @@
       "#" + TRIGGER_ID + " svg { width: 14px; height: 14px; stroke: var(--accent, #1f7a4a); }",
       // Wrapper so the trigger lives on the right side of the dashboard top bar
       ".wjp-dash-customizer-row { display: flex; justify-content: flex-end; padding: 4px 0 0; margin-bottom: -8px; }",
+      // v1.4: make dash-customize-bar a tidy flex row at the top of the dashboard
+      "#dash-customize-bar { display: flex !important; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; margin: 6px 0 16px; }",
+      "#dash-customize-bar > * { flex: 0 0 auto; }",
+      // Spacer so Customize pill drops to the right side
+      "#dash-customize-bar #" + TRIGGER_ID + " { margin-left: auto; }",
       // Scrim
       "#" + SCRIM_ID + " {",
       "  position: fixed; inset: 0;",
@@ -406,14 +411,34 @@
   }
 
   // ---------- trigger button install ----------
+  // v1.4: install button INSIDE the existing #dash-customize-bar so all three
+  // controls (Customize layout, Auto-fit, Customize) sit together. Also moves
+  // that bar to the top of the dashboard (right after the Ed Tips banner).
   function installTrigger() {
     var host = findDashboardHost();
     if (!host) return;
+
+    // Remove any stale standalone row from prior versions
+    var staleRow = host.querySelector('.wjp-dash-customizer-row');
+    if (staleRow) try { staleRow.remove(); } catch (_) {}
+
+    // Move dash-customize-bar to position 2 (right after Ed Tips banner if present).
+    var bar = document.getElementById('dash-customize-bar');
+    var edu = document.getElementById('wjp-edu-dashboard-tip');
+    if (bar && bar.parentElement === host) {
+      var targetAfter = (edu && edu.parentElement === host) ? edu : null;
+      var expectedBefore = targetAfter ? targetAfter.nextSibling : host.firstChild;
+      if (expectedBefore !== bar) {
+        try { host.insertBefore(bar, expectedBefore); } catch (_) {}
+      }
+    }
+
     if (document.getElementById(TRIGGER_ID)) return;
+
     var btn = document.createElement('button');
     btn.id = TRIGGER_ID;
     btn.type = 'button';
-    btn.setAttribute('title', 'Customize dashboard');
+    btn.setAttribute('title', 'Show / hide widgets and reorder');
     btn.innerHTML =
       '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
         '<circle cx="12" cy="12" r="3"/>' +
@@ -421,18 +446,19 @@
       '</svg>Customize';
     btn.addEventListener('click', openPanel);
 
-    // Place inside a flex row at the top of the dashboard, AFTER the Ed Tips
-    // banner (so the customize button sits above the Active Target).
-    var row = document.createElement('div');
-    row.className = 'wjp-dash-customizer-row';
-    row.appendChild(btn);
-
-    // Insert AFTER Ed Tips banner if present, otherwise as the first child.
-    var edu = document.getElementById('wjp-edu-dashboard-tip');
-    if (edu && edu.parentElement === host) {
-      host.insertBefore(row, edu.nextSibling);
+    if (bar) {
+      // Append into the existing bar so all three controls are in one row
+      bar.appendChild(btn);
     } else {
-      host.insertBefore(row, host.firstChild);
+      // No bar — fall back to a standalone row at the top, after Ed Tips
+      var row = document.createElement('div');
+      row.className = 'wjp-dash-customizer-row';
+      row.appendChild(btn);
+      if (edu && edu.parentElement === host) {
+        host.insertBefore(row, edu.nextSibling);
+      } else {
+        host.insertBefore(row, host.firstChild);
+      }
     }
   }
 
@@ -462,6 +488,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 1.3-noop-skip
+    version: 1.4-unified-bar
   };
 })();
