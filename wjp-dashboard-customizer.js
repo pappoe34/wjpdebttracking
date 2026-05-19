@@ -65,7 +65,17 @@
     "dash-strategy-card": "Strategy panel",
     "dash-stats-card": "Quick stats",
     "wjp-recurring-fixes": "Recurring bills",
-    "wjp-dash-debit-balances": "Bank balances"
+    "wjp-dash-debit-balances": "Bank balances",
+    // .reorderable cards (inside dash-grid and elsewhere) — labels match app.js card titles
+    "ai-advisor-card": "AI Advisor",
+    "math-breakdown": "Debt math breakdown",
+    "dash-linked-assets-card": "Linked assets",
+    "dash-money-left-card": "Money left after bills",
+    "dash-payoff-engine-card": "Payoff engine",
+    "dash-financial-resilience": "Financial resilience",
+    "dash-spending-card": "Spending tracker",
+    "upcoming-view-container": "Upcoming payments",
+    "credit-profile-card": "Credit profile"
   };
 
   function loadLayout() {
@@ -189,11 +199,28 @@
   function discoverWidgets(host) {
     if (!host) return [];
     var out = [];
+    var seen = {};
+    // Direct children of #page-dashboard with stable IDs
     Array.from(host.children).forEach(function (c) {
       if (!isCustomizable(c)) return;
+      if (seen[c.id]) return;
+      seen[c.id] = true;
       out.push({
         id: c.id,
         label: LABEL_OVERRIDES[c.id] || labelFromNode(c) || c.id
+      });
+    });
+    // v1.5: ALSO discover .reorderable cards anywhere inside the dashboard
+    // (e.g., nested in dash-grid). These are app.js-managed cards like Credit
+    // Profile, AI Advisor, Spending Tracker, etc.
+    Array.from(host.querySelectorAll('.reorderable')).forEach(function (c) {
+      if (!c.id) return;
+      if (seen[c.id]) return;
+      if (EXCLUDED_IDS[c.id]) return;
+      seen[c.id] = true;
+      out.push({
+        id: c.id,
+        label: LABEL_OVERRIDES[c.id] || labelFromNode(c) || c.getAttribute('data-card-id') || c.id
       });
     });
     return out;
@@ -422,14 +449,13 @@
     var staleRow = host.querySelector('.wjp-dash-customizer-row');
     if (staleRow) try { staleRow.remove(); } catch (_) {}
 
-    // Move dash-customize-bar to position 2 (right after Ed Tips banner if present).
+    // v1.5: dash-customize-bar ALWAYS sits at position 0 (very top). Ed Tips
+    // banner and all other widgets are pushed below it so the user always sees
+    // the controls first.
     var bar = document.getElementById('dash-customize-bar');
-    var edu = document.getElementById('wjp-edu-dashboard-tip');
     if (bar && bar.parentElement === host) {
-      var targetAfter = (edu && edu.parentElement === host) ? edu : null;
-      var expectedBefore = targetAfter ? targetAfter.nextSibling : host.firstChild;
-      if (expectedBefore !== bar) {
-        try { host.insertBefore(bar, expectedBefore); } catch (_) {}
+      if (host.firstElementChild !== bar) {
+        try { host.insertBefore(bar, host.firstChild); } catch (_) {}
       }
     }
 
@@ -488,6 +514,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 1.4-unified-bar
+    version: 1.5-discover-all
   };
 })();

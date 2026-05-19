@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js v4.3 — respect customizer layout (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
+/* wjp-edu-dashboard-tip.js v4.4 — after-bar position (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
  * Bigger, more readable banner that matches the app's color tokens in both
  * light and dark mode. Uses CSS vars (--card-2, --accent, --ink, etc.) so it
  * cascades correctly with body.light / body.dark. Maintains first position
@@ -197,7 +197,14 @@
     if (!node || !host) return;
     if (userHasCustomizedLayout()) return; // user's customizer order wins
     try {
-      if (host.firstElementChild !== node) {
+      // v4.4: place banner AFTER dash-customize-bar (so the bar is first,
+      // banner is second). If no bar, banner is first.
+      var bar = document.getElementById('dash-customize-bar');
+      if (bar && bar.parentElement === host) {
+        if (bar.nextSibling !== node) {
+          host.insertBefore(node, bar.nextSibling);
+        }
+      } else if (host.firstElementChild !== node) {
         host.insertBefore(node, host.firstElementChild);
       }
     } catch (_) {}
@@ -269,5 +276,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.WJP_EduDashTip = { refresh: tick, version: 4.3 };
+  window.WJP_EduDashTip = { refresh: tick, version: 4.4 };
 })();
