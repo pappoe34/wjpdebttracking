@@ -559,10 +559,15 @@
       if (!target || target === dragging) return;
       var rect = target.getBoundingClientRect();
       var midY = rect.top + rect.height / 2;
+      // v3.0.3 — use target.parentNode.insertBefore so drag works inside the
+      // .wjp-dc-section containers introduced by v2.1 (section grouping).
+      // Previously list.insertBefore(...) silently failed because target was
+      // nested inside a section, not directly inside the list.
+      var parent = target.parentNode;
       if (e.clientY < midY) {
-        if (target.previousElementSibling !== dragging) list.insertBefore(dragging, target);
+        if (target.previousElementSibling !== dragging) parent.insertBefore(dragging, target);
       } else {
-        if (target.nextElementSibling !== dragging) list.insertBefore(dragging, target.nextElementSibling);
+        if (target.nextElementSibling !== dragging) parent.insertBefore(dragging, target.nextElementSibling);
       }
     });
   }
@@ -779,6 +784,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: "3.0.2-pin-bar"
+    version: "3.0.3-drag-fix"
   };
 })();
