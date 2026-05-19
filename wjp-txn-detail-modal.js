@@ -1,4 +1,4 @@
-/* wjp-txn-detail-modal.js v1 — Center + bigger transaction detail + inline category editing.
+/* wjp-txn-detail-modal.js v4 — fix observer recursion freeze (2026-05-19). Original v1: — Center + bigger transaction detail + inline category editing.
  *
  * Winston request 2026-05-18: the right-side drawer is cramped; move it to
  * center, make it bigger, and let users change category right from the
@@ -229,16 +229,40 @@
     injectCategorySelect(content, txId);
   }
 
+  // v4 fix 2026-05-19: Dropped the body-subtree MutationObserver — it was
+  // firing on every DOM mutation in the entire app (chart redraws, tooltips,
+  // toast inserts, modal opens) and saturating the main thread. We now use
+  // ONLY a slow 5-second interval. The user perceives no delay because the
+  // detail modal is event-driven by clicks on tx rows, and after the click
+  // the interval picks up the panel within at most 5s. Also added a reentry
+  // guard in enhanceContent to short-circuit overlapping calls.
+  var _enhanceRunning = false;
+  function _safeEnhance() {
+    if (_enhanceRunning) return;
+    _enhanceRunning = true;
+    try { enhanceContent(); } catch (e) {}
+    _enhanceRunning = false;
+  }
+
   function startWatcher() {
-    // Watch body for panel mount + content updates
-    var obs = new MutationObserver(function () {
-      enhanceContent();
-    });
+    // No body observer — would saturate the main thread.
+    // Hook into the actual click-to-open paths instead (light listeners, no DOM queries on idle).
     try {
-      obs.observe(document.body, { childList: true, subtree: true });
+      document.addEventListener('click', function (e) {
+        // Tx rows live in many places; check whether the click traverses into
+        // a panel-opening element. If so, run enhance after a microtask so
+        // the panel content has rendered.
+        var t = e.target;
+        if (!t) return;
+        var openTrigger = t.closest && t.closest('[data-txn-id], .txn-row, .tx-row, .transaction-row, [data-tx-open]');
+        if (openTrigger) {
+          setTimeout(_safeEnhance, 50);
+          setTimeout(_safeEnhance, 250);
+        }
+      }, true);
     } catch (_) {}
-    // Also periodically check
-    setInterval(enhanceContent, 4000);
+    // Slow polling fallback in case the click handler missed something.
+    setInterval(_safeEnhance, 5000);
   }
 
   function boot() {
@@ -255,6 +279,6 @@
   window.WJP_TxnDetailModal = {
     enhance: enhanceContent,
     updateCategory: updateCategory,
-    version: 1
+    version: 4
   };
 })();
