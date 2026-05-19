@@ -1,4 +1,4 @@
-/* wjp-render-throttle.js v2 — 2026-05-19
+/* wjp-render-throttle.js v2.1 — 2026-05-19
  *
  * Throttles + memoizes known-flickery render functions:
  *   - renderStrategyIndicators (3 strategy cards) — Snowball/Hybrid/Avalanche
@@ -32,10 +32,18 @@
         return d + '@' + strat;
       }
       if (slice === 'transactions') {
-        // hash a small fingerprint: count + last 5 ids
         var t = s.transactions || [];
         var tail = t.slice(-5).map(function (x) { return x.id || ''; }).join(',');
         return t.length + ':' + tail;
+      }
+      if (slice === 'all') {
+        // Big-picture fingerprint — covers the slices that visually change on dashboard
+        var d = (s.debts || []).map(function (x) { return [x.id, x.balance, x.apr, x.minPayment].join('|'); }).join(';');
+        var tx = (s.transactions || []).length;
+        var rec = (s.recurringPayments || []).length;
+        var strat = (s.settings && s.settings.strategy) || '';
+        var bal = JSON.stringify(s.balances || {});
+        return d + '#' + tx + '#' + rec + '#' + strat + '#' + bal;
       }
     } catch (_) {}
     return '';
@@ -90,6 +98,10 @@
   wrap('renderStrategyIndicators', 'debts', 5000);
   wrap('renderTop3Strategy', 'debts', 5000);
   wrap('renderTransactions', 'transactions', 3000);
+  // v2.1 — also throttle the global updateUI() that paints dfd-hero (Executive
+  // Summary), dash-greeting, and other inline-rendered widgets. Short interval
+  // so user clicks still feel snappy.
+  wrap('updateUI', 'all', 500);
 
   // Reset-on-interaction — when user clicks a strategy chip, force a fresh render
   document.addEventListener('click', function (e) {
@@ -103,5 +115,5 @@
     });
   }, true);
 
-  window.WJP_RenderThrottle = { version: 2 };
+  window.WJP_RenderThrottle = { version: 2.1 };
 })();
