@@ -188,13 +188,7 @@
 
     var ip = findInsertionPoint();
     if (!ip) return;
-    var existing = document.getElementById(CARD_ID);
-    if (existing) existing.remove();
-
-    var card = document.createElement('div');
-    card.id = CARD_ID;
-    var totalToFree = minPay + monthlyInterest;
-    card.innerHTML =
+    var innerHTMLContent =
       '<div class="eyebrow">YOUR ACTIVE TARGET</div>' +
       '<h2>Attacking ' + (t.name || 'Debt') + '</h2>' +
       '<div class="meta"><strong>' + fmtUsd(bal) + '</strong> balance · <strong>' + apr.toFixed(2) + '%</strong> APR · bleeds <strong>' + fmtUsdDec(monthlyInterest) + '/mo</strong> in interest</div>' +
@@ -206,9 +200,32 @@
         '<span class="strat-pill">' + info.strategy.toUpperCase() + '</span>' +
       '</div>';
 
-    // Insert at the TOP of the dashboard (before everything else)
-    if (ip.firstChild) ip.insertBefore(card, ip.firstChild);
-    else ip.appendChild(card);
+    var existing = document.getElementById(CARD_ID);
+    if (existing) {
+      // v2 fix 2026-05-19: UPDATE in place instead of remove+recreate. Avoids
+      // the flicker + position-fight with wjp-edu-dashboard-tip (which wants
+      // to be the first dashboard child).
+      if (existing.innerHTML !== innerHTMLContent) {
+        existing.innerHTML = innerHTMLContent;
+      }
+      return;
+    }
+
+    // First mount: build card and place AFTER the Ed Tips banner if present.
+    var card = document.createElement('div');
+    card.id = CARD_ID;
+    card.innerHTML = innerHTMLContent;
+
+    var eduTip = document.getElementById('wjp-edu-dashboard-tip');
+    if (eduTip && eduTip.parentElement === ip && eduTip.nextSibling) {
+      ip.insertBefore(card, eduTip.nextSibling);
+    } else if (eduTip && eduTip.parentElement === ip) {
+      ip.appendChild(card);
+    } else if (ip.firstChild) {
+      ip.insertBefore(card, ip.firstChild);
+    } else {
+      ip.appendChild(card);
+    }
   }
 
   function boot() {
