@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -1144,10 +1144,31 @@
     // Initial state: dashboard is the default landing page.
     setActiveTab('dashboard');
 
-    // Guard: the host may re-assert .active on the Portfolio tab during its own
-    // nav routing. Watch for it and correct whenever the dashboard is the visible page.
+    // v7 fix 2026-05-19: prior version's MutationObserver watched
+    // .header-nav-item[class] and the callback called setActiveTab() which
+    // mutates that SAME attribute. With concurrent mutations from other
+    // modules, observer recursion saturated the main thread (freeze).
+    // Fix: disconnect-before-mutate + reconnect-after pattern. Also added a
+    // reentry guard via _navGuarding flag.
+    var _navGuarding = false;
     try {
-      var navMo = new MutationObserver(function () {
+      var navMo;
+      function _setActiveTabSafely(which) {
+        if (_navGuarding) return;
+        _navGuarding = true;
+        try { if (navMo) navMo.disconnect(); } catch (_) {}
+        try { setActiveTab(which); } catch (_) {}
+        try {
+          if (navMo) {
+            document.querySelectorAll('.header-nav-item').forEach(function (b) {
+              navMo.observe(b, { attributes: true, attributeFilter: ['class'] });
+            });
+          }
+        } catch (_) {}
+        _navGuarding = false;
+      }
+      navMo = new MutationObserver(function () {
+        if (_navGuarding) return; // skip records produced by our own mutation
         var pf = document.getElementById('page-portfolio');
         var pfVisible = pf && pf.style.display === 'block';
         if (!pfVisible) {
@@ -1155,7 +1176,7 @@
           var dash = document.getElementById('page-dashboard');
           var dashVisible = dash && getComputedStyle(dash).display !== 'none';
           if (pfTab && pfTab.classList.contains('active') && dashVisible) {
-            setActiveTab('dashboard');
+            _setActiveTabSafely('dashboard');
           }
         }
       });
