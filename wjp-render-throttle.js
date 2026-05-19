@@ -95,13 +95,12 @@
     }
   }
 
+  // v2.2 — Removed updateUI throttle: too aggressive, caused half-loaded dashboard
+  // states (page would render empty then settle). The 3 main render functions
+  // below provide enough flicker suppression on their own.
   wrap('renderStrategyIndicators', 'debts', 5000);
   wrap('renderTop3Strategy', 'debts', 5000);
   wrap('renderTransactions', 'transactions', 3000);
-  // v2.1 — also throttle the global updateUI() that paints dfd-hero (Executive
-  // Summary), dash-greeting, and other inline-rendered widgets. Short interval
-  // so user clicks still feel snappy.
-  wrap('updateUI', 'all', 500);
 
   // Reset-on-interaction — when user clicks a strategy chip, force a fresh render
   document.addEventListener('click', function (e) {
@@ -115,5 +114,5 @@
     });
   }, true);
 
-  window.WJP_RenderThrottle = { version: 2.1 };
+  window.WJP_RenderThrottle = { version: 2.2-noupdateui };
 })();
