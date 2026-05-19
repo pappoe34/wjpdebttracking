@@ -296,11 +296,9 @@
       if (oldCard) oldCard.remove();
       return;
     }
-    var existing = document.getElementById(CARD_ID);
-    if (existing) existing.remove();
-
-    var card = document.createElement('div');
-    card.id = CARD_ID;
+    // v2 fix 2026-05-19: build innerHTML, then UPDATE existing card in place
+    // instead of remove+recreate. Prevents flicker + page auto-scroll caused
+    // by a ~400px element disappearing/reappearing every 8s.
     var recsHtml = data.recommendations.slice(0, 5).map(function (r) {
       return '<div class="rec-row">' +
         '<div style="flex:1;min-width:0;">' +
@@ -314,7 +312,7 @@
     var cadenceLabel = data.pattern.cadence === 'biweekly' ? 'Bi-weekly' : data.pattern.cadence === 'weekly' ? 'Weekly' : 'Monthly';
     var anchorLabel = data.pattern.anchorDays.map(suffix).join(' & ');
 
-    card.innerHTML =
+    var html =
       '<div class="eyebrow">AI Insight · Paycheck-aware due dates</div>' +
       '<h3>' + data.recommendations.length + ' bill' + (data.recommendations.length === 1 ? '' : 's') + ' to consider shifting</h3>' +
       '<div class="sub">You\'re paid <strong>' + cadenceLabel + '</strong> around the ' + anchorLabel + '. These bills land at awkward times — shifting due dates puts your full paycheck buffer behind each payment.</div>' +
@@ -323,7 +321,17 @@
 
     var page = document.getElementById('page-dashboard');
     if (!page) return;
-    // Insert after the hero card if it exists, else at top
+
+    var existing = document.getElementById(CARD_ID);
+    if (existing) {
+      // UPDATE IN PLACE — only touch DOM if content actually changed
+      if (existing.innerHTML !== html) existing.innerHTML = html;
+      return;
+    }
+
+    var card = document.createElement('div');
+    card.id = CARD_ID;
+    card.innerHTML = html;
     var hero = document.getElementById('wjp-dashboard-hero');
     if (hero && hero.parentElement === page) {
       page.insertBefore(card, hero.nextSibling);
