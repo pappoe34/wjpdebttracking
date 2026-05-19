@@ -162,6 +162,21 @@
     "upcoming-view-container": "Upcoming payments",
     "credit-profile-card": "Credit profile"
   };
+  // v2.1 — group widgets by section in the customize panel
+  var SECTION_GROUPS = {
+    "Hero": ["wjp-edu-dashboard-tip", "wjp-dashboard-hero", "dash-greeting", "dfd-hero", "wjp-momentum-hero"],
+    "Insights": ["wjp-paycheck-ai-card", "ai-advisor-card", "math-breakdown"],
+    "Debts": ["top3-strategy", "dash-strategy-card", "dash-payoff-engine-card", "dash-financial-resilience", "credit-profile-card"],
+    "Cash & Spending": ["wjp-dash-debit-balances", "dash-linked-assets-card", "dash-money-left-card", "dash-spending-card", "upcoming-view-container", "wjp-recurring-fixes"],
+    "Stats": ["dash-stats-card"]
+  };
+  function sectionFor(id) {
+    for (var sec in SECTION_GROUPS) {
+      if (SECTION_GROUPS[sec].indexOf(id) >= 0) return sec;
+    }
+    return "Other";
+  }
+
 
   function loadLayout() {
     try {
@@ -268,6 +283,28 @@
       "#" + PANEL_ID + " .wjp-dc-done:hover { filter: brightness(1.08); }",
       // Apply layout — hidden widgets
       "#page-dashboard .wjp-widget-hidden { display: none !important; }",
+      // v2.1 — search row
+      "#" + PANEL_ID + " .wjp-dc-search-row { padding: 0 22px 10px; }",
+      "#" + PANEL_ID + " .wjp-dc-search { width: 100%; padding: 9px 12px; font-size: 13px; border-radius: 10px; border: 1px solid var(--border, rgba(20,20,20,0.12)); background: var(--card-2, #f7f6f2); color: var(--ink, #141414); font-family: inherit; outline: none; }",
+      "#" + PANEL_ID + " .wjp-dc-search:focus { border-color: var(--accent, #1f7a4a); }",
+      "body.dark #" + PANEL_ID + " .wjp-dc-search { background: var(--card-2, #1c2540); color: var(--ink, #f0f4ff); border-color: var(--border, rgba(255,255,255,0.1)); }",
+      // section headers
+      "#" + PANEL_ID + " .wjp-dc-section { margin-bottom: 14px; }",
+      "#" + PANEL_ID + " .wjp-dc-section-header { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint, #8a9bb0); font-weight: 800; padding: 6px 8px 4px; margin-top: 4px; }",
+      // v2.1 — mobile: bottom sheet instead of side panel
+      "@media (max-width: 640px) {",
+      "  #" + PANEL_ID + " {",
+      "    top: auto; bottom: 0; right: 0; left: 0;",
+      "    width: 100% !important;",
+      "    max-height: 85vh;",
+      "    border-left: 0;",
+      "    border-top: 1px solid var(--border, rgba(20,20,20,0.08));",
+      "    border-radius: 18px 18px 0 0;",
+      "    transform: translateY(100%);",
+      "  }",
+      "  #" + PANEL_ID + ".open { transform: translateY(0); }",
+      "}",
+
     ].join("\n");
     (document.head || document.documentElement).appendChild(s);
   }
@@ -370,7 +407,6 @@
   function buildPanel(widgets, layout) {
     var idToLayout = {};
     (layout ? layout.widgets : []).forEach(function (w) { idToLayout[w.id] = w; });
-    // Build ordered list: respect saved order, then append new widgets not in layout
     var ordered = [];
     var seen = {};
     if (layout) {
@@ -387,18 +423,36 @@
       ordered.push({ id: w.id, label: w.label, visible: true });
     });
 
-    var html = '<div class="wjp-dc-header"><h3>Customize dashboard</h3>' +
-      '<button type="button" class="wjp-dc-close" aria-label="Close">×</button></div>' +
-      '<div class="wjp-dc-hint">Drag to reorder. Uncheck to hide. Changes save automatically.</div>' +
-      '<div class="wjp-dc-list" id="wjp-dc-list">' +
-        ordered.map(function (w) {
+    // v2.1 — group items by section, preserve ordering within sections.
+    var sectionMap = {};
+    var sectionOrder = ["Hero", "Insights", "Debts", "Cash & Spending", "Stats", "Other"];
+    ordered.forEach(function (w) {
+      var sec = sectionFor(w.id);
+      if (!sectionMap[sec]) sectionMap[sec] = [];
+      sectionMap[sec].push(w);
+    });
+    var grouped = "";
+    sectionOrder.forEach(function (sec) {
+      if (!sectionMap[sec] || sectionMap[sec].length === 0) return;
+      grouped += '<div class="wjp-dc-section">' +
+        '<div class="wjp-dc-section-header">' + escapeHTML(sec) + '</div>' +
+        sectionMap[sec].map(function (w) {
           return '<div class="wjp-dc-item' + (w.visible ? '' : ' hidden') + '" draggable="true" data-widget-id="' + w.id + '">' +
             '<span class="wjp-dc-handle" aria-hidden="true">⋮⋮</span>' +
             '<input type="checkbox" class="wjp-dc-check"' + (w.visible ? ' checked' : '') + '>' +
             '<span class="wjp-dc-label">' + escapeHTML(w.label) + '</span>' +
           '</div>';
         }).join('') +
+      '</div>';
+    });
+
+    var html = '<div class="wjp-dc-header"><h3>Customize dashboard</h3>' +
+      '<button type="button" class="wjp-dc-close" aria-label="Close">×</button></div>' +
+      '<div class="wjp-dc-hint">Drag to reorder. Uncheck to hide. Changes save automatically.</div>' +
+      '<div class="wjp-dc-search-row">' +
+        '<input type="search" class="wjp-dc-search" placeholder="Filter widgets…" autocomplete="off">' +
       '</div>' +
+      '<div class="wjp-dc-list" id="wjp-dc-list">' + grouped + '</div>' +
       '<div class="wjp-dc-footer">' +
         '<button type="button" class="wjp-dc-reset">Reset to default</button>' +
         '<button type="button" class="wjp-dc-done">Done</button>' +
@@ -495,6 +549,32 @@
     // Wire interactions
     panel.querySelector('.wjp-dc-close').addEventListener('click', closePanel);
     panel.querySelector('.wjp-dc-done').addEventListener('click', closePanel);
+
+    // v2.1 — Esc key closes
+    var escHandler = function (e) {
+      if (e.key === 'Escape' || e.keyCode === 27) closePanel();
+    };
+    document.addEventListener('keydown', escHandler);
+    panel._escHandler = escHandler;
+
+    // v2.1 — search filter
+    var searchInput = panel.querySelector('.wjp-dc-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', function () {
+        var q = (searchInput.value || '').toLowerCase().trim();
+        var items = panel.querySelectorAll('.wjp-dc-item');
+        var sections = panel.querySelectorAll('.wjp-dc-section');
+        items.forEach(function (it) {
+          var lbl = (it.querySelector('.wjp-dc-label').textContent || '').toLowerCase();
+          it.style.display = (!q || lbl.indexOf(q) >= 0) ? '' : 'none';
+        });
+        // Hide section headers that have no visible items
+        sections.forEach(function (sec) {
+          var visible = Array.from(sec.querySelectorAll('.wjp-dc-item')).some(function (i) { return i.style.display !== 'none'; });
+          sec.style.display = visible ? '' : 'none';
+        });
+      });
+    }
     panel.querySelector('.wjp-dc-reset').addEventListener('click', function () {
       try { (window.WJP_UserScope && WJP_UserScope.remove ? WJP_UserScope.remove(LS_KEY) : localStorage.removeItem(LS_KEY)); } catch (_) {}
       // Remove all hidden classes, re-render panel
@@ -516,6 +596,9 @@
   function closePanel() {
     var panel = document.getElementById(PANEL_ID);
     var scrim = document.getElementById(SCRIM_ID);
+    if (panel && panel._escHandler) {
+      try { document.removeEventListener('keydown', panel._escHandler); } catch (_) {}
+    }
     if (panel) panel.classList.remove('open');
     if (scrim) scrim.classList.remove('open');
     setTimeout(function () {
@@ -628,6 +711,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 2.0-firestore-sync
+    version: 2.1-polished
   };
 })();
