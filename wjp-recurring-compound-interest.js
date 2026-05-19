@@ -143,9 +143,15 @@
         if (cells.length < 3) return;
         var amtCell = cells[2];
         // Inject badge AFTER the amount value
+        // v2 fix 2026-05-19 — update badge HTML in place if content changed
         var existing = amtCell.querySelector('.' + BADGE_CLASS);
-        if (existing) existing.remove();
-        amtCell.insertAdjacentHTML('beforeend', renderBadge(rec, interest));
+        var fresh = renderBadge(rec, interest);
+        if (existing) {
+          // Compare outer HTML, only replace if different
+          if (existing.outerHTML !== fresh) existing.outerHTML = fresh;
+        } else {
+          amtCell.insertAdjacentHTML('beforeend', fresh);
+        }
         row.setAttribute('data-wjp-rec-compound', '1');
       });
     } catch (e) {

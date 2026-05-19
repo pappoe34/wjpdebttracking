@@ -365,19 +365,24 @@
   }
 
   function renderFilters(parent, accountFilter) {
-    var existing = document.getElementById(FILTERS_ID);
-    if (existing) existing.remove();
     var accounts = getAccountList();
     if (!accounts.length) return;
-    var wrap = document.createElement('div');
-    wrap.id = FILTERS_ID;
+    var existing = document.getElementById(FILTERS_ID);
+    var wrap;
+    var isNewFilt = !existing;
+    if (existing) {
+      wrap = existing;
+    } else {
+      wrap = document.createElement('div');
+      wrap.id = FILTERS_ID;
+    }
     var html = '<span class="acc-pill ' + (accountFilter === 'all' ? 'active' : '') + '" data-acc="all">All</span>';
     accounts.forEach(function (a) {
       html += '<span class="acc-pill ' + (accountFilter === a.key ? 'active' : '') + '" data-acc="' + a.key.replace(/"/g, '&quot;') + '">' +
         a.label + '<span class="acc-count">·' + a.count + '</span></span>';
     });
     wrap.innerHTML = html;
-    parent.parentElement.insertBefore(wrap, parent);
+    if (isNewFilt) parent.parentElement.insertBefore(wrap, parent);
     Array.prototype.forEach.call(wrap.querySelectorAll('.acc-pill'), function (p) {
       p.onclick = function () {
         var v = p.getAttribute('data-acc');
@@ -400,11 +405,17 @@
     var sum = computeSummary(period, accountFilter === 'all' ? null : accountFilter);
     if (!sum) return;
 
+    // v3 fix 2026-05-19 — build html first, update existing in place instead
+    // of remove+recreate (which was flickering the Smart Summary every tick).
     var existing = document.getElementById(SUMMARY_ID);
-    if (existing) existing.remove();
-
-    var box = document.createElement('div');
-    box.id = SUMMARY_ID;
+    var box;
+    var isNew = !existing;
+    if (existing) {
+      box = existing;
+    } else {
+      box = document.createElement('div');
+      box.id = SUMMARY_ID;
+    }
     var netClass = sum.net >= 0 ? 'positive' : 'negative';
     var periodPills = ['7','30','thisMonth','lastMonth','90'].map(function (p) {
       return '<span class="period-pill ' + (p === period ? 'active' : '') + '" data-period="' + p + '">' + getPeriodLabel(p) + '</span>';
@@ -451,7 +462,7 @@
       subBlurb +
       tipBlurb;
 
-    ip.parent.insertBefore(box, ip.stats);
+    if (isNew) ip.parent.insertBefore(box, ip.stats);
 
     // Wire period pills
     Array.prototype.forEach.call(box.querySelectorAll('.period-pill'), function (p) {
