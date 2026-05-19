@@ -1,7 +1,9 @@
-/* wjp-edu-dashboard-tip.js v2 — Stage 1 of dashboard customization (2026-05-19): bigger banner + always-first position. Original v1.1: — surface the Education tab's pinned tip on
- * the dashboard as a small banner. Reads window.WJP_Education.pinnedTip()
- * (or falls back to localStorage). User can dismiss for the day, or jump
- * to the Education tab to swap pinned tip.
+/* wjp-edu-dashboard-tip.js v3 — dashboard customization Stage 1 (2026-05-19):
+ * Bigger, more readable banner that matches the app's color tokens in both
+ * light and dark mode. Uses CSS vars (--card-2, --accent, --ink, etc.) so it
+ * cascades correctly with body.light / body.dark. Maintains first position
+ * by inserting BEFORE the wjp-dashboard-hero card if present (which also
+ * inserts itself at firstChild every 6s).
  */
 (function () {
   "use strict";
@@ -11,7 +13,6 @@
     var p = (location.pathname || "").toLowerCase();
     if (p.indexOf("/index") === -1 && p !== "/" && p !== "") return;
   } catch (_) {}
-
 
   // === Per-user storage helper (defers to WJP_UserScope when available) ===
   function lsGet(s) {
@@ -25,15 +26,113 @@
       else localStorage.setItem(s, v); }
     catch (_) { try { localStorage.setItem(s, v); } catch (e) {} }
   }
-  function lsRemove(s) {
-    try { if (window.WJP_UserScope && typeof window.WJP_UserScope.remove === 'function')
-      window.WJP_UserScope.remove(s);
-      else localStorage.removeItem(s); }
-    catch (_) { try { localStorage.removeItem(s); } catch (e) {} }
-  }
 
   var BANNER_ID = "wjp-edu-dashboard-tip";
-  var LS_DISMISS = "wjp.edu.dashTip.dismissed.v1"; // {tipId: "YYYY-MM-DD"}
+  var STYLE_ID = "wjp-edu-dashboard-tip-style";
+  var LS_DISMISS = "wjp.edu.dashTip.dismissed.v1";
+
+  function injectStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    var s = document.createElement("style");
+    s.id = STYLE_ID;
+    s.textContent = [
+      // Card — works in both light and dark via CSS vars
+      "#" + BANNER_ID + ".wjp-edu-dashtip-card {",
+      "  position: relative;",
+      "  background: var(--card-2, #f7f6f2);",
+      "  border: 1px solid var(--border-accent, rgba(31,122,74,0.28));",
+      "  border-left: 4px solid var(--accent, #1f7a4a);",
+      "  border-radius: 16px;",
+      "  padding: 22px 26px;",
+      "  margin: 6px 0 20px;",
+      "  display: grid;",
+      "  grid-template-columns: 1fr auto;",
+      "  column-gap: 18px;",
+      "  align-items: center;",
+      "  box-shadow: var(--shadow, 0 2px 6px rgba(0,0,0,0.04));",
+      "  font-family: var(--sans, Inter, system-ui, sans-serif);",
+      "}",
+      // Light mode subtle green tint over the cream
+      "body.light #" + BANNER_ID + ".wjp-edu-dashtip-card {",
+      "  background: linear-gradient(135deg, rgba(31,122,74,0.05) 0%, rgba(31,122,74,0.01) 100%), var(--card-2, #f7f6f2);",
+      "}",
+      // Dark mode — green-tinted gradient over dark card
+      "body.dark #" + BANNER_ID + ".wjp-edu-dashtip-card {",
+      "  background: linear-gradient(135deg, rgba(0,212,168,0.08) 0%, rgba(0,212,168,0.02) 100%), var(--card-2, #1c2540);",
+      "  border-color: var(--border-accent, rgba(0,212,168,0.28));",
+      "  border-left-color: var(--accent, #00d4a8);",
+      "}",
+      // Eyebrow label
+      "#" + BANNER_ID + " .wjp-edu-eyebrow {",
+      "  font-size: 10.5px;",
+      "  letter-spacing: 0.16em;",
+      "  text-transform: uppercase;",
+      "  color: var(--accent-text, var(--accent, #1f7a4a));",
+      "  font-weight: 800;",
+      "  margin-bottom: 8px;",
+      "}",
+      // Headline
+      "#" + BANNER_ID + " .wjp-edu-title {",
+      "  font-size: 18px;",
+      "  font-weight: 800;",
+      "  color: var(--ink, var(--text-1, var(--text, #141414)));",
+      "  letter-spacing: -0.015em;",
+      "  line-height: 1.3;",
+      "  margin-bottom: 6px;",
+      "}",
+      // Body
+      "#" + BANNER_ID + " .wjp-edu-body {",
+      "  font-size: 14px;",
+      "  color: var(--ink-dim, var(--text-2, #4a5568));",
+      "  line-height: 1.55;",
+      "  max-width: 70ch;",
+      "}",
+      // Right column
+      "#" + BANNER_ID + " .wjp-edu-actions {",
+      "  display: flex;",
+      "  flex-direction: column;",
+      "  gap: 8px;",
+      "  align-items: flex-end;",
+      "}",
+      "#" + BANNER_ID + " .wjp-edu-cta {",
+      "  background: var(--accent, #1f7a4a);",
+      "  color: #fff;",
+      "  border: 0;",
+      "  padding: 10px 20px;",
+      "  border-radius: 999px;",
+      "  font-size: 12.5px;",
+      "  font-weight: 700;",
+      "  cursor: pointer;",
+      "  font-family: inherit;",
+      "  white-space: nowrap;",
+      "  letter-spacing: 0.01em;",
+      "  transition: filter 0.15s ease;",
+      "}",
+      "#" + BANNER_ID + " .wjp-edu-cta:hover { filter: brightness(1.08); }",
+      "#" + BANNER_ID + " .wjp-edu-dismiss {",
+      "  background: transparent;",
+      "  border: 0;",
+      "  color: var(--ink-faint, var(--text-3, #8a9bb0));",
+      "  font-size: 11px;",
+      "  font-weight: 600;",
+      "  cursor: pointer;",
+      "  font-family: inherit;",
+      "  padding: 2px 4px;",
+      "}",
+      "#" + BANNER_ID + " .wjp-edu-dismiss:hover { color: var(--ink-dim, var(--text-2, #4a5568)); }",
+      // Mobile responsive — stack
+      "@media (max-width: 640px) {",
+      "  #" + BANNER_ID + ".wjp-edu-dashtip-card {",
+      "    grid-template-columns: 1fr;",
+      "    row-gap: 12px;",
+      "    padding: 18px 20px;",
+      "  }",
+      "  #" + BANNER_ID + " .wjp-edu-actions { align-items: flex-start; flex-direction: row; }",
+      "  #" + BANNER_ID + " .wjp-edu-title { font-size: 16px; }",
+      "}"
+    ].join("\n");
+    (document.head || document.documentElement).appendChild(s);
+  }
 
   function loadDismiss() {
     try { return JSON.parse(lsGet(LS_DISMISS) || "null") || {}; }
@@ -66,35 +165,50 @@
   }
 
   function buildBanner(tip) {
-    // v2 2026-05-19: bigger, more readable, simpler. Subtle accent stripe on left.
-    // No corner emoji — just a small uppercase eyebrow + readable headline + body.
-    return `
-      <div id="${BANNER_ID}" data-wjp-tip-id="${escapeHTML(tip.id)}" class="wjp-edu-dashtip-card" style="
-        position: relative;
-        background: var(--card-1, #ffffff);
-        border: 1px solid var(--border, rgba(31,122,74,0.18));
-        border-left: 4px solid #1f7a4a;
-        border-radius: 16px;
-        padding: 20px 24px;
-        margin: 6px 0 18px;
-        display: grid;
-        grid-template-columns: 1fr auto;
-        column-gap: 16px;
-        align-items: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-        font-family: var(--sans, Inter, system-ui, sans-serif);
-      ">
-        <div style="min-width: 0;">
-          <div style="font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #1f7a4a; font-weight: 800; margin-bottom: 8px;">Daily money lesson</div>
-          <div style="font-size: 17px; font-weight: 800; color: var(--ink, var(--text-1, #0a0a0a)); letter-spacing: -0.015em; line-height: 1.3; margin-bottom: 6px;">${escapeHTML(tip.title)}</div>
-          <div style="font-size: 14px; color: var(--ink-dim, var(--text-2, #4b5563)); line-height: 1.55; max-width: 64ch;">${escapeHTML(tip.body)}</div>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
-          <button type="button" data-wjp-tip-action="open" style="background:#1f7a4a;color:#fff;border:0;padding:9px 18px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;letter-spacing:0.01em;">Read more</button>
-          <button type="button" data-wjp-tip-action="dismiss" title="Hide for today" style="background:transparent;border:0;color:var(--ink-faint, #9ca3af);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 4px;">Hide for today</button>
-        </div>
-      </div>
-    `;
+    return (
+      '<div id="' + BANNER_ID + '" data-wjp-tip-id="' + escapeHTML(tip.id) + '" class="wjp-edu-dashtip-card">' +
+        '<div>' +
+          '<div class="wjp-edu-eyebrow">Daily money lesson</div>' +
+          '<div class="wjp-edu-title">' + escapeHTML(tip.title) + '</div>' +
+          '<div class="wjp-edu-body">' + escapeHTML(tip.body) + '</div>' +
+        '</div>' +
+        '<div class="wjp-edu-actions">' +
+          '<button type="button" class="wjp-edu-cta" data-wjp-tip-action="open">Read more</button>' +
+          '<button type="button" class="wjp-edu-dismiss" data-wjp-tip-action="dismiss" title="Hide for today">Hide for today</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  // Insert banner as the FIRST visible element of #page-dashboard.
+  // Tricky: wjp-dashboard-hero ALSO inserts itself as firstChild every 6s.
+  // Strategy: always insert ourselves BEFORE the hero card if it exists.
+  function placeAtTop(node, host) {
+    if (!node || !host) return;
+    var hero = host.querySelector('#wjp-dashboard-hero');
+    try {
+      if (hero && hero.parentElement === host) {
+        if (hero.previousElementSibling !== node) host.insertBefore(node, hero);
+      } else {
+        if (host.firstElementChild !== node) host.insertBefore(node, host.firstElementChild);
+      }
+    } catch (_) {}
+  }
+
+  function bindHandlers(node) {
+    if (!node) return;
+    var openBtn = node.querySelector('[data-wjp-tip-action="open"]');
+    var dismissBtn = node.querySelector('[data-wjp-tip-action="dismiss"]');
+    if (openBtn) openBtn.addEventListener("click", function () {
+      var nav = document.querySelector('[data-page="activity"]');
+      if (nav) nav.click();
+    });
+    if (dismissBtn) dismissBtn.addEventListener("click", function () {
+      var d = loadDismiss();
+      var id = node.getAttribute('data-wjp-tip-id');
+      if (id) { d[id] = todayKey(); saveDismiss(d); }
+      try { node.remove(); } catch (_) {}
+    });
   }
 
   function tick() {
@@ -108,48 +222,40 @@
         if (existing) try { existing.remove(); } catch (_) {}
         return;
       }
-      // Mount or update — v2: ALWAYS insert as the FIRST child of dashboard
       if (existing) {
-        if (existing.dataset.wjpTipId === tip.id) {
-          // already up to date AND in correct position?
-          if (host.firstElementChild !== existing) {
-            // Move to top
-            try { host.insertBefore(existing, host.firstElementChild); } catch (_) {}
-          }
-          return;
-        }
-        existing.outerHTML = buildBanner(tip);
-        var moved = document.getElementById(BANNER_ID);
-        if (moved && host.firstElementChild !== moved) {
-          try { host.insertBefore(moved, host.firstElementChild); } catch (_) {}
+        if (existing.dataset.wjpTipId !== tip.id) {
+          existing.outerHTML = buildBanner(tip);
+          var fresh = document.getElementById(BANNER_ID);
+          bindHandlers(fresh);
+          placeAtTop(fresh, host);
+        } else {
+          // Same tip — just reclaim top position if hero/something pushed us down.
+          placeAtTop(existing, host);
         }
       } else {
-        // First mount — always afterbegin so it's the first thing the user sees
-        host.insertAdjacentHTML("afterbegin", buildBanner(tip));
+        var tpl = document.createElement('div');
+        tpl.innerHTML = buildBanner(tip);
+        var node = tpl.firstElementChild;
+        host.insertBefore(node, host.firstElementChild);
+        placeAtTop(node, host);
+        bindHandlers(node);
       }
-      // Bind click handlers
-      var node = document.getElementById(BANNER_ID);
-      if (!node) return;
-      var openBtn = node.querySelector("[data-wjp-tip-action=\"open\"]");
-      var dismissBtn = node.querySelector("[data-wjp-tip-action=\"dismiss\"]");
-      if (openBtn) openBtn.addEventListener("click", function () {
-        var nav = document.querySelector('[data-page="activity"]');
-        if (nav) nav.click();
-      });
-      if (dismissBtn) dismissBtn.addEventListener("click", function () {
-        var d = loadDismiss();
-        d[tip.id] = todayKey();
-        saveDismiss(d);
-        try { node.remove(); } catch (_) {}
-      });
     } catch (e) {
-      try { console.warn("[wjp-edu-dashboard-tip] tick threw", e); } catch (_) {}
+      try { console.warn("[wjp-edu-dashboard-tip v3] tick threw", e); } catch (_) {}
     }
   }
 
-  function boot() { tick(); setInterval(tick, 5000); }
+  function boot() {
+    injectStyle();
+    tick();
+    // Run faster than wjp-dashboard-hero's 6s tick so we win the position race.
+    setInterval(tick, 2500);
+    // Also re-tick on theme change so colors refresh
+    window.addEventListener('wjp-theme-changed', tick);
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.WJP_EduDashTip = { refresh: tick };
+  window.WJP_EduDashTip = { refresh: tick, version: 3 };
 })();
