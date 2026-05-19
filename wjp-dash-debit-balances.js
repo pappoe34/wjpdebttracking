@@ -123,6 +123,8 @@
     if (!card) {
       card = document.createElement('div');
       card.id = CARD_ID;
+      card.className = (card.className||'') + ' reorderable';
+      card.setAttribute('data-card-id', 'wjp-debit-balances');
       // Mount after wjp-dashboard-hero if present, else at end of dashboard
       var hero = document.getElementById('wjp-dashboard-hero');
       if (hero && hero.parentElement === host && hero.nextSibling) {

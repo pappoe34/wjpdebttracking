@@ -214,6 +214,8 @@
     // First mount: build card and place AFTER the Ed Tips banner if present.
     var card = document.createElement('div');
     card.id = CARD_ID;
+    card.className = (card.className||'') + ' reorderable';
+    card.setAttribute('data-card-id', 'wjp-active-target');
     card.innerHTML = innerHTMLContent;
 
     var eduTip = document.getElementById('wjp-edu-dashboard-tip');

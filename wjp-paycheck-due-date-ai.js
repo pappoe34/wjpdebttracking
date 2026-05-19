@@ -331,6 +331,8 @@
 
     var card = document.createElement('div');
     card.id = CARD_ID;
+    card.className = (card.className||'') + ' reorderable';
+    card.setAttribute('data-card-id', 'wjp-paycheck-ai');
     card.innerHTML = html;
     var hero = document.getElementById('wjp-dashboard-hero');
     if (hero && hero.parentElement === page) {

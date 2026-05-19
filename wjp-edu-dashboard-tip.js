@@ -166,7 +166,7 @@
 
   function buildBanner(tip) {
     return (
-      '<div id="' + BANNER_ID + '" data-wjp-tip-id="' + escapeHTML(tip.id) + '" class="wjp-edu-dashtip-card">' +
+      '<div id="' + BANNER_ID + '" data-wjp-tip-id="' + escapeHTML(tip.id) + '" data-card-id="wjp-edu-tip" class="wjp-edu-dashtip-card reorderable">' +
         '<div>' +
           '<div class="wjp-edu-eyebrow">Daily money lesson</div>' +
           '<div class="wjp-edu-title">' + escapeHTML(tip.title) + '</div>' +
