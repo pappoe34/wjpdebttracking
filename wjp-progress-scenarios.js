@@ -266,11 +266,34 @@
         if (Math.abs(custom) < 1) stored = 'minimums';
         else stored = 'custom';
       }
-      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
-      scenarios.forEach(function (s) {
-        var isActive = (s.key === stored);
-        wrap.appendChild(buildSegment(s, isActive));
-      });
+      // v8 fix 2026-05-19 — update segments IN PLACE instead of rip+rebuild
+      // every 1.5s. Previous behavior caused visible 'refresh' flicker because
+      // every tick removed all 3 children and re-appended them.
+      var existing = wrap.querySelectorAll('[data-ps-key]');
+      var fingerprint = scenarios.map(function (s) {
+        return s.key + '|' + s.label + '|' + (s.dateStr || '') + '|' + (s.months || '') + '|' + (s.key === stored ? 'A' : '');
+      }).join('::');
+      if (wrap._wjpLastFingerprint === fingerprint) {
+        // Nothing changed — skip entirely
+        return;
+      }
+      wrap._wjpLastFingerprint = fingerprint;
+      if (existing.length === scenarios.length) {
+        // Update each segment in place — toggle active class, update text only if it changed
+        scenarios.forEach(function (s, idx) {
+          var seg = existing[idx];
+          var fresh = buildSegment(s, s.key === stored);
+          if (seg.outerHTML !== fresh.outerHTML) {
+            seg.replaceWith(fresh);
+          }
+        });
+      } else {
+        // Different count — full rebuild (rare)
+        while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+        scenarios.forEach(function (s) {
+          wrap.appendChild(buildSegment(s, s.key === stored));
+        });
+      }
     } catch (e) {
       try { console.warn('[wjp-progress-scenarios v7] tick threw', e); } catch (_) {}
     }
