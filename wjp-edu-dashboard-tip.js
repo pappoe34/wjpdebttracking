@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js v4.1 — anti-flicker + true-first (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
+/* wjp-edu-dashboard-tip.js v4.2 — slow-poll only, no observer (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
  * Bigger, more readable banner that matches the app's color tokens in both
  * light and dark mode. Uses CSS vars (--card-2, --accent, --ink, etc.) so it
  * cascades correctly with body.light / body.dark. Maintains first position
@@ -243,59 +243,21 @@
     }
   }
 
-  // v4 2026-05-19: narrow MutationObserver on the dashboard host (childList,
-  // NOT subtree) catches the moment something rips our banner out and
-  // re-inserts it instantly. Uses disconnect/reconnect + guard flag to avoid
-  // observer recursion (per feedback_mutation_observer_recursion memory rule).
-  var _hostObs = null;
-  var _inMyMutation = false;
-
-  function reclaim() {
-    if (_inMyMutation) return;
-    var host = findDashboardHost();
-    if (!host) return;
-    var tip = getPinnedTip();
-    var dismiss = loadDismiss();
-    if (!tip || dismiss[tip.id] === todayKey()) return;
-    var existing = document.getElementById(BANNER_ID);
-    if (existing && existing.parentElement === host) {
-      // Must be FIRST child of host. If not, move to first.
-      if (host.firstElementChild !== existing) {
-        _inMyMutation = true;
-        try { host.insertBefore(existing, host.firstElementChild); } catch (_) {}
-        _inMyMutation = false;
-      }
-      return;
-    }
-    // Banner is gone — recreate via tick(), guarded so observer doesn't loop
-    _inMyMutation = true;
-    try { tick(); } catch (_) {}
-    _inMyMutation = false;
-  }
-
-  function watchHost() {
-    var host = findDashboardHost();
-    if (!host) return;
-    try {
-      if (_hostObs) _hostObs.disconnect();
-      _hostObs = new MutationObserver(function () { reclaim(); });
-      _hostObs.observe(host, { childList: true, subtree: false });
-    } catch (_) {}
-  }
-
+  // v4.2 2026-05-19: REVERTED the MutationObserver. It was firing every time
+  // ANY widget mutated the dashboard child list, which (combined with the
+  // customizer's 3s tick and other modules' ticks) caused whole-dashboard
+  // flicker. Going back to a single slow polling tick. The banner gets
+  // re-claimed at most every 8 seconds, which is acceptable given that no
+  // module is actively removing it now.
   function boot() {
     injectStyle();
     tick();
-    watchHost();
-    // Re-attach observer when dashboard becomes active (host may swap after
-    // initial DOMContentLoaded if app routes between pages).
-    setInterval(function () { if (!_hostObs) watchHost(); reclaim(); }, 2500);
+    setInterval(tick, 8000);
     window.addEventListener('wjp-theme-changed', tick);
-    window.addEventListener('hashchange', function () { setTimeout(watchHost, 200); });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.WJP_EduDashTip = { refresh: tick, version: 4.1 };
+  window.WJP_EduDashTip = { refresh: tick, version: 4.2 };
 })();

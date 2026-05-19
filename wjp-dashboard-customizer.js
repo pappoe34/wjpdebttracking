@@ -446,7 +446,7 @@
     injectStyle();
     tick();
     // Slow polling — picks up late-mounted widgets, reapplies layout
-    setInterval(tick, 3000);
+    setInterval(tick, 8000);
     // Reapply on hash change
     window.addEventListener('hashchange', tick);
   }
@@ -459,6 +459,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 1
+    version: 1.2
   };
 })();
