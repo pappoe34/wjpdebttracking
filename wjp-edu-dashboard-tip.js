@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js v1.1 — surface the Education tab's pinned tip on
+/* wjp-edu-dashboard-tip.js v2 — Stage 1 of dashboard customization (2026-05-19): bigger banner + always-first position. Original v1.1: — surface the Education tab's pinned tip on
  * the dashboard as a small banner. Reads window.WJP_Education.pinnedTip()
  * (or falls back to localStorage). User can dismiss for the day, or jump
  * to the Education tab to swap pinned tip.
@@ -66,26 +66,33 @@
   }
 
   function buildBanner(tip) {
+    // v2 2026-05-19: bigger, more readable, simpler. Subtle accent stripe on left.
+    // No corner emoji — just a small uppercase eyebrow + readable headline + body.
     return `
-      <div id="${BANNER_ID}" data-wjp-tip-id="${escapeHTML(tip.id)}" style="
-        background: linear-gradient(135deg, rgba(31,122,74,0.06), rgba(201,154,42,0.04));
-        border: 1px solid rgba(31,122,74,0.22);
-        border-radius: 12px;
-        padding: 12px 16px;
-        margin: 14px 0;
-        display: flex;
+      <div id="${BANNER_ID}" data-wjp-tip-id="${escapeHTML(tip.id)}" class="wjp-edu-dashtip-card" style="
+        position: relative;
+        background: var(--card-1, #ffffff);
+        border: 1px solid var(--border, rgba(31,122,74,0.18));
+        border-left: 4px solid #1f7a4a;
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin: 6px 0 18px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        column-gap: 16px;
         align-items: center;
-        gap: 14px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
         font-family: var(--sans, Inter, system-ui, sans-serif);
       ">
-        <span style="font-size: 22px; line-height: 1;">📚</span>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #1f7a4a; font-weight: 800; margin-bottom: 2px;">Financial education tip</div>
-          <div style="font-size: 13.5px; font-weight: 700; color: var(--ink, #0a0a0a); letter-spacing: -0.01em; line-height: 1.3;">${escapeHTML(tip.title)}</div>
-          <div style="font-size: 12px; color:var(--ink-dim, #4b5563); margin-top: 2px; line-height: 1.45;">${escapeHTML(tip.body)}</div>
+        <div style="min-width: 0;">
+          <div style="font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #1f7a4a; font-weight: 800; margin-bottom: 8px;">Daily money lesson</div>
+          <div style="font-size: 17px; font-weight: 800; color: var(--ink, var(--text-1, #0a0a0a)); letter-spacing: -0.015em; line-height: 1.3; margin-bottom: 6px;">${escapeHTML(tip.title)}</div>
+          <div style="font-size: 14px; color: var(--ink-dim, var(--text-2, #4b5563)); line-height: 1.55; max-width: 64ch;">${escapeHTML(tip.body)}</div>
         </div>
-        <button type="button" data-wjp-tip-action="open" style="background:#1f7a4a;color:#fff;border:0;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Read more</button>
-        <button type="button" data-wjp-tip-action="dismiss" title="Hide for today" style="background:transparent;border:0;color:var(--ink-faint, #9ca3af);font-size:18px;cursor:pointer;line-height:1;padding:4px 8px;">×</button>
+        <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+          <button type="button" data-wjp-tip-action="open" style="background:#1f7a4a;color:#fff;border:0;padding:9px 18px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;letter-spacing:0.01em;">Read more</button>
+          <button type="button" data-wjp-tip-action="dismiss" title="Hide for today" style="background:transparent;border:0;color:var(--ink-faint, #9ca3af);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 4px;">Hide for today</button>
+        </div>
       </div>
     `;
   }
@@ -101,23 +108,24 @@
         if (existing) try { existing.remove(); } catch (_) {}
         return;
       }
-      // Mount or update
+      // Mount or update — v2: ALWAYS insert as the FIRST child of dashboard
       if (existing) {
-        if (existing.dataset.wjpTipId === tip.id) return; // already up to date
+        if (existing.dataset.wjpTipId === tip.id) {
+          // already up to date AND in correct position?
+          if (host.firstElementChild !== existing) {
+            // Move to top
+            try { host.insertBefore(existing, host.firstElementChild); } catch (_) {}
+          }
+          return;
+        }
         existing.outerHTML = buildBanner(tip);
+        var moved = document.getElementById(BANNER_ID);
+        if (moved && host.firstElementChild !== moved) {
+          try { host.insertBefore(moved, host.firstElementChild); } catch (_) {}
+        }
       } else {
-        // Insert near the top of the dashboard, before the first child that's a card-ish container
-        var inserted = false;
-        var firstReveal = host.querySelector(".reveal, [class*=\"summary\"], [class*=\"hero\"]");
-        if (firstReveal && firstReveal.parentElement === host) {
-          var div = document.createElement("div");
-          div.innerHTML = buildBanner(tip);
-          host.insertBefore(div.firstElementChild, firstReveal);
-          inserted = true;
-        }
-        if (!inserted) {
-          host.insertAdjacentHTML("afterbegin", buildBanner(tip));
-        }
+        // First mount — always afterbegin so it's the first thing the user sees
+        host.insertAdjacentHTML("afterbegin", buildBanner(tip));
       }
       // Bind click handlers
       var node = document.getElementById(BANNER_ID);
