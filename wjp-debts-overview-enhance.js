@@ -552,8 +552,22 @@
     start();
   }
 
+  // v3 2026-05-19: expose cache + fetch primitives so the dashboard mini widget
+  // can share the same data (avoids a second Plaid call).
   window.WJP_DebtsEnhance = {
     refreshDebits: function () { return renderDebitBalances(true); },
-    version: 2
+    /** Returns the cached + extracted debit accounts (already sorted desc by balance).
+     *  If no cache yet, fetches once. Pass true to force refresh. */
+    getDebitAccounts: async function (force) {
+      try {
+        var items = await fetchAccounts(force);
+        if (!items) return [];
+        var overrides = await fetchOverrides();
+        return extractDebitAccounts(items, overrides);
+      } catch (e) { return []; }
+    },
+    /** Pre-warm the cache without rendering anything. Safe to call on dashboard mount. */
+    prefetchDebitAccounts: function () { return fetchAccounts(false); },
+    version: 3
   };
 })();

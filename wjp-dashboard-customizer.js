@@ -64,7 +64,8 @@
     "top3-strategy": "Top 3 to attack",
     "dash-strategy-card": "Strategy panel",
     "dash-stats-card": "Quick stats",
-    "wjp-recurring-fixes": "Recurring bills"
+    "wjp-recurring-fixes": "Recurring bills",
+    "wjp-dash-debit-balances": "Bank balances"
   };
 
   function loadLayout() {
