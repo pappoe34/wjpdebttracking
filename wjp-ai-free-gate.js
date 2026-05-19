@@ -35,7 +35,12 @@
   }
   function isFree() {
     var t = getTier();
-    if (!t) return false; // unknown → don't gate (avoid flicker before auth resolves)
+    if (!t) return false;
+    // v2 fix 2026-05-19 — never gate admin
+    try {
+      if (window.WJP_IS_ADMIN === true) return false;
+      if (window.appState && window.appState.subscription && window.appState.subscription.isAdmin) return false;
+    } catch (_) {}
     return t === 'free';
   }
 

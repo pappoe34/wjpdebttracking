@@ -1,4 +1,4 @@
-/* wjp-free-tier-gate.js v1 — Gate paid Plaid features for Free tier.
+/* wjp-free-tier-gate.js v2 — Gate paid Plaid features for Free tier.
  *
  * For Free users, hides any "+ Add bank" / "Sync Bank" / "Connect bank" entry
  * point and replaces it with an "Upgrade to access these features" card.
@@ -45,6 +45,12 @@
   function isFree() {
     var t = getTier();
     if (!t) return false; // Don't gate until we know — avoids false positive on auth-lag
+    // v2 fix 2026-05-19 — never gate admin. Check both runtime flag and
+    // persisted appState.subscription.isAdmin (same as trial-banner v6).
+    try {
+      if (window.WJP_IS_ADMIN === true) return false;
+      if (window.appState && window.appState.subscription && window.appState.subscription.isAdmin) return false;
+    } catch (_) {}
     return t === 'free';
   }
 
