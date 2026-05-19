@@ -1,4 +1,4 @@
-/* wjp-trial-banner.js v5_admin_gap_fix — 1 — Trial UI: welcome modal + persistent banner + warnings.
+/* wjp-trial-banner.js v6_persisted_admin_check — 1 — Trial UI: welcome modal + persistent banner + warnings.
  *
  * Reads trial state from window.WJP_Trial (provided by wjp-trial-state.js).
  *
@@ -94,7 +94,15 @@
     // any stale Firestore state from previous test runs.
     try {
       var tier = typeof window.getTier === 'function' ? String(window.getTier()).toLowerCase() : null;
-      if (tier === 'admin' || window.WJP_IS_ADMIN === true) {
+      // v6 fix 2026-05-19 — also check the persisted appState.subscription.isAdmin
+      // flag. WJP_IS_ADMIN gets set after the /admin-status fetch but the
+      // persisted appState.subscription.isAdmin survives page reloads even
+      // when the fetch is slow or fails. Either flag is enough to hide banner.
+      var persistedAdmin = false;
+      try {
+        persistedAdmin = !!(typeof appState !== 'undefined' && appState && appState.subscription && appState.subscription.isAdmin);
+      } catch (_) {}
+      if (tier === 'admin' || window.WJP_IS_ADMIN === true || persistedAdmin) {
         try { document.body.classList.remove('wjp-has-trial-banner'); document.body.style.paddingTop = ''; } catch (_) {}
         if (existing) try { existing.remove(); } catch (_) {}
         return;
