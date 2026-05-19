@@ -471,28 +471,15 @@
       ordered.push({ id: w.id, label: w.label, visible: true });
     });
 
-    // v2.1 — group items by section, preserve ordering within sections.
-    var sectionMap = {};
-    var sectionOrder = ["Hero", "Insights", "Debts", "Cash & Spending", "Stats", "Other"];
-    ordered.forEach(function (w) {
-      var sec = sectionFor(w.id);
-      if (!sectionMap[sec]) sectionMap[sec] = [];
-      sectionMap[sec].push(w);
-    });
-    var grouped = "";
-    sectionOrder.forEach(function (sec) {
-      if (!sectionMap[sec] || sectionMap[sec].length === 0) return;
-      grouped += '<div class="wjp-dc-section">' +
-        '<div class="wjp-dc-section-header">' + escapeHTML(sec) + '</div>' +
-        sectionMap[sec].map(function (w) {
-          return '<div class="wjp-dc-item' + (w.visible ? '' : ' hidden') + '" draggable="true" data-widget-id="' + w.id + '">' +
-            '<span class="wjp-dc-handle" aria-hidden="true">⋮⋮</span>' +
-            '<input type="checkbox" class="wjp-dc-check"' + (w.visible ? ' checked' : '') + '>' +
-            '<span class="wjp-dc-label">' + escapeHTML(w.label) + '</span>' +
-          '</div>';
-        }).join('') +
+    // v3.0.4 — flat list (no section grouping). Items render in user\'s saved
+    // order. Drag handles allow free reordering across the entire list.
+    var grouped = ordered.map(function (w) {
+      return '<div class="wjp-dc-item' + (w.visible ? '' : ' hidden') + '" draggable="true" data-widget-id="' + w.id + '">' +
+        '<span class="wjp-dc-handle" aria-hidden="true">⋮⋮</span>' +
+        '<input type="checkbox" class="wjp-dc-check"' + (w.visible ? ' checked' : '') + '>' +
+        '<span class="wjp-dc-label">' + escapeHTML(w.label) + '</span>' +
       '</div>';
-    });
+    }).join('');
 
     var html = '<div class="wjp-dc-header"><h3>Customize dashboard</h3>' +
       '<button type="button" class="wjp-dc-close" aria-label="Close">×</button></div>' +
@@ -618,15 +605,9 @@
       searchInput.addEventListener('input', function () {
         var q = (searchInput.value || '').toLowerCase().trim();
         var items = panel.querySelectorAll('.wjp-dc-item');
-        var sections = panel.querySelectorAll('.wjp-dc-section');
         items.forEach(function (it) {
           var lbl = (it.querySelector('.wjp-dc-label').textContent || '').toLowerCase();
           it.style.display = (!q || lbl.indexOf(q) >= 0) ? '' : 'none';
-        });
-        // Hide section headers that have no visible items
-        sections.forEach(function (sec) {
-          var visible = Array.from(sec.querySelectorAll('.wjp-dc-item')).some(function (i) { return i.style.display !== 'none'; });
-          sec.style.display = visible ? '' : 'none';
         });
       });
     }
@@ -784,6 +765,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: "3.0.3-drag-fix"
+    version: "3.0.4-flat-list"
   };
 })();
