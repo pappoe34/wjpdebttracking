@@ -39,6 +39,91 @@
   }
 
   var LS_KEY = "wjp.dashboard.layout.v1";
+
+  // ===== v2 — Firestore sync 2026-05-19 =====
+  // Layout writes go to BOTH localStorage (for instant local apply) AND
+  // Firestore at users/{uid}/dashboard/layout (so the layout follows the
+  // user across devices). On boot we pull from Firestore once, then attach
+  // an onSnapshot listener for real-time updates from other devices.
+  async function getDb() {
+    try {
+      if (window.__wjpFsMod && window.__wjpFsMod.db) return window.__wjpFsMod.db;
+      if (window.db) return window.db;
+      var mod = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+      var appMod = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
+      var apps = (appMod && appMod.getApps) ? appMod.getApps() : [];
+      var app = apps[0];
+      if (!app) return null;
+      window.__wjpFsMod = { mod: mod, db: mod.getFirestore(app) };
+      return window.__wjpFsMod.db;
+    } catch (_) { return null; }
+  }
+  function getUid() {
+    try {
+      if (window.WJP_UserScope && WJP_UserScope.uid) return WJP_UserScope.uid();
+      if (window.__wjpUser && window.__wjpUser.uid) return window.__wjpUser.uid;
+    } catch (_) {}
+    return null;
+  }
+
+  async function saveLayoutToCloud(layout) {
+    var uid = getUid();
+    if (!uid) return false;
+    var db = await getDb();
+    if (!db) return false;
+    try {
+      var m = window.__wjpFsMod.mod;
+      var ref = m.doc(db, 'users', uid, 'dashboard', 'layout');
+      await m.setDoc(ref, layout, { merge: false });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  async function loadLayoutFromCloud() {
+    var uid = getUid();
+    if (!uid) return null;
+    var db = await getDb();
+    if (!db) return null;
+    try {
+      var m = window.__wjpFsMod.mod;
+      var ref = m.doc(db, 'users', uid, 'dashboard', 'layout');
+      var snap = await m.getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    } catch (e) { return null; }
+  }
+
+  var _cloudUnsub = null;
+  var _lastCloudSavedAt = 0;
+  async function watchCloud() {
+    var uid = getUid();
+    if (!uid) return;
+    var db = await getDb();
+    if (!db) return;
+    try {
+      var m = window.__wjpFsMod.mod;
+      var ref = m.doc(db, 'users', uid, 'dashboard', 'layout');
+      if (_cloudUnsub) { try { _cloudUnsub(); } catch (_) {} }
+      _cloudUnsub = m.onSnapshot(ref, function (snap) {
+        try {
+          if (!snap.exists()) return;
+          var data = snap.data();
+          if (!data || !Array.isArray(data.widgets)) return;
+          // Last-write-wins via savedAt — ignore if our local copy is newer
+          var localRaw = lsGet(LS_KEY);
+          var local = null;
+          try { local = localRaw ? JSON.parse(localRaw) : null; } catch (_) {}
+          var localTs = (local && local.savedAt) || 0;
+          var cloudTs = data.savedAt || 0;
+          if (localTs > cloudTs) return; // local is newer (e.g., just saved here)
+          // Cloud update from another device — apply
+          _lastCloudSavedAt = cloudTs;
+          try { lsSet(LS_KEY, JSON.stringify(data)); } catch (_) {}
+          try { applyLayout(); } catch (_) {}
+        } catch (_) {}
+      }, function () {}); // silent error handler
+    } catch (_) {}
+  }
+
   var STYLE_ID = "wjp-dash-customizer-style";
   var TRIGGER_ID = "wjp-dash-customizer-trigger";
   var PANEL_ID = "wjp-dash-customizer-panel";
@@ -89,6 +174,8 @@
   }
   function saveLayout(layout) {
     try { lsSet(LS_KEY, JSON.stringify(layout)); } catch (_) {}
+    // Push to Firestore so other devices pick it up
+    try { saveLayoutToCloud(layout); } catch (_) {}
   }
 
   function injectStyle() {
@@ -497,13 +584,40 @@
     } catch (e) {}
   }
 
+  // v2: hydrate from cloud on boot, then watch for changes from other devices
+  async function bootstrapCloud() {
+    try {
+      var cloud = await loadLayoutFromCloud();
+      if (cloud && Array.isArray(cloud.widgets)) {
+        // Cloud has a layout — use it as authoritative if newer than local
+        var localRaw = lsGet(LS_KEY);
+        var local = null;
+        try { local = localRaw ? JSON.parse(localRaw) : null; } catch (_) {}
+        var localTs = (local && local.savedAt) || 0;
+        var cloudTs = cloud.savedAt || 0;
+        if (cloudTs >= localTs) {
+          try { lsSet(LS_KEY, JSON.stringify(cloud)); } catch (_) {}
+          try { applyLayout(); } catch (_) {}
+        }
+      }
+      watchCloud();
+    } catch (_) {}
+  }
+
   function boot() {
     injectStyle();
     tick();
-    // Slow polling — picks up late-mounted widgets, reapplies layout
     setInterval(tick, 8000);
-    // Reapply on hash change
     window.addEventListener('hashchange', tick);
+    // Cloud sync — runs after a short delay so Firebase Auth + the FS SDK
+    // have time to settle. Don't block initial tick.
+    setTimeout(bootstrapCloud, 2000);
+    // Re-bootstrap when user changes (signin/signout)
+    try {
+      if (window.WJP_UserScope && WJP_UserScope.onAuthChange) {
+        WJP_UserScope.onAuthChange(function () { setTimeout(bootstrapCloud, 500); });
+      }
+    } catch (_) {}
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
@@ -514,6 +628,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 1.5-discover-all
+    version: 2.0-firestore-sync
   };
 })();
