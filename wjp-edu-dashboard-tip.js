@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js v4.2 — slow-poll only, no observer (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
+/* wjp-edu-dashboard-tip.js v4.3 — respect customizer layout (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
  * Bigger, more readable banner that matches the app's color tokens in both
  * light and dark mode. Uses CSS vars (--card-2, --accent, --ink, etc.) so it
  * cascades correctly with body.light / body.dark. Maintains first position
@@ -180,12 +180,22 @@
     );
   }
 
-  // v4.1 — banner must be FIRST child of dashboard, before everything else
-  // (dash-greeting, dfd-hero, hero card, etc. all get pushed down). The
-  // MutationObserver below re-asserts this whenever anything mutates the
-  // dashboard's direct children.
+  // v4.3 — banner goes to first child UNLESS the customizer has a saved
+  // layout (meaning the user has explicitly customized widget order). In that
+  // case, the customizer's order wins. This stops the 8s flicker that was
+  // caused by EDU and customizer fighting over banner position.
+  function userHasCustomizedLayout() {
+    try {
+      var get = (window.WJP_UserScope && WJP_UserScope.get) ? WJP_UserScope.get : function (k) { return localStorage.getItem(k); };
+      var raw = get('wjp.dashboard.layout.v1');
+      if (!raw) return false;
+      var p = JSON.parse(raw);
+      return p && Array.isArray(p.widgets) && p.widgets.length > 0;
+    } catch (_) { return false; }
+  }
   function placeAtTop(node, host) {
     if (!node || !host) return;
+    if (userHasCustomizedLayout()) return; // user's customizer order wins
     try {
       if (host.firstElementChild !== node) {
         host.insertBefore(node, host.firstElementChild);
@@ -259,5 +269,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.WJP_EduDashTip = { refresh: tick, version: 4.2 };
+  window.WJP_EduDashTip = { refresh: tick, version: 4.3 };
 })();

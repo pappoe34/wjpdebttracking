@@ -225,19 +225,22 @@
       }
     });
 
-    // Reorder: walk layout.widgets in order. For each, if it exists in host,
-    // move it to the end of the "sorted so far" pile. Skip excluded children.
-    var sortedTail = null; // last node we just positioned, or null = beginning
+    // Reorder: walk layout.widgets in order. SKIP no-op moves (insertBefore
+    // when the node is already in the correct position causes a pointless
+    // mutation that browsers can still repaint). v1.3 — no flicker.
+    var sortedTail = null;
     layout.widgets.forEach(function (w) {
       var node = document.getElementById(w.id);
       if (!node || node.parentElement !== host) return;
       try {
         if (sortedTail === null) {
-          // Move to first position (or after first excluded child like STYLE)
-          host.insertBefore(node, host.firstChild);
+          if (host.firstElementChild !== node) {
+            host.insertBefore(node, host.firstChild);
+          }
         } else {
-          // Move after sortedTail
-          if (sortedTail.nextSibling !== node) host.insertBefore(node, sortedTail.nextSibling);
+          if (sortedTail.nextElementSibling !== node) {
+            host.insertBefore(node, sortedTail.nextSibling);
+          }
         }
         sortedTail = node;
       } catch (_) {}
@@ -459,6 +462,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 1.2
+    version: 1.3-noop-skip
   };
 })();
