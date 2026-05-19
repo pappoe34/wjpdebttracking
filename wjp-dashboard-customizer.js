@@ -39,6 +39,31 @@
   }
 
   var LS_KEY = "wjp.dashboard.layout.v1";
+  // v3 multi-page — 2026-05-19. Customizer auto-installs on these pages.
+  var MANAGED_PAGES = [
+    { id: 'page-dashboard', label: 'Dashboard' },
+    { id: 'page-recurring', label: 'Recurring' },
+    { id: 'page-budgets',   label: 'Budgets' },
+    { id: 'page-plans',     label: 'Plans' }
+  ];
+  function lsKeyFor(pageId) {
+    return (pageId === 'page-dashboard') ? LS_KEY : ('wjp.layout.' + pageId + '.v1');
+  }
+  function activePageId() {
+    var pages = document.querySelectorAll('[id^="page-"]');
+    for (var i = 0; i < pages.length; i++) {
+      var p = pages[i];
+      if (p.classList && p.classList.contains('active')) return p.id;
+    }
+    return null;
+  }
+  function pageConfig(pageId) {
+    for (var i = 0; i < MANAGED_PAGES.length; i++) {
+      if (MANAGED_PAGES[i].id === pageId) return MANAGED_PAGES[i];
+    }
+    return null;
+  }
+
 
   // ===== v2 — Firestore sync 2026-05-19 =====
   // Layout writes go to BOTH localStorage (for instant local apply) AND
@@ -66,34 +91,39 @@
     return null;
   }
 
-  async function saveLayoutToCloud(layout) {
+  async function saveLayoutToCloud(layout, pageId) {
+    pageId = pageId || 'page-dashboard';
     var uid = getUid();
     if (!uid) return false;
     var db = await getDb();
     if (!db) return false;
     try {
       var m = window.__wjpFsMod.mod;
-      var ref = m.doc(db, 'users', uid, 'dashboard', 'layout');
+      var ref = (pageId === 'page-dashboard')
+        ? m.doc(db, 'users', uid, 'dashboard', 'layout')
+        : m.doc(db, 'users', uid, 'layouts', pageId);
       await m.setDoc(ref, layout, { merge: false });
       return true;
     } catch (e) { return false; }
   }
 
-  async function loadLayoutFromCloud() {
+  async function loadLayoutFromCloud(pageId) {
+    pageId = pageId || 'page-dashboard';
     var uid = getUid();
     if (!uid) return null;
     var db = await getDb();
     if (!db) return null;
     try {
       var m = window.__wjpFsMod.mod;
-      var ref = m.doc(db, 'users', uid, 'dashboard', 'layout');
+      var ref = (pageId === 'page-dashboard')
+        ? m.doc(db, 'users', uid, 'dashboard', 'layout')
+        : m.doc(db, 'users', uid, 'layouts', pageId);
       var snap = await m.getDoc(ref);
       return snap.exists() ? snap.data() : null;
     } catch (e) { return null; }
   }
 
-  var _cloudUnsub = null;
-  var _lastCloudSavedAt = 0;
+  var _cloudUnsub = {};
   async function watchCloud() {
     var uid = getUid();
     if (!uid) return;
@@ -101,26 +131,28 @@
     if (!db) return;
     try {
       var m = window.__wjpFsMod.mod;
-      var ref = m.doc(db, 'users', uid, 'dashboard', 'layout');
-      if (_cloudUnsub) { try { _cloudUnsub(); } catch (_) {} }
-      _cloudUnsub = m.onSnapshot(ref, function (snap) {
+      MANAGED_PAGES.forEach(function (p) {
+        var ref = (p.id === 'page-dashboard')
+          ? m.doc(db, 'users', uid, 'dashboard', 'layout')
+          : m.doc(db, 'users', uid, 'layouts', p.id);
+        if (_cloudUnsub[p.id]) { try { _cloudUnsub[p.id](); } catch (_) {} }
+        _cloudUnsub[p.id] = m.onSnapshot(ref, function (snap) {
         try {
           if (!snap.exists()) return;
           var data = snap.data();
           if (!data || !Array.isArray(data.widgets)) return;
-          // Last-write-wins via savedAt — ignore if our local copy is newer
-          var localRaw = lsGet(LS_KEY);
+          var k = lsKeyFor(p.id);
+          var localRaw = lsGet(k);
           var local = null;
           try { local = localRaw ? JSON.parse(localRaw) : null; } catch (_) {}
           var localTs = (local && local.savedAt) || 0;
           var cloudTs = data.savedAt || 0;
-          if (localTs > cloudTs) return; // local is newer (e.g., just saved here)
-          // Cloud update from another device — apply
-          _lastCloudSavedAt = cloudTs;
-          try { lsSet(LS_KEY, JSON.stringify(data)); } catch (_) {}
-          try { applyLayout(); } catch (_) {}
+          if (localTs > cloudTs) return;
+          try { lsSet(k, JSON.stringify(data)); } catch (_) {}
+          if (activePageId() === p.id) { try { applyLayout(); } catch (_) {} }
         } catch (_) {}
-      }, function () {}); // silent error handler
+      }, function () {});
+      });
     } catch (_) {}
   }
 
@@ -178,19 +210,21 @@
   }
 
 
-  function loadLayout() {
+  function loadLayout(pageId) {
+    pageId = pageId || activePageId() || 'page-dashboard';
     try {
-      var raw = lsGet(LS_KEY);
+      var raw = lsGet(lsKeyFor(pageId));
       if (!raw) return null;
       var p = JSON.parse(raw);
       if (!p || !Array.isArray(p.widgets)) return null;
       return p;
     } catch (_) { return null; }
   }
-  function saveLayout(layout) {
-    try { lsSet(LS_KEY, JSON.stringify(layout)); } catch (_) {}
+  function saveLayout(layout, pageId) {
+    pageId = pageId || activePageId() || 'page-dashboard';
+    try { lsSet(lsKeyFor(pageId), JSON.stringify(layout)); } catch (_) {}
     // Push to Firestore so other devices pick it up
-    try { saveLayoutToCloud(layout); } catch (_) {}
+    try { saveLayoutToCloud(layout, pageId); } catch (_) {}
   }
 
   function injectStyle() {
@@ -199,7 +233,7 @@
     s.id = STYLE_ID;
     s.textContent = [
       // Trigger button — floats above the dashboard, top-right
-      "#" + TRIGGER_ID + " {",
+      ".wjp-dash-customizer-trigger {",
       "  position: relative;",
       "  display: inline-flex;",
       "  align-items: center;",
@@ -215,16 +249,17 @@
       "  font-family: var(--sans, Inter, system-ui, sans-serif);",
       "  transition: filter 0.15s ease;",
       "}",
-      "#" + TRIGGER_ID + ":hover { filter: brightness(0.97); }",
-      "body.dark #" + TRIGGER_ID + " { background: var(--card-2, #1c2540); border-color: var(--border-accent, rgba(0,212,168,0.25)); }",
-      "#" + TRIGGER_ID + " svg { width: 14px; height: 14px; stroke: var(--accent, #1f7a4a); }",
+      ".wjp-dash-customizer-trigger:hover { filter: brightness(0.97); }",
+      "body.dark .wjp-dash-customizer-trigger { background: var(--card-2, #1c2540); border-color: var(--border-accent, rgba(0,212,168,0.25)); }",
+      ".wjp-dash-customizer-trigger svg { width: 14px; height: 14px; stroke: var(--accent, #1f7a4a); }",
       // Wrapper so the trigger lives on the right side of the dashboard top bar
       ".wjp-dash-customizer-row { display: flex; justify-content: flex-end; padding: 4px 0 0; margin-bottom: -8px; }",
+      ".wjp-page-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; margin: 6px 0 16px; justify-content: flex-end; }",
       // v1.4: make dash-customize-bar a tidy flex row at the top of the dashboard
       "#dash-customize-bar { display: flex !important; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; margin: 6px 0 16px; }",
       "#dash-customize-bar > * { flex: 0 0 auto; }",
       // Spacer so Customize pill drops to the right side
-      "#dash-customize-bar #" + TRIGGER_ID + " { margin-left: auto; }",
+      "#dash-customize-bar .wjp-dash-customizer-trigger, .wjp-page-bar .wjp-dash-customizer-trigger { margin-left: auto; }",
       // Scrim
       "#" + SCRIM_ID + " {",
       "  position: fixed; inset: 0;",
@@ -364,7 +399,7 @@
   function applyLayout() {
     var host = findDashboardHost();
     if (!host) return;
-    var layout = loadLayout();
+    var layout = loadLayout(host.id);
     if (!layout) return;
     var idToWidget = {};
     layout.widgets.forEach(function (w) { idToWidget[w.id] = w; });
@@ -481,7 +516,9 @@
   function persistFromPanel() {
     var layout = currentLayoutFromPanel();
     if (!layout) return;
-    saveLayout(layout);
+    var host = findDashboardHost();
+    var pid = host ? host.id : null;
+    saveLayout(layout, pid);
     applyLayout();
   }
 
@@ -531,7 +568,7 @@
     var host = findDashboardHost();
     if (!host) return;
     var widgets = discoverWidgets(host);
-    var layout = loadLayout();
+    var layout = loadLayout(host.id);
     var existing = document.getElementById(PANEL_ID);
     if (existing) try { existing.remove(); } catch (_) {}
     var scrim = document.getElementById(SCRIM_ID);
@@ -576,7 +613,8 @@
       });
     }
     panel.querySelector('.wjp-dc-reset').addEventListener('click', function () {
-      try { (window.WJP_UserScope && WJP_UserScope.remove ? WJP_UserScope.remove(LS_KEY) : localStorage.removeItem(LS_KEY)); } catch (_) {}
+      var key = lsKeyFor(host.id);
+      try { (window.WJP_UserScope && WJP_UserScope.remove ? WJP_UserScope.remove(key) : localStorage.removeItem(key)); } catch (_) {}
       // Remove all hidden classes, re-render panel
       Array.from(host.children).forEach(function (c) { c.classList.remove('wjp-widget-hidden'); });
       closePanel();
@@ -632,7 +670,8 @@
     if (document.getElementById(TRIGGER_ID)) return;
 
     var btn = document.createElement('button');
-    btn.id = TRIGGER_ID;
+    btn.id = TRIGGER_ID + '-' + host.id;
+    btn.className = 'wjp-dash-customizer-trigger';
     btn.type = 'button';
     btn.setAttribute('title', 'Show / hide widgets and reorder');
     btn.innerHTML =
@@ -667,22 +706,27 @@
     } catch (e) {}
   }
 
-  // v2: hydrate from cloud on boot, then watch for changes from other devices
+  // v3 — hydrate ALL managed pages from cloud on boot
   async function bootstrapCloud() {
     try {
-      var cloud = await loadLayoutFromCloud();
-      if (cloud && Array.isArray(cloud.widgets)) {
-        // Cloud has a layout — use it as authoritative if newer than local
-        var localRaw = lsGet(LS_KEY);
-        var local = null;
-        try { local = localRaw ? JSON.parse(localRaw) : null; } catch (_) {}
-        var localTs = (local && local.savedAt) || 0;
-        var cloudTs = cloud.savedAt || 0;
-        if (cloudTs >= localTs) {
-          try { lsSet(LS_KEY, JSON.stringify(cloud)); } catch (_) {}
-          try { applyLayout(); } catch (_) {}
-        }
+      for (var i = 0; i < MANAGED_PAGES.length; i++) {
+        var p = MANAGED_PAGES[i];
+        try {
+          var cloud = await loadLayoutFromCloud(p.id);
+          if (cloud && Array.isArray(cloud.widgets)) {
+            var k = lsKeyFor(p.id);
+            var localRaw = lsGet(k);
+            var local = null;
+            try { local = localRaw ? JSON.parse(localRaw) : null; } catch (_) {}
+            var localTs = (local && local.savedAt) || 0;
+            var cloudTs = cloud.savedAt || 0;
+            if (cloudTs >= localTs) {
+              try { lsSet(k, JSON.stringify(cloud)); } catch (_) {}
+            }
+          }
+        } catch (_) {}
       }
+      try { applyLayout(); } catch (_) {}
       watchCloud();
     } catch (_) {}
   }
@@ -711,6 +755,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: 2.1-polished
+    version: 3.0-multi-page
   };
 })();
