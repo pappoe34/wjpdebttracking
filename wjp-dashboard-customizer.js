@@ -399,6 +399,15 @@
   function applyLayout() {
     var host = findDashboardHost();
     if (!host) return;
+    // v3.0.2 — ALWAYS pin dash-customize-bar (and wjp-page-bar) to position 0,
+    // before applying any saved layout. The saved layout doesn\'t include the
+    // bar so it would otherwise get pushed to the bottom by the reorder loop.
+    var pinBar = host.id === 'page-dashboard'
+      ? document.getElementById('dash-customize-bar')
+      : host.querySelector('.wjp-page-bar');
+    if (pinBar && pinBar.parentElement === host && host.firstElementChild !== pinBar) {
+      try { host.insertBefore(pinBar, host.firstChild); } catch (_) {}
+    }
     var layout = loadLayout(host.id);
     if (!layout) return;
     var idToWidget = {};
@@ -436,6 +445,10 @@
         sortedTail = node;
       } catch (_) {}
     });
+    // v3.0.2 — after layout reorder, pin bar back to position 0
+    if (pinBar && pinBar.parentElement === host && host.firstElementChild !== pinBar) {
+      try { host.insertBefore(pinBar, host.firstChild); } catch (_) {}
+    }
   }
 
   // ---------- panel UI ----------
@@ -766,6 +779,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: "3.0.1-fix-dup-buttons"
+    version: "3.0.2-pin-bar"
   };
 })();
