@@ -1,4 +1,4 @@
-/* wjp-dashboard-customizer.js v1 — 2026-05-19
+/* WJP_BUILD_TAG_1779224340 — wjp-dashboard-customizer.js v1 — 2026-05-19
  *
  * Stage 2 of dashboard customization. Adds a small ⚙ button in the top-right
  * of #page-dashboard. Clicking it opens a slide-out panel listing all
