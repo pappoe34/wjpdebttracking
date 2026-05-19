@@ -1,4 +1,4 @@
-/* wjp-edu-dashboard-tip.js v4 — anti-flicker (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
+/* wjp-edu-dashboard-tip.js v4.1 — anti-flicker + true-first (2026-05-19): narrow childList observer on host. v3: — dashboard customization Stage 1 (2026-05-19):
  * Bigger, more readable banner that matches the app's color tokens in both
  * light and dark mode. Uses CSS vars (--card-2, --accent, --ink, etc.) so it
  * cascades correctly with body.light / body.dark. Maintains first position
@@ -180,17 +180,15 @@
     );
   }
 
-  // Insert banner as the FIRST visible element of #page-dashboard.
-  // Tricky: wjp-dashboard-hero ALSO inserts itself as firstChild every 6s.
-  // Strategy: always insert ourselves BEFORE the hero card if it exists.
+  // v4.1 — banner must be FIRST child of dashboard, before everything else
+  // (dash-greeting, dfd-hero, hero card, etc. all get pushed down). The
+  // MutationObserver below re-asserts this whenever anything mutates the
+  // dashboard's direct children.
   function placeAtTop(node, host) {
     if (!node || !host) return;
-    var hero = host.querySelector('#wjp-dashboard-hero');
     try {
-      if (hero && hero.parentElement === host) {
-        if (hero.previousElementSibling !== node) host.insertBefore(node, hero);
-      } else {
-        if (host.firstElementChild !== node) host.insertBefore(node, host.firstElementChild);
+      if (host.firstElementChild !== node) {
+        host.insertBefore(node, host.firstElementChild);
       }
     } catch (_) {}
   }
@@ -261,16 +259,8 @@
     if (!tip || dismiss[tip.id] === todayKey()) return;
     var existing = document.getElementById(BANNER_ID);
     if (existing && existing.parentElement === host) {
-      // Already in place — just ensure it sits before the hero card
-      var hero = document.getElementById('wjp-dashboard-hero');
-      if (hero && hero.parentElement === host) {
-        // existing should come BEFORE hero. If not, fix.
-        if (existing.compareDocumentPosition(hero) !== Node.DOCUMENT_POSITION_FOLLOWING) {
-          _inMyMutation = true;
-          try { host.insertBefore(existing, hero); } catch (_) {}
-          _inMyMutation = false;
-        }
-      } else if (host.firstElementChild !== existing) {
+      // Must be FIRST child of host. If not, move to first.
+      if (host.firstElementChild !== existing) {
         _inMyMutation = true;
         try { host.insertBefore(existing, host.firstElementChild); } catch (_) {}
         _inMyMutation = false;
@@ -307,5 +297,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.WJP_EduDashTip = { refresh: tick, version: 4 };
+  window.WJP_EduDashTip = { refresh: tick, version: 4.1 };
 })();
