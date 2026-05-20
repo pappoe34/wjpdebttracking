@@ -123,37 +123,20 @@
     } catch (e) { return null; }
   }
 
+  // v3.0.5 — onSnapshot listeners removed to reduce Firestore read quota.
+  // Each managed page had a continuous subscription that fired on every
+  // change. Replaced with a periodic poll (every 5 minutes) via bootstrapCloud
+  // which is sufficient for cross-device sync without burning quota.
   var _cloudUnsub = {};
   async function watchCloud() {
-    var uid = getUid();
-    if (!uid) return;
-    var db = await getDb();
-    if (!db) return;
-    try {
-      var m = window.__wjpFsMod.mod;
-      MANAGED_PAGES.forEach(function (p) {
-        var ref = (p.id === 'page-dashboard')
-          ? m.doc(db, 'users', uid, 'dashboard', 'layout')
-          : m.doc(db, 'users', uid, 'layouts', p.id);
-        if (_cloudUnsub[p.id]) { try { _cloudUnsub[p.id](); } catch (_) {} }
-        _cloudUnsub[p.id] = m.onSnapshot(ref, function (snap) {
-        try {
-          if (!snap.exists()) return;
-          var data = snap.data();
-          if (!data || !Array.isArray(data.widgets)) return;
-          var k = lsKeyFor(p.id);
-          var localRaw = lsGet(k);
-          var local = null;
-          try { local = localRaw ? JSON.parse(localRaw) : null; } catch (_) {}
-          var localTs = (local && local.savedAt) || 0;
-          var cloudTs = data.savedAt || 0;
-          if (localTs > cloudTs) return;
-          try { lsSet(k, JSON.stringify(data)); } catch (_) {}
-          if (activePageId() === p.id) { try { applyLayout(); } catch (_) {} }
-        } catch (_) {}
-      }, function () {});
-      });
-    } catch (_) {}
+    // No-op now. Cross-device sync happens via bootstrapCloud() polling.
+    return;
+  }
+  // Periodic re-pull from cloud — much cheaper than onSnapshot
+  function startCloudPullPolling() {
+    setInterval(function () {
+      try { bootstrapCloud(); } catch (_) {}
+    }, 5 * 60 * 1000); // every 5 minutes
   }
 
   var STYLE_ID = "wjp-dash-customizer-style";
@@ -749,6 +732,7 @@
     // Cloud sync — runs after a short delay so Firebase Auth + the FS SDK
     // have time to settle. Don't block initial tick.
     setTimeout(bootstrapCloud, 2000);
+    startCloudPullPolling();
     // Re-bootstrap when user changes (signin/signout)
     try {
       if (window.WJP_UserScope && WJP_UserScope.onAuthChange) {
@@ -765,6 +749,6 @@
     open: openPanel,
     close: closePanel,
     reset: function () { try { localStorage.removeItem(LS_KEY); } catch (_) {} applyLayout(); },
-    version: "3.0.4-flat-list"
+    version: "3.0.5-no-listeners"
   };
 })();
