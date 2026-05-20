@@ -126,7 +126,7 @@
       if (!card) {
         card = document.createElement('div');
         card.id = HERO_ID;
-        card.className = 'card reveal';
+        card.className = 'card reveal reorderable'; card.setAttribute('data-card-id','last-7-days'); card.setAttribute('data-card-label','Last 7 Days');
         card.style.cssText = 'padding:14px 16px;margin-top:10px;';
         // v4: Insert AFTER the Executive Summary (#dfd-hero) so it doesn't push the
         // headline below. Fall back to after greeting if exec summary not present yet.
