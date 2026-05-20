@@ -101,6 +101,11 @@
   wrap('renderStrategyIndicators', 'debts', 5000);
   wrap('renderTop3Strategy', 'debts', 5000);
   wrap('renderTransactions', 'transactions', 3000);
+  // v2.3 — drawCharts() is the root cause of Spending Tracker flicker.
+  // Called from 8+ code paths; each call rebuilds the chart canvas (which
+  // triggers Chart.js auto-resize cascade) AND updates 8 spend-sum-* text
+  // nodes. Throttle to 3s + memoize on transactions hash.
+  wrap('drawCharts', 'transactions', 3000);
 
   // Reset-on-interaction — when user clicks a strategy chip, force a fresh render
   document.addEventListener('click', function (e) {
@@ -114,5 +119,5 @@
     });
   }, true);
 
-  window.WJP_RenderThrottle = { version: 2.2-noupdateui };
+  window.WJP_RenderThrottle = { version: 2.3-drawcharts };
 })();
