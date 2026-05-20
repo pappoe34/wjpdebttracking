@@ -305,7 +305,7 @@
       +   '<div style="display:grid;gap:12px;font-size:13px;line-height:1.5;">'
       +     '<div><strong>Debt this week</strong> — change in your total debt balance over the last 7 days. We sum every debt balance you have today and compare it to 7 days ago. Negative means you paid down, positive means the balance grew.</div>'
       +     '<div><strong>Cash on hand</strong> — your current liquid savings. Set it manually or link to an already-connected checking/savings account. The arrow shows the change since the same point last week.</div>'
-      +     '<div><strong>Credit score</strong> — change in your bureau credit score from your last credit pull (Array integration). Shows "—" until you connect credit monitoring.</div>'
+      +     '<div><strong>Credit score</strong> — change in your VantageScore from your last credit pull. Shows "—" until your credit monitoring is connected.</div>'
       +     '<div><strong>Debt health</strong> — your WJP health score (0-100). Built from utilization, on-time payment streak, debt-to-income trend, and momentum vs your strategy. Goes up as you pay down and stay on schedule.</div>'
       +   '</div>'
       +   '<div style="display:flex;justify-content:flex-end;margin-top:18px;">'
