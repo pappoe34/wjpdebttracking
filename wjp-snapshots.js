@@ -70,11 +70,33 @@
       var paid  = Math.max(0, start - bal);
       return a + paid;
     }, 0);
-    var liquidCash = (s.assets || []).filter(function (a) {
-      if (!a) return false;
-      var t = (a.type || a.subtype || '').toLowerCase();
-      return /checking|savings|cash|money\s*market/.test(t);
-    }).reduce(function (sum, a) { return sum + (Number(a.balance) || Number(a.amount) || 0); }, 0);
+    // v3 — respect appState.cashSettings (manual override OR pick-a-linked-account).
+    // Falls back to summing cash-like assets when mode is auto / not set.
+    var cs = s.cashSettings || { mode: 'auto' };
+    var liquidCash = 0;
+    if (cs.mode === 'manual' && typeof cs.amount === 'number') {
+      liquidCash = cs.amount;
+    } else if (cs.mode === 'account' && cs.accountId) {
+      var pools = [s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
+      var picked = null;
+      pools.forEach(function (arr) {
+        arr.forEach(function (a) {
+          if (picked) return;
+          var id = a && (a.id || a.account_id || a.accountId || (a.name + ':' + (a.mask || '')));
+          if (id === cs.accountId) picked = a;
+        });
+      });
+      if (picked) {
+        liquidCash = (picked.balances && (picked.balances.current || picked.balances.available)) || picked.balance || picked.amount || 0;
+        liquidCash = Number(liquidCash) || 0;
+      }
+    } else {
+      liquidCash = (s.assets || []).filter(function (a) {
+        if (!a) return false;
+        var t = (a.type || a.subtype || '').toLowerCase();
+        return /checking|savings|cash|money\s*market/.test(t);
+      }).reduce(function (sum, a) { return sum + (Number(a.balance) || Number(a.amount) || 0); }, 0);
+    }
 
     var score = 0;
     try {

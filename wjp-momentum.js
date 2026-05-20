@@ -55,20 +55,103 @@
     } catch (_) { return null; }
   }
 
+  // ---------- Cash on Hand helpers (v6 — manual override + linked-account picker) ----------
+  function getState2() { try { return appState; } catch (_) { return (window.appState || null); } }
+  function getCashSettings() {
+    var s = getState2() || {};
+    return s.cashSettings || { mode: 'auto' };
+  }
+  function setCashSettings(cs) {
+    var s = getState2(); if (!s) return;
+    s.cashSettings = cs;
+    try { if (typeof saveState === 'function') saveState(); } catch (_) {}
+    try { if (typeof window.cloudPush === 'function') window.cloudPush(); } catch (_) {}
+  }
+  function listConnectedCashAccounts() {
+    // No new Plaid Link flow — read whatever is already in appState
+    var s = getState2() || {};
+    var pools = [s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
+    var out = [];
+    pools.forEach(function (arr) {
+      arr.forEach(function (a) {
+        if (!a) return;
+        var t = (a.type || a.subtype || a.accountType || '').toLowerCase();
+        if (!/checking|savings|cash|money\s*market|brokerage/.test(t)) return;
+        var id = a.id || a.account_id || a.accountId || (a.name + ':' + (a.mask||''));
+        var bal = (a.balances && (a.balances.current || a.balances.available)) || a.balance || a.amount || 0;
+        out.push({ id: id, name: a.name || a.officialName || 'Account', mask: a.mask || '', balance: Number(bal) || 0, type: t });
+      });
+    });
+    // Dedupe by id
+    var seen = {}; return out.filter(function (a) { if (seen[a.id]) return false; seen[a.id] = 1; return true; });
+  }
+  function getCurrentCashOnHand() {
+    var cs = getCashSettings();
+    if (cs.mode === 'manual' && typeof cs.amount === 'number') return cs.amount;
+    if (cs.mode === 'account' && cs.accountId) {
+      var acct = listConnectedCashAccounts().find(function (a) { return a.id === cs.accountId; });
+      if (acct) return acct.balance;
+    }
+    // Auto fallback: sum of cash-like assets (existing behavior)
+    var s = getState2() || {};
+    return (s.assets || []).filter(function (a) {
+      if (!a) return false;
+      var t = (a.type || a.subtype || '').toLowerCase();
+      return /checking|savings|cash|money\s*market/.test(t);
+    }).reduce(function (sum, a) { return sum + (Number(a.balance) || Number(a.amount) || 0); }, 0);
+  }
+  function getDebtHealthDelta(d) { return d ? (d.score || 0) : 0; }
+  function getCreditScoreDelta() {
+    // Array integration — pull from appState.creditScore.history if available
+    var s = getState2() || {};
+    var cs = s.creditScore || s.credit || null;
+    if (!cs) return null;
+    var hist = cs.history || cs.snapshots || [];
+    if (!Array.isArray(hist) || hist.length < 2) return null;
+    var sorted = hist.slice().sort(function (a, b) { return (a.date || a.ts || 0) - (b.date || b.ts || 0); });
+    return (Number(sorted[sorted.length - 1].score) || 0) - (Number(sorted[0].score) || 0);
+  }
+
+  // Make cash + info handles discoverable via window so the click handlers can be inline
+  window.WJP_Momentum_openCashEdit = openCashEdit;
+  window.WJP_Momentum_openInfo     = openInfoModal;
+
   function buildHeroHTML() {
     if (!window.WJP_Snapshots) return '';
     var d = getBestDelta();
+    var cashAbs = getCurrentCashOnHand();
+    var cashDelta = d ? (d.liquidCash || 0) : 0;
+    if (cashDelta === 0 && cashAbs !== 0) {
+      // override delta as 0 (no snapshot delta yet) — clear sub line accordingly
+    }
+    var creditDelta = getCreditScoreDelta(); // null if no data
+    var healthDelta = getDebtHealthDelta(d);
+
     if (!d) {
-      // No history yet — show a friendly "starting fresh" state
+      // Still render the chips but with zero deltas + the cash absolute value
+      d = { daysCovered: 0, totalDebt: 0, liquidCash: 0, score: 0 };
+    }
+
+    // ===== chip — value-with-delta variant =====
+    function valueChip(label, absVal, deltaVal, deltaGood, sub, icon, clickAttr) {
+      var color = (deltaVal === 0) ? '#94a3b8' : (deltaGood ? '#10b981' : '#ef4444');
+      var bg    = (deltaVal === 0) ? 'rgba(148,163,184,0.10)' : (deltaGood ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)');
+      var arrow = deltaVal === 0 ? '' : (deltaGood ? '↑' : '↓');
+      var sign  = deltaGood && deltaVal > 0 ? '+' : (deltaGood && deltaVal < 0 ? '−' : (deltaVal > 0 ? '+' : (deltaVal < 0 ? '−' : '')));
+      var deltaAbsTxt = '$' + Math.abs(Math.round(deltaVal)).toLocaleString('en-US');
+      var absTxt = '$' + Math.round(absVal).toLocaleString('en-US');
       return ''
-        + '<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:14px;margin:14px 0;">'
-        +   '<div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.18);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-rocket-launch" style="font-size:18px;color:#10b981;"></i></div>'
-        +   '<div style="flex:1;"><div style="font-size:13px;font-weight:800;color:var(--ink, var(--text-1, #0a0a0a));">Day one — let\'s build your momentum.</div><div style="font-size:11px;color:var(--text-3, rgba(255,255,255,0.65));font-weight:600;margin-top:2px;">Check in tomorrow to see your first 24-hour delta.</div></div>'
+        + '<div ' + (clickAttr || '') + ' style="flex:1;min-width:0;padding:10px 14px;background:' + bg + ';border:1px solid ' + color + '33;border-radius:10px;display:flex;align-items:center;gap:10px;' + (clickAttr ? 'cursor:pointer;' : '') + '">'
+        + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + '22;display:grid;place-items:center;flex-shrink:0;color:' + color + ';"><i class="' + icon + '" style="font-size:14px;"></i></div>'
+        + '<div style="flex:1;min-width:0;">'
+        +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</div>'
+        +   '<div style="font-size:15px;font-weight:900;color:var(--ink, var(--text-1, #0a0a0a));letter-spacing:-0.005em;">' + absTxt + '</div>'
+        +   '<div style="font-size:10px;font-weight:700;color:' + color + ';">' + arrow + ' ' + sign + deltaAbsTxt + (sub ? '  · ' + sub : '') + '</div>'
+        + '</div>'
         + '</div>';
     }
 
-    // Three chips
-    function chip(label, value, good, sub, icon) {
+    function deltaChip(label, value, good, sub, icon) {
       var color = (value === 0) ? '#94a3b8' : (good ? '#10b981' : '#ef4444');
       var bg = (value === 0) ? 'rgba(148,163,184,0.10)' : (good ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)');
       var arrow = value === 0 ? '' : (good ? '↑' : '↓');
@@ -79,43 +162,160 @@
         + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + '22;display:grid;place-items:center;flex-shrink:0;color:' + color + ';"><i class="' + icon + '" style="font-size:14px;"></i></div>'
         + '<div style="flex:1;min-width:0;">'
         +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</div>'
-        +   '<div style="font-size:14.5px;font-weight:900;color:' + color + ';letter-spacing:-0.005em;">' + arrow + ' ' + sign + (label === 'Score' ? absV : '$' + absV.toLocaleString('en-US')) + '</div>'
+        +   '<div style="font-size:14.5px;font-weight:900;color:' + color + ';letter-spacing:-0.005em;">' + arrow + ' ' + sign + (label === 'Credit' || label === 'Health' ? absV : '$' + absV.toLocaleString('en-US')) + '</div>'
         +   (sub ? '<div style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">' + sub + '</div>' : '')
         + '</div>'
         + '</div>';
     }
 
-    // Debt: down is good
-    var debtChip = chip(
+    var debtChip = deltaChip(
       'Debt this week',
-      -d.totalDebt,                   // flip sign so "paid down" displays positive
-      d.totalDebt <= 0,               // good if totalDebt didn't grow
+      -d.totalDebt,
+      d.totalDebt <= 0,
       d.totalDebt < 0 ? fmtUSD(d.totalDebt) + ' paid down' : (d.totalDebt > 0 ? 'crept up' : 'no change'),
       'ph-fill ph-trending-down'
     );
-    // Liquid cash: up is good
-    var cashChip = chip(
+
+    // Cash chip — now clickable + shows absolute + delta sub-line
+    var cashSettings = getCashSettings();
+    var cashSub = '';
+    if (cashSettings.mode === 'manual')    cashSub = 'manual entry';
+    else if (cashSettings.mode === 'account') cashSub = 'from linked account';
+    else                                    cashSub = 'tap to set';
+    if (d && (d.liquidCash || 0) !== 0) {
+      cashSub = (d.liquidCash > 0 ? 'saved this week' : 'drawn down this week');
+    }
+    var cashChip = valueChip(
       'Cash on hand',
-      d.liquidCash,
-      d.liquidCash >= 0,
-      d.liquidCash > 0 ? 'saved' : (d.liquidCash < 0 ? 'drawn down' : 'no change'),
-      'ph-fill ph-piggy-bank'
-    );
-    // Score: up is good
-    var scoreChip = chip(
-      'Score',
-      d.score,
-      d.score >= 0,
-      d.score > 0 ? 'gain' : (d.score < 0 ? 'loss' : 'steady'),
-      'ph-fill ph-shield-check'
+      cashAbs,
+      cashDelta,
+      cashDelta >= 0,
+      cashSub,
+      'ph-fill ph-piggy-bank',
+      'onclick="window.WJP_Momentum_openCashEdit && window.WJP_Momentum_openCashEdit()" role="button" tabindex="0"'
     );
 
+    // Combined Credit + Health chip — stacked sub-rows + info icon
+    var creditDisplay = (creditDelta === null) ? '—' : ((creditDelta > 0 ? '+' : (creditDelta < 0 ? '−' : '')) + Math.abs(Math.round(creditDelta)));
+    var creditColor   = (creditDelta === null) ? '#94a3b8' : (creditDelta >= 0 ? '#10b981' : '#ef4444');
+    var healthSign    = healthDelta > 0 ? '+' : (healthDelta < 0 ? '−' : '');
+    var healthDisplay = healthSign + Math.abs(Math.round(healthDelta));
+    var healthColor   = (healthDelta === 0) ? '#94a3b8' : (healthDelta >= 0 ? '#10b981' : '#ef4444');
+    var scoreChip = ''
+      + '<div style="flex:1;min-width:0;padding:10px 14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;">'
+      + '<div style="width:30px;height:30px;border-radius:8px;background:rgba(99,102,241,0.18);display:grid;place-items:center;flex-shrink:0;color:#6366f1;"><i class="ph-fill ph-shield-check" style="font-size:14px;"></i></div>'
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="display:flex;align-items:center;justify-content:space-between;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">'
+      +     '<span>Scores</span>'
+      +     '<span onclick="window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" style="cursor:pointer;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:inline-grid;place-items:center;font-size:10px;font-style:italic;font-weight:900;letter-spacing:0;">i</span>'
+      +   '</div>'
+      +   '<div style="display:flex;gap:8px;align-items:baseline;margin-top:2px;">'
+      +     '<span style="font-size:12px;font-weight:800;color:' + creditColor + ';">' + creditDisplay + '</span><span style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">credit</span>'
+      +     '<span style="opacity:0.4;">·</span>'
+      +     '<span style="font-size:12px;font-weight:800;color:' + healthColor + ';">' + healthDisplay + '</span><span style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">health</span>'
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+
+    var headerSub = (d.daysCovered === 0 ? 'starting fresh' : 'vs ' + d.daysCovered + ' days ago');
+    var headerLabel = (d.daysCovered === 1) ? 'Last 24 hours' : (d.daysCovered === 0 ? 'Last 7 days' : 'Last ' + d.daysCovered + ' days');
     return ''
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-      +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">Last ' + (d.daysCovered === 1 ? '24 hours' : d.daysCovered + ' days') + '</div>'
-      +   '<div style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;">vs ' + d.daysCovered + ' days ago</div>'
+      +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">' + headerLabel + '</div>'
+      +   '<div style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;">' + headerSub + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + debtChip + cashChip + scoreChip + '</div>';
+  }
+
+  // ===== Cash on Hand edit modal =====
+  function openCashEdit() {
+    closeMomentumModal();
+    var cs = getCashSettings();
+    var accounts = listConnectedCashAccounts();
+    var isLight = document.body.classList.contains('light');
+    var bg = isLight ? '#ffffff' : '#13192a';
+    var ink = isLight ? '#0a0a0a' : '#f1f5f9';
+    var subInk = isLight ? 'rgba(10,10,10,0.55)' : 'rgba(241,245,249,0.55)';
+    var border = isLight ? 'rgba(10,10,10,0.10)' : 'rgba(255,255,255,0.10)';
+
+    var html = ''
+      + '<div id="wjp-mom-scrim" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;"></div>'
+      + '<div id="wjp-mom-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,90vw);background:' + bg + ';color:' + ink + ';border:1px solid ' + border + ';border-radius:14px;padding:20px;z-index:9001;box-shadow:0 24px 64px rgba(0,0,0,0.45);">'
+      +   '<h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;">Cash on Hand</h3>'
+      +   '<p style="margin:0 0 16px 0;font-size:12px;color:' + subInk + ';">Type your current savings, or pick an already-connected account. No new bank link needed.</p>'
+      +   '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:' + subInk + ';margin-bottom:6px;">Manual amount</label>'
+      +   '<input id="wjp-mom-cash-input" type="number" inputmode="decimal" placeholder="0.00" min="0" step="0.01" value="' + (cs.mode === 'manual' && typeof cs.amount === 'number' ? cs.amount : '') + '" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';font-size:16px;font-weight:600;box-sizing:border-box;"/>'
+      +   '<div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:' + subInk + ';font-size:11px;font-weight:700;">'
+      +     '<div style="flex:1;height:1px;background:' + border + ';"></div><span>OR</span><div style="flex:1;height:1px;background:' + border + ';"></div>'
+      +   '</div>'
+      +   '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:' + subInk + ';margin-bottom:6px;">Link to a connected account</label>'
+      +   '<select id="wjp-mom-cash-acct" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';font-size:14px;font-weight:600;box-sizing:border-box;">'
+      +     '<option value="">— None —</option>'
+      +     accounts.map(function (a) {
+              var sel = (cs.mode === 'account' && cs.accountId === a.id) ? ' selected' : '';
+              return '<option value="' + String(a.id).replace(/"/g, '&quot;') + '"' + sel + '>' + (a.name || 'Account') + (a.mask ? ' ·' + a.mask : '') + ' — $' + Math.round(a.balance).toLocaleString('en-US') + '</option>';
+            }).join('')
+      +   '</select>'
+      +   (accounts.length === 0 ? '<p style="font-size:11px;color:' + subInk + ';margin:6px 0 0 0;">No connected checking/savings accounts yet. Use Sync Bank from the Bank Health tab to add one.</p>' : '')
+      +   '<div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;">'
+      +     '<button id="wjp-mom-clear" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';cursor:pointer;font-weight:600;">Clear</button>'
+      +     '<div style="display:flex;gap:10px;">'
+      +       '<button id="wjp-mom-cancel" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';cursor:pointer;font-weight:600;">Cancel</button>'
+      +       '<button id="wjp-mom-save"   type="button" style="padding:8px 14px;border-radius:8px;border:0;background:#10b981;color:#ffffff;cursor:pointer;font-weight:700;">Save</button>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>';
+    var holder = document.createElement('div');
+    holder.id = 'wjp-mom-modal-holder';
+    holder.innerHTML = html;
+    document.body.appendChild(holder);
+    document.getElementById('wjp-mom-scrim').addEventListener('click', closeMomentumModal);
+    document.getElementById('wjp-mom-cancel').addEventListener('click', closeMomentumModal);
+    document.getElementById('wjp-mom-clear').addEventListener('click', function () {
+      setCashSettings({ mode: 'auto' });
+      closeMomentumModal();
+      try { mountHero(); } catch (_) {}
+    });
+    document.getElementById('wjp-mom-save').addEventListener('click', function () {
+      var amount = parseFloat(document.getElementById('wjp-mom-cash-input').value);
+      var acctId = document.getElementById('wjp-mom-cash-acct').value;
+      if (acctId) setCashSettings({ mode: 'account', accountId: acctId });
+      else if (!isNaN(amount) && amount >= 0) setCashSettings({ mode: 'manual', amount: amount });
+      else setCashSettings({ mode: 'auto' });
+      closeMomentumModal();
+      try { mountHero(); } catch (_) {}
+    });
+  }
+  function closeMomentumModal() {
+    var h = document.getElementById('wjp-mom-modal-holder');
+    if (h) h.remove();
+  }
+  function openInfoModal() {
+    closeMomentumModal();
+    var isLight = document.body.classList.contains('light');
+    var bg = isLight ? '#ffffff' : '#13192a';
+    var ink = isLight ? '#0a0a0a' : '#f1f5f9';
+    var subInk = isLight ? 'rgba(10,10,10,0.6)' : 'rgba(241,245,249,0.65)';
+    var border = isLight ? 'rgba(10,10,10,0.10)' : 'rgba(255,255,255,0.10)';
+    var html = ''
+      + '<div id="wjp-mom-scrim" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;"></div>'
+      + '<div id="wjp-mom-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,92vw);max-height:80vh;overflow-y:auto;background:' + bg + ';color:' + ink + ';border:1px solid ' + border + ';border-radius:14px;padding:22px;z-index:9001;box-shadow:0 24px 64px rgba(0,0,0,0.45);">'
+      +   '<h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;">How this box works</h3>'
+      +   '<p style="margin:0 0 16px 0;font-size:12px;color:' + subInk + ';">Last 7 Days shows your week-over-week movement on three things that matter.</p>'
+      +   '<div style="display:grid;gap:12px;font-size:13px;line-height:1.5;">'
+      +     '<div><strong>Debt this week</strong> — change in your total debt balance over the last 7 days. We sum every debt balance you have today and compare it to 7 days ago. Negative means you paid down, positive means the balance grew.</div>'
+      +     '<div><strong>Cash on hand</strong> — your current liquid savings. Set it manually or link to an already-connected checking/savings account. The arrow shows the change since the same point last week.</div>'
+      +     '<div><strong>Credit score</strong> — change in your bureau credit score from your last credit pull (Array integration). Shows "—" until you connect credit monitoring.</div>'
+      +     '<div><strong>Debt health</strong> — your WJP health score (0-100). Built from utilization, on-time payment streak, debt-to-income trend, and momentum vs your strategy. Goes up as you pay down and stay on schedule.</div>'
+      +   '</div>'
+      +   '<div style="display:flex;justify-content:flex-end;margin-top:18px;">'
+      +     '<button id="wjp-mom-info-close" type="button" style="padding:8px 14px;border-radius:8px;border:0;background:#10b981;color:#ffffff;cursor:pointer;font-weight:700;">Got it</button>'
+      +   '</div>'
+      + '</div>';
+    var holder = document.createElement('div'); holder.id = 'wjp-mom-modal-holder'; holder.innerHTML = html;
+    document.body.appendChild(holder);
+    document.getElementById('wjp-mom-scrim').addEventListener('click', closeMomentumModal);
+    document.getElementById('wjp-mom-info-close').addEventListener('click', closeMomentumModal);
   }
 
   function mountHero() {
