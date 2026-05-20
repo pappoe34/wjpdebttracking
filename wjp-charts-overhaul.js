@@ -39,9 +39,14 @@
       var attr = html.getAttribute('data-theme');
       if (attr === 'dark') return true;
       if (attr === 'light') return false;
+      // Explicit signals only — never fall back to OS preference because the
+      // app's day/night toggle (body.classList 'light'/'dark') must win even
+      // when the OS theme disagrees. Bug 2026-05-20: spending tooltip went
+      // dark-on-dark in day mode because OS was dark and 'light' was treated
+      // as "no signal".
+      if (document.body.classList.contains('light')) return false;
       if (html.classList.contains('dark') || document.body.classList.contains('dark')) return true;
-      // Fall back to OS preference
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return false;
     } catch (_) { return false; }
   }
   // Pull live CSS vars whenever possible so charts inherit the host's exact theme.
@@ -138,6 +143,7 @@
         labels: { color: muted(), font: { size: 10, weight: '700' }, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 }
       };
       config.options.plugins.tooltip = {
+        animation: false,
         backgroundColor: isDark() ? 'rgba(11,15,26,0.96)' : 'rgba(255,255,255,0.98)',
         titleColor: ink(), bodyColor: ink(),
         borderColor: 'rgba(16,185,129,0.4)', borderWidth: 1, padding: 12,
@@ -267,6 +273,7 @@
         labels: { color: muted(), font: { size: 10, weight: '700' }, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 }
       };
       config.options.plugins.tooltip = {
+        animation: false,
         backgroundColor: isDark() ? 'rgba(11,15,26,0.96)' : 'rgba(255,255,255,0.98)',
         titleColor: ink(), bodyColor: ink(), borderColor: 'rgba(16,185,129,0.4)', borderWidth: 1, padding: 12,
         callbacks: {
@@ -368,6 +375,7 @@
         }
       };
       config.options.plugins.tooltip = {
+        animation: false,
         backgroundColor: isDark() ? 'rgba(11,15,26,0.96)' : 'rgba(255,255,255,0.98)',
         titleColor: ink(), bodyColor: ink(), borderColor: 'rgba(16,185,129,0.4)', borderWidth: 1, padding: 12,
         callbacks: {
