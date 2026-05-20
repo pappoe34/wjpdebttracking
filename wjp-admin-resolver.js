@@ -121,5 +121,50 @@
     }, 500);
   }
 
-  window.WJP_AdminResolver = { version: 1, resolve: resolve };
+
+
+  // v2 — Actively remove admin-only UI as soon as admin is detected. The gate
+  // modules render their cards/banners BEFORE auth resolves (~0-3s after load).
+  // Our resolver detects admin once auth resolves. To kill the flash, we poll
+  // every 200ms for the first 10s, then every 2s afterwards, and rip out any
+  // admin-shouldn-not-see UI whenever resolve() returns true.
+  var ADMIN_KILL_SELECTORS = [
+    '#wjp-trial-banner',
+    '.wjp-ftg-upgrade-card',
+    '.wjp-ai-upgrade-mini'
+  ];
+  function killAdminUI() {
+    if (!resolve()) return;
+    try {
+      ADMIN_KILL_SELECTORS.forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (el) {
+          try { el.remove(); } catch (_) {}
+        });
+      });
+      // Also restore any elements that gates hid (data-wjp-ftg-hidden)
+      var hidden = document.querySelectorAll('[data-wjp-ftg-hidden="1"]');
+      Array.prototype.forEach.call(hidden, function (el) {
+        try {
+          el.style.display = el.dataset.wjpFtgOrigDisplay || '';
+          el.removeAttribute('data-wjp-ftg-hidden');
+        } catch (_) {}
+      });
+      // Body padding from the trial banner
+      try { document.body.classList.remove('wjp-has-trial-banner'); document.body.style.paddingTop = ''; } catch (_) {}
+    } catch (_) {}
+  }
+  // Fast polling for first 10s (covers the cold-start flash window)
+  var fastTicks = 0;
+  var fastIv = setInterval(function () {
+    killAdminUI();
+    if (++fastTicks > 50) clearInterval(fastIv); // 50 × 200ms = 10s
+  }, 200);
+  // Slow polling forever after that — cheap, just in case modules re-inject
+  setInterval(killAdminUI, 2000);
+  // Also kill immediately on first appState mutation or auth-ready event
+  try {
+    window.addEventListener('wjp-auth-ready', function () { setTimeout(killAdminUI, 50); }, false);
+  } catch (_) {}
+
+  window.WJP_AdminResolver = { version: 2, resolve: resolve, killAdminUI: killAdminUI };
 })();
