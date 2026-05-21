@@ -149,10 +149,24 @@ let chartInstances = {}; // To manage Chart.js instances across re-renders
  *  When a user signs in, _migrateAnonStateToUser() copies anonymous state to
  *  their key once, keeping data continuity without exposing it across users. */
 function getStateKey() {
+    // Per-user storage key. Reads UID from the Firebase v9 modular SDK first
+    // (window.__wjpUser / window.__wjpAuth set by the auth gate in index.html),
+    // then falls back to the legacy compat SDK. Returns the bare key only
+    // during the pre-auth bootstrap window. Without this UID resolution, two
+    // users signing into the same browser would BOTH read+write
+    // 'wjp_budget_state' and see each other's data (cross-user leak fix).
     try {
-        const u = (window.firebase && firebase.auth) ? firebase.auth().currentUser : null;
-        if (u && u.uid) return `wjp_budget_state_u_${u.uid}`;
-    } catch(_){}
+        if (window.__wjpUser && window.__wjpUser.uid) {
+            return `wjp_budget_state_u_${window.__wjpUser.uid}`;
+        }
+        if (window.__wjpAuth && window.__wjpAuth.currentUser && window.__wjpAuth.currentUser.uid) {
+            return `wjp_budget_state_u_${window.__wjpAuth.currentUser.uid}`;
+        }
+        if (window.firebase && firebase.auth) {
+            const u = firebase.auth().currentUser;
+            if (u && u.uid) return `wjp_budget_state_u_${u.uid}`;
+        }
+    } catch(_) {}
     return 'wjp_budget_state';
 }
 
@@ -308,13 +322,52 @@ window.renderUserIdentity = renderUserIdentity;
  *  data). Subsequent saves go straight to the user-keyed slot. */
 function migrateAnonStateToUser() {
     try {
-        const u = (window.firebase && firebase.auth) ? firebase.auth().currentUser : null;
-        if (!u || !u.uid) return;
-        const userKey = `wjp_budget_state_u_${u.uid}`;
-        if (localStorage.getItem(userKey)) return; // already has data
+        // Modern Firebase v9 modular SDK first, legacy compat fallback.
+        let uid = null, currentEmail = '';
+        if (window.__wjpUser && window.__wjpUser.uid) {
+            uid = window.__wjpUser.uid;
+            currentEmail = String(window.__wjpUser.email || '').toLowerCase();
+        } else if (window.__wjpAuth && window.__wjpAuth.currentUser && window.__wjpAuth.currentUser.uid) {
+            uid = window.__wjpAuth.currentUser.uid;
+            currentEmail = String(window.__wjpAuth.currentUser.email || '').toLowerCase();
+        } else if (window.firebase && firebase.auth) {
+            const u = firebase.auth().currentUser;
+            if (u && u.uid) { uid = u.uid; currentEmail = String(u.email || '').toLowerCase(); }
+        }
+        if (!uid) return;
+
+        const userKey = `wjp_budget_state_u_${uid}`;
         const anon = localStorage.getItem('wjp_budget_state');
-        if (anon) localStorage.setItem(userKey, anon);
-    } catch(_){}
+
+        // First-run migration: copy bare → user-scoped if user has no scoped
+        // data yet AND the bare blob appears to belong to this user (or has
+        // no profile email — single-user device case). Skips migration when
+        // emails differ so a new user doesn't inherit another user's appState.
+        if (!localStorage.getItem(userKey) && anon) {
+            let shouldMigrate = true;
+            try {
+                const parsed = JSON.parse(anon);
+                const bareEmail = String((parsed && parsed.profile && parsed.profile.email) || '').toLowerCase();
+                if (bareEmail && currentEmail && bareEmail !== currentEmail) {
+                    shouldMigrate = false;
+                }
+            } catch(_) { /* unparseable — be conservative, migrate */ }
+            if (shouldMigrate) {
+                try { localStorage.setItem(userKey, anon); } catch(_) {}
+            }
+        }
+
+        // Always retire the bare key once a user is authenticated. Under v9
+        // modular SDK every authenticated read/write uses the scoped key; the
+        // bare key has no legitimate purpose and is the cross-user leak
+        // surface. Renamed to *_legacy_orphan for recovery if needed.
+        if (anon) {
+            try {
+                localStorage.setItem('wjp_budget_state_legacy_orphan', anon);
+                localStorage.removeItem('wjp_budget_state');
+            } catch(_) {}
+        }
+    } catch(_) {}
 }
 window.migrateAnonStateToUser = migrateAnonStateToUser;
 
