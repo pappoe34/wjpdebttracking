@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v14 — closeAll removes body.wjp-txn-detail-open class (owner module gates backdrop visibility on it) v13 — closeAll uses display:none (centered panel ignored right:-440) v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -268,9 +268,41 @@
     function closeAll() {
       var p = document.getElementById('txn-detail-panel');
       var b = document.getElementById('txn-detail-backdrop');
-      if (p) p.style.right = '-440px';
-      if (b) b.style.display = 'none';
+      // v14 fix: the owner module (wjp-txn-detail-modal.js) gates backdrop
+      // visibility on `body.wjp-txn-detail-open` via `display:block !important`.
+      // Inline display:none can't beat that, so we MUST drop the body class
+      // first. Then class+inline cleanup on panel.
+      try { document.body.classList.remove('wjp-txn-detail-open'); } catch (_) {}
+      if (p) {
+        p.classList.add('wjp-detail-empty');
+        p.classList.remove('wjp-detail-has-content');
+        p.style.display = 'none';
+        p.style.right = '-440px';
+        p.style.opacity = '0';
+      }
+      if (b) {
+        b.style.display = 'none';
+      }
+      // Clear inner content so the owner module's empty-detection path
+      // also marks the panel as not-open on its next tick.
+      var c = document.getElementById('txn-detail-content');
+      if (c) c.innerHTML = '';
     }
+    // Wrap the global txnShowDetail so EVERY open also re-shows display:block
+    // (in case a prior close left display:none stuck on the panel).
+    try {
+      if (typeof window.txnShowDetail === 'function' && !window.txnShowDetail._wjpWrapped) {
+        var origShow = window.txnShowDetail;
+        window.txnShowDetail = function () {
+          var p = document.getElementById('txn-detail-panel');
+          var b = document.getElementById('txn-detail-backdrop');
+          if (p) p.style.display = '';
+          if (b) b.style.display = '';
+          return origShow.apply(this, arguments);
+        };
+        window.txnShowDetail._wjpWrapped = true;
+      }
+    } catch (_) {}
     function bindBackdrop() {
       var b = document.getElementById('txn-detail-backdrop');
       if (!b || b._wjpDismissBound) return;
