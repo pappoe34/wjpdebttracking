@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -174,6 +174,9 @@
     css.push('body.dash-autofit #page-dashboard{display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start;}');
     // Non-reorderable system elements span the full row.
     css.push('body.dash-autofit #page-dashboard > #dash-greeting,body.dash-autofit #page-dashboard > #dash-customize-bar,body.dash-autofit #page-dashboard > #dash-grid,body.dash-autofit #page-dashboard > #wjp-dash-settings-gear{flex:0 0 100%;width:100%;}');
+    // Lock greeting + customize bar to the very top — beat any pinned-card order:-10
+    css.push('body.dash-autofit #page-dashboard > #dash-greeting{order:-100 !important;}');
+    css.push('body.dash-autofit #page-dashboard > #dash-customize-bar{order:-99 !important;}');
     // Reorderable card default (no explicit data-size): 2 per row at min 320px.
     css.push('body.dash-autofit #page-dashboard > .reorderable:not([data-size]){flex:1 1 calc(50% - 14px);min-width:320px;max-width:100%;}');
     // Hide the now-empty dash-grid (its contents were flattened to top-level)
