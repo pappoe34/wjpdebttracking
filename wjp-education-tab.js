@@ -1,4 +1,4 @@
-/* wjp-education-tab.js v1.1 — replace Activity Log with Financial Education.
+/* wjp-education-tab.js v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
  *
  * Hijacks #page-activity (sidebar Activity Log → relabeled to Financial
  * Education). Activity Log is moved to Settings via wjp-settings-extras.js.
@@ -423,6 +423,36 @@
         }).join("") + `</div>`
       : `<div style="text-align:center;color:var(--ink-faint, #9ca3af);padding:40px;font-size:13px;">No tips match.</div>`;
 
+    // Focused lesson — when user clicked "Read more" on the dashboard Daily Money Lesson,
+    // wjp-edu-dashboard-tip.js stashes the tip id on window.WJP_EduFocusTipId.
+    var focusedTip = null;
+    try {
+      var fId = window.WJP_EduFocusTipId;
+      if (fId) {
+        focusedTip = findTip(fId);
+        // Mark as read once viewed (consistent with modal mark-read behavior)
+        try { var r = loadRead(); if (!r[fId]) { r[fId] = Date.now(); saveRead(r); } } catch(_) {}
+        // Consume the focus so a return to this tab doesn't keep re-pinning the same lesson.
+        try { delete window.WJP_EduFocusTipId; } catch(_) { window.WJP_EduFocusTipId = null; }
+      }
+    } catch (_) {}
+
+    var focusedBlock = '';
+    if (focusedTip) {
+      var fColor = categoryColor(focusedTip.cat);
+      var fCatLabel = (CATEGORIES.find(function (c) { return c.k === focusedTip.cat; }) || { label: focusedTip.cat }).label;
+      focusedBlock = `
+        <div class="wjp-edu-focused" style="border:1px solid ${fColor}33;border-left:4px solid ${fColor};background:${fColor}0d;border-radius:14px;padding:18px 22px;margin-bottom:18px;">
+          <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:${fColor};margin-bottom:6px;">Today's lesson · ${escapeHTML(fCatLabel)}</div>
+          <div style="font-size:20px;font-weight:700;letter-spacing:-0.005em;line-height:1.25;margin-bottom:10px;">${escapeHTML(focusedTip.title)}</div>
+          <div style="font-size:13.5px;line-height:1.55;color:var(--ink, #0a0a0a);">${escapeHTML(focusedTip.body)}</div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            <button type="button" class="wjp-edu-btn wjp-edu-btn-primary" data-wjp-edu-pin="${escapeHTML(focusedTip.id)}">${(loadPin().tipId === focusedTip.id) ? '📌 Unpin from dashboard' : '📌 Pin to dashboard'}</button>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
@@ -433,6 +463,7 @@
         <input class="wjp-edu-search" data-wjp-edu-search type="text" placeholder="Search tips…" value="${escapeHTML(state.query)}">
       </div>
       ${disclaimer}
+      ${focusedBlock}
       ${coachBox}
       ${pinControls}
       <div class="wjp-edu-cats">${catChips}</div>

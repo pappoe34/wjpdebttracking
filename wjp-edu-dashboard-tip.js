@@ -215,6 +215,11 @@
     var openBtn = node.querySelector('[data-wjp-tip-action="open"]');
     var dismissBtn = node.querySelector('[data-wjp-tip-action="dismiss"]');
     if (openBtn) openBtn.addEventListener("click", function () {
+      // Stash the tip ID so the Financial Education tab can surface it at the top.
+      try {
+        var tipId = node.getAttribute('data-wjp-tip-id');
+        if (tipId) window.WJP_EduFocusTipId = tipId;
+      } catch (_) {}
       var nav = document.querySelector('[data-page="activity"]');
       if (nav) nav.click();
     });

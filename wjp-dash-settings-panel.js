@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v14 — scope autofit to .active v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -240,7 +240,7 @@
     // Auto-fit ON: #page-dashboard becomes a flex-wrap grid. Cards pack into
     // 2-3 columns based on viewport + per-card data-size. Greeting + customize
     // bar always full-width.
-    css.push('body.dash-autofit #page-dashboard{display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start;}');
+    css.push('body.dash-autofit #page-dashboard.active{display:flex !important;flex-wrap:wrap;gap:14px;align-content:flex-start;}body.dash-autofit #page-dashboard:not(.active){display:none !important;}');
     // Non-reorderable system elements span the full row.
     css.push('body.dash-autofit #page-dashboard > #dash-greeting,body.dash-autofit #page-dashboard > #dash-customize-bar,body.dash-autofit #page-dashboard > #dash-grid,body.dash-autofit #page-dashboard > #wjp-dash-settings-gear{flex:0 0 100%;width:100%;}');
     // Lock greeting + customize bar to the very top — beat any pinned-card order:-10
@@ -256,7 +256,7 @@
     css.push('body.dash-autofit #page-dashboard > #dash-grid:empty,body.dash-autofit #page-dashboard > #dash-grid:has(> .dash-left:empty):has(> .dash-right:empty){display:none;}');
 
     // Auto-fit OFF: single-column block flow (user wants exact placement, no row packing).
-    css.push('body:not(.dash-autofit) #page-dashboard{display:block;}');
+    css.push('body:not(.dash-autofit) #page-dashboard.active{display:block;}body:not(.dash-autofit) #page-dashboard:not(.active){display:none;}');
     css.push('body:not(.dash-autofit) #page-dashboard > .reorderable{width:100%;margin-top:14px;}');
 
     st.textContent = css.join('');
