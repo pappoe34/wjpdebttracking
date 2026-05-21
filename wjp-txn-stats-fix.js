@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -69,7 +69,7 @@
       // Footer buttons row — make Close/Edit/Delete bigger and cleaner
       '#txn-detail-panel button{font-weight:700 !important;}',
       // Backdrop softer (less harsh than 0.55)
-      '#txn-detail-backdrop{background:rgba(0,0,0,0.35) !important;backdrop-filter:blur(2px) !important;}',
+      '#txn-detail-backdrop{background:rgba(0,0,0,0.35) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}',
       // Modal animation: fade in only, no slide
       '#txn-detail-panel.wjp-detail-has-content{animation:wjp-tx-fade-in 0.16s ease both;}',
       '@keyframes wjp-tx-fade-in{from{opacity:0;transform:translate(-50%,-50%) scale(0.96);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}'

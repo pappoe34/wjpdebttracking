@@ -1,33 +1,4 @@
-/* wjp-transactions-tab-enhance.js v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
- *
- * Adds four upgrades to the Transactions tab:
- *
- *   1. ACCOUNT FILTER TOGGLE — pill row above the table: "All / Chase / Amex /
- *      Vanguard / etc." Each pill click filters the visible txs to that source
- *      account. Pulls account list from wjp-source-badge-enhance's account
- *      lookup. Persists last selection in localStorage.
- *
- *   2. SMART SUMMARY BOX — analytical card showing:
- *        Net cashflow this period (income − expenses, EXCLUDING transfers)
- *        Top 3 income merchants with $ totals
- *        Top 3 spending categories with $ totals + % change vs last period
- *        Subscription bill ($X/mo across N recurring services — auto-detected)
- *        "You could save $X/mo" tip from highest-volume category
- *
- *   3. TRANSFER DETECTION (precision matters per the professionalism rule):
- *        - tx.payment_channel === 'transfer'
- *        - category matches /transfer|internal/i
- *        - matched debit/credit pairs across user's accounts within ±1 day
- *        Transfers NEVER count as spending.
- *
- *   4. POLISH ADJUNCTS:
- *        - Period selector: last 7 days, 30 days, this month, last month, 90 days
- *        - Subscription detector badge inline on recurring same-merchant/same-amount txs
- *
- * Uses bare appState per memory rule. Source data is appState.transactions.
- *
- * Safe: IIFE, idempotent, path-guarded. Polled re-render for SPA mounts.
- */
+/* wjp-transactions-tab-enhance.js v9 — collapsible Smart Summary + ALL categories + improved insights + per-bank toggle preserved. v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters. */
 (function () {
   'use strict';
   if (window._wjpTxTabEnhanceInstalled) return;
@@ -45,6 +16,7 @@
   var FILTERS_ID = 'wjp-tx-account-filters';
   var LS_FILTER = 'wjp.tx.accountFilter';
   var LS_PERIOD = 'wjp.tx.summaryPeriod';
+  var LS_EXPANDED = 'wjp.tx.summaryExpanded';
 
   // ---- Helpers ----
   function fmtUsd(n, decimals) {
@@ -224,6 +196,12 @@
   function setCurrentPeriod(v) {
     try { localStorage.setItem(LS_PERIOD, v); } catch (_) {}
   }
+  function getExpanded() {
+    try { return localStorage.getItem(LS_EXPANDED) === '1'; } catch (_) { return false; }
+  }
+  function setExpanded(v) {
+    try { localStorage.setItem(LS_EXPANDED, v ? '1' : '0'); } catch (_) {}
+  }
 
   // ---- Smart Summary computation ----
   function computeSummary(period, accountFilter) {
@@ -291,14 +269,14 @@
       .map(function (k) { return { merchant: k, amount: incomeByMerchant[k] }; })
       .sort(function (a, b) { return b.amount - a.amount; })
       .slice(0, 3);
-    var topCategories = Object.keys(spendByCategory)
+    var allCategories = Object.keys(spendByCategory)
       .map(function (k) {
         var prev = prevSpendByCategory[k] || 0;
         var change = prev > 0 ? ((spendByCategory[k] - prev) / prev) * 100 : null;
         return { category: k, amount: spendByCategory[k], change: change };
       })
-      .sort(function (a, b) { return b.amount - a.amount; })
-      .slice(0, 3);
+      .sort(function (a, b) { return b.amount - a.amount; });
+    var topCategories = allCategories.slice(0, 3);
 
     // Subscription auto-detect: recurring same-merchant entries with same-ish
     // amount (within 5%) appearing 2+ times in current OR previous periods.
@@ -335,6 +313,42 @@
       };
     }
 
+    // New insights for expanded view
+    var biggestExpense = null;
+    var biggestIncome = null;
+    var merchantFreq = {};
+    var bankBreakdown = {};
+    var avgDailySpend = 0;
+    current.forEach(function (t) {
+      var amt = Number(t.amount);
+      if (!isFinite(amt) || isTransfer(t)) return;
+      if (isExpense(t)) {
+        if (!biggestExpense || Math.abs(amt) > Math.abs(biggestExpense.amount)) {
+          biggestExpense = { merchant: t.merchant || 'Unknown', amount: amt, date: t.date, category: smartCategorize(t) };
+        }
+        var mm = canonicalizeMerchant(t.merchant || 'Unknown');
+        if (mm) merchantFreq[mm] = (merchantFreq[mm] || 0) + 1;
+      } else if (isIncome(t)) {
+        if (!biggestIncome || amt > biggestIncome.amount) {
+          biggestIncome = { merchant: t.merchant || 'Unknown', amount: amt, date: t.date };
+        }
+      }
+      var inst = t.institutionName || (t.source === 'plaid' ? 'Bank' : 'Manual');
+      if (!bankBreakdown[inst]) bankBreakdown[inst] = { count: 0, spend: 0, income: 0 };
+      bankBreakdown[inst].count++;
+      if (isExpense(t)) bankBreakdown[inst].spend += Math.abs(amt);
+      if (isIncome(t)) bankBreakdown[inst].income += amt;
+    });
+    var busiestMerchant = null;
+    Object.keys(merchantFreq).forEach(function (m) {
+      if (!busiestMerchant || merchantFreq[m] > busiestMerchant.count) {
+        busiestMerchant = { merchant: m, count: merchantFreq[m] };
+      }
+    });
+    // Avg daily spend
+    var daysInPeriod = Math.max(1, Math.round((end.getTime() - cutoff.getTime()) / 86400000));
+    avgDailySpend = expenses / daysInPeriod;
+
     return {
       period: period,
       periodLabel: getPeriodLabel(period),
@@ -345,9 +359,16 @@
       net: net,
       topIncome: topIncome,
       topCategories: topCategories,
+      allCategories: allCategories,
       subscriptionCount: subscriptions.length,
       subscriptionMonthly: subMonthlyTotal,
-      savingsTip: savingsTip
+      savingsTip: savingsTip,
+      biggestExpense: biggestExpense,
+      biggestIncome: biggestIncome,
+      busiestMerchant: busiestMerchant,
+      bankBreakdown: bankBreakdown,
+      avgDailySpend: avgDailySpend,
+      daysInPeriod: daysInPeriod
     };
   }
 
@@ -430,6 +451,42 @@
       '  border-color: rgba(31,122,74,0.30);',
       '}',
       '#' + FILTERS_ID + ' .acc-count { opacity: 0.65; font-weight: 500; margin-left: 4px; }',
+      '#' + SUMMARY_ID + ' .toggle-btn {',
+      '  font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 999px;',
+      '  background: rgba(31,122,74,0.08); color: #1f7a4a;',
+      '  border: 1px solid rgba(31,122,74,0.25);',
+      '  cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 4px;',
+      '  margin-left: 8px;',
+      '}',
+      '#' + SUMMARY_ID + ' .toggle-btn:hover { background: rgba(31,122,74,0.14); }',
+      '#' + SUMMARY_ID + ' .toggle-btn .chev { display:inline-block; transition: transform 0.18s ease; }',
+      '#' + SUMMARY_ID + ' .toggle-btn.expanded .chev { transform: rotate(180deg); }',
+      '#' + SUMMARY_ID + ' .expanded-block { display: none; }',
+      '#' + SUMMARY_ID + '.is-expanded .expanded-block { display: block; }',
+      '#' + SUMMARY_ID + ' .insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 14px; }',
+      '#' + SUMMARY_ID + ' .insight-card {',
+      '  background: var(--bg-3, rgba(0,0,0,0.02));',
+      '  border: 1px solid var(--border, rgba(0,0,0,0.06));',
+      '  border-radius: 10px; padding: 10px 12px;',
+      '}',
+      '#' + SUMMARY_ID + ' .insight-card .label { font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim, #6b7280); font-weight: 700; margin-bottom: 4px; }',
+      '#' + SUMMARY_ID + ' .insight-card .value { font-size: 13.5px; font-weight: 800; color: var(--ink, #0a0a0a); margin-bottom: 2px; }',
+      '#' + SUMMARY_ID + ' .insight-card .sub { font-size: 10.5px; color: var(--ink-dim, #6b7280); }',
+      '#' + SUMMARY_ID + ' .all-cats-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim, #6b7280); margin: 18px 0 8px; }',
+      '#' + SUMMARY_ID + ' .all-cats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 14px; }',
+      '#' + SUMMARY_ID + ' .all-cats-row {',
+      '  display: flex; justify-content: space-between; align-items: center;',
+      '  padding: 6px 10px; font-size: 11.5px; border-radius: 8px;',
+      '  background: var(--bg-2, rgba(0,0,0,0.015));',
+      '}',
+      '#' + SUMMARY_ID + ' .all-cats-row .name { color: var(--ink, #0a0a0a); font-weight: 600; }',
+      '#' + SUMMARY_ID + ' .all-cats-row .amt { font-weight: 700; color: #c0594a; }',
+      '#' + SUMMARY_ID + ' .all-cats-row .pct { font-size: 9.5px; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-weight: 700; }',
+      '#' + SUMMARY_ID + ' .bank-bd { margin-top: 14px; }',
+      '#' + SUMMARY_ID + ' .bank-bd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }',
+      '#' + SUMMARY_ID + ' .bank-bd-card { background: var(--bg-2, rgba(0,0,0,0.02)); border: 1px solid var(--border, rgba(0,0,0,0.06)); border-radius: 9px; padding: 9px 12px; }',
+      '#' + SUMMARY_ID + ' .bank-bd-card .name { font-size: 12px; font-weight: 700; color: var(--ink, #0a0a0a); margin-bottom: 3px; }',
+      '#' + SUMMARY_ID + ' .bank-bd-card .stats { font-size: 10.5px; color: var(--ink-dim, #6b7280); }',
       '@media (max-width: 600px) { #' + SUMMARY_ID + ' .lists-row { grid-template-columns: 1fr; } }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(s);
@@ -562,27 +619,89 @@
       ? '<div class="tip-box">💡 <strong>Save up to ' + fmtUsd(sum.savingsTip.potentialSavings) + ':</strong> ' + sum.savingsTip.message + '</div>'
       : '';
 
+    // --- Build expanded-block insights ---
+    var allCatsHtml = (sum.allCategories && sum.allCategories.length)
+      ? sum.allCategories.map(function (c) {
+          var pct = c.change != null ? ('<span class="pct ' + (c.change > 0 ? 'up' : 'down') + '">' + (c.change > 0 ? '+' : '') + Math.round(c.change) + '%</span>') : '';
+          return '<div class="all-cats-row"><span class="name">' + c.category + '</span><span><span class="amt">' + fmtUsd(c.amount) + '</span>' + pct + '</span></div>';
+        }).join('')
+      : '<div class="all-cats-row" style="color:var(--ink-dim,#6b7280);">No spending categories this period</div>';
+
+    var insightCards = [];
+    if (sum.biggestExpense) {
+      insightCards.push('<div class="insight-card"><div class="label">Biggest single expense</div><div class="value" style="color:#c0594a;">-' + fmtUsd(Math.abs(sum.biggestExpense.amount)) + '</div><div class="sub">' + sum.biggestExpense.merchant + ' · ' + sum.biggestExpense.category + '</div></div>');
+    }
+    if (sum.biggestIncome) {
+      insightCards.push('<div class="insight-card"><div class="label">Biggest single deposit</div><div class="value" style="color:#1f7a4a;">+' + fmtUsd(sum.biggestIncome.amount) + '</div><div class="sub">' + sum.biggestIncome.merchant + '</div></div>');
+    }
+    if (sum.avgDailySpend > 0) {
+      insightCards.push('<div class="insight-card"><div class="label">Avg daily spend</div><div class="value">' + fmtUsd(sum.avgDailySpend) + '</div><div class="sub">across ' + sum.daysInPeriod + ' days</div></div>');
+    }
+    if (sum.busiestMerchant) {
+      insightCards.push('<div class="insight-card"><div class="label">Most-used merchant</div><div class="value">' + sum.busiestMerchant.merchant + '</div><div class="sub">' + sum.busiestMerchant.count + ' transactions</div></div>');
+    }
+    var insightHtml = insightCards.length
+      ? '<div class="insight-grid">' + insightCards.join('') + '</div>'
+      : '';
+
+    // Bank breakdown
+    var bankBdHtml = '';
+    if (sum.bankBreakdown && Object.keys(sum.bankBreakdown).length > 1) {
+      var bbRows = Object.keys(sum.bankBreakdown)
+        .map(function (k) { return { name: k, data: sum.bankBreakdown[k] }; })
+        .sort(function (a, b) { return b.data.count - a.data.count; })
+        .map(function (b) {
+          return '<div class="bank-bd-card"><div class="name">' + b.name + '</div><div class="stats">' + b.data.count + ' txns · -' + fmtUsd(b.data.spend) + ' spent' + (b.data.income > 0 ? ' · +' + fmtUsd(b.data.income) + ' in' : '') + '</div></div>';
+        }).join('');
+      bankBdHtml = '<div class="bank-bd"><div class="all-cats-title">By bank</div><div class="bank-bd-grid">' + bbRows + '</div></div>';
+    }
+
+    var expanded = getExpanded();
+    if (expanded) box.classList.add('is-expanded'); else box.classList.remove('is-expanded');
+    var togLabel = expanded ? 'Less' : 'More insights';
+
     box.innerHTML =
       '<div class="head">' +
         '<div>' +
           '<div class="title">Smart Summary</div>' +
           '<div class="sub">' + sum.txCount + ' transactions · ' + sum.periodLabel + (accountFilter !== 'all' ? ' · ' + accountFilter : '') + ' · transfers excluded</div>' +
         '</div>' +
-        '<div class="period-pills">' + periodPills + '</div>' +
+        '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">' +
+          '<div class="period-pills">' + periodPills + '</div>' +
+          '<button type="button" class="toggle-btn ' + (expanded ? 'expanded' : '') + '" id="wjp-tx-summary-toggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">' + togLabel + ' <span class="chev">▾</span></button>' +
+        '</div>' +
       '</div>' +
       '<div class="row">' +
         '<div class="metric income"><div class="label">Income</div><div class="value">+' + fmtUsd(sum.income) + '</div><div class="sub">' + sum.topIncome.length + ' income source' + (sum.topIncome.length === 1 ? '' : 's') + '</div></div>' +
         '<div class="metric expense"><div class="label">Spending</div><div class="value">-' + fmtUsd(sum.expenses) + '</div><div class="sub">excluding ' + fmtUsd(sum.transfers) + ' in transfers</div></div>' +
         '<div class="metric net ' + netClass + '"><div class="label">Net Cashflow</div><div class="value">' + (sum.net >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(sum.net)).toLocaleString() + '</div><div class="sub">' + (sum.net >= 0 ? 'cash-positive' : 'running over budget') + '</div></div>' +
       '</div>' +
-      '<div class="lists-row">' +
-        '<div><div class="list-title">Top income</div>' + topIncomeHtml + '</div>' +
-        '<div><div class="list-title">Top spending</div>' + topCatsHtml + '</div>' +
-      '</div>' +
-      subBlurb +
-      tipBlurb;
+      // Expanded section
+      '<div class="expanded-block">' +
+        '<div class="lists-row">' +
+          '<div><div class="list-title">Top income</div>' + topIncomeHtml + '</div>' +
+          '<div><div class="list-title">Top spending</div>' + topCatsHtml + '</div>' +
+        '</div>' +
+        insightHtml +
+        '<div class="all-cats-title">All spending categories</div>' +
+        '<div class="all-cats-grid">' + allCatsHtml + '</div>' +
+        bankBdHtml +
+        subBlurb +
+        tipBlurb +
+      '</div>';
 
     if (isNew) ip.parent.insertBefore(box, ip.stats);
+
+    // Wire toggle button
+    var togBtn = box.querySelector('#wjp-tx-summary-toggle');
+    if (togBtn) {
+      togBtn.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setExpanded(!getExpanded());
+        renderSummary();
+      };
+    }
 
     // Wire period pills
     Array.prototype.forEach.call(box.querySelectorAll('.period-pill'), function (p) {
