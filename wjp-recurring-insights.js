@@ -296,16 +296,29 @@
   function wrapHostRenderers() {
     // window.txnRenderAll is the entry point for the FULL Transactions table
     // under Debts > Transactions (calls txnRenderTable internally — which is
-    // module-private and not directly hookable). Wrapping it here closes the
-    // flash on that table specifically.
+    // module-private and not directly hookable). Wrapping + rAF-coalescing
+    // here closes the flash AND collapses the host's ~10x/sec redundant
+    // re-renders into one per animation frame.
     ['renderTransactions', 'txnRenderAll', 'renderRecurringPayments', 'renderRecurring'].forEach(function (name) {
       try {
         var fn = window[name];
         if (typeof fn !== 'function' || fn.__wjpRiWrapped) return;
+        // Use rAF-coalescing: multiple calls within one frame run the real
+        // function ONCE at the next frame. Eliminates redundant tbody rebuilds
+        // that produce the visible flash.
+        var scheduled = false;
+        var lastArgs = null;
         var wrapped = function () {
-          var r = fn.apply(this, arguments);
-          try { tick(); } catch (_) {}
-          return r;
+          lastArgs = arguments;
+          if (scheduled) return;
+          scheduled = true;
+          var run = function () {
+            scheduled = false;
+            try { fn.apply(window, lastArgs); } catch (_) {}
+            try { tick(); } catch (_) {}
+          };
+          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+          else setTimeout(run, 0);
         };
         wrapped.__wjpRiWrapped = true;
         window[name] = wrapped;
