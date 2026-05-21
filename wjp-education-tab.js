@@ -1,4 +1,4 @@
-/* wjp-education-tab.js v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
+/* wjp-education-tab.js v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
  *
  * Hijacks #page-activity (sidebar Activity Log → relabeled to Financial
  * Education). Activity Log is moved to Settings via wjp-settings-extras.js.
@@ -439,11 +439,17 @@
 
     var focusedBlock = '';
     if (focusedTip) {
-      var fColor = categoryColor(focusedTip.cat);
+      // Neutral brand-accent chrome for the focused lesson regardless of category.
+      // Category gets shown as a small chip beside the label so users still see it.
+      var fAccent = '#10b981'; // emerald — app brand accent, signals "learning"
+      var fCategoryColor = categoryColor(focusedTip.cat);
       var fCatLabel = (CATEGORIES.find(function (c) { return c.k === focusedTip.cat; }) || { label: focusedTip.cat }).label;
       focusedBlock = `
-        <div class="wjp-edu-focused" style="border:1px solid ${fColor}33;border-left:4px solid ${fColor};background:${fColor}0d;border-radius:14px;padding:18px 22px;margin-bottom:18px;">
-          <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:${fColor};margin-bottom:6px;">Today's lesson · ${escapeHTML(fCatLabel)}</div>
+        <div class="wjp-edu-focused" style="border:1px solid ${fAccent}33;border-left:4px solid ${fAccent};background:${fAccent}0d;border-radius:14px;padding:18px 22px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:${fAccent};margin-bottom:6px;">
+            <span>Today's lesson</span>
+            <span style="font-size:9.5px;font-weight:700;color:${fCategoryColor};background:${fCategoryColor}1a;border:1px solid ${fCategoryColor}33;padding:2px 8px;border-radius:999px;letter-spacing:0.06em;">${escapeHTML(fCatLabel)}</span>
+          </div>
           <div style="font-size:20px;font-weight:700;letter-spacing:-0.005em;line-height:1.25;margin-bottom:10px;">${escapeHTML(focusedTip.title)}</div>
           <div style="font-size:13.5px;line-height:1.55;color:var(--ink, #0a0a0a);">${escapeHTML(focusedTip.body)}</div>
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
