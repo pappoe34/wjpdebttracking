@@ -1,4 +1,4 @@
-/* wjp-education-tab.js v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
+/* wjp-education-tab.js v1.4 — tone down disclaimer + shrink warning text v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
  *
  * Hijacks #page-activity (sidebar Activity Log → relabeled to Financial
  * Education). Activity Log is moved to Settings via wjp-settings-extras.js.
@@ -292,8 +292,8 @@
     s.id = "wjp-edu-styles";
     s.textContent = `
       #${ROOT_ID} { font-family: var(--sans, Inter, system-ui, sans-serif); color: var(--ink, #0a0a0a); padding: 18px 0 24px; width: 100%; box-sizing: border-box; }
-      .wjp-edu-disclaimer { background: rgba(220,38,38,0.06); border: 1px solid rgba(220,38,38,0.20); border-radius: 10px; padding: 9px 14px; font-size: 11.5px; color: #7f1d1d; margin-bottom: 14px; line-height: 1.45; }
-      .wjp-edu-disclaimer b { color: #b91c1c; }
+      .wjp-edu-disclaimer { background: rgba(148,163,184,0.06); border: 1px solid rgba(148,163,184,0.20); border-radius: 8px; padding: 7px 12px; font-size: 10px; color: var(--text-3, #6b7280); margin-bottom: 14px; line-height: 1.45; }
+      .wjp-edu-disclaimer b { color: var(--ink, #0a0a0a); font-weight: 700; }
       .wjp-edu-cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
       .wjp-edu-cat { padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; border: 1px solid rgba(0,0,0,0.10); background: var(--card, #fff); color: var(--ink, #0a0a0a); display: inline-flex; gap: 6px; align-items: center; }
       .wjp-edu-cat-active { background: #0a0a0a; color: #fff; border-color: var(--ink, #0a0a0a); }
@@ -328,8 +328,8 @@
       body.dark .wjp-cal-today.wjp-cal-cell:hover { background: rgba(31,122,74,0.18) !important; }
       body.dark .wjp-edu-card:hover { border-color: rgba(255,255,255,0.16); box-shadow: 0 12px 28px rgba(0,0,0,0.40); }
       body.dark .wjp-notes-row:hover { background: rgba(255,255,255,0.04); }
-      body.dark .wjp-edu-disclaimer { background: rgba(220,38,38,0.18); color: #fecaca; }
-      body.dark .wjp-edu-disclaimer b { color: #fca5a5; }
+      body.dark .wjp-edu-disclaimer { background: rgba(148,163,184,0.10); color: rgba(241,245,249,0.65); }
+      body.dark .wjp-edu-disclaimer b { color: #f1f5f9; }
       body.dark .wjp-cal-suggestion-pulse, body.dark .wjp-edu-coach { background: linear-gradient(135deg, rgba(31,122,74,0.18), rgba(201,154,42,0.10)); }
       body.dark .wjp-edu-modal { background: var(--card, #131929) !important; color: var(--ink, #f0f4ff) !important; }
       body.dark .wjp-edu-modal-body { color: var(--ink, #f0f4ff) !important; }
@@ -367,7 +367,7 @@
       <div class="wjp-edu-coach">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
           <div style="font-size:14px;font-weight:700;letter-spacing:-0.005em;">💬 Ask the AI Coach (financial education)</div>
-          <div style="font-size:10.5px;color:#9a3412;font-weight:700;letter-spacing:0.05em;">EDUCATIONAL · NOT ADVICE</div>
+          <div style="font-size:9px;color:var(--text-3, #94a3b8);font-weight:700;letter-spacing:0.06em;">EDUCATIONAL · NOT ADVICE</div>
         </div>
         <textarea data-wjp-edu-coach-input placeholder="Ask anything about budgeting, debt, credit, investing basics… (e.g. 'how do index funds work?')"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
