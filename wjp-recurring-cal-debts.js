@@ -1,4 +1,4 @@
-/* wjp-recurring-cal-debts.js v3 — calendar insight tips panel + monthly fallback for all debt dates v1 — Recurring tab calendar polish.
+/* wjp-recurring-cal-debts.js v4 — calendar covers ALL 12 debts via appState.debts.dueDate + payoff-month markers from min-payment amortization v3 — calendar insight tips panel v1 — Recurring tab calendar polish.
  *
  *   1. Filter the Payment Calendar to show ONLY debt-type recurring payments.
  *      Detection: name contains "(min payment)" OR matches an entry in
@@ -101,12 +101,75 @@
     return false;
   }
 
-  function debtPaymentsForDate(date) {
+  // v4: Enumerate ALL debt bills — combine appState.debts (which always has
+  // dueDate as a day-of-month) with appState.recurringPayments (the explicit
+  // schedules). Each debt gets ONE entry — prefer the explicit recurring
+  // payment when present, fall back to the debt's intrinsic minPayment+dueDate.
+  function allDebtBills() {
     var s = getAppState();
-    if (!s || !Array.isArray(s.recurringPayments)) return [];
-    return s.recurringPayments.filter(function (p) {
-      return isDebtPayment(p) && payOccursOn(p, date);
+    if (!s) return [];
+    var debts = Array.isArray(s.debts) ? s.debts : [];
+    var rps = Array.isArray(s.recurringPayments) ? s.recurringPayments : [];
+    var byDebtId = {};
+    var byNameKey = {};
+    rps.forEach(function (p) {
+      if (!isDebtPayment(p)) return;
+      if (p.linkedDebtId) byDebtId[p.linkedDebtId] = p;
+      else byNameKey[String(p.name||'').toLowerCase().replace(/\s*\(min payment\).*/i,'').trim()] = p;
     });
+    var out = [];
+    debts.forEach(function (d) {
+      if (!d || !d.id) return;
+      var rp = byDebtId[d.id] || byNameKey[String(d.name||'').toLowerCase().trim()];
+      // Day-of-month: prefer rp.nextDate, fallback to d.dueDate (number) or d.dueDay
+      var dom = null;
+      if (rp && rp.nextDate) {
+        var nd = new Date(rp.nextDate.length >= 10 ? rp.nextDate + 'T00:00:00' : rp.nextDate);
+        if (!isNaN(nd.getTime())) dom = nd.getDate();
+      }
+      if (dom == null) {
+        if (typeof d.dueDate === 'number') dom = d.dueDate;
+        else if (typeof d.dueDay === 'number') dom = d.dueDay;
+      }
+      if (dom == null || dom < 1 || dom > 31) return; // skip if no day known
+      out.push({
+        debtId: d.id,
+        name: d.name || (rp && rp.name) || 'Unknown',
+        amount: (rp && Number(rp.amount)) || Number(d.minPayment) || 0,
+        dayOfMonth: dom,
+        frequency: 'monthly',
+        method: (rp && rp.method) || 'Auto-pay',
+        apr: d.apr,
+        balance: d.balance,
+        rp: rp
+      });
+    });
+    return out;
+  }
+
+  // Calculate projected payoff month for a debt at its current minimum.
+  function projectedPayoffDate(debt, minPayment) {
+    var bal = Number(debt.balance) || 0;
+    var apr = Number(debt.apr) || 0;
+    var pay = Number(minPayment) || Number(debt.minPayment) || 0;
+    if (bal <= 0 || pay <= 0) return null;
+    var r = (apr / 100) / 12;
+    var n;
+    if (r === 0) { n = Math.ceil(bal / pay); }
+    else {
+      if (pay <= bal * r) return null; // never pays off at minimum
+      n = -Math.log(1 - (bal * r) / pay) / Math.log(1 + r);
+      n = Math.max(1, Math.ceil(n));
+    }
+    var d = new Date();
+    d.setMonth(d.getMonth() + n);
+    return d;
+  }
+
+  function debtPaymentsForDate(date) {
+    var dom = date.getDate();
+    // v4: use unified debt bills list — each debt represented once
+    return allDebtBills().filter(function (b) { return b.dayOfMonth === dom; });
   }
 
   function fmtUsd(n) {
@@ -409,6 +472,97 @@
 
   // Hook into the existing tick so insights re-render with the calendar
   var _origTick = (typeof tick === 'function') ? tick : null;
+  // v4: Walk each .cal-cell and inject chips for any debt whose dueDate
+  // falls on that day but isn't yet shown. Caps at 4 chips per cell.
+  function injectMissingDebtChips() {
+    var body = document.getElementById('rec-cal-body');
+    var label = document.getElementById('rec-cal-label');
+    if (!body || !label) return;
+    var bills = allDebtBills();
+    if (!bills.length) return;
+    // Derive month/year from label
+    var lm = (label.textContent || '').match(/([A-Za-z]+)\s+(\d{4})/);
+    if (!lm) return;
+    var months = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11 };
+    var month = months[lm[1].toLowerCase()];
+    var year = parseInt(lm[2], 10);
+    if (month == null || !isFinite(year)) return;
+
+    // Build day-of-month → bills map
+    var byDom = {};
+    bills.forEach(function (b) {
+      if (!byDom[b.dayOfMonth]) byDom[b.dayOfMonth] = [];
+      byDom[b.dayOfMonth].push(b);
+    });
+
+    Array.prototype.forEach.call(body.querySelectorAll('.cal-cell:not(.empty)'), function (cell) {
+      // Get the day number from the cell's primary span
+      var domNum = parseInt((cell.textContent || '').trim().match(/^\d+/) || [], 10);
+      if (!isFinite(domNum) || domNum < 1 || domNum > 31) return;
+      var due = byDom[domNum];
+      if (!due || !due.length) return;
+
+      // What's already shown? Match by short name
+      var existingChips = cell.querySelectorAll('.cal-event, [class*="wjp-rcd-chip"]');
+      var existingTitles = [];
+      Array.prototype.forEach.call(existingChips, function (e) {
+        existingTitles.push(((e.title || e.textContent || '').toLowerCase()));
+      });
+
+      var added = 0;
+      due.forEach(function (b) {
+        if (added >= 4) return;
+        var key = String(b.name || '').toLowerCase().split(' ')[0];
+        var alreadyShown = existingTitles.some(function (t) { return t.indexOf(key) !== -1; });
+        if (alreadyShown) return;
+        // Add a chip
+        var chip = document.createElement('div');
+        chip.className = 'wjp-rcd-chip';
+        chip.title = b.name + ' — ' + fmtUsdLite(b.amount);
+        chip.style.cssText = 'background:#1f7a4a;color:#fff;border-radius:3px;padding:1px 3px;font-size:7px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:1px;';
+        chip.textContent = b.name.replace(/\(min payment\)/i, '').trim().split(' ')[0];
+        cell.appendChild(chip);
+        added++;
+      });
+      cell.classList.add('has-event');
+    });
+  }
+
+  // v4: Add a 🎉 PAYOFF chip on the cell of each debt's projected payoff date
+  function injectPayoffMarkers() {
+    var body = document.getElementById('rec-cal-body');
+    var label = document.getElementById('rec-cal-label');
+    if (!body || !label) return;
+    var s = getAppState();
+    if (!s || !Array.isArray(s.debts)) return;
+    var lm = (label.textContent || '').match(/([A-Za-z]+)\s+(\d{4})/);
+    if (!lm) return;
+    var months = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11 };
+    var month = months[lm[1].toLowerCase()];
+    var year = parseInt(lm[2], 10);
+
+    s.debts.forEach(function (d) {
+      var payoff = projectedPayoffDate(d, d.minPayment);
+      if (!payoff) return;
+      if (payoff.getFullYear() !== year || payoff.getMonth() !== month) return;
+      var payoffDom = payoff.getDate();
+      var cells = body.querySelectorAll('.cal-cell:not(.empty)');
+      Array.prototype.forEach.call(cells, function (cell) {
+        var domNum = parseInt((cell.textContent || '').trim().match(/^\d+/) || [], 10);
+        if (domNum !== payoffDom) return;
+        if (cell.querySelector('.wjp-rcd-payoff[data-debt="' + d.id + '"]')) return;
+        var chip = document.createElement('div');
+        chip.className = 'wjp-rcd-payoff';
+        chip.setAttribute('data-debt', d.id);
+        chip.title = '🎉 ' + d.name + ' projected payoff (at $' + (d.minPayment || 0) + '/mo)';
+        chip.style.cssText = 'background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#0a0a0a;border-radius:3px;padding:1px 3px;font-size:7px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:1px;letter-spacing:0.02em;';
+        chip.textContent = '🎉 ' + d.name.split(' ')[0].slice(0, 8);
+        cell.appendChild(chip);
+        cell.classList.add('has-event');
+      });
+    });
+  }
+
   function tickWithInsights() {
     if (typeof _origTick === 'function') {
       try { _origTick(); } catch (_) {}
@@ -417,6 +571,8 @@
       try { wireCalCellClicks(); } catch (_) {}
       try { movePaymentOptimizerToBottom(); } catch (_) {}
     }
+    try { injectMissingDebtChips(); } catch (_) {}
+    try { injectPayoffMarkers(); } catch (_) {}
     try { renderInsights(); } catch (_) {}
   }
 
