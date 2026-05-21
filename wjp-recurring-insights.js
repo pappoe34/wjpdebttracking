@@ -294,7 +294,11 @@
   // Wrap host renderers so the inject runs SYNCHRONOUSLY in the same call
   // stack that rewrote the table — no visible gap between rebuild + buttons.
   function wrapHostRenderers() {
-    ['renderTransactions', 'renderRecurringPayments', 'renderRecurring'].forEach(function (name) {
+    // window.txnRenderAll is the entry point for the FULL Transactions table
+    // under Debts > Transactions (calls txnRenderTable internally — which is
+    // module-private and not directly hookable). Wrapping it here closes the
+    // flash on that table specifically.
+    ['renderTransactions', 'txnRenderAll', 'renderRecurringPayments', 'renderRecurring'].forEach(function (name) {
       try {
         var fn = window[name];
         if (typeof fn !== 'function' || fn.__wjpRiWrapped) return;
