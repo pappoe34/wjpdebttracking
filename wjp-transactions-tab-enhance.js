@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v9 — collapsible Smart Summary + ALL categories + improved insights + per-bank toggle preserved. v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters. */
+/* wjp-transactions-tab-enhance.js v11 — bigger All chip + smaller bank chips with brand colors + settings gear add/remove + page size picker v9 — collapsible Smart Summary + ALL categories + improved insights + per-bank toggle preserved. v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters. */
 (function () {
   'use strict';
   if (window._wjpTxTabEnhanceInstalled) return;
@@ -517,43 +517,228 @@
     return null;
   }
 
+  // v11 — Brand colors per bank + visibility list + page-size CSS
+  var BANK_COLORS = {
+    'BoA':        { bg:'#012169', text:'#ffffff', soft:'rgba(1,33,105,0.10)' },
+    'Citi':       { bg:'#003a72', text:'#ffffff', soft:'rgba(0,58,114,0.10)' },
+    'Chase':      { bg:'#117ACA', text:'#ffffff', soft:'rgba(17,122,202,0.10)' },
+    'Wells':      { bg:'#D71E28', text:'#ffffff', soft:'rgba(215,30,40,0.10)' },
+    'Cap One':    { bg:'#004977', text:'#ffffff', soft:'rgba(0,73,119,0.10)' },
+    'SoFi':       { bg:'#00A4FF', text:'#ffffff', soft:'rgba(0,164,255,0.12)' },
+    'Amex':       { bg:'#016FD0', text:'#ffffff', soft:'rgba(1,111,208,0.10)' },
+    'Discover':   { bg:'#FF6B00', text:'#ffffff', soft:'rgba(255,107,0,0.10)' },
+    'Principal':  { bg:'#0061A0', text:'#ffffff', soft:'rgba(0,97,160,0.10)' },
+    '__default':  { bg:'#475569', text:'#ffffff', soft:'rgba(71,85,105,0.10)' }
+  };
+  function bankColor(label) {
+    var brand = String(label).split(' \u00b7\u00b7')[0];
+    return BANK_COLORS[brand] || BANK_COLORS.__default;
+  }
+  var LS_HIDDEN_BANKS = 'wjp.tx.hiddenBanks';
+  function getHiddenBanks() {
+    try { var raw = localStorage.getItem(LS_HIDDEN_BANKS); return raw ? JSON.parse(raw) : []; } catch (_) { return []; }
+  }
+  function setHiddenBanks(arr) {
+    try { localStorage.setItem(LS_HIDDEN_BANKS, JSON.stringify(arr || [])); } catch (_) {}
+  }
+  function injectSelectorStyle() {
+    if (document.getElementById('wjp-tx-selector-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-tx-selector-style';
+    st.textContent = [
+      '#' + FILTERS_ID + ' { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 12px; font-family:Inter,system-ui,sans-serif; }',
+      '#' + FILTERS_ID + ' .acc-pill {',
+      '  display:inline-flex; align-items:center; gap:7px;',
+      '  cursor:pointer; font-family:inherit;',
+      '  border:1.5px solid transparent; transition:transform 0.15s ease, box-shadow 0.15s ease;',
+      '  box-shadow:0 1px 2px rgba(0,0,0,0.04); white-space:nowrap;',
+      '}',
+      '#' + FILTERS_ID + ' .acc-pill:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(0,0,0,0.10); }',
+      // Big All chip
+      '#' + FILTERS_ID + ' .acc-all {',
+      '  font-size:13px; font-weight:800; padding:9px 18px; border-radius:12px;',
+      '  background:var(--bg-3,rgba(0,0,0,0.04)); color:var(--ink,#0a0a0a);',
+      '  border-color:var(--border,rgba(0,0,0,0.12));',
+      '  letter-spacing:-0.005em;',
+      '}',
+      '#' + FILTERS_ID + ' .acc-all.active { background:#1f7a4a; color:#fff; border-color:#1f7a4a; box-shadow:0 4px 14px rgba(31,122,74,0.30); }',
+      '#' + FILTERS_ID + ' .acc-all .dot-all { width:9px; height:9px; border-radius:50%; background:#1f7a4a; flex-shrink:0; }',
+      '#' + FILTERS_ID + ' .acc-all.active .dot-all { background:#fff; }',
+      '#' + FILTERS_ID + ' .acc-all .acc-count { font-size:11px; font-weight:700; opacity:0.78; padding:1px 8px; border-radius:99px; background:rgba(0,0,0,0.05); }',
+      '#' + FILTERS_ID + ' .acc-all.active .acc-count { background:rgba(255,255,255,0.22); color:#fff; opacity:1; }',
+      // Smaller per-bank chips
+      '#' + FILTERS_ID + ' .acc-bank {',
+      '  font-size:11px; font-weight:700; padding:5px 11px; border-radius:9px;',
+      '}',
+      '#' + FILTERS_ID + ' .acc-bank .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }',
+      '#' + FILTERS_ID + ' .acc-bank .acc-count { font-size:10px; font-weight:600; opacity:0.7; padding:0 4px; }',
+      '#' + FILTERS_ID + ' .acc-bank.active .acc-count { opacity:1; background:rgba(255,255,255,0.22); color:#fff; border-radius:99px; padding:1px 7px; }',
+      // Gear settings
+      '#' + FILTERS_ID + ' .acc-settings {',
+      '  font-size:13px; padding:6px 9px; border-radius:9px; line-height:1;',
+      '  background:var(--bg-3,rgba(0,0,0,0.04)); color:var(--ink-dim,#6b7280);',
+      '  border:1.5px solid var(--border,rgba(0,0,0,0.10)); cursor:pointer;',
+      '  transition:background 0.15s ease, color 0.15s ease;',
+      '}',
+      '#' + FILTERS_ID + ' .acc-settings:hover { background:rgba(31,122,74,0.10); color:#1f7a4a; border-color:rgba(31,122,74,0.30); }',
+      // Page size picker
+      '#' + FILTERS_ID + ' .pagesize-row {',
+      '  display:inline-flex; align-items:center; gap:3px; margin-left:auto;',
+      '  background:var(--bg-3,rgba(0,0,0,0.03)); border:1px solid var(--border,rgba(0,0,0,0.08));',
+      '  border-radius:10px; padding:3px;',
+      '}',
+      '#' + FILTERS_ID + ' .pagesize-label { font-size:10px; font-weight:700; color:var(--ink-dim,#6b7280); padding:0 8px; letter-spacing:0.06em; text-transform:uppercase; }',
+      '#' + FILTERS_ID + ' .ps-btn {',
+      '  font-size:11px; font-weight:700; padding:4px 9px; border-radius:7px;',
+      '  background:transparent; color:var(--ink-dim,#6b7280); border:0;',
+      '  cursor:pointer; font-family:inherit;',
+      '}',
+      '#' + FILTERS_ID + ' .ps-btn:hover:not(.active) { background:rgba(0,0,0,0.05); color:var(--ink,#0a0a0a); }',
+      '#' + FILTERS_ID + ' .ps-btn.active { background:#1f7a4a; color:#fff; }',
+      // Visibility modal
+      '#wjp-bank-vis-modal { position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; padding:20px; font-family:Inter,system-ui,sans-serif; }',
+      '#wjp-bank-vis-modal .panel { background:var(--card,#fff); color:var(--ink,#0a0a0a); max-width:420px; width:100%; border-radius:14px; border:1px solid var(--border,rgba(0,0,0,0.10)); box-shadow:0 30px 80px rgba(0,0,0,0.40); padding:22px; }',
+      '#wjp-bank-vis-modal h3 { font-size:15px; font-weight:800; margin:0 0 4px; letter-spacing:-0.01em; }',
+      '#wjp-bank-vis-modal .sub { font-size:11.5px; color:var(--ink-dim,#6b7280); margin-bottom:14px; line-height:1.5; }',
+      '#wjp-bank-vis-modal .list { max-height:340px; overflow-y:auto; }',
+      '#wjp-bank-vis-modal .row { display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; cursor:pointer; }',
+      '#wjp-bank-vis-modal .row:hover { background:var(--bg-3,rgba(0,0,0,0.04)); }',
+      '#wjp-bank-vis-modal .row input { accent-color:#1f7a4a; width:16px; height:16px; }',
+      '#wjp-bank-vis-modal .row .swatch { width:14px; height:14px; border-radius:4px; flex-shrink:0; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); }',
+      '#wjp-bank-vis-modal .row .name { flex:1; font-size:13px; font-weight:700; }',
+      '#wjp-bank-vis-modal .row .count { font-size:11px; color:var(--ink-dim,#6b7280); font-weight:600; }',
+      '#wjp-bank-vis-modal .actions { display:flex; gap:8px; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--border,rgba(0,0,0,0.08)); }',
+      '#wjp-bank-vis-modal .quick { display:flex; gap:6px; }',
+      '#wjp-bank-vis-modal .quick a { font-size:11px; font-weight:700; color:#1f7a4a; cursor:pointer; padding:4px 8px; border-radius:6px; }',
+      '#wjp-bank-vis-modal .quick a:hover { background:rgba(31,122,74,0.10); }',
+      '#wjp-bank-vis-modal .btn { padding:8px 16px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; border:1px solid; font-family:inherit; }',
+      '#wjp-bank-vis-modal .btn-pri { background:#1f7a4a; color:#fff; border-color:#1f7a4a; }',
+      '#wjp-bank-vis-modal .btn-sec { background:var(--bg-3,rgba(0,0,0,0.05)); color:var(--ink,#0a0a0a); border-color:var(--border,rgba(0,0,0,0.10)); }'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function openBankVisibilityModal() {
+    var accounts = getAccountList();
+    var hidden = getHiddenBanks();
+    var existing = document.getElementById('wjp-bank-vis-modal');
+    if (existing) existing.remove();
+    var m = document.createElement('div');
+    m.id = 'wjp-bank-vis-modal';
+    function buildRows(hiddenSet) {
+      return accounts.map(function (a) {
+        var c = bankColor(a.label);
+        var isHidden = hiddenSet.indexOf(a.key) !== -1;
+        return '<label class="row">' +
+          '<input type="checkbox" data-acc-key="' + a.key.replace(/"/g, '&quot;') + '" ' + (isHidden ? '' : 'checked') + '/>' +
+          '<span class="swatch" style="background:' + c.bg + ';"></span>' +
+          '<span class="name">' + a.label + '</span>' +
+          '<span class="count">' + a.count + ' txn' + (a.count === 1 ? '' : 's') + '</span>' +
+        '</label>';
+      }).join('');
+    }
+    m.innerHTML =
+      '<div class="panel">' +
+        '<h3>Show banks in transactions filter</h3>' +
+        '<div class="sub">Check the banks you want to see as filter chips. Uncheck a bank to hide it. Your data stays — you can show it again any time.</div>' +
+        '<div class="list">' + buildRows(hidden) + '</div>' +
+        '<div class="actions">' +
+          '<div class="quick"><a id="wjp-bv-all">Select all</a><a id="wjp-bv-none">Hide all</a></div>' +
+          '<div>' +
+            '<button class="btn btn-sec" id="wjp-bv-cancel" type="button">Cancel</button>' +
+            '<button class="btn btn-pri" id="wjp-bv-save" type="button" style="margin-left:6px;">Save</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    m.addEventListener('click', function (e) { if (e.target === m) m.remove(); });
+    document.body.appendChild(m);
+    document.getElementById('wjp-bv-cancel').onclick = function () { m.remove(); };
+    document.getElementById('wjp-bv-all').onclick = function () {
+      Array.prototype.forEach.call(m.querySelectorAll('input[type="checkbox"]'), function (cb) { cb.checked = true; });
+    };
+    document.getElementById('wjp-bv-none').onclick = function () {
+      Array.prototype.forEach.call(m.querySelectorAll('input[type="checkbox"]'), function (cb) { cb.checked = false; });
+    };
+    document.getElementById('wjp-bv-save').onclick = function () {
+      var checked = m.querySelectorAll('input[type="checkbox"]');
+      var newHidden = [];
+      Array.prototype.forEach.call(checked, function (cb) {
+        if (!cb.checked) newHidden.push(cb.getAttribute('data-acc-key'));
+      });
+      setHiddenBanks(newHidden);
+      m.remove();
+      // If user hid the currently selected bank, fall back to All
+      var cur = getCurrentFilter();
+      if (cur !== 'all' && newHidden.indexOf(cur) !== -1) setCurrentFilter('all');
+      renderSummary();
+    };
+  }
+
   function renderFilters(parent, accountFilter) {
+    injectSelectorStyle();
     var accounts = getAccountList();
     if (!accounts.length) return;
+    var hidden = getHiddenBanks();
     var existing = document.getElementById(FILTERS_ID);
     var wrap;
     var isNewFilt = !existing;
-    if (existing) {
-      wrap = existing;
-    } else {
-      wrap = document.createElement('div');
-      wrap.id = FILTERS_ID;
-    }
-    var html = '<span class="acc-pill ' + (accountFilter === 'all' ? 'active' : '') + '" data-acc="all">All</span>';
-    accounts.forEach(function (a) {
-      html += '<span class="acc-pill ' + (accountFilter === a.key ? 'active' : '') + '" data-acc="' + a.key.replace(/"/g, '&quot;') + '">' +
-        a.label + '<span class="acc-count">·' + a.count + '</span></span>';
+    if (existing) { wrap = existing; } else { wrap = document.createElement('div'); wrap.id = FILTERS_ID; }
+
+    var totalCount = accounts.reduce(function (a, b) { return a + b.count; }, 0);
+
+    var html = '';
+    // Big "All" chip — emphasized
+    html += '<span class="acc-pill acc-all ' + (accountFilter === 'all' ? 'active' : '') + '" data-acc="all">' +
+      '<span class="dot dot-all"></span>' +
+      '<span class="lbl">All transactions</span>' +
+      '<span class="acc-count">' + totalCount + '</span>' +
+    '</span>';
+    // Per-bank chips — smaller, brand-coloured
+    accounts.filter(function (a) { return hidden.indexOf(a.key) === -1; }).forEach(function (a) {
+      var c = bankColor(a.label);
+      var isActive = (accountFilter === a.key);
+      var bg = isActive ? c.bg : c.soft;
+      var text = isActive ? c.text : c.bg;
+      html += '<span class="acc-pill acc-bank ' + (isActive ? 'active' : '') + '" data-acc="' + a.key.replace(/"/g, '&quot;') + '" style="background:' + bg + ';color:' + text + ';border-color:' + c.bg + ';">' +
+        '<span class="dot" style="background:' + c.bg + ';"></span>' +
+        '<span class="lbl">' + a.label + '</span>' +
+        '<span class="acc-count">' + a.count + '</span>' +
+      '</span>';
     });
+    // Settings gear — picker for which banks to show
+    html += '<button class="acc-settings" id="wjp-bank-vis-btn" title="Choose which banks to show" type="button">⚙</button>';
+    // Page-size picker
+    var ps = (typeof window.WJP_GetTxnPageSize === 'function') ? window.WJP_GetTxnPageSize() : 10;
+    html += '<div class="pagesize-row" role="group" aria-label="Items per page">' +
+      '<span class="pagesize-label">Show</span>' +
+      [10, 20, 30, 50, 100].map(function (n) {
+        return '<button class="ps-btn ' + (ps === n ? 'active' : '') + '" type="button" data-ps="' + n + '">' + n + '</button>';
+      }).join('') +
+    '</div>';
+
     wrap.innerHTML = html;
     if (isNewFilt) parent.parentElement.insertBefore(wrap, parent);
+
     Array.prototype.forEach.call(wrap.querySelectorAll('.acc-pill'), function (p) {
       p.onclick = function () {
         var v = p.getAttribute('data-acc');
         setCurrentFilter(v);
-        Array.prototype.forEach.call(wrap.querySelectorAll('.acc-pill'), function (q) { q.classList.remove('active'); });
-        p.classList.add('active');
-        // Re-render summary
         renderSummary();
-        // Trigger Transactions tab re-render
         try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch (_) {}
-        // Also hide table rows that don't match the institution filter.
         try { applyAccountFilterToTable(); } catch (_) {}
-        // Fire a custom event so other modules (e.g. wjp-txn-stats-fix) can
-        // recompute their numbers using the new account filter.
         try { document.dispatchEvent(new CustomEvent('wjp-account-filter-changed', { detail: { account: v } })); } catch (_) {}
       };
     });
+    Array.prototype.forEach.call(wrap.querySelectorAll('.ps-btn'), function (b) {
+      b.onclick = function () {
+        var n = parseInt(b.getAttribute('data-ps'), 10);
+        if (typeof window.WJP_SetTxnPageSize === 'function') window.WJP_SetTxnPageSize(n);
+        renderSummary();
+      };
+    });
+    var gear = wrap.querySelector('#wjp-bank-vis-btn');
+    if (gear) gear.onclick = openBankVisibilityModal;
   }
+
 
   // Hide table rows whose txn doesn't match the current account filter. We
   // look up each row's txn id, find the txn in appState, compare its
@@ -758,6 +943,26 @@
   } else {
     boot();
   }
+
+  // v11 — Hook window.txnGetFiltered so the bank chip filter is applied to
+  // the FULL transaction list before pagination. This ensures clicking
+  // "Citi ··9295" actually paginates 222 matching txns, not just shows
+  // the ones currently visible in the first 10 rows.
+  function hookTxnGetFiltered() {
+    if (window._wjpTxFilterHooked) return;
+    if (typeof window.txnGetFiltered !== 'function') return;
+    window._wjpTxFilterHooked = true;
+    var orig = window.txnGetFiltered;
+    window.txnGetFiltered = function () {
+      var list = orig.apply(this, arguments) || [];
+      var filter = getCurrentFilter();
+      if (!filter || filter === 'all') return list;
+      return list.filter(function (t) { return txnAccountKey(t) === filter; });
+    };
+  }
+  // Try hooking immediately + retry as app.js may load after this module
+  setInterval(hookTxnGetFiltered, 800);
+  setTimeout(hookTxnGetFiltered, 500);
 
   window.WJP_TxTabEnhance = {
     render: tick,

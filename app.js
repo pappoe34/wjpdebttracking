@@ -20362,7 +20362,16 @@ function initAllButtonHandlers() {
     // ═══════════════════════════════════════════════════════
     //  TRANSACTIONS TAB — Full Engine
     // ═══════════════════════════════════════════════════════
-    const TXN_PAGE_SIZE = 10;
+    let TXN_PAGE_SIZE = 10;
+    try { var __wjpSz = parseInt(localStorage.getItem('wjp.tx.pageSize') || '10', 10); if ([10,20,30,50,100].indexOf(__wjpSz) >= 0) TXN_PAGE_SIZE = __wjpSz; } catch(_) {}
+    window.WJP_SetTxnPageSize = function(n) {
+      if ([10,20,30,50,100].indexOf(n) < 0) return false;
+      TXN_PAGE_SIZE = n;
+      try { localStorage.setItem('wjp.tx.pageSize', String(n)); } catch(_) {}
+      try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch(_) {}
+      return true;
+    };
+    window.WJP_GetTxnPageSize = function() { return TXN_PAGE_SIZE; };
     let txnState = {
         page: 0,
         sortCol: 'date',
@@ -21280,6 +21289,8 @@ function initAllButtonHandlers() {
 
     // ── Initial render ────────────────────────────────────
     window.txnRenderAll = txnRenderAll; // expose for detail panel delete buttons
+    window.txnGetFiltered = txnGetFiltered; // expose for external bank-filter hooks
+    window._wjpTxnState = txnState; // module-private state, exposed for inspection
     txnRenderAll();
 
     // ══════════════════════════════════════════════════════════
