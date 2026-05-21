@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -118,10 +118,12 @@
         var after = prev ? prev.nextSibling : page.firstChild;
         if (node !== after) page.insertBefore(node, after);
         prev = node;
-        // CRITICAL: override any pin-feature order (style.order='-10') with the
-        // saved flat position so the panel's order always wins. Greeting=-100,
-        // bar=-99, then every reorderable gets idx (0,1,2,...).
-        try { node.style.order = String(idx); } catch (_) {}
+        // CRITICAL: override any pin-feature order (style.order='-10') via a
+        // CSS custom property + !important rule. app.js's reorderPinnedCards
+        // re-sets style.order on every updateUI tick, so an inline write here
+        // would get undone. The CSS rule for [style*="--wjp-flat-order"] beats
+        // any inline style.order via !important.
+        try { node.style.setProperty('--wjp-flat-order', String(idx)); } catch (_) {}
       });
 
       // 6. Hide empty dash-grid (its reorderable children were flattened to
@@ -181,6 +183,10 @@
     // Lock greeting + customize bar to the very top — beat any pinned-card order:-10
     css.push('body.dash-autofit #page-dashboard > #dash-greeting{order:-100 !important;}');
     css.push('body.dash-autofit #page-dashboard > #dash-customize-bar{order:-99 !important;}');
+    // Flat order: each reorderable carries --wjp-flat-order from JS; this CSS
+    // rule re-applies it with !important so it beats app.js's inline style.order
+    // (set by the pin feature inside updateUI on every render).
+    css.push('body.dash-autofit #page-dashboard > .reorderable{order:var(--wjp-flat-order, 0) !important;}');
     // Reorderable card default (no explicit data-size): 2 per row at min 320px.
     css.push('body.dash-autofit #page-dashboard > .reorderable:not([data-size]){flex:1 1 calc(50% - 14px);min-width:320px;max-width:100%;}');
     // Hide the now-empty dash-grid (its contents were flattened to top-level)
