@@ -676,6 +676,123 @@
     };
   }
 
+  // v15 — Self-contained transaction renderer for the active bank chip.
+  // Bypasses app.js's txnRenderTable / txnRenderAll wrapper chain so chip
+  // clicks always reflect the chip's actual filter, regardless of any memo
+  // caching or coalesce-debounce in other modules.
+  function fmtUsdSigned(n) {
+    if (!isFinite(n)) return '$0';
+    var sign = n >= 0 ? '+' : '-';
+    return sign + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtDate(iso) {
+    try {
+      var d = (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso))
+        ? new Date(iso + 'T00:00:00')
+        : new Date(iso);
+      return d.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (_) { return iso || ''; }
+  }
+  function escapeAttr(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function customRenderBankRows() {
+    var filter = getCurrentFilter();
+    var ps = (typeof window.WJP_GetTxnPageSize === 'function') ? window.WJP_GetTxnPageSize() : 10;
+    if (![10,20,30,50,100].includes(ps)) ps = 10;
+    var s = getAppState();
+    if (!s || !Array.isArray(s.transactions)) return;
+    var list = s.transactions.slice();
+    // Apply bank filter ONLY when a specific bank is selected (not 'all').
+    if (filter && filter !== 'all') {
+      list = list.filter(function (t) { return txnAccountKey(t) === filter; });
+    }
+    // Sort desc by date
+    list.sort(function (a, b) {
+      var da = new Date(a.date || a.timestamp || 0).getTime();
+      var db = new Date(b.date || b.timestamp || 0).getTime();
+      return db - da;
+    });
+    var total = list.length;
+    var page = (window._wjpTxnState && window._wjpTxnState.page) || 0;
+    if (page * ps >= total && total > 0) page = 0;
+    var start = page * ps;
+    var end = Math.min(start + ps, total);
+    var slice = list.slice(start, end);
+
+    var tbody = document.getElementById('txn-tbody');
+    if (!tbody) return;
+
+    if (slice.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3,#6b7280);">' +
+        'No transactions for ' + (filter === 'all' ? 'this filter' : filter) +
+        '</td></tr>';
+    } else {
+      var html = slice.map(function (t) {
+        var amt = Number(t.amount) || 0;
+        var amtColor = amt < 0 ? 'var(--danger, #c0594a)' : 'var(--accent, #1f7a4a)';
+        var amtStr = (amt < 0 ? '-$' : '+$') + Math.abs(amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        var status = (t.status || 'completed').toLowerCase();
+        var statusColors = { completed: 'var(--accent, #1f7a4a)', pending: 'var(--warning, #fbbf24)', failed: 'var(--danger, #c0594a)' };
+        var statusDot = statusColors[status] || statusColors.completed;
+        var statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+        var srcBadge = (typeof window.renderTxnSourceBadge === 'function') ? window.renderTxnSourceBadge(t) : '';
+        var srcKind = (typeof window.getTxnSourceMeta === 'function') ? (window.getTxnSourceMeta(t) || {}).kind : 'manual';
+        var cat = t.category || 'Other';
+        var catBg = 'var(--card-2, rgba(0,0,0,0.04))';
+        var catClr = 'var(--text-3, #6b7280)';
+        return '<tr class="txn-row" data-txn-id="' + escapeAttr(t.id) + '" data-src-kind="' + escapeAttr(srcKind) + '" style="cursor:pointer;">' +
+          '<td>' + srcBadge + '</td>' +
+          '<td class="txn-date">' + fmtDate(t.date) + '</td>' +
+          '<td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeAttr(t.merchant || 'Unknown') + '</td>' +
+          '<td><div class="badge" style="background:' + catBg + ';color:' + catClr + ';font-size:9px;white-space:nowrap;">' + escapeAttr(cat) + '</div></td>' +
+          '<td style="font-weight:700;color:' + amtColor + ';white-space:nowrap;">' + amtStr + '</td>' +
+          '<td class="txn-method" style="font-size:11px;">' + escapeAttr(t.method || 'N/A') + '</td>' +
+          '<td><span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:' + statusDot + ';">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:' + statusDot + ';flex-shrink:0;display:inline-block;"></span>' + statusLabel +
+          '</span></td>' +
+          '<td style="text-align:center;white-space:nowrap;">' +
+            '<button class="btn-txn-edit" data-txn-id="' + escapeAttr(t.id) + '" style="background:rgba(0,212,168,0.10);border:1px solid rgba(0,212,168,0.25);cursor:pointer;color:var(--accent);font-size:13px;padding:5px 8px;border-radius:6px;opacity:0.85;margin-right:4px;" title="Edit"><i class="ph ph-pencil-simple"></i></button>' +
+            '<button class="btn-txn-del" data-txn-id="' + escapeAttr(t.id) + '" style="background:rgba(255,77,109,0.10);border:1px solid rgba(255,77,109,0.25);cursor:pointer;color:#ff4d6d;font-size:13px;padding:5px 8px;border-radius:6px;opacity:0.85;" title="Delete"><i class="ph ph-trash"></i></button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+      tbody.innerHTML = html;
+    }
+    // Update page label
+    var label = document.getElementById('txn-page-label');
+    if (label) {
+      label.textContent = total === 0
+        ? 'No results' + (filter !== 'all' ? ' for ' + filter : '')
+        : 'Showing ' + (start + 1) + '\u2013' + end + ' of ' + total + ' transactions' + (filter !== 'all' ? ' (' + filter + ')' : '');
+    }
+    // Update prev/next disabled
+    var prev = document.getElementById('btn-txn-prev');
+    var next = document.getElementById('btn-txn-next');
+    if (prev) prev.disabled = page === 0;
+    if (next) next.disabled = end >= total;
+    // Wire row clicks so detail panel still opens
+    Array.prototype.forEach.call(tbody.querySelectorAll('.txn-row'), function (row) {
+      row.onclick = function (e) {
+        if (e.target.closest('.btn-txn-del') || e.target.closest('.btn-txn-edit')) return;
+        var id = row.getAttribute('data-txn-id');
+        var t = (getAppState().transactions || []).find(function (x) { return x.id === id; });
+        if (t && typeof window.txnShowDetail === 'function') window.txnShowDetail(t);
+      };
+    });
+    Array.prototype.forEach.call(tbody.querySelectorAll('.btn-txn-edit'), function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var id = b.getAttribute('data-txn-id');
+        var t = (getAppState().transactions || []).find(function (x) { return x.id === id; });
+        if (t && typeof window.txnOpenEditModal === 'function') window.txnOpenEditModal(t);
+      };
+    });
+  }
+  window.WJP_CustomTxnRender = customRenderBankRows;
+
   function renderFilters(parent, accountFilter) {
     injectSelectorStyle();
     var accounts = getAccountList();
@@ -718,9 +835,18 @@
       p.onclick = function () {
         var v = p.getAttribute('data-acc');
         setCurrentFilter(v);
+        // Reset to first page when filter changes
+        try { if (window._wjpTxnState) window._wjpTxnState.page = 0; } catch (_) {}
         renderSummary();
+        // Run my self-contained renderer FIRST so the UI updates instantly
+        try { customRenderBankRows(); } catch (e) { try { console.warn('[wjp-custom-render]', e); } catch(_){} }
+        // Then let host re-render stats etc. (it may overwrite tbody but our
+        // MutationObserver will rebuild from our renderer.)
         try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch (_) {}
-        try { applyAccountFilterToTable(); } catch (_) {}
+        // After host re-render, re-impose ours via rAF
+        requestAnimationFrame(function () {
+          try { customRenderBankRows(); } catch (_) {}
+        });
         try { document.dispatchEvent(new CustomEvent('wjp-account-filter-changed', { detail: { account: v } })); } catch (_) {}
       };
     });
