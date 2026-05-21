@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -111,13 +111,17 @@
       //    #page-dashboard, immediately after the customize bar, in flat order.
       var anchor = bar ? bar : (greeting || null);
       var prev = anchor;
-      flat.forEach(function (cid) {
+      flat.forEach(function (cid, idx) {
         var node = byCid[cid];
         if (!node) return;
         // Insert right after `prev`
         var after = prev ? prev.nextSibling : page.firstChild;
         if (node !== after) page.insertBefore(node, after);
         prev = node;
+        // CRITICAL: override any pin-feature order (style.order='-10') with the
+        // saved flat position so the panel's order always wins. Greeting=-100,
+        // bar=-99, then every reorderable gets idx (0,1,2,...).
+        try { node.style.order = String(idx); } catch (_) {}
       });
 
       // 6. Hide empty dash-grid (its reorderable children were flattened to
