@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v15 — raise panel z-index above backdrop so dim only paints OUTSIDE the modal v14 — closeAll removes body.wjp-txn-detail-open class (owner module gates backdrop visibility on it) v13 — closeAll uses display:none (centered panel ignored right:-440) v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v16 — wire Close/X to closeAll() + custom delete confirmation modal v15 — raise panel z-index above backdrop so dim only paints OUTSIDE the modal v14 — closeAll removes body.wjp-txn-detail-open class (owner module gates backdrop visibility on it) v13 — closeAll uses display:none (centered panel ignored right:-440) v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -303,6 +303,129 @@
         window.txnShowDetail._wjpWrapped = true;
       }
     } catch (_) {}
+
+    // v16 — Replace the panel's Close/X buttons + Delete confirmation each
+    // time the panel re-renders, by walking the panel after content changes.
+    function rewirePanelActions() {
+      var p = document.getElementById('txn-detail-panel');
+      if (!p) return;
+      var content = document.getElementById('txn-detail-content');
+      if (!content) return;
+      // Find buttons by label text since they're inline-rendered each open
+      var buttons = p.querySelectorAll('button');
+      buttons.forEach(function (btn) {
+        var label = (btn.textContent || '').trim().toLowerCase();
+        // X close (the ✕ at top-right)
+        if (label === '✕' && !btn._wjpRewired) {
+          btn._wjpRewired = true;
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeAll();
+          }, true);
+        }
+        // Footer Close button
+        if (label === 'close' && !btn._wjpRewired) {
+          btn._wjpRewired = true;
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeAll();
+          }, true);
+        }
+        // Footer Delete button — intercept and show custom confirmation
+        if (label.indexOf('delete') !== -1 && !btn._wjpDeleteRewired) {
+          btn._wjpDeleteRewired = true;
+          btn.addEventListener('click', function (e) {
+            // Try to recover the txnId from the panel's inline edit button data
+            var editBtn = document.getElementById('txn-detail-edit-btn');
+            var txnId = editBtn && editBtn.getAttribute('data-txn-id');
+            if (!txnId) return; // let original handler run
+            e.preventDefault();
+            e.stopPropagation();
+            showDeleteConfirm(txnId);
+          }, true);
+        }
+      });
+    }
+
+    // Custom delete confirmation modal — much clearer than native confirm()
+    function showDeleteConfirm(txnId) {
+      var s; try { s = appState; } catch (_) {}
+      var t = s && Array.isArray(s.transactions) && s.transactions.find(function (x) { return x.id === txnId; });
+      var merchantName = (t && t.merchant) || 'this transaction';
+      var amount = t && typeof t.amount === 'number'
+        ? (t.amount < 0 ? '-$' : '+$') + Math.abs(t.amount).toFixed(2)
+        : '';
+      var existing = document.getElementById('wjp-delete-confirm');
+      if (existing) existing.remove();
+      var modal = document.createElement('div');
+      modal.id = 'wjp-delete-confirm';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;';
+      modal.innerHTML =
+        '<div style="background:var(--card,#fff);color:var(--ink,#0a0a0a);max-width:420px;width:100%;border-radius:16px;border:1px solid var(--border,rgba(0,0,0,0.1));box-shadow:0 30px 80px rgba(0,0,0,0.40);padding:24px;">' +
+          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
+            '<div style="width:40px;height:40px;border-radius:50%;background:rgba(255,77,109,0.14);display:flex;align-items:center;justify-content:center;font-size:20px;">🗑️</div>' +
+            '<div>' +
+              '<div style="font-size:15px;font-weight:800;letter-spacing:-0.01em;">Delete this transaction?</div>' +
+              '<div style="font-size:11px;color:var(--ink-dim,#6b7280);margin-top:2px;">This can\'t be undone.</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:var(--bg-3,rgba(0,0,0,0.04));border:1px solid var(--border,rgba(0,0,0,0.08));border-radius:10px;padding:11px 14px;margin-bottom:18px;">' +
+            '<div style="font-size:12.5px;font-weight:700;">' + escapeHtml(merchantName) + '</div>' +
+            (amount ? '<div style="font-size:13px;font-weight:800;color:' + (t && t.amount < 0 ? '#c0594a' : '#1f7a4a') + ';margin-top:2px;">' + amount + '</div>' : '') +
+          '</div>' +
+          '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+            '<button id="wjp-dc-cancel" type="button" style="padding:9px 18px;border-radius:9px;background:var(--bg-3,rgba(0,0,0,0.05));color:var(--ink,#0a0a0a);border:1px solid var(--border,rgba(0,0,0,0.10));font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">Cancel</button>' +
+            '<button id="wjp-dc-confirm" type="button" style="padding:9px 18px;border-radius:9px;background:#ff4d6d;color:#fff;border:1px solid #ff4d6d;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;">Delete</button>' +
+          '</div>' +
+        '</div>';
+      modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+      document.body.appendChild(modal);
+      document.getElementById('wjp-dc-cancel').onclick = function () { modal.remove(); };
+      document.getElementById('wjp-dc-confirm').onclick = function () {
+        try {
+          if (s && Array.isArray(s.transactions)) {
+            s.transactions = s.transactions.filter(function (x) { return x.id !== txnId; });
+          }
+          if (typeof window.saveState === 'function') window.saveState();
+          if (typeof window.renderTransactions === 'function') window.renderTransactions();
+          if (typeof window.txnRenderAll === 'function') window.txnRenderAll();
+          if (typeof window.showToast === 'function') window.showToast('Transaction deleted.');
+        } catch (e2) { console.warn('[wjp-tx-delete]', e2); }
+        modal.remove();
+        closeAll();
+      };
+      // Esc closes the confirm
+      var k = function (e) {
+        if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', k); }
+      };
+      document.addEventListener('keydown', k);
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    // Run rewire whenever the panel content changes (each time a row is clicked)
+    function watchPanelForRewire() {
+      var content = document.getElementById('txn-detail-content');
+      if (!content || content._wjpRewireObserved) return;
+      content._wjpRewireObserved = true;
+      var mo = new MutationObserver(function () {
+        // Debounce via rAF
+        if (content._wjpRewirePending) return;
+        content._wjpRewirePending = true;
+        requestAnimationFrame(function () {
+          content._wjpRewirePending = false;
+          try { rewirePanelActions(); } catch (_) {}
+        });
+      });
+      mo.observe(content, { childList: true, subtree: true });
+    }
+    setInterval(watchPanelForRewire, 4000);
+    setTimeout(watchPanelForRewire, 1500);
     function bindBackdrop() {
       var b = document.getElementById('txn-detail-backdrop');
       if (!b || b._wjpDismissBound) return;
