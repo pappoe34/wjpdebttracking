@@ -1,4 +1,4 @@
-/* wjp-education-tab.js v1.4 — tone down disclaimer + shrink warning text v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
+/* wjp-education-tab.js v1.5 — category chips wear category colors v1.4 — tone down disclaimer + shrink warning text v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
  *
  * Hijacks #page-activity (sidebar Activity Log → relabeled to Financial
  * Education). Activity Log is moved to Settings via wjp-settings-extras.js.
@@ -399,9 +399,22 @@
 
     var catChips = CATEGORIES.map(function (c) {
       var active = state.selectedCat === c.k;
-      return `<button type="button" class="wjp-edu-cat${active ? " wjp-edu-cat-active" : ""}" data-wjp-edu-cat="${c.k}" style="border-color:${active ? "#0a0a0a" : "rgba(0,0,0,0.10)"};">
+      // "All" stays neutral. Every other category wears its own color.
+      var isAll = (c.k === 'all');
+      var col = isAll ? null : categoryColor(c.k);
+      var style;
+      if (isAll) {
+        style = active
+          ? 'background:#0a0a0a;color:#ffffff;border-color:#0a0a0a;'
+          : 'background:transparent;color:var(--ink,#0a0a0a);border-color:rgba(0,0,0,0.10);';
+      } else if (active) {
+        style = 'background:' + col + ';color:#ffffff;border-color:' + col + ';';
+      } else {
+        style = 'background:' + col + '14;color:' + col + ';border-color:' + col + '40;';
+      }
+      return `<button type="button" class="wjp-edu-cat${active ? " wjp-edu-cat-active" : ""}" data-wjp-edu-cat="${c.k}" style="${style}">
         ${escapeHTML(c.label)}
-        <span class="wjp-edu-cat-count">${byCat[c.k] || 0}</span>
+        <span class="wjp-edu-cat-count" style="opacity:.75;">${byCat[c.k] || 0}</span>
       </button>`;
     }).join("");
 
