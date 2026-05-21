@@ -250,7 +250,197 @@
       +     '<span onclick="window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What do these numbers mean?" title="What do these numbers mean?" style="cursor:pointer;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:inline-grid;place-items:center;font-size:10px;font-style:italic;font-weight:900;letter-spacing:0;">i</span>'
       +   '</div>'
       + '</div>'
-      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + debtChip + cashChip + scoreChip + '</div>';
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + debtChip + cashChip + scoreChip + '</div>'
+      + buildTipsHTML(d, cashAbs);
+  }
+
+  // ===== AI tips: spending insights + credit + savings tips =====
+  function buildTipsHTML(d, cashAbs) {
+    var tips = computeTips(d, cashAbs);
+    if (!tips.length) return '';
+    var rows = tips.map(function (t) {
+      return ''
+        + '<div style="display:flex;gap:10px;padding:9px 10px;border-radius:10px;background:' + (t.bg || 'rgba(99,102,241,0.06)') + ';border:1px solid ' + (t.border || 'rgba(99,102,241,0.18)') + ';align-items:flex-start;">'
+        + '<div style="width:24px;height:24px;border-radius:7px;background:' + (t.iconBg || 'rgba(99,102,241,0.18)') + ';display:grid;place-items:center;flex-shrink:0;color:' + (t.iconColor || '#6366f1') + ';"><i class="' + (t.icon || 'ph-fill ph-sparkle') + '" style="font-size:13px;"></i></div>'
+        + '<div style="flex:1;min-width:0;">'
+        +   '<div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);margin-bottom:2px;">' + t.label + '</div>'
+        +   '<div style="font-size:12px;line-height:1.45;font-weight:600;color:var(--ink, var(--text-1, #0a0a0a));">' + t.body + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+    return ''
+      + '<div style="margin-top:12px;">'
+      +   '<div style="display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);margin-bottom:6px;">'
+      +     '<i class="ph-fill ph-sparkle" style="font-size:11px;color:#6366f1;"></i>'
+      +     '<span>AI Insights · last 7 days</span>'
+      +   '</div>'
+      +   '<div style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding-right:4px;" class="wjp-mom-tips-scroll">' + rows + '</div>'
+      + '</div>';
+  }
+
+  function computeTips(d, cashAbs) {
+    var s = getState2() || {};
+    var out = [];
+    var now = Date.now();
+    var sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    // ===== 1. Spending top category (last 7 days) =====
+    try {
+      var txns = (s.transactions || []).filter(function (t) {
+        if (!t || !t.date) return false;
+        var ts = new Date(t.date).getTime();
+        if (!isFinite(ts) || (now - ts) > sevenDaysMs) return false;
+        var amt = Number(t.amount) || 0;
+        return amt < 0;  // spending only
+      });
+      if (txns.length) {
+        var byCat = {};
+        txns.forEach(function (t) {
+          var cat = (t.category || 'Other').toString();
+          if (/transfer|payment|debt/i.test(cat)) return;  // skip transfers/debt
+          byCat[cat] = (byCat[cat] || 0) + Math.abs(Number(t.amount) || 0);
+        });
+        var top = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; })[0];
+        if (top && byCat[top] > 0) {
+          var topAmt = byCat[top];
+          out.push({
+            label: 'Top spend category',
+            body: '<strong>' + top + '</strong> took $' + Math.round(topAmt).toLocaleString('en-US') + ' this week. Capping this one bucket is the fastest win.',
+            icon: 'ph-fill ph-chart-pie-slice',
+            bg: 'rgba(239,68,68,0.06)',
+            border: 'rgba(239,68,68,0.20)',
+            iconBg: 'rgba(239,68,68,0.18)',
+            iconColor: '#ef4444'
+          });
+        }
+      } else {
+        out.push({
+          label: 'Spending tracker',
+          body: 'No transactions yet this week. Sync your bank in <strong>Bank Health</strong> to start seeing where money goes.',
+          icon: 'ph-fill ph-receipt'
+        });
+      }
+    } catch (_) {}
+
+    // ===== 2. Lower spending tip — recurring/subscription audit =====
+    try {
+      var recurring = (s.recurring || s.recurringPayments || []).filter(function (r) {
+        return r && Number(r.amount) > 0 && !/income|salary|paycheck/i.test(r.category || r.name || '');
+      });
+      if (recurring.length) {
+        // Top 3 smallest recurring (most cancellable)
+        var sub = recurring.slice().sort(function (a, b) { return (Number(a.amount) || 0) - (Number(b.amount) || 0); })[0];
+        if (sub && Number(sub.amount) > 0) {
+          out.push({
+            label: 'Lower-spending tip',
+            body: 'You have <strong>' + recurring.length + '</strong> recurring bills. Killing one $' + Math.round(Number(sub.amount)).toLocaleString('en-US') + '/mo you don\'t use frees that money for debt payoff.',
+            icon: 'ph-fill ph-scissors',
+            bg: 'rgba(245,158,11,0.06)',
+            border: 'rgba(245,158,11,0.20)',
+            iconBg: 'rgba(245,158,11,0.18)',
+            iconColor: '#f59e0b'
+          });
+        }
+      } else {
+        out.push({
+          label: 'Lower-spending tip',
+          body: 'Set a weekly cash ceiling for <strong>discretionary</strong> categories — eating out, shopping, entertainment. Even -10% adds up over months.',
+          icon: 'ph-fill ph-scissors',
+          bg: 'rgba(245,158,11,0.06)',
+          border: 'rgba(245,158,11,0.20)',
+          iconBg: 'rgba(245,158,11,0.18)',
+          iconColor: '#f59e0b'
+        });
+      }
+    } catch (_) {}
+
+    // ===== 3. Credit improvement tip — utilization-aware =====
+    try {
+      var creditCards = (s.debts || []).filter(function (dx) {
+        var t = (dx.type || '').toLowerCase();
+        return /credit\s*card|cc|revolving/.test(t);
+      });
+      if (creditCards.length) {
+        var highest = null;
+        creditCards.forEach(function (cc) {
+          var bal = Number(cc.balance) || 0;
+          var lim = Number(cc.creditLimit || cc.limit) || 0;
+          if (lim > 0) {
+            var util = bal / lim;
+            if (!highest || util > highest.util) highest = { name: cc.name || 'card', util: util, bal: bal, lim: lim };
+          }
+        });
+        if (highest && highest.util > 0.30) {
+          var pct = Math.round(highest.util * 100);
+          var targetBal = Math.round(highest.lim * 0.29);
+          var payDown = Math.max(0, Math.round(highest.bal - targetBal));
+          out.push({
+            label: 'Credit improvement',
+            body: '<strong>' + highest.name + '</strong> is at ' + pct + '% utilization. Pay down $' + payDown.toLocaleString('en-US') + ' before the next statement to drop under 30% — biggest single-month score boost.',
+            icon: 'ph-fill ph-trending-up',
+            bg: 'rgba(16,185,129,0.06)',
+            border: 'rgba(16,185,129,0.20)',
+            iconBg: 'rgba(16,185,129,0.18)',
+            iconColor: '#10b981'
+          });
+        } else if (highest) {
+          out.push({
+            label: 'Credit improvement',
+            body: 'Utilization is already under 30% across your cards — great. Keep oldest accounts open + automate at least the minimum on every card to lock in payment history.',
+            icon: 'ph-fill ph-trending-up',
+            bg: 'rgba(16,185,129,0.06)',
+            border: 'rgba(16,185,129,0.20)',
+            iconBg: 'rgba(16,185,129,0.18)',
+            iconColor: '#10b981'
+          });
+        } else {
+          out.push({
+            label: 'Credit improvement',
+            body: 'Add credit limits to your cards in <strong>Debts</strong> to unlock per-card utilization targets and statement-date timing.',
+            icon: 'ph-fill ph-trending-up'
+          });
+        }
+      } else {
+        out.push({
+          label: 'Credit improvement',
+          body: 'Pay every bill (utilities, phone, rent) on time — payment history is the #1 factor in your score. Set autopay where you can.',
+          icon: 'ph-fill ph-trending-up',
+          bg: 'rgba(16,185,129,0.06)',
+          border: 'rgba(16,185,129,0.20)',
+          iconBg: 'rgba(16,185,129,0.18)',
+          iconColor: '#10b981'
+        });
+      }
+    } catch (_) {}
+
+    // ===== 4. Savings/cash nudge =====
+    try {
+      if (cashAbs <= 0) {
+        out.push({
+          label: 'Emergency fund',
+          body: 'No cash on hand yet. Aim for a $500 starter buffer in a separate savings account — keeps an unexpected $200 bill from turning into new credit card debt.',
+          icon: 'ph-fill ph-piggy-bank'
+        });
+      } else if (cashAbs < 1000) {
+        out.push({
+          label: 'Emergency fund',
+          body: 'You\'re at $' + Math.round(cashAbs).toLocaleString('en-US') + '. Pushing past $1,000 unlocks real cushion — most unplanned bills (car, medical, appliance) land under that.',
+          icon: 'ph-fill ph-piggy-bank'
+        });
+      } else {
+        var monthlyMin = (s.debts || []).reduce(function (sum, dx) { return sum + (Number(dx.minPayment) || 0); }, 0);
+        if (monthlyMin > 0) {
+          var months = (cashAbs / monthlyMin).toFixed(1);
+          out.push({
+            label: 'Runway',
+            body: 'At $' + Math.round(cashAbs).toLocaleString('en-US') + ', you have ~<strong>' + months + ' months</strong> of debt-minimum coverage if income paused. Target: 3 months.',
+            icon: 'ph-fill ph-shield-check'
+          });
+        }
+      }
+    } catch (_) {}
+
+    return out;
   }
 
   // ===== Cash on Hand edit modal =====
