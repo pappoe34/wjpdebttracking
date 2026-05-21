@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
+/* wjp-transactions-tab-enhance.js v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
  *
  * Adds four upgrades to the Transactions tab:
  *
@@ -185,6 +185,10 @@
       if (accountFilter && accountFilter !== 'all') {
         if (t.institutionName !== accountFilter) return;
       }
+      // Skip synthetic recurring-payment templates — they shouldn't count
+      // until the matching real Plaid transaction confirms (or the user
+      // marks the synthetic as paid).
+      if (t && t.synthetic === true) return;
       var d = parseTxnDate(t);
       if (isNaN(d.getTime())) return;
       if (d >= cutoff && d <= end) current.push(t);

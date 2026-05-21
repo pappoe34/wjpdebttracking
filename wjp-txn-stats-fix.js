@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -81,7 +81,16 @@
       if (!state || !Array.isArray(state.transactions)) return;
       // Try to read current filter state — txnState is module-private. Best effort:
       // recompute totals on all transactions, excluding transfers.
-      var txns = state.transactions.filter(function (t) { return t && !isTransfer(t); });
+      // Also exclude synthetic transactions — those are auto-materialized
+      // from recurring-payment schedules and shouldn't count until either:
+      //   (a) the matching real Plaid transaction confirms, or
+      //   (b) the user manually marks the synthetic as confirmed/paid.
+      var txns = state.transactions.filter(function (t) {
+        if (!t) return false;
+        if (t.synthetic === true) return false;
+        if (isTransfer(t)) return false;
+        return true;
+      });
       var income = 0, spend = 0;
       txns.forEach(function (t) {
         var a = Number(t.amount) || 0;
@@ -170,8 +179,10 @@
     try {
       var st = (typeof appState !== 'undefined') ? appState : window.appState;
       if (!st || !Array.isArray(st.transactions)) return '0';
-      var t = st.transactions;
-      return t.length + '|' + (t.length ? (t[t.length-1].id || t[t.length-1].date || '') : '');
+      // Fingerprint only REAL (non-synthetic) transactions. Synthetic recurring
+      // schedules tick automatically and would otherwise force re-renders.
+      var real = st.transactions.filter(function (t) { return t && !t.synthetic; });
+      return real.length + '|' + (real.length ? (real[real.length-1].id || real[real.length-1].date || '') : '');
     } catch (_) { return Date.now() + ''; }
   }
   function wrapRenderer() {
