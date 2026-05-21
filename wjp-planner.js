@@ -1,4 +1,4 @@
-/* wjp-planner.js v1 — Consolidate Goals + Notes into a single "Planner" tab.
+/* wjp-planner.js v2 — mount inside content-area + add bottom overview panel grid v1 — Consolidate Goals + Notes into a single "Planner" tab.
  *
  *   • Adds a "Planner" item to the sidebar (with a clipboard icon)
  *   • Hides the old "Goals" and "Notes" sidebar items
@@ -116,7 +116,28 @@
       '#page-planner .pl-quick { display:flex; gap:8px; align-items:center; margin-bottom:12px; }',
       '#page-planner .pl-quick .pl-input { flex:1; }',
       '#page-planner .pl-empty { text-align:center; padding:36px 16px; color:var(--ink-dim, #6b7280); font-size:13px; }',
-      '#page-planner .pl-empty .pl-empty-icon { font-size:38px; opacity:0.4; display:block; margin-bottom:8px; }'
+      '#page-planner .pl-empty .pl-empty-icon { font-size:38px; opacity:0.4; display:block; margin-bottom:8px; }',
+      // Overview grid (bottom of page)
+      '#pl-overview { margin-top:32px; padding-top:24px; border-top:1px solid var(--border, rgba(0,0,0,0.08)); }',
+      '#pl-overview .pl-overview-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }',
+      '#pl-overview h2 { font-size:18px; font-weight:800; margin:0; color:var(--ink, #0a0a0a); }',
+      '#pl-overview .pl-row-meta { margin-top:2px; }',
+      '#pl-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }',
+      '#pl-grid .pl-ovcard { background:var(--card,#fff); border:1px solid var(--border,rgba(0,0,0,0.08)); border-radius:14px; padding:16px; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s, border-color 0.15s; display:flex; flex-direction:column; gap:8px; min-height:170px; }',
+      '#pl-grid .pl-ovcard:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.06); border-color:rgba(31,122,74,0.30); }',
+      '#pl-grid .pl-ovcard-head { display:flex; align-items:center; gap:8px; }',
+      '#pl-grid .pl-ovcard-emoji { font-size:18px; }',
+      '#pl-grid .pl-ovcard-label { font-size:10.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-dim, #6b7280); }',
+      '#pl-grid .pl-ovcard-big { font-size:28px; font-weight:900; letter-spacing:-0.02em; color:var(--ink,#0a0a0a); }',
+      '#pl-grid .pl-ovcard-sub { font-size:11.5px; color:var(--ink-dim,#6b7280); font-weight:600; margin-top:-4px; }',
+      '#pl-grid .pl-ovcard-list { display:flex; flex-direction:column; gap:4px; margin-top:6px; flex:1; }',
+      '#pl-grid .pl-ovrow { display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:11.5px; padding:4px 0; border-bottom:1px dashed rgba(0,0,0,0.06); }',
+      '#pl-grid .pl-ovrow:last-child { border-bottom:0; }',
+      '#pl-grid .pl-ovrow.overdue .pl-ovrow-meta { color:#dc2626; font-weight:800; }',
+      '#pl-grid .pl-ovrow.today .pl-ovrow-meta { color:#16a34a; font-weight:800; }',
+      '#pl-grid .pl-ovrow-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; color:var(--ink,#0a0a0a); font-weight:600; }',
+      '#pl-grid .pl-ovrow-meta { font-size:10.5px; color:var(--ink-dim,#6b7280); font-weight:700; flex-shrink:0; }',
+      '#pl-grid .pl-ovcard-cta { font-size:11px; font-weight:800; color:#1f7a4a; margin-top:auto; padding-top:6px; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -172,7 +193,8 @@
 
   // --- Page DOM ---
   function buildPage() {
-    var main = document.querySelector('main') || document.querySelector('.main-content') || document.body;
+    // v2: mount INSIDE .content-area so the site footer doesn't leak above us.
+    var main = document.querySelector('.content-area') || document.querySelector('main') || document.querySelector('.main-content') || document.body;
     var page = document.createElement('div');
     page.id = 'page-planner';
     page.className = 'page';
@@ -209,7 +231,131 @@
         renderActivePane();
       });
     });
+
+    // v2 — Bottom overview grid showing all sections at-a-glance
+    var bottom = document.createElement('div');
+    bottom.id = 'pl-overview';
+    bottom.innerHTML = '<div class="pl-overview-head">' +
+      '<h2>📊 Planner at a glance</h2>' +
+      '<div class="pl-row-meta">Live summary across every section</div>' +
+    '</div>' +
+    '<div class="pl-grid" id="pl-grid"></div>';
+    page.appendChild(bottom);
     return page;
+  }
+  function renderOverviewGrid() {
+    var grid = document.getElementById('pl-grid');
+    if (!grid) return;
+    var s = getAppState() || {};
+    var prefs = getPrefs() || { todos: [], reminders: [], reviews: {} };
+    var goals = Array.isArray(s.goals) ? s.goals : [];
+    var notes = Array.isArray(s.notes) ? s.notes : [];
+    var pendingTodos = prefs.todos.filter(function (t) { return !t.done; });
+    var doneTodos = prefs.todos.filter(function (t) { return t.done; });
+    var auto = autoReminders();
+    var manualRem = prefs.reminders || [];
+    var allRem = auto.concat(manualRem.map(function (r) {
+      var d = r.date ? new Date(r.date + 'T00:00:00') : null;
+      var diff = d ? Math.round((d - new Date()) / 86400000) : null;
+      return { title: r.text, when: diff == null ? '' : diff < 0 ? Math.abs(diff)+'d ago' : diff === 0 ? 'Today' : 'In '+diff+'d', cls: diff != null && diff < 0 ? 'overdue' : diff === 0 ? 'today' : '' };
+    }));
+    var thisWeek = isoWeekKey(new Date());
+    var review = (prefs.reviews && prefs.reviews[thisWeek]) || {};
+    var hasReview = !!(review.wins || review.struggles || review.next);
+
+    // Goals total saved + target
+    var totalSaved = goals.reduce(function (a, g) { return a + (Number(g.saved || g.current) || 0); }, 0);
+    var totalTarget = goals.reduce(function (a, g) { return a + (Number(g.target || g.amount) || 0); }, 0);
+    var goalPct = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0;
+
+    var html = '';
+
+    // Goals card
+    html += '<div class="pl-ovcard" data-jump="goals">' +
+      '<div class="pl-ovcard-head"><span class="pl-ovcard-emoji">🎯</span><span class="pl-ovcard-label">Goals</span></div>' +
+      '<div class="pl-ovcard-big">' + goals.length + '</div>' +
+      '<div class="pl-ovcard-sub">' + (goals.length === 0 ? 'No active goals yet' : fmtUsd(totalSaved) + ' / ' + fmtUsd(totalTarget) + ' (' + goalPct + '%)') + '</div>';
+    if (goals.length > 0) {
+      html += '<div class="pl-ovcard-list">' +
+        goals.slice(0, 3).map(function (g) {
+          var saved = Number(g.saved || g.current) || 0;
+          var target = Number(g.target || g.amount) || 1;
+          var pct = Math.min(100, Math.round(saved / target * 100));
+          return '<div class="pl-ovrow"><span class="pl-ovrow-name">' + escapeHtml(g.name) + '</span><span class="pl-ovrow-meta">' + pct + '%</span></div>';
+        }).join('') +
+      '</div>';
+    }
+    html += '<div class="pl-ovcard-cta">View all →</div></div>';
+
+    // To-do card
+    html += '<div class="pl-ovcard" data-jump="todos">' +
+      '<div class="pl-ovcard-head"><span class="pl-ovcard-emoji">✅</span><span class="pl-ovcard-label">To-do</span></div>' +
+      '<div class="pl-ovcard-big">' + pendingTodos.length + '</div>' +
+      '<div class="pl-ovcard-sub">' + (pendingTodos.length === 0 ? 'Inbox zero — nice work' : 'pending · ' + doneTodos.length + ' done') + '</div>';
+    if (pendingTodos.length > 0) {
+      html += '<div class="pl-ovcard-list">' +
+        pendingTodos.slice(0, 3).map(function (t) {
+          return '<div class="pl-ovrow"><span class="pl-ovrow-name">○ ' + escapeHtml(t.text) + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+    html += '<div class="pl-ovcard-cta">View all →</div></div>';
+
+    // Reminders card
+    var overdue = allRem.filter(function (r) { return r.cls === 'overdue'; });
+    var today = allRem.filter(function (r) { return r.cls === 'today'; });
+    html += '<div class="pl-ovcard" data-jump="reminders">' +
+      '<div class="pl-ovcard-head"><span class="pl-ovcard-emoji">⏰</span><span class="pl-ovcard-label">Reminders</span></div>' +
+      '<div class="pl-ovcard-big">' + allRem.length + '</div>' +
+      '<div class="pl-ovcard-sub">' + (allRem.length === 0 ? 'Nothing scheduled' : (overdue.length ? overdue.length + ' overdue · ' : '') + (today.length ? today.length + ' today · ' : '') + 'next 14 days') + '</div>';
+    if (allRem.length > 0) {
+      html += '<div class="pl-ovcard-list">' +
+        allRem.slice(0, 3).map(function (r) {
+          return '<div class="pl-ovrow ' + (r.cls || '') + '"><span class="pl-ovrow-name">' + escapeHtml(r.title) + '</span><span class="pl-ovrow-meta">' + escapeHtml(r.when) + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+    html += '<div class="pl-ovcard-cta">View all →</div></div>';
+
+    // Notes card
+    html += '<div class="pl-ovcard" data-jump="notes">' +
+      '<div class="pl-ovcard-head"><span class="pl-ovcard-emoji">📝</span><span class="pl-ovcard-label">Notes</span></div>' +
+      '<div class="pl-ovcard-big">' + notes.length + '</div>' +
+      '<div class="pl-ovcard-sub">' + (notes.length === 0 ? 'No notes yet' : (notes.length === 1 ? '1 note' : notes.length + ' notes')) + '</div>';
+    if (notes.length > 0) {
+      var sortedNotes = notes.slice().sort(function (a, b) { return (b.created || 0) - (a.created || 0); });
+      html += '<div class="pl-ovcard-list">' +
+        sortedNotes.slice(0, 3).map(function (n) {
+          return '<div class="pl-ovrow"><span class="pl-ovrow-name">' + escapeHtml(n.title || 'Untitled') + '</span><span class="pl-ovrow-meta">' + (n.created ? new Date(n.created).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '') + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+    html += '<div class="pl-ovcard-cta">View all →</div></div>';
+
+    // Weekly Review card
+    html += '<div class="pl-ovcard" data-jump="review">' +
+      '<div class="pl-ovcard-head"><span class="pl-ovcard-emoji">🪞</span><span class="pl-ovcard-label">Weekly Review</span></div>' +
+      '<div class="pl-ovcard-big" style="font-size:18px;line-height:1.3;letter-spacing:0;">' + thisWeek + '</div>' +
+      '<div class="pl-ovcard-sub">' + (hasReview ? 'Saved this week ✓' : 'Not yet written') + '</div>';
+    if (hasReview) {
+      html += '<div class="pl-ovcard-list">' +
+        (review.wins ? '<div class="pl-ovrow"><b style="color:#1f7a4a;">Wins:</b> <span class="pl-ovrow-name">' + escapeHtml(review.wins.substring(0, 70)) + (review.wins.length > 70 ? '…' : '') + '</span></div>' : '') +
+        (review.next ? '<div class="pl-ovrow"><b style="color:#c99a2a;">Next:</b> <span class="pl-ovrow-name">' + escapeHtml(review.next.substring(0, 70)) + (review.next.length > 70 ? '…' : '') + '</span></div>' : '') +
+      '</div>';
+    }
+    html += '<div class="pl-ovcard-cta">' + (hasReview ? 'Edit →' : 'Write one →') + '</div></div>';
+
+    grid.innerHTML = html;
+    // Wire jumps
+    grid.querySelectorAll('.pl-ovcard').forEach(function (card) {
+      card.onclick = function () {
+        var target = card.dataset.jump;
+        var btn = document.querySelector('#page-planner .pl-tab[data-pane="' + target + '"]');
+        if (btn) btn.click();
+        // Scroll to top so user sees the active pane
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    });
   }
 
   function renderActivePane() {
@@ -222,6 +368,7 @@
     else if (pane === 'notes') renderNotesPane(active);
     else if (pane === 'review') renderReviewPane(active);
     updateCounts();
+    try { renderOverviewGrid(); } catch (_) {}
   }
 
   function updateCounts() {
