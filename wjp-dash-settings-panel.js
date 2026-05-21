@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -52,85 +52,76 @@
     return s.prefs;
   }
 
-  // ===== Smarter applyDashboardLayout — slot-anchoring per parent =====
+  // ===== Smart applyDashboardLayout — flat order in #page-dashboard =====
+  // Widgets can live anywhere. We treat the saved order as a single flat
+  // sequence and physically lay them out as direct children of
+  // #page-dashboard, right after the customize bar. The greeting and the
+  // customize bar stay pinned at the top; the gear lives inside the bar.
   function smartApplyDashboardLayout() {
     try {
       var s = getAppState() || {};
       var prefs = s.prefs || {};
-      var order = prefs.cardOrder || {};
       var hidden = prefs.cardHidden || {};
+      var page = document.getElementById('page-dashboard');
+      if (!page) return;
 
-      // 1. Hide/show all reorderables based on hidden map
-      document.querySelectorAll('#page-dashboard .reorderable').forEach(function (card) {
+      // 1. Hide/show all reorderables based on hidden map.
+      var reordList = Array.from(page.querySelectorAll('.reorderable'));
+      reordList.forEach(function (card) {
         var cid = card.getAttribute('data-card-id');
         card.style.display = (hidden && hidden[cid]) ? 'none' : '';
       });
 
-      // 2. Reorder per parent using slot-anchoring (preserves non-reorderable siblings)
-      Object.keys(order).forEach(function (parentKey) {
-        var parent = document.getElementById(parentKey) || document.querySelector('.' + parentKey);
-        if (!parent) return;
-        var idList = Array.isArray(order[parentKey]) ? order[parentKey] : [];
-        if (idList.length < 2) return;
+      // 2. Pin greeting + customize bar to the top.
+      var greeting = document.getElementById('dash-greeting');
+      var bar = document.getElementById('dash-customize-bar');
+      if (greeting && greeting.parentElement !== page) {
+        // leave alone — must be in page-dashboard already from index.html
+      }
+      if (bar && bar.parentElement === page) {
+        var firstAfterGreeting = greeting ? greeting.nextSibling : page.firstChild;
+        if (bar !== firstAfterGreeting) page.insertBefore(bar, firstAfterGreeting);
+      }
 
-        // Resolve nodes in saved order. Only nodes currently inside `parent`.
-        var nodes = [];
-        idList.forEach(function (cid) {
-          var card = parent.querySelector(':scope > .reorderable[data-card-id="' + cid + '"]');
-          if (card) nodes.push(card);
-        });
-        if (nodes.length < 2) return;
-
-        // Find their slot indices (sorted) in parent.children
-        var children = Array.from(parent.children);
-        var slotIndices = nodes.map(function (n) { return children.indexOf(n); })
-                               .filter(function (i) { return i >= 0; })
-                               .sort(function (a, b) { return a - b; });
-        if (slotIndices.length < 2) return;
-
-        // Build newChildren: original children, but with reorderable slots replaced
-        // by nodes in the saved order.
-        var newChildren = children.slice();
-        for (var i = 0; i < slotIndices.length && i < nodes.length; i++) {
-          newChildren[slotIndices[i]] = nodes[i];
-        }
-
-        // Apply: appendChild each in newChildren order (moves nodes)
-        newChildren.forEach(function (node) { parent.appendChild(node); });
-      });
-
-      // 3. Pin dash-customize-bar to position right after #dash-greeting so
-      //    the Customize layout + Auto-fit buttons (plus the gear) live at
-      //    the very top of the dashboard.
-      var page = document.getElementById('page-dashboard');
-      if (page) {
-        var greeting = document.getElementById('dash-greeting');
-        var bar = document.getElementById('dash-customize-bar');
-        if (bar && bar.parentElement === page) {
-          var afterGreeting = greeting ? greeting.nextSibling : page.firstChild;
-          if (bar !== afterGreeting) page.insertBefore(bar, afterGreeting);
-        }
-        // 4. Pin top heroes — come right AFTER the customize bar. Their
-        //    relative order respects cardOrder['page-dashboard'].
-        var savedPageOrder = Array.isArray(order['page-dashboard']) ? order['page-dashboard'] : [];
-        var heroCardIds = { 'exec-summary': 'dfd-hero', 'last-7-days': 'wjp-momentum-hero' };
-        var heroNodes = [];
-        savedPageOrder.forEach(function (cid) {
-          var elId = heroCardIds[cid];
-          if (!elId) return;
-          var el = document.getElementById(elId);
-          if (el && el.parentElement === page && heroNodes.indexOf(el) < 0) heroNodes.push(el);
-        });
-        TOP_PIN.forEach(function (id) {
-          var el = document.getElementById(id);
-          if (el && el.parentElement === page && heroNodes.indexOf(el) < 0) heroNodes.push(el);
-        });
-        var heroAnchor = bar ? bar.nextSibling : (greeting ? greeting.nextSibling : page.firstChild);
-        heroNodes.forEach(function (node) {
-          if (node !== heroAnchor) page.insertBefore(node, heroAnchor);
-          heroAnchor = node.nextSibling;
+      // 3. Build flat order — prefer prefs.dashFlatOrder (set by our panel
+      //    save), then fall back to the existing per-parent cardOrder, then
+      //    finally current DOM order.
+      var flat = Array.isArray(prefs.dashFlatOrder) ? prefs.dashFlatOrder.slice() : null;
+      if (!flat) {
+        flat = [];
+        var legacy = prefs.cardOrder || {};
+        Object.keys(legacy).forEach(function (parentKey) {
+          var ids = Array.isArray(legacy[parentKey]) ? legacy[parentKey] : [];
+          ids.forEach(function (id) { if (flat.indexOf(id) < 0) flat.push(id); });
         });
       }
+
+      // 4. For every reorderable not yet in `flat`, append in current DOM order.
+      var byCid = {};
+      reordList.forEach(function (c) {
+        var cid = c.getAttribute('data-card-id');
+        if (cid) byCid[cid] = c;
+      });
+      reordList.forEach(function (c) {
+        var cid = c.getAttribute('data-card-id');
+        if (cid && flat.indexOf(cid) < 0) flat.push(cid);
+      });
+
+      // 5. Physically move each card so they're all direct children of
+      //    #page-dashboard, immediately after the customize bar, in flat order.
+      var anchor = bar ? bar : (greeting || null);
+      var prev = anchor;
+      flat.forEach(function (cid) {
+        var node = byCid[cid];
+        if (!node) return;
+        // Insert right after `prev`
+        var after = prev ? prev.nextSibling : page.firstChild;
+        if (node !== after) page.insertBefore(node, after);
+        prev = node;
+      });
+
+      // 6. Cleanup: leave dash-grid / dash-left / dash-right intact (they may
+      //    have other non-reorderable children). No further moves needed.
     } catch (e) {
       try { console.warn('[wjp-dash-settings] applyLayout fail', e); } catch (_) {}
     }
@@ -226,7 +217,7 @@
     var panel = document.createElement('div'); panel.id = PANEL_ID;
     panel.innerHTML = ''
       + '<h3>Dashboard settings</h3>'
-      + '<div class="wjp-sp-sub">Drag to reorder. Uncheck to hide. Items move within their section (top area or left/right column). For cross-column moves, use <strong>Customize layout</strong> and drag the card itself.</div>'
+      + '<div class="wjp-sp-sub">Drag any card anywhere. Uncheck to hide. Tap Save to apply.</div>'
       + '<div id="wjp-sp-list"></div>'
       + '<div class="wjp-sp-actions">'
       + '  <button type="button" class="wjp-sp-btn" id="wjp-sp-cancel">Cancel</button>'
@@ -263,30 +254,26 @@
       var p = getPrefs();
       p.cardOrder = {};
       p.cardHidden = {};
+      p.dashFlatOrder = null;
       saveAppState();
       gatherWidgets().forEach(function (w) { w.node.style.display = ''; });
-      smartApplyDashboardLayout();
-      closePanel();
+      // Reload to restore the original index.html ordering
+      try { location.reload(); } catch (_) {}
     });
     panel.querySelector('#wjp-sp-save').addEventListener('click', function () {
       var rows = Array.from(list.querySelectorAll('.wjp-sp-row'));
       var p = getPrefs();
       var newHidden = {};
-      var newOrder = {};
-      var widgets = gatherWidgets();
-      var nodeById = {}; widgets.forEach(function (w) { nodeById[w.id] = w.node; });
+      var flat = [];
       rows.forEach(function (r) {
         var id = r.dataset.id;
         if (!r.querySelector('input[type=checkbox]').checked) newHidden[id] = true;
-        var node = nodeById[id];
-        if (!node || !node.parentElement) return;
-        var parent = node.parentElement;
-        var parentKey = parent.id || (parent.className.split(' ').filter(Boolean)[0]) || 'root';
-        if (!newOrder[parentKey]) newOrder[parentKey] = [];
-        newOrder[parentKey].push(id);
+        flat.push(id);
       });
-      p.cardOrder = newOrder;
+      p.dashFlatOrder = flat;
       p.cardHidden = newHidden;
+      // Wipe the legacy per-parent format so it can't fight with us next render.
+      p.cardOrder = {};
       saveAppState();
       smartApplyDashboardLayout();
       closePanel();
