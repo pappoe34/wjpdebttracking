@@ -443,6 +443,16 @@
       // wipe the form mid-typing. The form is in #wjp-rt-grid; a refresh
       // resumes once the user saves or cancels (both call tick() explicitly).
       if (grid.querySelector('.wjp-rt-edit-form')) return;
+
+      // Fingerprint the items so we only rebuild when content actually changes.
+      // Eliminates the visible flash of tiles wiping + rebuilding every tick
+      // when nothing changed.
+      var fp = items.map(function (d) {
+        return [d.name, d.minPayment, d.balance, d.apr, d.type, d.nextDue, d.frequency].join('|');
+      }).join('||');
+      if (grid._wjpFp === fp && grid.firstChild) return;
+      grid._wjpFp = fp;
+
       while (grid.firstChild) grid.removeChild(grid.firstChild);
       items.forEach(function (d) { grid.appendChild(buildTile(d)); });
     } catch (e) {
@@ -450,9 +460,28 @@
     }
   }
 
+  // Debounced reinjection — coalesces rapid host re-renders.
+  var _rtTimer = null;
+  function scheduleTick() {
+    if (_rtTimer) return;
+    _rtTimer = setTimeout(function () { _rtTimer = null; try { tick(); } catch (_) {} }, 80);
+  }
+  var _rtMo = null;
+  function attachObserver() {
+    if (_rtMo) return;
+    try {
+      var dbg = document.getElementById('page-debts');
+      if (!dbg) return;
+      _rtMo = new MutationObserver(scheduleTick);
+      _rtMo.observe(dbg, { childList: true, subtree: true });
+    } catch (_) {}
+  }
+
   function boot() {
     setTimeout(tick, 800);
-    setInterval(tick, 2500);
+    setTimeout(tick, 2500);
+    attachObserver();
+    window.addEventListener('hashchange', scheduleTick);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

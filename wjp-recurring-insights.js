@@ -3,7 +3,7 @@
  * "Plain English" expander that explains the bill in non-jargon language
  * + an "Ask AI Coach" button for deeper analysis.
  *
- * Hardened: IIFE, idempotent, path-guarded, no MutationObservers, polled.
+ * Hardened: IIFE, idempotent, path-guarded, scoped MutationObserver (no polling).
  */
 (function () {
   'use strict';
@@ -263,9 +263,40 @@
     }
   }
 
+  // Debounced re-inject — coalesces rapid table rebuilds into a single tick.
+  var _reinjectTimer = null;
+  function scheduleReinject() {
+    if (_reinjectTimer) return;
+    _reinjectTimer = setTimeout(function () {
+      _reinjectTimer = null;
+      try { tick(); } catch (_) {}
+    }, 60);
+  }
+
+  // Scoped MutationObserver: watches childList on the .debts-subtab-content
+  // containers ONLY. Fires when rows are added/removed by the host renderer.
+  // Our callback only appends a button to existing <td> elements — that does
+  // NOT trigger childList on the observed container, so no recursion.
+  var _mo = null;
+  function attachObserver() {
+    if (_mo) return;
+    try {
+      _mo = new MutationObserver(scheduleReinject);
+      // Watch the debts page; any subtab content rebuilt by renderTransactions
+      // or renderRecurring will fire childList here.
+      var dbg = document.getElementById('page-debts');
+      if (dbg) _mo.observe(dbg, { childList: true, subtree: true });
+    } catch (_) {}
+  }
+
   function boot() {
+    // Initial pass after host has rendered.
     setTimeout(tick, 800);
-    setInterval(tick, 1500);
+    setTimeout(tick, 2500);
+    // Subsequent injections driven by DOM mutation, not by a 1.5s tick.
+    attachObserver();
+    // Also re-inject on page navigation in case the observer misses something.
+    window.addEventListener('hashchange', scheduleReinject);
   }
 
   if (document.readyState === 'loading') {
