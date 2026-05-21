@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -176,9 +176,17 @@
       var lastFp = '';
       var wrapped = function () {
         var fp = txnFingerprint();
-        if (fp === lastFp) return; // data unchanged — skip the wipe + redraw
-        lastFp = fp;
-        var r = fn.apply(this, arguments);
+        var changed = (fp !== lastFp);
+        var r;
+        if (changed) {
+          lastFp = fp;
+          r = fn.apply(this, arguments); // host runs (writes its own values)
+        }
+        // ALWAYS run our recompute. It's memo-guarded so a no-op when values
+        // haven't changed (no DOM writes). When the host just ran, this
+        // overwrites the host's unfiltered values with our transfer-excluded
+        // ones. On skip-host cycles, this catches any case where the host's
+        // values are still showing because we beat it on a previous call.
         try { recomputeStats(); } catch (_) {}
         return r;
       };
