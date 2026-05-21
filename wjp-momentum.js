@@ -186,11 +186,18 @@
         + '</div>';
     }
 
+    // Plain-English sub-line so the user knows whether the number is good or bad.
+    // d.totalDebt > 0  → debt GREW (bad). d.totalDebt < 0 → debt FELL (good).
+    var debtAbsTxt = '$' + Math.abs(Math.round(d.totalDebt)).toLocaleString('en-US');
+    var debtSub;
+    if (d.totalDebt > 0)      debtSub = 'Owed ' + debtAbsTxt + ' more — try to pay it down';
+    else if (d.totalDebt < 0) debtSub = 'Paid down ' + debtAbsTxt + ' — nice work';
+    else                      debtSub = 'No change';
     var debtChip = deltaChip(
       'Debt this week',
       -d.totalDebt,
       d.totalDebt <= 0,
-      d.totalDebt < 0 ? fmtUSD(d.totalDebt) + ' paid down' : (d.totalDebt > 0 ? 'crept up' : 'no change'),
+      debtSub,
       'ph-fill ph-trending-down'
     );
 
@@ -357,7 +364,15 @@
       +   '<h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;">How this box works</h3>'
       +   '<p style="margin:0 0 16px 0;font-size:12px;color:' + subInk + ';">Last 7 Days shows your week-over-week movement on three things that matter.</p>'
       +   '<div style="display:grid;gap:12px;font-size:13px;line-height:1.5;">'
-      +     '<div><strong>Debt this week</strong> — change in your total debt balance over the last 7 days. We sum every debt balance you have today and compare it to 7 days ago. Negative means you paid down, positive means the balance grew.</div>'
+      +     '<div><strong>Debt this week</strong><br>'
+      +       'How much your total debt moved over the last 7 days. We add up every debt balance you have right now and subtract the total from 7 days ago.'
+      +       '<ul style="margin:8px 0 0 0;padding-left:18px;line-height:1.55;">'
+      +         '<li><span style="color:#10b981;font-weight:700;">Green ↑</span> — you paid down debt this week. Keep going.</li>'
+      +         '<li><span style="color:#ef4444;font-weight:700;">Red ↓</span> — debt balances grew (likely new charges, interest, or a missed payment). The dollar amount is how much it grew by.</li>'
+      +         '<li>Gray — no change in the last 7 days.</li>'
+      +       '</ul>'
+      +       '<div style="margin-top:8px;">The smaller this number, the better — your goal is to see green every week.</div>'
+      +     '</div>'
       +     '<div><strong>Cash on hand</strong> — your current liquid savings. Set it manually or link to an already-connected checking/savings account. The arrow shows the change since the same point last week.</div>'
       +     '<div><strong>Credit score</strong> — change in your VantageScore from your last credit pull. Shows "—" until your credit monitoring is connected.</div>'
       +     '<div><strong>Debt health</strong> — your WJP health score (0-100). Built from utilization, on-time payment streak, debt-to-income trend, and momentum vs your strategy. Goes up as you pay down and stay on schedule.</div>'
