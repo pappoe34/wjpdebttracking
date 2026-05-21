@@ -1,4 +1,4 @@
-/* wjp-planner.js v2 — mount inside content-area + add bottom overview panel grid v1 — Consolidate Goals + Notes into a single "Planner" tab.
+/* wjp-planner.js v3 — insert page BEFORE site footer so it appears below all content not above v1 — Consolidate Goals + Notes into a single "Planner" tab.
  *
  *   • Adds a "Planner" item to the sidebar (with a clipboard icon)
  *   • Hides the old "Goals" and "Notes" sidebar items
@@ -193,7 +193,8 @@
 
   // --- Page DOM ---
   function buildPage() {
-    // v2: mount INSIDE .content-area so the site footer doesn't leak above us.
+    // v3: mount INSIDE .content-area but BEFORE the .page-footer element so
+    // the site footer (Terms/Privacy/Data Policy) stays below the planner.
     var main = document.querySelector('.content-area') || document.querySelector('main') || document.querySelector('.main-content') || document.body;
     var page = document.createElement('div');
     page.id = 'page-planner';
@@ -218,7 +219,8 @@
       '<div class="pl-pane" data-pane="reminders" id="pl-pane-reminders"></div>' +
       '<div class="pl-pane" data-pane="notes" id="pl-pane-notes"></div>' +
       '<div class="pl-pane" data-pane="review" id="pl-pane-review"></div>';
-    main.appendChild(page);
+    var footer = main.querySelector('.page-footer, footer.page-footer, footer');
+    if (footer) main.insertBefore(page, footer); else main.appendChild(page);
 
     // Wire tabs
     page.querySelectorAll('.pl-tab').forEach(function (btn) {
