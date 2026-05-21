@@ -1,4 +1,4 @@
-/* wjp-recurring-cal-debts.js v4 — calendar covers ALL 12 debts via appState.debts.dueDate + payoff-month markers from min-payment amortization v3 — calendar insight tips panel v1 — Recurring tab calendar polish.
+/* wjp-recurring-cal-debts.js v5 — uniform pill chips on calendar + per-bill color palette v4 — calendar covers ALL 12 debts v3 — calendar insight tips panel v1 — Recurring tab calendar polish.
  *
  *   1. Filter the Payment Calendar to show ONLY debt-type recurring payments.
  *      Detection: name contains "(min payment)" OR matches an entry in
@@ -417,6 +417,79 @@
     if (!isFinite(n)) return '$0';
     return '$' + Math.round(Number(n)).toLocaleString('en-US');
   }
+  // v5 — Uniform chip palette: deterministic per-bill color from a 12-tone palette.
+  var CHIP_PALETTE = [
+    '#012169', // navy (BoA-ish)
+    '#117ACA', // blue (Chase-ish)
+    '#1f7a4a', // green
+    '#c99a2a', // gold
+    '#c0594a', // brick red
+    '#7c3aed', // purple
+    '#0891b2', // teal
+    '#dc2626', // crimson
+    '#9333ea', // violet
+    '#16a34a', // bright green
+    '#ea580c', // orange
+    '#0f766e'  // dark teal
+  ];
+  function hashStr(s) {
+    var h = 0; s = String(s || '');
+    for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+  function colorForBill(name) {
+    return CHIP_PALETTE[hashStr(String(name || '').toLowerCase().split('(')[0].trim()) % CHIP_PALETTE.length];
+  }
+  function injectChipUnifiedStyle() {
+    if (document.getElementById('wjp-chip-unified-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-chip-unified-style';
+    st.textContent = [
+      // Override host .cal-event chips: normalize to a uniform pill shape, color comes from inline
+      '#rec-cal-body .cal-event,#rec-cal-body .wjp-rcd-chip{',
+      '  display:inline-block !important;',
+      '  border-radius:999px !important;',
+      '  padding:2px 7px !important;',
+      '  font-size:8.5px !important;',
+      '  font-weight:800 !important;',
+      '  letter-spacing:0.01em !important;',
+      '  line-height:1.3 !important;',
+      '  margin:1px 0 !important;',
+      '  white-space:nowrap !important;',
+      '  overflow:hidden !important;',
+      '  text-overflow:ellipsis !important;',
+      '  max-width:100% !important;',
+      '  color:#fff !important;',
+      '  border:0 !important;',
+      '  box-shadow:0 1px 2px rgba(0,0,0,0.10);',
+      '}',
+      '#rec-cal-body .cal-cell{display:flex !important;flex-direction:column !important;gap:1px !important;}',
+      '#rec-cal-body .cal-cell > span:first-child{margin-bottom:2px !important;}',
+      // Payoff marker: gold pill with gradient, distinct from regular chips
+      '#rec-cal-body .wjp-rcd-payoff{',
+      '  background:linear-gradient(135deg,#fbbf24,#f59e0b) !important;',
+      '  color:#0a0a0a !important;',
+      '  font-weight:900 !important;',
+      '}'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
+  }
+  // Walk after each render and color-set every chip
+  function recolorAllChips() {
+    var body = document.getElementById('rec-cal-body');
+    if (!body) return;
+    injectChipUnifiedStyle();
+    Array.prototype.forEach.call(body.querySelectorAll('.cal-event, .wjp-rcd-chip'), function (chip) {
+      if (chip.classList.contains('wjp-rcd-payoff')) return; // payoff keeps its gold gradient
+      var title = chip.getAttribute('title') || chip.textContent || '';
+      // For .cal-event, the textContent is just the first word — use title as the better source
+      var name = title.split('—')[0].split('·')[0].trim();
+      var color = colorForBill(name);
+      chip.style.background = color;
+      chip.style.color = '#fff';
+    });
+  }
+
   function injectInsightStyle() {
     if (document.getElementById('wjp-cal-insight-style')) return;
     var st = document.createElement('style');
@@ -573,6 +646,7 @@
     }
     try { injectMissingDebtChips(); } catch (_) {}
     try { injectPayoffMarkers(); } catch (_) {}
+    try { recolorAllChips(); } catch (_) {}
     try { renderInsights(); } catch (_) {}
   }
 
