@@ -1,4 +1,4 @@
-/* wjp-recurring-cal-debts.js v1 — Recurring tab calendar polish.
+/* wjp-recurring-cal-debts.js v2 — correct field names (nextDate, category, linkedDebtId) v1 — Recurring tab calendar polish.
  *
  *   1. Filter the Payment Calendar to show ONLY debt-type recurring payments.
  *      Detection: name contains "(min payment)" OR matches an entry in
@@ -25,10 +25,12 @@
   // ---- Debt detection ----
   function isDebtPayment(p) {
     if (!p || !p.name) return false;
-    // Heuristic 1: WJP auto-creates recurring entries with "(min payment)" suffix
-    if (/\(min payment\)/i.test(p.name)) return true;
-    // Heuristic 2: explicit type tag or debtId
+    // v2: official fields — appState.recurringPayments items use category/linkedDebtId
+    if (p.category && /debt|loan|credit|card/i.test(p.category)) return true;
+    if (p.linkedDebtId) return true;
     if (p.debtId) return true;
+    // Heuristic: name suffix
+    if (/\(min payment\)/i.test(p.name)) return true;
     if (p.type && /debt|loan|credit|card/i.test(p.type)) return true;
     // Heuristic 3: name matches a debt in appState.debts (case-insensitive
     // contains, in either direction)
@@ -52,7 +54,7 @@
     var dom = d.getDate();
     var dow = d.getDay();
     var freq = (p.frequency || 'monthly').toLowerCase();
-    var anchor = p.nextDue || p.anchorDate || p.dayOfMonth;
+    var anchor = p.nextDate || p.nextDue || p.anchorDate || p.dayOfMonth;
     // Try to glean day-of-month from anchor
     var anchorDom = null;
     if (typeof anchor === 'number') anchorDom = anchor;
