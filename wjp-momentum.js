@@ -158,12 +158,11 @@
       var sign  = deltaGood && deltaVal > 0 ? '+' : (deltaGood && deltaVal < 0 ? '−' : (deltaVal > 0 ? '+' : (deltaVal < 0 ? '−' : '')));
       var deltaAbsTxt = '$' + Math.abs(Math.round(deltaVal)).toLocaleString('en-US');
       var absTxt = '$' + Math.round(absVal).toLocaleString('en-US');
-      var infoBtn = '<span onclick="event.stopPropagation();window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What does this mean?" style="cursor:pointer;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-3,#94a3b8);color:var(--text-3,#94a3b8);display:inline-grid;place-items:center;font-size:9px;font-style:italic;font-weight:900;flex-shrink:0;">i</span>';
       return ''
         + '<div ' + (clickAttr || '') + ' style="flex:1;min-width:0;padding:10px 14px;background:' + bg + ';border:1px solid ' + color + '33;border-radius:10px;display:flex;align-items:center;gap:10px;' + (clickAttr ? 'cursor:pointer;' : '') + '">'
         + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + '22;display:grid;place-items:center;flex-shrink:0;color:' + color + ';"><i class="' + icon + '" style="font-size:14px;"></i></div>'
         + '<div style="flex:1;min-width:0;">'
-        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + label + '</span>' + infoBtn + '</div>'
+        +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</div>'
         +   '<div style="font-size:15px;font-weight:900;color:var(--ink, var(--text-1, #0a0a0a));letter-spacing:-0.005em;">' + absTxt + '</div>'
         +   '<div style="font-size:10px;font-weight:700;color:' + color + ';">' + arrow + ' ' + sign + deltaAbsTxt + (sub ? '  · ' + sub : '') + '</div>'
         + '</div>'
@@ -176,12 +175,11 @@
       var arrow = value === 0 ? '' : (good ? '↑' : '↓');
       var sign = good && value > 0 ? '+' : (good && value < 0 ? '−' : (value > 0 ? '+' : (value < 0 ? '−' : '')));
       var absV = Math.abs(Math.round(value));
-      var infoBtn = '<span onclick="event.stopPropagation();window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What does this mean?" style="cursor:pointer;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-3,#94a3b8);color:var(--text-3,#94a3b8);display:inline-grid;place-items:center;font-size:9px;font-style:italic;font-weight:900;flex-shrink:0;">i</span>';
       return ''
         + '<div style="flex:1;min-width:0;padding:10px 14px;background:' + bg + ';border:1px solid ' + color + '33;border-radius:10px;display:flex;align-items:center;gap:10px;">'
         + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + '22;display:grid;place-items:center;flex-shrink:0;color:' + color + ';"><i class="' + icon + '" style="font-size:14px;"></i></div>'
         + '<div style="flex:1;min-width:0;">'
-        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + label + '</span>' + infoBtn + '</div>'
+        +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</div>'
         +   '<div style="font-size:14.5px;font-weight:900;color:' + color + ';letter-spacing:-0.005em;">' + arrow + ' ' + sign + (label === 'Credit' || label === 'Health' ? absV : '$' + absV.toLocaleString('en-US')) + '</div>'
         +   (sub ? '<div style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">' + sub + '</div>' : '')
         + '</div>'
@@ -226,10 +224,7 @@
       + '<div style="flex:1;min-width:0;padding:10px 14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;">'
       + '<div style="width:30px;height:30px;border-radius:8px;background:rgba(99,102,241,0.18);display:grid;place-items:center;flex-shrink:0;color:#6366f1;"><i class="ph-fill ph-shield-check" style="font-size:14px;"></i></div>'
       + '<div style="flex:1;min-width:0;">'
-      +   '<div style="display:flex;align-items:center;justify-content:space-between;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">'
-      +     '<span>Scores</span>'
-      +     '<span onclick="window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What does this mean?" style="cursor:pointer;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:inline-grid;place-items:center;font-size:10px;font-style:italic;font-weight:900;letter-spacing:0;">i</span>'
-      +   '</div>'
+      +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">Scores</div>'
       +   '<div style="display:flex;gap:10px;align-items:baseline;margin-top:3px;flex-wrap:wrap;">'
       +     '<span style="font-size:18px;font-weight:900;color:' + creditColor + ';letter-spacing:-0.005em;">' + creditDisplay + '</span><span style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">credit</span>'
       +     '<span style="opacity:0.4;font-size:14px;">·</span>'
@@ -243,7 +238,10 @@
     return ''
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
       +   '<div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;">' + headerLabel + '</div>'
-      +   '<div style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;">' + headerSub + '</div>'
+      +   '<div style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--text-3,#94a3b8);font-weight:600;">'
+      +     '<span>' + headerSub + '</span>'
+      +     '<span onclick="window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What do these numbers mean?" title="What do these numbers mean?" style="cursor:pointer;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:inline-grid;place-items:center;font-size:10px;font-style:italic;font-weight:900;letter-spacing:0;">i</span>'
+      +   '</div>'
       + '</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + debtChip + cashChip + scoreChip + '</div>';
   }
