@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -89,6 +89,29 @@
         var sign = n > 0 ? '+' : (n < 0 ? '-' : '');
         return sign + '$' + v.toLocaleString('en-US');
       };
+      // Income merchant breakdown — top 5 for tooltip
+      var incomeMerchants = {};
+      txns.forEach(function (t) {
+        var a = Number(t.amount) || 0;
+        if (a > 0) {
+          var m = (t.merchant || 'Unknown').slice(0, 50);
+          incomeMerchants[m] = (incomeMerchants[m] || 0) + a;
+        }
+      });
+      var topIncome = Object.keys(incomeMerchants)
+        .sort(function (a, b) { return incomeMerchants[b] - incomeMerchants[a]; })
+        .slice(0, 6)
+        .map(function (m) { return m + ': $' + Math.round(incomeMerchants[m]).toLocaleString('en-US'); })
+        .join('\n');
+
+      // Display helpers — total spend shows as a clean positive magnitude (e.g. "$134,721")
+      // since the column label already says "Total Spend". The minus on a money figure was confusing users.
+      var fmtMagnitude = function (n) { return '$' + Math.abs(Math.round(n)).toLocaleString('en-US'); };
+      var fmtNet = function (n) {
+        var sign = n > 0 ? '+' : (n < 0 ? '-' : '');
+        return sign + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+      };
+
       // Update the four stats cards by querying their labels.
       var cards = bar.querySelectorAll('.card');
       cards.forEach(function (c) {
@@ -97,9 +120,16 @@
         if (!labelEl || !valueEl) return;
         var label = labelEl.textContent.trim().toLowerCase();
         if (label === 'transactions') valueEl.textContent = txns.length.toLocaleString();
-        else if (label === 'total income') valueEl.textContent = fmt(income);
-        else if (label === 'total spend') valueEl.textContent = fmt(spend);
-        else if (label === 'net cash flow') valueEl.textContent = fmt(net);
+        else if (label === 'total income') {
+          valueEl.textContent = '+' + fmtMagnitude(income);
+          c.title = 'Top income sources (all time, transfers excluded):\n' + topIncome;
+          c.style.cursor = 'help';
+        } else if (label === 'total spend') {
+          valueEl.textContent = fmtMagnitude(spend);
+          c.title = 'Total spent (all time, transfers excluded).';
+        } else if (label === 'net cash flow') {
+          valueEl.textContent = fmtNet(net);
+        }
       });
       // Append a small "excluding transfers" footnote to the bar
       if (!bar.querySelector('.wjp-tsf-note')) {
