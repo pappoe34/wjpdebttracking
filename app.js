@@ -21448,10 +21448,31 @@ function initAllButtonHandlers() {
 
     // ── Payments Left for a recurring entry ──
     function recPaymentsLeft(rp) {
-        if (rp.cat !== 'debt' || !rp.debtId) return '∞ Ongoing';
+        // v2: support legacy (rp.cat/rp.debtId) AND current (rp.category/rp.linkedDebtId) fields
+        var cat = (rp.category || rp.cat || '').toLowerCase();
+        var did = rp.linkedDebtId || rp.debtId;
+        if (cat !== 'debt' || !did) return '∞ Ongoing';
         const results = calculateDebtPayoff();
-        const res = results[rp.debtId];
-        if (!res) return '—';
+        const res = results[did];
+        if (!res) {
+            // Fallback: simple amortization N = -ln(1 - bal*r/p) / ln(1+r)
+            var debt = (appState.debts || []).find(d => d.id === did);
+            if (!debt) return '—';
+            var bal = Number(debt.balance) || 0;
+            var apr = Number(debt.apr) || 0;
+            var pay = Number(rp.amount) || Number(debt.minPayment) || 0;
+            if (bal <= 0 || pay <= 0) return '—';
+            var r = (apr / 100) / 12;
+            if (r === 0) {
+                var n0 = Math.ceil(bal / pay);
+                return n0 + ' mo';
+            }
+            if (pay <= bal * r) return '∞';
+            var n = -Math.log(1 - (bal * r) / pay) / Math.log(1 + r);
+            n = Math.max(1, Math.ceil(n));
+            var d2 = new Date(); d2.setMonth(d2.getMonth() + n);
+            return n + ' mo <span style="color:var(--text-3);font-size:9px;">• ' + d2.toLocaleDateString('en-US',{month:'short',year:'numeric'}) + '</span>';
+        }
         const months = res.months || 0;
         if (months >= 600) return '∞';
         const payoffDate = new Date();

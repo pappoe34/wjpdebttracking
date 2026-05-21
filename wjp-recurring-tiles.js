@@ -1,4 +1,4 @@
-/* wjp-recurring-tiles.js v5 — debts only on Recurring tab + expand state in fingerprint v4.1 — all 12 debts + Unicode literal escape fix.
+/* wjp-recurring-tiles.js v6 — buildBreakdown adds due date + statement window + amortization payoff math v4.1 — all 12 debts + Unicode literal escape fix.
  *
  * v2 problems:
  *   1. Only showed 6 tiles — used DOM scraping that only finds visible cards.
@@ -147,15 +147,94 @@
     if (d.type === 'debt' && apr > 0 && bal > 0) {
       var monthlyInterest = (bal * apr / 100) / 12;
       var pctOfMin = min > 0 ? (monthlyInterest / min) * 100 : 0;
-      blocks.push({ h: 'What this is', p: name + ' is one of your debt accounts. The minimum payment is what your creditor needs each month — most of it goes to interest, not the balance.' });
+
+      // Look up the recurring payment to find nextDate (due date)
+      var nextDueStr = '—', daysToDue = null;
+      try {
+        var rp = (appState.recurringPayments || []).find(function (x) {
+          return x.linkedDebtId === d.debtId
+            || (x.name && d.name && x.name.toLowerCase().indexOf(d.name.toLowerCase()) !== -1);
+        });
+        if (rp && rp.nextDate) {
+          var nd = new Date(rp.nextDate.length >= 10 ? rp.nextDate + 'T00:00:00' : rp.nextDate);
+          if (!isNaN(nd.getTime())) {
+            nextDueStr = nd.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+            daysToDue = Math.ceil((nd - new Date()) / 86400000);
+          }
+        }
+      } catch (_) {}
+
+      // Statement window — most credit cards close ~21 days before due date
+      var statementCloseStr = '—';
+      try {
+        if (nextDueStr !== '—') {
+          var nd2 = new Date();
+          var rp2 = (appState.recurringPayments || []).find(function (x) {
+            return x.linkedDebtId === d.debtId;
+          });
+          if (rp2 && rp2.nextDate) {
+            var ndd = new Date(rp2.nextDate.length >= 10 ? rp2.nextDate + 'T00:00:00' : rp2.nextDate);
+            if (!isNaN(ndd.getTime())) {
+              ndd.setDate(ndd.getDate() - 21);
+              statementCloseStr = ndd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+            }
+          }
+        }
+      } catch (_) {}
+
+      // Amortization months until payoff at current min
+      var r = (apr / 100) / 12;
+      var monthsLeft = '—';
+      var totalInterestLife = 0;
+      if (min > 0) {
+        if (r === 0) {
+          monthsLeft = Math.ceil(bal / min);
+          totalInterestLife = 0;
+        } else if (min > bal * r) {
+          var n = -Math.log(1 - (bal * r) / min) / Math.log(1 + r);
+          monthsLeft = Math.max(1, Math.ceil(n));
+          totalInterestLife = monthsLeft * min - bal;
+        } else {
+          monthsLeft = '∞ (min only covers interest)';
+        }
+      }
+      var monthsLeftStr = (typeof monthsLeft === 'number') ? (monthsLeft + ' months (~' + Math.round(monthsLeft / 12 * 10) / 10 + ' yrs)') : monthsLeft;
+
+      // Block 1: Identity + key dates
+      var dueChunk = nextDueStr !== '—'
+        ? 'Next due: <b>' + nextDueStr + '</b>' + (daysToDue != null ? ' (in ' + daysToDue + ' days)' : '')
+        : 'Due date: <b>not set</b>';
+      var stmtChunk = statementCloseStr !== '—'
+        ? '. Statement closes around <b>' + statementCloseStr + '</b> — the balance on that date is what posts as utilization to your credit report.'
+        : '.';
+      blocks.push({ h: 'What this is', p: name + ' is one of your debt accounts. ' + dueChunk + stmtChunk });
+
+      // Block 2: Cost of carrying
       var meaningful = monthlyInterest > min * 0.7
         ? 'About ' + Math.round(pctOfMin) + '% of your minimum payment is just covering interest. Almost none of it is actually paying down what you owe.'
         : monthlyInterest > min * 0.4
           ? 'Roughly ' + Math.round(pctOfMin) + '% of your minimum is interest. The rest is going at the principal — but slowly.'
           : 'About ' + Math.round(pctOfMin) + '% of your minimum is interest. The rest chips away at the principal.';
       blocks.push({ h: 'Why it matters', p: 'At ' + apr + '% APR on ' + fmtUSD(bal) + ', this account costs you ' + fmtUSD(monthlyInterest) + ' every month in interest alone. ' + meaningful + ' That’s ' + fmtUSD(monthlyInterest * 12) + '/year just to keep this account where it is.' });
+
+      // Block 3: Payoff timeline at current min
+      var lifeInterestStr = totalInterestLife > 0 ? fmtUSD(totalInterestLife) : '$0';
+      blocks.push({ h: 'Payoff timeline at minimum', p: 'Paying just the minimum (' + fmtUSD(min) + '/mo), this debt clears in <b>' + monthsLeftStr + '</b> and you\'ll pay <b>' + lifeInterestStr + '</b> in lifetime interest. Bigger payments shorten this dramatically.' });
+
+      // Block 4: Action with concrete savings
       var extra = Math.max(20, Math.round(min * 0.5));
-      blocks.push({ h: 'What you can do', p: 'Add ' + fmtUSD(extra) + '/mo extra to this payment. Every dollar past the minimum goes 100% to the principal, which lowers next month’s interest fee, which means even more of your payment chips away the next month. That’s the snowball flipping in your favor.' });
+      var savedNow = 0;
+      if (typeof monthsLeft === 'number' && r > 0) {
+        var newPay = min + extra;
+        if (newPay > bal * r) {
+          var n2 = -Math.log(1 - (bal * r) / newPay) / Math.log(1 + r);
+          n2 = Math.max(1, Math.ceil(n2));
+          var newInterest = n2 * newPay - bal;
+          savedNow = Math.max(0, totalInterestLife - newInterest);
+        }
+      }
+      var savedNowStr = savedNow > 0 ? ' That move alone saves you about <b>' + fmtUSD(savedNow) + '</b> in lifetime interest.' : '';
+      blocks.push({ h: 'What you can do', p: 'Add ' + fmtUSD(extra) + '/mo extra to this payment.' + savedNowStr + ' Time the extra payment AFTER your statement closes (' + statementCloseStr + ') and BEFORE the due date (' + nextDueStr + ') — that way the lower balance gets reported, lifting your credit score a few points.' });
     } else if (d.type === 'subscription' || /subscription/i.test(name)) {
       blocks.push({ h: 'What this is', p: name + ' is a recurring subscription — charged automatically every month or year whether you use it or not.' });
       blocks.push({ h: 'Why it matters', p: 'You’re paying ' + fmtUSD(min) + '/mo for this. Over a year that’s ' + fmtUSD(min * 12) + '. Over five years, ' + fmtUSD(min * 60) + '. Money that could go straight to debt instead.' });

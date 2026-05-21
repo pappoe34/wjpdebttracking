@@ -1,4 +1,4 @@
-/* wjp-recurring-cal-debts.js v2 — correct field names (nextDate, category, linkedDebtId) v1 — Recurring tab calendar polish.
+/* wjp-recurring-cal-debts.js v3 — calendar insight tips panel + monthly fallback for all debt dates v1 — Recurring tab calendar polish.
  *
  *   1. Filter the Payment Calendar to show ONLY debt-type recurring payments.
  *      Detection: name contains "(min payment)" OR matches an entry in
@@ -284,7 +284,7 @@
       setTimeout(watchRecurring, 1000);
       return;
     }
-    tick();
+    tickWithInsights();
     if (subtab._wjpRecCalDebtsObserved) return;
     subtab._wjpRecCalDebtsObserved = true;
     var mo = new MutationObserver(function () {
@@ -292,16 +292,138 @@
       subtab._wjpPending = true;
       requestAnimationFrame(function () {
         subtab._wjpPending = false;
-        tick();
+        tickWithInsights();
       });
     });
     mo.observe(subtab, { childList: true, subtree: true });
   }
 
+  // v3 — Calendar tips panel at bottom of #rec-cal-body
+  function buildInsights() {
+    var s = getAppState();
+    if (!s || !Array.isArray(s.recurringPayments)) return null;
+    var debts = s.recurringPayments.filter(function (p) { return isDebtPayment(p); });
+    if (!debts.length) return null;
+    var totalMo = debts.reduce(function (a, p) { return a + (Number(p.amount) || 0); }, 0);
+    var byDom = {};
+    debts.forEach(function (p) {
+      if (!p.nextDate) return;
+      var d = new Date(p.nextDate.length >= 10 ? p.nextDate + 'T00:00:00' : p.nextDate);
+      if (isNaN(d.getTime())) return;
+      var dom = d.getDate();
+      if (!byDom[dom]) byDom[dom] = [];
+      byDom[dom].push(p);
+    });
+    var clusterEntries = Object.keys(byDom)
+      .map(function (k) { return { dom: parseInt(k, 10), payments: byDom[k] }; })
+      .sort(function (a, b) { return b.payments.length - a.payments.length; });
+    var biggestCluster = clusterEntries[0] || null;
+    var biggest = debts.slice().sort(function (a, b) { return (b.amount || 0) - (a.amount || 0); })[0];
+    var smallest = debts.slice().sort(function (a, b) { return (a.amount || 0) - (b.amount || 0); })[0];
+
+    var tips = [];
+    if (biggestCluster && biggestCluster.payments.length >= 2) {
+      tips.push({
+        icon: '\u26A0\uFE0F',
+        title: 'Pressure point: the ' + biggestCluster.dom + (biggestCluster.dom % 10 === 1 && biggestCluster.dom !== 11 ? 'st' : biggestCluster.dom % 10 === 2 && biggestCluster.dom !== 12 ? 'nd' : biggestCluster.dom % 10 === 3 && biggestCluster.dom !== 13 ? 'rd' : 'th'),
+        body: biggestCluster.payments.length + ' debt payments due on the same day (' + biggestCluster.payments.map(function (x) { return x.name.replace(/\(min payment\)/i, '').trim(); }).join(', ') + '). Total: ' + fmtUsdLite(biggestCluster.payments.reduce(function (a, p) { return a + (Number(p.amount) || 0); }, 0)) + '. Pre-fund this date or call one of these issuers to shift their due date to spread the cash flow.'
+      });
+    }
+    tips.push({
+      icon: '\uD83D\uDCB0',
+      title: 'Total monthly minimums',
+      body: fmtUsdLite(totalMo) + '/mo across ' + debts.length + ' debt' + (debts.length === 1 ? '' : 's') + '. Annualized: ' + fmtUsdLite(totalMo * 12) + '. Every cleared debt frees its minimum to attack the next one (the rollover).'
+    });
+    if (biggest) {
+      tips.push({
+        icon: '\uD83C\uDFAF',
+        title: 'Heaviest single payment',
+        body: biggest.name + ' at ' + fmtUsdLite(biggest.amount) + '/mo. Even ' + fmtUsdLite(Math.max(20, Math.round(biggest.amount * 0.1))) + ' extra here moves your timeline more than the same extra on smaller debts.'
+      });
+    }
+    if (smallest && smallest !== biggest) {
+      tips.push({
+        icon: '\u2705',
+        title: 'Easiest win',
+        body: smallest.name + ' (' + fmtUsdLite(smallest.amount) + '/mo) is your smallest. Clearing it first is the Snowball move — fastest psychological win, then its minimum rolls onto the next debt.'
+      });
+    }
+    return tips;
+  }
+  function fmtUsdLite(n) {
+    if (!isFinite(n)) return '$0';
+    return '$' + Math.round(Number(n)).toLocaleString('en-US');
+  }
+  function injectInsightStyle() {
+    if (document.getElementById('wjp-cal-insight-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-cal-insight-style';
+    st.textContent = [
+      '#wjp-cal-insights { margin-top:14px; background:linear-gradient(180deg, rgba(31,122,74,0.05) 0%, transparent 100%); border:1px solid rgba(31,122,74,0.18); border-radius:12px; padding:14px 16px; font-family:Inter,system-ui,sans-serif; }',
+      '#wjp-cal-insights .ci-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }',
+      '#wjp-cal-insights .ci-head .ci-eye { font-size:10px; letter-spacing:0.10em; text-transform:uppercase; color:#1f7a4a; font-weight:800; }',
+      '#wjp-cal-insights .ci-grid { display:grid; grid-template-columns:1fr; gap:8px; }',
+      '#wjp-cal-insights .ci-tip { display:flex; gap:10px; align-items:flex-start; padding:9px 11px; background:var(--card, #fff); border:1px solid var(--border, rgba(0,0,0,0.08)); border-radius:10px; }',
+      '#wjp-cal-insights .ci-tip .ci-icon { font-size:18px; flex-shrink:0; }',
+      '#wjp-cal-insights .ci-tip .ci-body { flex:1; }',
+      '#wjp-cal-insights .ci-tip .ci-title { font-size:12px; font-weight:800; color:var(--ink, #0a0a0a); margin-bottom:2px; }',
+      '#wjp-cal-insights .ci-tip .ci-text { font-size:11.5px; color:var(--ink-dim, var(--text-2, #6b7280)); line-height:1.5; }'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function renderInsights() {
+    var body = document.getElementById('rec-cal-body');
+    if (!body) return;
+    injectInsightStyle();
+    var existing = document.getElementById('wjp-cal-insights');
+    var tips = buildInsights();
+    if (!tips || !tips.length) {
+      if (existing) existing.remove();
+      return;
+    }
+    var html = '<div id="wjp-cal-insights">' +
+      '<div class="ci-head">' +
+        '<span class="ci-eye">\u2728 Calendar insights</span>' +
+      '</div>' +
+      '<div class="ci-grid">' +
+        tips.map(function (t) {
+          return '<div class="ci-tip">' +
+            '<div class="ci-icon">' + t.icon + '</div>' +
+            '<div class="ci-body">' +
+              '<div class="ci-title">' + t.title + '</div>' +
+              '<div class="ci-text">' + t.body + '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      // Append AFTER the cal body inside the same card
+      var card = body.parentElement;
+      if (card) card.insertAdjacentHTML('beforeend', html);
+    }
+  }
+
+  // Hook into the existing tick so insights re-render with the calendar
+  var _origTick = (typeof tick === 'function') ? tick : null;
+  function tickWithInsights() {
+    if (typeof _origTick === 'function') {
+      try { _origTick(); } catch (_) {}
+    } else {
+      try { filterCalEvents(); } catch (_) {}
+      try { wireCalCellClicks(); } catch (_) {}
+      try { movePaymentOptimizerToBottom(); } catch (_) {}
+    }
+    try { renderInsights(); } catch (_) {}
+  }
+
   function boot() {
     injectModalStyle();
     watchRecurring();
-    setInterval(tick, 5000);
+    setInterval(tickWithInsights, 5000);
   }
 
   if (document.readyState === 'loading') {
