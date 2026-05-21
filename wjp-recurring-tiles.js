@@ -1,4 +1,4 @@
-/* wjp-recurring-tiles.js v4.1 — all 12 debts + Unicode literal escape fix.
+/* wjp-recurring-tiles.js v5 — debts only on Recurring tab + expand state in fingerprint v4.1 — all 12 debts + Unicode literal escape fix.
  *
  * v2 problems:
  *   1. Only showed 6 tiles — used DOM scraping that only finds visible cards.
@@ -397,7 +397,7 @@
   function tick() {
     try {
       harvestDebts();
-      harvestFromTable();
+      // v5: no longer harvest non-debt recurring rows — debts only
 
       var content = findRecurringTabContent();
       if (!content) {
@@ -409,7 +409,13 @@
       }
 
       var items = Object.values(debtDataCache).filter(function (d) {
-        return d.name && (d.minPayment != null || d.balance != null);
+        // v5: Recurring tab should only show DEBT bills (credit cards, loans).
+        // Bank transactions / generic recurring entries (e.g. autopay debits
+        // that aren't tied to a debt account) are excluded.
+        if (!d.name) return false;
+        var typeStr = String(d.type || '').toLowerCase();
+        if (typeStr.indexOf('debt') === -1) return false;
+        return (d.minPayment != null || d.balance != null);
       });
       if (!items.length) return;
 
@@ -448,7 +454,8 @@
       // Eliminates the visible flash of tiles wiping + rebuilding every tick
       // when nothing changed.
       var fp = items.map(function (d) {
-        return [d.name, d.minPayment, d.balance, d.apr, d.type, d.nextDue, d.frequency].join('|');
+        // v5: include expanded state so click-to-expand actually re-renders
+        return [d.name, d.minPayment, d.balance, d.apr, d.type, d.nextDue, d.frequency, expandedKeys.has(d.debtId) ? 'X' : 'C'].join('|');
       }).join('||');
       if (grid._wjpFp === fp && grid.firstChild) return;
       grid._wjpFp = fp;
