@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v1 — Transactions tab Smart Summary + filters.
+/* wjp-transactions-tab-enhance.js v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
  *
  * Adds four upgrades to the Transactions tab:
  *
@@ -171,11 +171,21 @@
 
     var current = [];
     var previous = [];
+    // TZ-safe date parsing — bare 'YYYY-MM-DD' strings parse as UTC midnight
+    // which can drop the 1st-of-the-month in negative-UTC timezones. Force
+    // local-midnight by appending T00:00:00.
+    function parseTxnDate(t) {
+      var raw = t.date || t.timestamp || 0;
+      if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return new Date(raw + 'T00:00:00');
+      }
+      return new Date(raw);
+    }
     s.transactions.forEach(function (t) {
       if (accountFilter && accountFilter !== 'all') {
         if (t.institutionName !== accountFilter) return;
       }
-      var d = new Date(t.date || t.timestamp || 0);
+      var d = parseTxnDate(t);
       if (isNaN(d.getTime())) return;
       if (d >= cutoff && d <= end) current.push(t);
       else if (d >= prevCutoff && d < cutoff) previous.push(t);

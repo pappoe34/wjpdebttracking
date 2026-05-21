@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v3 — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -67,6 +67,11 @@
     } catch (_) {}
   }
 
+  // Memo of last-applied values so we only touch DOM when something actually
+  // changed. Eliminates the visible flicker that came from writing textContent
+  // on every wrapped renderer call (~6x/sec after rAF coalesce).
+  var _lastStats = {};
+
   // Direct approach: re-render the stats bar ourselves after each render.
   function recomputeStats() {
     try {
@@ -112,23 +117,31 @@
         return sign + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
       };
 
-      // Update the four stats cards by querying their labels.
+      // Update the four stats cards by querying their labels — but ONLY when
+      // the value actually changed (memo). Prevents DOM churn / flicker.
+      function setIfChanged(el, key, newVal) {
+        if (_lastStats[key] === newVal) return;
+        _lastStats[key] = newVal;
+        el.textContent = newVal;
+      }
       var cards = bar.querySelectorAll('.card');
       cards.forEach(function (c) {
         var labelEl = c.querySelector('.card-label');
         var valueEl = c.querySelector('div:last-child');
         if (!labelEl || !valueEl) return;
         var label = labelEl.textContent.trim().toLowerCase();
-        if (label === 'transactions') valueEl.textContent = txns.length.toLocaleString();
-        else if (label === 'total income') {
-          valueEl.textContent = '+' + fmtMagnitude(income);
-          c.title = 'Top income sources (all time, transfers excluded):\n' + topIncome;
-          c.style.cursor = 'help';
+        if (label === 'transactions') {
+          setIfChanged(valueEl, 'txns', txns.length.toLocaleString());
+        } else if (label === 'total income') {
+          setIfChanged(valueEl, 'income', '+' + fmtMagnitude(income));
+          // Only set title once per change (avoids repaints)
+          var nextTitle = 'Top income sources (all time, transfers excluded):\n' + topIncome;
+          if (_lastStats.incomeTitle !== nextTitle) { c.title = nextTitle; _lastStats.incomeTitle = nextTitle; c.style.cursor = 'help'; }
         } else if (label === 'total spend') {
-          valueEl.textContent = fmtMagnitude(spend);
-          c.title = 'Total spent (all time, transfers excluded).';
+          setIfChanged(valueEl, 'spend', fmtMagnitude(spend));
+          if (!_lastStats.spendTitle) { c.title = 'Total spent (all time, transfers excluded).'; _lastStats.spendTitle = 1; }
         } else if (label === 'net cash flow') {
-          valueEl.textContent = fmtNet(net);
+          setIfChanged(valueEl, 'net', fmtNet(net));
         }
       });
       // Append a small "excluding transfers" footnote to the bar
