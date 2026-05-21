@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v14 — closeAll removes body.wjp-txn-detail-open class (owner module gates backdrop visibility on it) v13 — closeAll uses display:none (centered panel ignored right:-440) v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v15 — raise panel z-index above backdrop so dim only paints OUTSIDE the modal v14 — closeAll removes body.wjp-txn-detail-open class (owner module gates backdrop visibility on it) v13 — closeAll uses display:none (centered panel ignored right:-440) v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -69,7 +69,7 @@
       // Footer buttons row — make Close/Edit/Delete bigger and cleaner
       '#txn-detail-panel button{font-weight:700 !important;}',
       // Backdrop softer (less harsh than 0.55)
-      '#txn-detail-backdrop{background:rgba(0,0,0,0.18) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;cursor:pointer !important;}',
+      '#txn-detail-backdrop{background:rgba(0,0,0,0.18) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;cursor:pointer !important;z-index:9998 !important;}','#txn-detail-panel{z-index:9999 !important;}',
       // Modal animation: fade in only, no slide
       '#txn-detail-panel.wjp-detail-has-content{animation:wjp-tx-fade-in 0.16s ease both;}',
       '@keyframes wjp-tx-fade-in{from{opacity:0;transform:translate(-50%,-50%) scale(0.96);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}'
