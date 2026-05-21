@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v12 — soften backdrop dim (0.35→0.18) + robust click-outside/save dismiss v11 — kill backdrop-filter blur (was blurring whole app) v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -69,7 +69,7 @@
       // Footer buttons row — make Close/Edit/Delete bigger and cleaner
       '#txn-detail-panel button{font-weight:700 !important;}',
       // Backdrop softer (less harsh than 0.55)
-      '#txn-detail-backdrop{background:rgba(0,0,0,0.35) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}',
+      '#txn-detail-backdrop{background:rgba(0,0,0,0.18) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;cursor:pointer !important;}',
       // Modal animation: fade in only, no slide
       '#txn-detail-panel.wjp-detail-has-content{animation:wjp-tx-fade-in 0.16s ease both;}',
       '@keyframes wjp-tx-fade-in{from{opacity:0;transform:translate(-50%,-50%) scale(0.96);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}'
@@ -256,4 +256,59 @@
   } else {
     boot();
   }
+
+  // v12 — Harden txn-detail dismiss:
+  //   - rebind backdrop click → close panel + backdrop (idempotent)
+  //   - Esc closes when backdrop visible
+  //   - listen for global txn edit save events (toast 'Saved' or appState
+  //     change after Edit) so save also hides the backdrop.
+  function hardenTxnDetailDismiss() {
+    if (window._wjpTxnDetailDismissHardened) return;
+    window._wjpTxnDetailDismissHardened = true;
+    function closeAll() {
+      var p = document.getElementById('txn-detail-panel');
+      var b = document.getElementById('txn-detail-backdrop');
+      if (p) p.style.right = '-440px';
+      if (b) b.style.display = 'none';
+    }
+    function bindBackdrop() {
+      var b = document.getElementById('txn-detail-backdrop');
+      if (!b || b._wjpDismissBound) return;
+      b._wjpDismissBound = true;
+      b.addEventListener('click', function (e) {
+        // Only close if click landed on the backdrop itself (not bubbling from panel)
+        if (e.target === b) closeAll();
+      }, true);
+    }
+    bindBackdrop();
+    setInterval(bindBackdrop, 4000);
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      var b = document.getElementById('txn-detail-backdrop');
+      if (b && b.style.display !== 'none') closeAll();
+    });
+    // Hook into the txn edit modal — when user saves, app fires renderTransactions
+    // + showToast('Saved!') etc. We listen for the post-save event by wrapping
+    // saveState (existing global) if available.
+    try {
+      if (typeof window.saveState === 'function' && !window.saveState._wjpDismissWrapped) {
+        var orig = window.saveState;
+        window.saveState = function () {
+          var r = orig.apply(this, arguments);
+          // If the txn edit modal is open and we just saved, close detail too.
+          var em = document.querySelector('.wjp-txn-edit-modal, #txn-edit-modal, [data-txn-edit-modal]');
+          if (em) closeAll();
+          return r;
+        };
+        window.saveState._wjpDismissWrapped = true;
+      }
+    } catch (_) {}
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hardenTxnDetailDismiss);
+  } else {
+    hardenTxnDetailDismiss();
+  }
+
 })();
