@@ -1,4 +1,4 @@
-/* wjp-education-tab.js v1.6 — expanded library 200 tips, 20 per category v1.5 — category chips wear category colors v1.4 — tone down disclaimer + shrink warning text v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
+/* wjp-education-tab.js v1.7 — pinned tip always at top + auto-syncs dashboard v1.6 — expanded library 200 tips, 20 per category v1.5 — category chips wear category colors v1.4 — tone down disclaimer + shrink warning text v1.3 — neutral brand accent on focused lesson v1.2 — focused lesson at top from dashboard Read more v1.1 — replace Activity Log with Financial Education.
  *
  * Hijacks #page-activity (sidebar Activity Log → relabeled to Financial
  * Education). Activity Log is moved to Settings via wjp-settings-extras.js.
@@ -726,17 +726,22 @@
         }).join("") + `</div>`
       : `<div style="text-align:center;color:var(--ink-faint, #9ca3af);padding:40px;font-size:13px;">No tips match.</div>`;
 
-    // Focused lesson — when user clicked "Read more" on the dashboard Daily Money Lesson,
-    // wjp-edu-dashboard-tip.js stashes the tip id on window.WJP_EduFocusTipId.
+    // Focused lesson at the top:
+    //   1) If user just clicked "Read more" on the dashboard, surface THAT tip (one-shot).
+    //   2) Otherwise show the currently pinned tip from loadPin() — same source the
+    //      dashboard Daily Money Lesson card reads. Pinning a different tip in the
+    //      list below auto-swaps both the top banner and the dashboard card.
     var focusedTip = null;
     try {
       var fId = window.WJP_EduFocusTipId;
       if (fId) {
         focusedTip = findTip(fId);
-        // Mark as read once viewed (consistent with modal mark-read behavior)
         try { var r = loadRead(); if (!r[fId]) { r[fId] = Date.now(); saveRead(r); } } catch(_) {}
-        // Consume the focus so a return to this tab doesn't keep re-pinning the same lesson.
         try { delete window.WJP_EduFocusTipId; } catch(_) { window.WJP_EduFocusTipId = null; }
+      }
+      if (!focusedTip) {
+        var pinnedId = (loadPin() || {}).tipId;
+        if (pinnedId) focusedTip = findTip(pinnedId);
       }
     } catch (_) {}
 
@@ -846,9 +851,24 @@
     if (pinBtn) pinBtn.addEventListener("click", function () {
       var id = pinBtn.dataset.wjpEduPin;
       var p = loadPin();
-      p.tipId = (p.tipId === id) ? null : id;
+      if (p.tipId === id) {
+        // Unpin — return to weekly rotation
+        p.tipId = null;
+        p.rotation = 'weekly';
+      } else {
+        // Pin — lock rotation so the auto-timer can't overwrite the user's choice
+        p.tipId = id;
+        p.rotation = 'pinned';
+      }
       p.lastChange = Date.now();
       savePin(p);
+      // Nudge the dashboard tip card to refresh immediately (it ticks every minute,
+      // but this gives users an instant confirmation).
+      try {
+        if (window.WJP_Education && typeof window.WJP_Education.refreshDashboardTip === 'function') {
+          window.WJP_Education.refreshDashboardTip();
+        }
+      } catch (_) {}
       rerender(host);
     });
 
@@ -875,7 +895,14 @@
     if (unpinBtn) unpinBtn.addEventListener("click", function () {
       var p = loadPin();
       p.tipId = null;
+      p.rotation = 'weekly';
+      p.lastChange = Date.now();
       savePin(p);
+      try {
+        if (window.WJP_Education && typeof window.WJP_Education.refreshDashboardTip === 'function') {
+          window.WJP_Education.refreshDashboardTip();
+        }
+      } catch (_) {}
       rerender(host);
     });
 
@@ -982,6 +1009,15 @@
     findTip: findTip,
     pinnedTip: function () { var p = loadPin(); return p.tipId ? findTip(p.tipId) : null; },
     rotation: function () { return loadPin().rotation; },
-    rotate: rotateDashboardTipIfDue
+    rotate: rotateDashboardTipIfDue,
+    // Tell the dashboard Daily Money Lesson card to re-render right now
+    // (used when user pins a different tip in the Education tab list).
+    refreshDashboardTip: function () {
+      try {
+        if (window.WJP_EduDashTip && typeof window.WJP_EduDashTip.refresh === 'function') {
+          window.WJP_EduDashTip.refresh();
+        }
+      } catch (_) {}
+    }
   };
 })();
