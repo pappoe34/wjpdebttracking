@@ -1,4 +1,4 @@
-/* wjp-recurring-tiles.js v6 — buildBreakdown adds due date + statement window + amortization payoff math v4.1 — all 12 debts + Unicode literal escape fix.
+/* wjp-recurring-tiles.js v7 — Edit Data Save persists to appState.debts + triggers full app re-render v6 — buildBreakdown adds due date v4.1 — all 12 debts + Unicode literal escape fix.
  *
  * v2 problems:
  *   1. Only showed 6 tiles — used DOM scraping that only finds visible cards.
@@ -342,12 +342,64 @@
     form.querySelector('.wjp-rt-cancel').addEventListener('click', function (e) { e.stopPropagation(); form.remove(); });
     form.querySelector('.wjp-rt-save').addEventListener('click', function (e) {
       e.stopPropagation();
+      // Collect new values
+      var updates = {};
       form.querySelectorAll('input').forEach(function (inp) {
         var f = inp.dataset.field;
-        var v = parseFloat(inp.value);
-        if (isFinite(v)) d[f] = v;
+        var raw = inp.value;
+        if (raw === '' || raw == null) return;
+        var v = parseFloat(raw);
+        if (isFinite(v)) updates[f] = v;
       });
+      // Update the cache so the tile re-renders with new values
+      Object.keys(updates).forEach(function (k) { d[k] = updates[k]; });
       debtDataCache[d.debtId] = d;
+      // v7: ALSO persist to appState.debts (source of truth for the whole app)
+      try {
+        var as = (typeof appState !== 'undefined') ? appState : null;
+        if (as && Array.isArray(as.debts)) {
+          var debt = as.debts.find(function (x) {
+            return x.id === d.debtId
+              || (x.name && d.name && x.name.toLowerCase() === d.name.toLowerCase());
+          });
+          if (debt) {
+            if ('balance' in updates) debt.balance = updates.balance;
+            if ('apr' in updates) debt.apr = updates.apr;
+            if ('minPayment' in updates) debt.minPayment = updates.minPayment;
+            if ('utilization' in updates) debt.utilization = updates.utilization;
+            debt.userEdited = true;
+            debt.lastEditedAt = Date.now();
+          }
+        }
+        // Also update the matching recurringPayment minPayment if user changed Min/mo
+        if (as && Array.isArray(as.recurringPayments) && 'minPayment' in updates) {
+          var rp = as.recurringPayments.find(function (p) {
+            return (p.linkedDebtId && p.linkedDebtId === d.debtId)
+              || (p.name && d.name && p.name.toLowerCase().indexOf(d.name.toLowerCase()) !== -1);
+          });
+          if (rp) rp.amount = updates.minPayment;
+        }
+        // Persist state + cloud-push
+        if (typeof window.saveState === 'function') window.saveState();
+        // Re-render every tab/view that uses this data
+        ['renderRecurringTab', 'renderDebts', 'updateUI', 'drawCharts', 'txnRenderAll'].forEach(function (fn) {
+          try { if (typeof window[fn] === 'function') window[fn](); } catch (_) {}
+        });
+        // Fire a custom event so other modules (wealth signals, etc.) can react
+        try {
+          window.dispatchEvent(new CustomEvent('wjp-debt-updated', {
+            detail: { debtId: d.debtId, updates: updates }
+          }));
+        } catch (_) {}
+        // Toast confirm
+        try {
+          if (typeof window.showToast === 'function') {
+            window.showToast('Saved — AI breakdown + countdown updated.');
+          }
+        } catch (_) {}
+      } catch (err) {
+        try { console.warn('[wjp-rt-edit] save failed', err); } catch (_) {}
+      }
       form.remove();
       tick();
     });
