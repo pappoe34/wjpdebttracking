@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v11 — bigger All chip + smaller bank chips with brand colors + settings gear add/remove + page size picker v9 — collapsible Smart Summary + ALL categories + improved insights + per-bank toggle preserved. v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters. */
+/* wjp-transactions-tab-enhance.js v12 — page-size picker moved to search row right corner; bank row cleaner v11 — bigger All chip + smaller bank chips with brand colors + settings gear add/remove + page size picker v9 — collapsible Smart Summary + ALL categories + improved insights + per-bank toggle preserved. v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters. */
 (function () {
   'use strict';
   if (window._wjpTxTabEnhanceInstalled) return;
@@ -706,14 +706,7 @@
     });
     // Settings gear — picker for which banks to show
     html += '<button class="acc-settings" id="wjp-bank-vis-btn" title="Choose which banks to show" type="button">⚙</button>';
-    // Page-size picker
-    var ps = (typeof window.WJP_GetTxnPageSize === 'function') ? window.WJP_GetTxnPageSize() : 10;
-    html += '<div class="pagesize-row" role="group" aria-label="Items per page">' +
-      '<span class="pagesize-label">Show</span>' +
-      [10, 20, 30, 50, 100].map(function (n) {
-        return '<button class="ps-btn ' + (ps === n ? 'active' : '') + '" type="button" data-ps="' + n + '">' + n + '</button>';
-      }).join('') +
-    '</div>';
+    // (Page-size picker moved to the search/filter row above the table — see ensurePageSizePicker.)
 
     wrap.innerHTML = html;
     if (isNewFilt) parent.parentElement.insertBefore(wrap, parent);
@@ -726,13 +719,6 @@
         try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch (_) {}
         try { applyAccountFilterToTable(); } catch (_) {}
         try { document.dispatchEvent(new CustomEvent('wjp-account-filter-changed', { detail: { account: v } })); } catch (_) {}
-      };
-    });
-    Array.prototype.forEach.call(wrap.querySelectorAll('.ps-btn'), function (b) {
-      b.onclick = function () {
-        var n = parseInt(b.getAttribute('data-ps'), 10);
-        if (typeof window.WJP_SetTxnPageSize === 'function') window.WJP_SetTxnPageSize(n);
-        renderSummary();
       };
     });
     var gear = wrap.querySelector('#wjp-bank-vis-btn');
@@ -916,6 +902,90 @@
     // Render filters above the summary
     renderFilters(box, accountFilter);
   }
+
+  // v12 — Page-size picker now lives in the search/filter row (.txn-filters)
+  // right-aligned, on the same line as the search input + filter pills.
+  function injectPageSizePickerStyle() {
+    if (document.getElementById('wjp-tx-pagesize-row-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-tx-pagesize-row-style';
+    st.textContent = [
+      '.wjp-pagesize-row {',
+      '  display:inline-flex; align-items:center; gap:3px; margin-left:auto;',
+      '  background:var(--bg-3,rgba(0,0,0,0.03)); border:1px solid var(--border,rgba(0,0,0,0.08));',
+      '  border-radius:10px; padding:3px; font-family:Inter,system-ui,sans-serif;',
+      '}',
+      '.wjp-pagesize-row .pagesize-label { font-size:10px; font-weight:700; color:var(--ink-dim,var(--text-3,#6b7280)); padding:0 8px; letter-spacing:0.06em; text-transform:uppercase; }',
+      '.wjp-pagesize-row .ps-btn {',
+      '  font-size:11px; font-weight:700; padding:4px 9px; border-radius:7px;',
+      '  background:transparent; color:var(--ink-dim,var(--text-3,#6b7280)); border:0;',
+      '  cursor:pointer; font-family:inherit;',
+      '}',
+      '.wjp-pagesize-row .ps-btn:hover:not(.active) { background:rgba(0,0,0,0.05); color:var(--ink,var(--text,#0a0a0a)); }',
+      '.wjp-pagesize-row .ps-btn.active { background:#1f7a4a; color:#fff; }'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function ensurePageSizePicker() {
+    var host = document.querySelector('.txn-filters');
+    if (!host) return;
+    injectPageSizePickerStyle();
+    var existing = host.querySelector('.wjp-pagesize-row');
+    var ps = (typeof window.WJP_GetTxnPageSize === 'function') ? window.WJP_GetTxnPageSize() : 10;
+    var html =
+      '<span class="pagesize-label">Show</span>' +
+      [10, 20, 30, 50, 100].map(function (n) {
+        return '<button class="ps-btn ' + (ps === n ? 'active' : '') + '" type="button" data-ps="' + n + '">' + n + '</button>';
+      }).join('');
+    if (existing) {
+      existing.innerHTML = html;
+    } else {
+      var wrap = document.createElement('div');
+      wrap.className = 'wjp-pagesize-row';
+      wrap.setAttribute('role', 'group');
+      wrap.setAttribute('aria-label', 'Items per page');
+      wrap.innerHTML = html;
+      host.appendChild(wrap);
+    }
+    var row = host.querySelector('.wjp-pagesize-row');
+    if (row && !row._wjpWired) {
+      row._wjpWired = true;
+      row.addEventListener('click', function (e) {
+        var btn = e.target.closest('.ps-btn');
+        if (!btn) return;
+        var n = parseInt(btn.getAttribute('data-ps'), 10);
+        if (typeof window.WJP_SetTxnPageSize === 'function') window.WJP_SetTxnPageSize(n);
+        // Repaint the picker to reflect new active
+        ensurePageSizePicker();
+      });
+    }
+  }
+  // Re-inject after any host re-render
+  function watchTxnFiltersForPicker() {
+    var host = document.querySelector('.txn-filters');
+    if (!host) {
+      setTimeout(watchTxnFiltersForPicker, 800);
+      return;
+    }
+    ensurePageSizePicker();
+    if (host._wjpPSObserved) return;
+    host._wjpPSObserved = true;
+    var mo = new MutationObserver(function () {
+      if (host._wjpPSPending) return;
+      host._wjpPSPending = true;
+      requestAnimationFrame(function () {
+        host._wjpPSPending = false;
+        ensurePageSizePicker();
+      });
+    });
+    mo.observe(host, { childList: true });
+  }
+  setTimeout(watchTxnFiltersForPicker, 1500);
+  setInterval(function () {
+    var host = document.querySelector('.txn-filters');
+    if (host && !host._wjpPSObserved) watchTxnFiltersForPicker();
+    else ensurePageSizePicker();
+  }, 8000);
 
   function tick() {
     try {
