@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -200,24 +200,21 @@
   }
 
   function getOrderedWidgets() {
+    // Sort by current visual top position — the panel mirrors what the user
+    // sees on the dashboard. Hidden cards are placed at the bottom (so the
+    // visible widgets read in order first).
     var widgets = gatherWidgets();
     var prefs = getPrefs();
-    var savedOrder = prefs.cardOrder || {};
-    if (!Object.keys(savedOrder).length) return widgets;
-    var flatSaved = [];
-    Object.keys(savedOrder).forEach(function (parentKey) {
-      var ids = Array.isArray(savedOrder[parentKey]) ? savedOrder[parentKey] : [];
-      ids.forEach(function (id) { flatSaved.push(id); });
+    var hidden = prefs.cardHidden || {};
+    return widgets.slice().sort(function (a, b) {
+      var aHidden = !!hidden[a.id];
+      var bHidden = !!hidden[b.id];
+      if (aHidden !== bHidden) return aHidden ? 1 : -1;
+      var aR = a.node.getBoundingClientRect();
+      var bR = b.node.getBoundingClientRect();
+      if (Math.abs(aR.top - bR.top) < 8) return aR.left - bR.left;
+      return aR.top - bR.top;
     });
-    if (!flatSaved.length) return widgets;
-    var byId = {}; widgets.forEach(function (w) { byId[w.id] = w; });
-    var seen = {};
-    var sorted = [];
-    flatSaved.forEach(function (id) {
-      if (byId[id] && !seen[id]) { sorted.push(byId[id]); seen[id] = 1; }
-    });
-    widgets.forEach(function (w) { if (!seen[w.id]) sorted.push(w); });
-    return sorted;
   }
 
   function buildPanel() {
@@ -229,7 +226,7 @@
     var panel = document.createElement('div'); panel.id = PANEL_ID;
     panel.innerHTML = ''
       + '<h3>Dashboard settings</h3>'
-      + '<div class="wjp-sp-sub">Drag to reorder. Uncheck to hide. Tap Save to apply.</div>'
+      + '<div class="wjp-sp-sub">Drag to reorder. Uncheck to hide. Items move within their section (top area or left/right column). For cross-column moves, use <strong>Customize layout</strong> and drag the card itself.</div>'
       + '<div id="wjp-sp-list"></div>'
       + '<div class="wjp-sp-actions">'
       + '  <button type="button" class="wjp-sp-btn" id="wjp-sp-cancel">Cancel</button>'
