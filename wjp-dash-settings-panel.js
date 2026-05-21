@@ -1,15 +1,13 @@
-/* wjp-dash-settings-panel.js v3 — 2026-05-20
+/* wjp-dash-settings-panel.js v4 — 2026-05-20
  *
- * MINIMAL dashboard settings panel — second iteration.
+ * Iteration on v3:
+ *   - Override window.applyDashboardLayout with a smarter slot-anchoring
+ *     version that preserves non-reorderable siblings' positions.
+ *   - Pin #dfd-hero (Executive Summary) and #wjp-momentum-hero (Last 7 Days)
+ *     to the top of #page-dashboard on every applyLayout — they always come
+ *     after #dash-greeting, before #dash-customize-bar.
  *
- * v3 fix: writes to appState.prefs.cardOrder + cardHidden (the keys app.js
- * uses) and delegates rendering to window.applyDashboardLayout(). Previous
- * version wrote to its own localStorage key that nothing else read, so Save
- * looked like it did nothing.
- *
- * Hard rules (kept from v1):
- *   - NO setInterval. NO MutationObserver. NO applyLayout-on-tick.
- *   - DOM mutations fire ONLY on user click.
+ * Still no setInterval / no MutationObserver / no applyLayout-on-tick.
  */
 (function () {
   "use strict";
@@ -19,6 +17,9 @@
   var GEAR_ID = "wjp-dash-settings-gear";
   var PANEL_ID = "wjp-dash-settings-panel";
   var SCRIM_ID = "wjp-dash-settings-scrim";
+
+  // Heroes always at the top of #page-dashboard, in this order
+  var TOP_PIN = ['dfd-hero', 'wjp-momentum-hero'];
 
   function getAppState() { try { return appState; } catch (_) { return (window.appState || null); } }
   function saveAppState() { try { if (typeof saveState === 'function') saveState(); } catch (_) {} }
@@ -50,6 +51,73 @@
     if (!s.prefs.cardHidden) s.prefs.cardHidden = {};
     return s.prefs;
   }
+
+  // ===== Smarter applyDashboardLayout — slot-anchoring per parent =====
+  function smartApplyDashboardLayout() {
+    try {
+      var s = getAppState() || {};
+      var prefs = s.prefs || {};
+      var order = prefs.cardOrder || {};
+      var hidden = prefs.cardHidden || {};
+
+      // 1. Hide/show all reorderables based on hidden map
+      document.querySelectorAll('#page-dashboard .reorderable').forEach(function (card) {
+        var cid = card.getAttribute('data-card-id');
+        card.style.display = (hidden && hidden[cid]) ? 'none' : '';
+      });
+
+      // 2. Reorder per parent using slot-anchoring (preserves non-reorderable siblings)
+      Object.keys(order).forEach(function (parentKey) {
+        var parent = document.getElementById(parentKey) || document.querySelector('.' + parentKey);
+        if (!parent) return;
+        var idList = Array.isArray(order[parentKey]) ? order[parentKey] : [];
+        if (idList.length < 2) return;
+
+        // Resolve nodes in saved order. Only nodes currently inside `parent`.
+        var nodes = [];
+        idList.forEach(function (cid) {
+          var card = parent.querySelector(':scope > .reorderable[data-card-id="' + cid + '"]');
+          if (card) nodes.push(card);
+        });
+        if (nodes.length < 2) return;
+
+        // Find their slot indices (sorted) in parent.children
+        var children = Array.from(parent.children);
+        var slotIndices = nodes.map(function (n) { return children.indexOf(n); })
+                               .filter(function (i) { return i >= 0; })
+                               .sort(function (a, b) { return a - b; });
+        if (slotIndices.length < 2) return;
+
+        // Build newChildren: original children, but with reorderable slots replaced
+        // by nodes in the saved order.
+        var newChildren = children.slice();
+        for (var i = 0; i < slotIndices.length && i < nodes.length; i++) {
+          newChildren[slotIndices[i]] = nodes[i];
+        }
+
+        // Apply: appendChild each in newChildren order (moves nodes)
+        newChildren.forEach(function (node) { parent.appendChild(node); });
+      });
+
+      // 3. Pin top heroes — they always come right after #dash-greeting and
+      //    always BEFORE #dash-customize-bar / .dash-grid. Defensive against
+      //    any saved order that would otherwise push them to the bottom.
+      var page = document.getElementById('page-dashboard');
+      if (page) {
+        var greeting = document.getElementById('dash-greeting');
+        var anchor = greeting ? greeting.nextSibling : page.firstChild;
+        TOP_PIN.forEach(function (id) {
+          var node = document.getElementById(id);
+          if (!node || node.parentElement !== page) return;
+          if (node !== anchor) page.insertBefore(node, anchor);
+          anchor = node.nextSibling;
+        });
+      }
+    } catch (e) {
+      try { console.warn('[wjp-dash-settings] applyLayout fail', e); } catch (_) {}
+    }
+  }
+  window.applyDashboardLayout = smartApplyDashboardLayout;
 
   function injectStyle() {
     if (document.getElementById('wjp-dash-settings-style')) return;
@@ -106,14 +174,12 @@
     var prefs = getPrefs();
     var savedOrder = prefs.cardOrder || {};
     if (!Object.keys(savedOrder).length) return widgets;
-
     var flatSaved = [];
     Object.keys(savedOrder).forEach(function (parentKey) {
       var ids = Array.isArray(savedOrder[parentKey]) ? savedOrder[parentKey] : [];
       ids.forEach(function (id) { flatSaved.push(id); });
     });
     if (!flatSaved.length) return widgets;
-
     var byId = {}; widgets.forEach(function (w) { byId[w.id] = w; });
     var seen = {};
     var sorted = [];
@@ -172,7 +238,7 @@
       p.cardHidden = {};
       saveAppState();
       gatherWidgets().forEach(function (w) { w.node.style.display = ''; });
-      if (typeof window.applyDashboardLayout === 'function') window.applyDashboardLayout();
+      smartApplyDashboardLayout();
       closePanel();
     });
     panel.querySelector('#wjp-sp-save').addEventListener('click', function () {
@@ -195,7 +261,7 @@
       p.cardOrder = newOrder;
       p.cardHidden = newHidden;
       saveAppState();
-      if (typeof window.applyDashboardLayout === 'function') window.applyDashboardLayout();
+      smartApplyDashboardLayout();
       closePanel();
     });
     scrim.addEventListener('click', closePanel);
@@ -216,6 +282,9 @@
   function boot() {
     injectStyle();
     injectGear();
+    // Run smart layout once on boot — fixes anyone whose heroes got pushed down
+    // by the buggy v3 save.
+    smartApplyDashboardLayout();
   }
 
   function onMaybeMount() {
@@ -233,5 +302,5 @@
   setTimeout(onMaybeMount, 800);
   setTimeout(onMaybeMount, 2500);
 
-  window.WJPDashSettings = { open: openPanel };
+  window.WJPDashSettings = { open: openPanel, applyLayout: smartApplyDashboardLayout };
 })();
