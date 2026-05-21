@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -11,6 +11,27 @@
   "use strict";
   if (window._wjpTxnStatsFixInstalled) return;
   window._wjpTxnStatsFixInstalled = true;
+
+  // Group income merchants by employer/source so multiple payroll IDs from
+  // the same company show as one entry instead of 4 different paychecks.
+  function canonicalizeMerchant(m) {
+    if (!m) return 'Unknown';
+    var raw = String(m);
+    var cutMarkers = [' ID:', ' INDN:', ' CO ID:', ' Conf#', ' Confirmation#', ' DES:'];
+    var cleaned = raw;
+    cutMarkers.forEach(function (mk) {
+      var idx = cleaned.indexOf(mk);
+      if (idx > 0) cleaned = cleaned.slice(0, idx);
+    });
+    cleaned = cleaned.replace(/\bPAYROLL\b.*$/i, 'PAYROLL').replace(/\s+/g, ' ').trim();
+    if (/freshrealm/i.test(cleaned)) return 'FreshRealm Payroll';
+    if (/adp\s*total\s*source|ach.*adp\s*total/i.test(cleaned)) return 'ADP TotalSource Payroll';
+    if (/etsy/i.test(cleaned)) return 'Etsy';
+    if (/amazon/i.test(cleaned)) return 'Amazon';
+    if (/origin\s*financial/i.test(cleaned)) return 'Origin Financial';
+    if (/stash/i.test(cleaned)) return 'Stash';
+    return cleaned.slice(0, 60);
+  }
 
   // Returns true if a transaction is a bank transfer (account-to-account).
   function isTransfer(t) {
@@ -103,12 +124,12 @@
         var sign = n > 0 ? '+' : (n < 0 ? '-' : '');
         return sign + '$' + v.toLocaleString('en-US');
       };
-      // Income merchant breakdown — top 5 for tooltip
+      // Income merchant breakdown — grouped by employer/source for clean tooltip
       var incomeMerchants = {};
       txns.forEach(function (t) {
         var a = Number(t.amount) || 0;
         if (a > 0) {
-          var m = (t.merchant || 'Unknown').slice(0, 50);
+          var m = canonicalizeMerchant(t.merchant || 'Unknown');
           incomeMerchants[m] = (incomeMerchants[m] || 0) + a;
         }
       });

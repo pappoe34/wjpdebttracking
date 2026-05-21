@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
+/* wjp-transactions-tab-enhance.js v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
  *
  * Adds four upgrades to the Transactions tab:
  *
@@ -57,6 +57,42 @@
     var sign = n >= 0 ? '+' : '-';
     return sign + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
   }
+  // Canonicalize merchant names so multiple payroll IDs from the same
+  // company group into a single income source. Strips bank-batch identifiers
+  // (PAYROLL ID:..., INDN:..., CO ID:..., Conf#..., Confirmation#...) and
+  // returns a stable display name.
+  function canonicalizeMerchant(m) {
+    if (!m) return 'Unknown';
+    var raw = String(m);
+    // Cut at any of these markers — everything after is a batch identifier
+    var cutMarkers = [' ID:', ' INDN:', ' CO ID:', ' Conf#', ' Confirmation#', ' DES:'];
+    var cleaned = raw;
+    cutMarkers.forEach(function (mk) {
+      var idx = cleaned.indexOf(mk);
+      if (idx > 0) cleaned = cleaned.slice(0, idx);
+    });
+    // Specific normalizations for common patterns
+    cleaned = cleaned.replace(/\bPAYROLL\b.*$/i, 'PAYROLL').trim();
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    // If we have things like 'FRESHREALM INC' return that core name
+    var simplifyMap = [
+      { match: /freshrealm/i, name: 'FreshRealm Payroll' },
+      { match: /adp\s*total\s*source/i, name: 'ADP TotalSource Payroll' },
+      { match: /ach\s*electronic\s*credit\s*adp/i, name: 'ADP TotalSource Payroll' },
+      { match: /etsy/i, name: 'Etsy' },
+      { match: /amazon/i, name: 'Amazon' },
+      { match: /origin\s*financial/i, name: 'Origin Financial' },
+      { match: /stash/i, name: 'Stash' },
+      { match: /zelle.*from\s+([A-Z\s]+)/i, name: null /* keep as-is for Zelle */ }
+    ];
+    for (var i = 0; i < simplifyMap.length; i++) {
+      if (simplifyMap[i].match.test(cleaned) && simplifyMap[i].name) {
+        return simplifyMap[i].name;
+      }
+    }
+    return cleaned.slice(0, 60);
+  }
+
   function fmtPct(n, d) {
     if (n == null || !isFinite(n)) return '0%';
     return n.toFixed(d == null ? 0 : d) + '%';
@@ -205,7 +241,7 @@
       if (isTransfer(t)) { transfers += Math.abs(amt); return; }
       if (isIncome(t)) {
         income += amt;
-        var m = t.merchant || 'Unknown';
+        var m = canonicalizeMerchant(t.merchant || 'Unknown');
         incomeByMerchant[m] = (incomeByMerchant[m] || 0) + amt;
       } else if (isExpense(t)) {
         expenses += Math.abs(amt);
