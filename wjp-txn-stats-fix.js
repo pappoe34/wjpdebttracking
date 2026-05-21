@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -120,7 +120,12 @@
       // Update the four stats cards by querying their labels — but ONLY when
       // the value actually changed (memo). Prevents DOM churn / flicker.
       function setIfChanged(el, key, newVal) {
-        if (_lastStats[key] === newVal) return;
+        // Compare against the CURRENT DOM value (host may have rewritten the
+        // card after we last set it). Only writes when truly different.
+        if (el.textContent === newVal) {
+          _lastStats[key] = newVal;
+          return;
+        }
         _lastStats[key] = newVal;
         el.textContent = newVal;
       }
