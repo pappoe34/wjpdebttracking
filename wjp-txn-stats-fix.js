@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v3 — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -157,12 +157,27 @@
     }
   }
 
-  // Hook into the host renderer. txnRenderAll is on window after init.
+  // Hook into the host renderer with fingerprint-skip. Host updateUI hammers
+  // txnRenderAll ~6-60x/sec; nearly all those calls re-render the same data.
+  // We compute a cheap fingerprint of the txn list and SKIP the entire host
+  // function when nothing has changed. Eliminates the visible stats flicker.
+  function txnFingerprint() {
+    try {
+      var st = (typeof appState !== 'undefined') ? appState : window.appState;
+      if (!st || !Array.isArray(st.transactions)) return '0';
+      var t = st.transactions;
+      return t.length + '|' + (t.length ? (t[t.length-1].id || t[t.length-1].date || '') : '');
+    } catch (_) { return Date.now() + ''; }
+  }
   function wrapRenderer() {
     try {
       var fn = window.txnRenderAll;
       if (typeof fn !== 'function' || fn.__wjpTsfWrapped) return false;
+      var lastFp = '';
       var wrapped = function () {
+        var fp = txnFingerprint();
+        if (fp === lastFp) return; // data unchanged — skip the wipe + redraw
+        lastFp = fp;
         var r = fn.apply(this, arguments);
         try { recomputeStats(); } catch (_) {}
         return r;
