@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v14 — scope autofit to .active v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v15 — CSS-rule-based ordering + late-mount retries v14 — scope autofit to .active v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -176,18 +176,35 @@
       var prev = anchor;
       flat.forEach(function (cid, idx) {
         var node = byCid[cid];
-        if (!node) return;
-        // Insert right after `prev`
-        var after = prev ? prev.nextSibling : page.firstChild;
-        if (node !== after) page.insertBefore(node, after);
-        prev = node;
-        // CRITICAL: override any pin-feature order (style.order='-10') via a
-        // CSS custom property + !important rule. app.js's reorderPinnedCards
-        // re-sets style.order on every updateUI tick, so an inline write here
-        // would get undone. The CSS rule for [style*="--wjp-flat-order"] beats
-        // any inline style.order via !important.
-        try { node.style.setProperty('--wjp-flat-order', String(idx)); } catch (_) {}
+        if (node) {
+          // Insert right after `prev` for nodes already in the DOM
+          var after = prev ? prev.nextSibling : page.firstChild;
+          if (node !== after) page.insertBefore(node, after);
+          prev = node;
+          try { node.style.setProperty('--wjp-flat-order', String(idx)); } catch (_) {}
+        }
+        // Whether or not the card is mounted yet, we ALSO emit a CSS rule
+        // targeting [data-card-id="cid"] so the order applies as soon as the
+        // card lands in DOM. Async-mounted cards (paycheck-ai, momentum-hero,
+        // financial-resilience, etc.) would otherwise miss this pass.
       });
+
+      // Emit/refresh a single <style> block with per-card-id order rules. This
+      // beats inline style.order (set by app.js's pin feature) via !important,
+      // AND applies to cards mounted AFTER this function ran.
+      try {
+        var styleEl = document.getElementById('wjp-flat-order-rules');
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = 'wjp-flat-order-rules';
+          document.head.appendChild(styleEl);
+        }
+        var rules = flat.map(function (cid, idx) {
+          var safe = String(cid).replace(/"/g, '');
+          return '#page-dashboard > .reorderable[data-card-id="' + safe + '"]{order:' + idx + ' !important;}';
+        }).join('');
+        styleEl.textContent = rules;
+      } catch (_) {}
 
       // 6. Hide empty dash-grid (its reorderable children were flattened to
       //    top-level; only its empty .dash-left + .dash-right columns remain).
@@ -394,9 +411,11 @@
   function boot() {
     injectStyle();
     injectGear();
-    // Run smart layout once on boot — fixes anyone whose heroes got pushed down
-    // by the buggy v3 save.
+    // Run smart layout once now, then a few retries for async-mounted cards.
     smartApplyDashboardLayout();
+    [500, 1500, 3500, 7000, 12000].forEach(function (ms) {
+      setTimeout(function () { try { smartApplyDashboardLayout(); } catch (_) {} }, ms);
+    });
   }
 
   function onMaybeMount() {
