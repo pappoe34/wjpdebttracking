@@ -214,7 +214,7 @@
       if (!card) {
         card = document.createElement('div');
         card.id = CARD_ID;
-        card.className = 'card reveal';
+        card.className = 'card reveal reorderable'; card.setAttribute('data-card-id','resilience-detail'); card.setAttribute('data-card-label','Resilience Detail');
         card.style.cssText = 'padding:16px 18px;';
         // Insert just after Money Left card if present, otherwise prepend to grid
         if (moneyLeftCard && moneyLeftCard.parentNode) {

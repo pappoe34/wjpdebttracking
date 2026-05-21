@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -99,16 +99,21 @@
         newChildren.forEach(function (node) { parent.appendChild(node); });
       });
 
-      // 3. Pin top heroes — they always come right after #dash-greeting and
-      //    BEFORE #dash-customize-bar / .dash-grid. Their RELATIVE order
-      //    respects appState.prefs.cardOrder['page-dashboard'] so the user
-      //    can swap Last 7 Days above Executive Summary (or vice versa).
+      // 3. Pin dash-customize-bar to position right after #dash-greeting so
+      //    the Customize layout + Auto-fit buttons (plus the gear) live at
+      //    the very top of the dashboard.
       var page = document.getElementById('page-dashboard');
       if (page) {
         var greeting = document.getElementById('dash-greeting');
+        var bar = document.getElementById('dash-customize-bar');
+        if (bar && bar.parentElement === page) {
+          var afterGreeting = greeting ? greeting.nextSibling : page.firstChild;
+          if (bar !== afterGreeting) page.insertBefore(bar, afterGreeting);
+        }
+        // 4. Pin top heroes — come right AFTER the customize bar. Their
+        //    relative order respects cardOrder['page-dashboard'].
         var savedPageOrder = Array.isArray(order['page-dashboard']) ? order['page-dashboard'] : [];
         var heroCardIds = { 'exec-summary': 'dfd-hero', 'last-7-days': 'wjp-momentum-hero' };
-        // Build hero element list in the order the user saved.
         var heroNodes = [];
         savedPageOrder.forEach(function (cid) {
           var elId = heroCardIds[cid];
@@ -116,15 +121,14 @@
           var el = document.getElementById(elId);
           if (el && el.parentElement === page && heroNodes.indexOf(el) < 0) heroNodes.push(el);
         });
-        // Any heroes not present in saved order — append in default order.
         TOP_PIN.forEach(function (id) {
           var el = document.getElementById(id);
           if (el && el.parentElement === page && heroNodes.indexOf(el) < 0) heroNodes.push(el);
         });
-        var anchor = greeting ? greeting.nextSibling : page.firstChild;
+        var heroAnchor = bar ? bar.nextSibling : (greeting ? greeting.nextSibling : page.firstChild);
         heroNodes.forEach(function (node) {
-          if (node !== anchor) page.insertBefore(node, anchor);
-          anchor = node.nextSibling;
+          if (node !== heroAnchor) page.insertBefore(node, heroAnchor);
+          heroAnchor = node.nextSibling;
         });
       }
     } catch (e) {
@@ -138,10 +142,13 @@
     var st = document.createElement('style');
     st.id = 'wjp-dash-settings-style';
     var css = [];
-    css.push('#' + GEAR_ID + '{position:absolute;top:18px;right:18px;width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:transform 0.12s ease, box-shadow 0.12s ease;font-size:16px;}');
-    css.push('body.light #' + GEAR_ID + '{background:#ffffff;border:1px solid rgba(10,10,10,0.12);color:#0a0a0a;box-shadow:0 1px 3px rgba(0,0,0,0.06);}');
-    css.push('body.dark #' + GEAR_ID + ',body:not(.light) #' + GEAR_ID + '{background:#13192a;border:1px solid rgba(255,255,255,0.10);color:#f1f5f9;}');
-    css.push('#' + GEAR_ID + ':hover{transform:rotate(28deg);box-shadow:0 4px 18px rgba(0,0,0,0.18);}');
+    // Floating gear (fallback when no customize-bar exists)
+    css.push('#' + GEAR_ID + ':not([data-inline]){position:absolute;top:18px;right:18px;width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:transform 0.12s ease, box-shadow 0.12s ease;font-size:16px;}');
+    css.push('body.light #' + GEAR_ID + ':not([data-inline]){background:#ffffff;border:1px solid rgba(10,10,10,0.12);color:#0a0a0a;box-shadow:0 1px 3px rgba(0,0,0,0.06);}');
+    css.push('body.dark #' + GEAR_ID + ':not([data-inline]),body:not(.light) #' + GEAR_ID + ':not([data-inline]){background:#13192a;border:1px solid rgba(255,255,255,0.10);color:#f1f5f9;}');
+    // Inline gear (inside the customize bar): inherits .btn .btn-ghost from host CSS
+    css.push('#' + GEAR_ID + '[data-inline]{cursor:pointer;display:inline-flex;align-items:center;gap:2px;}');
+    css.push('#' + GEAR_ID + ':hover i.ph-gear{transition:transform 0.12s ease;transform:rotate(28deg);}');
     css.push('#' + SCRIM_ID + '{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;}');
     css.push('#' + PANEL_ID + '{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,92vw);max-height:80vh;display:flex;flex-direction:column;border-radius:14px;padding:18px;z-index:9001;box-shadow:0 24px 64px rgba(0,0,0,0.45);}');
     css.push('body.light #' + PANEL_ID + '{background:#ffffff;color:#0a0a0a;border:1px solid rgba(10,10,10,0.10);}');
@@ -171,16 +178,25 @@
     var page = document.getElementById('page-dashboard');
     if (!page) return;
     if (document.getElementById(GEAR_ID)) return;
-    var pos = getComputedStyle(page).position;
-    if (pos === 'static') page.style.position = 'relative';
+    var bar = document.getElementById('dash-customize-bar');
     var btn = document.createElement('button');
     btn.id = GEAR_ID;
     btn.type = 'button';
     btn.title = 'Dashboard settings — show, hide, reorder widgets';
     btn.setAttribute('aria-label', 'Dashboard settings');
-    btn.innerHTML = '<i class="ph ph-gear"></i>';
+    btn.innerHTML = '<i class="ph ph-gear"></i><span style="margin-left:6px;">Settings</span>';
+    btn.className = 'btn btn-ghost';
     btn.addEventListener('click', openPanel);
-    page.appendChild(btn);
+    if (bar) {
+      // Inline mode: sits inside the customize toolbar alongside Customize + Auto-fit
+      btn.dataset.inline = '1';
+      bar.appendChild(btn);
+    } else {
+      // Fallback: floating top-right if the bar isn't present
+      var pos = getComputedStyle(page).position;
+      if (pos === 'static') page.style.position = 'relative';
+      page.appendChild(btn);
+    }
   }
 
   function getOrderedWidgets() {
