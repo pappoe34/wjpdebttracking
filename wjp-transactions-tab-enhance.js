@@ -733,32 +733,11 @@
   // look up each row's txn id, find the txn in appState, compare its
   // institutionName to the active filter.
   function applyAccountFilterToTable() {
-    var filter = getCurrentFilter();
-    var tbody = document.getElementById('txn-tbody');
-    if (!tbody) return;
-    var state = getAppState();
-    var txnsById = {};
-    if (state && Array.isArray(state.transactions)) {
-      state.transactions.forEach(function (t) { if (t && t.id) txnsById[t.id] = t; });
-    }
-    var rows = tbody.querySelectorAll('tr.txn-row');
-    var hiddenCount = 0;
-    rows.forEach(function (row) {
-      var id = row.getAttribute('data-txn-id');
-      var t = txnsById[id];
-      var key = t && txnAccountKey(t);
-      var matches = (filter === 'all') || (key === filter);
-      row.style.display = matches ? '' : 'none';
-      if (!matches) hiddenCount++;
-    });
-    // Update pagination label so user sees the post-filter count
-    try {
-      var label = document.getElementById('txn-page-label');
-      if (label && filter !== 'all') {
-        var totalShown = rows.length - hiddenCount;
-        label.textContent = 'Showing ' + totalShown + ' of ' + rows.length + ' (' + filter + ')';
-      }
-    } catch (_) {}
+    // v14 — No-op. The bank filter is now applied inside app.js's
+    // txnGetFiltered (it reads localStorage 'wjp.tx.accountFilter' and uses
+    // window.WJP_TxAccountKey). Previously this function hid rows post-render
+    // and overwrote the page label — both became misleading once the
+    // filtering moved upstream.
   }
   // Re-apply filter after any host re-render so the chip's effect is sticky.
   if (typeof window !== 'undefined') {

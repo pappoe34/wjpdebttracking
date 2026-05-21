@@ -20362,16 +20362,20 @@ function initAllButtonHandlers() {
     // ═══════════════════════════════════════════════════════
     //  TRANSACTIONS TAB — Full Engine
     // ═══════════════════════════════════════════════════════
-    let TXN_PAGE_SIZE = 10;
-    try { var __wjpSz = parseInt(localStorage.getItem('wjp.tx.pageSize') || '10', 10); if ([10,20,30,50,100].indexOf(__wjpSz) >= 0) TXN_PAGE_SIZE = __wjpSz; } catch(_) {}
+    // PAGE SIZE — kept as window.TXN_PAGE_SIZE so external modules can mutate
+    // it freely without ESM closure pitfalls. Read fresh on every render.
+    if (typeof window.TXN_PAGE_SIZE !== 'number') {
+      window.TXN_PAGE_SIZE = 10;
+      try { var __wjpSz = parseInt(localStorage.getItem('wjp.tx.pageSize') || '10', 10); if ([10,20,30,50,100].indexOf(__wjpSz) >= 0) window.TXN_PAGE_SIZE = __wjpSz; } catch(_) {}
+    }
     window.WJP_SetTxnPageSize = function(n) {
       if ([10,20,30,50,100].indexOf(n) < 0) return false;
-      TXN_PAGE_SIZE = n;
+      window.TXN_PAGE_SIZE = n;
       try { localStorage.setItem('wjp.tx.pageSize', String(n)); } catch(_) {}
       try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch(_) {}
       return true;
     };
-    window.WJP_GetTxnPageSize = function() { return TXN_PAGE_SIZE; };
+    window.WJP_GetTxnPageSize = function() { return window.TXN_PAGE_SIZE; };
     let txnState = {
         page: 0,
         sortCol: 'date',
@@ -20489,9 +20493,10 @@ function initAllButtonHandlers() {
         const label = document.getElementById('txn-page-label');
         if (!tbody) return;
         const total = filtered.length;
-        if (txnState.page * TXN_PAGE_SIZE >= total && total > 0) txnState.page = 0;
-        const start = txnState.page * TXN_PAGE_SIZE;
-        const end = Math.min(start + TXN_PAGE_SIZE, total);
+        var __PS = window.TXN_PAGE_SIZE || 10;
+        if (txnState.page * __PS >= total && total > 0) txnState.page = 0;
+        const start = txnState.page * __PS;
+        const end = Math.min(start + __PS, total);
         const slice = filtered.slice(start, end);
 
         if (slice.length === 0) {
