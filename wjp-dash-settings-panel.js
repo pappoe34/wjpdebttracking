@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v15 — CSS-rule-based ordering + late-mount retries v14 — scope autofit to .active v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v16 — explicit cloud push on save v15 — CSS-rule-based ordering + late-mount retries v14 — scope autofit to .active v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -64,7 +64,16 @@
   var TOP_PIN = ['dfd-hero', 'wjp-momentum-hero'];
 
   function getAppState() { try { return appState; } catch (_) { return (window.appState || null); } }
-  function saveAppState() { try { if (typeof saveState === 'function') saveState(); } catch (_) {} }
+  function saveAppState() {
+    try { if (typeof saveState === 'function') saveState(); } catch (_) {}
+    // Also fire an explicit cloud push so the dashboard layout syncs to
+    // Firestore immediately, not after the 2s debounce. Falls back gracefully
+    // if the sync engine isn't ready.
+    try {
+      if (typeof window.WJP_ForceSync === 'function') window.WJP_ForceSync();
+      else if (typeof window.cloudPushNow === 'function') window.cloudPushNow();
+    } catch (_) {}
+  }
 
   function cardLabel(node) {
     var t = node.getAttribute('data-card-label');
