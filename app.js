@@ -20435,6 +20435,16 @@ function initAllButtonHandlers() {
         if (txnState.advMax !== null) list = list.filter(t => Math.abs(t.amount) <= txnState.advMax);
         if (txnState.advMethod) list = list.filter(t => (t.method||'') === txnState.advMethod);
 
+        // v11 — Bank account filter from external module (wjp-transactions-tab-enhance.js)
+        // The module sets localStorage 'wjp.tx.accountFilter' to a key like 'BoA ··0060'
+        // and exposes window.WJP_TxAccountKey(t) which returns the same key.
+        try {
+          var __bf = localStorage.getItem('wjp.tx.accountFilter');
+          if (__bf && __bf !== 'all' && typeof window.WJP_TxAccountKey === 'function') {
+            list = list.filter(function (t) { return window.WJP_TxAccountKey(t) === __bf; });
+          }
+        } catch (_) {}
+
         // Sort
         list.sort((a, b) => {
             let av, bv;

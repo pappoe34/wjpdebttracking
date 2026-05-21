@@ -179,6 +179,9 @@
     }
     return t.institutionName || 'Bank';
   }
+  // v13: Expose for app.js's closure-local txnGetFiltered so bank filter
+  // applies to the FULL transaction list before pagination.
+  try { window.WJP_TxAccountKey = txnAccountKey; } catch (_) {}
   function getAccountList() {
     var s = getAppState();
     if (!s || !Array.isArray(s.transactions)) return [];
