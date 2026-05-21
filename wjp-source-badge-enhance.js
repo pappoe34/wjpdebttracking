@@ -1,4 +1,4 @@
-/* wjp-source-badge-enhance.js v1 — Rich source pills on the Transactions tab.
+/* wjp-source-badge-enhance.js v2 — expose window.WJP_AcctLookup — Rich source pills on the Transactions tab.
  *
  * Today's source badge shows only one letter ("S", "R", "C") which collides:
  *   "S" could be SoFi (Plaid) OR System-synthetic
@@ -65,6 +65,11 @@
       });
       lookupLoaded = true;
       try { console.log('[wjp-src-badge] loaded', Object.keys(accountLookup).length, 'accounts'); } catch (_) {}
+      // v2: expose for other modules (e.g. Smart Summary bank pills)
+      try {
+        window.WJP_AcctLookup = accountLookup;
+        window.dispatchEvent(new CustomEvent('wjp-acct-lookup-ready', { detail: { count: Object.keys(accountLookup).length } }));
+      } catch (_) {}
       // Re-render so the new lookup is reflected
       try {
         if (typeof window.renderTransactions === 'function') window.renderTransactions();

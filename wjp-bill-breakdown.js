@@ -1,4 +1,4 @@
-/* wjp-bill-breakdown.js v1 — Per-bill / per-merchant spending breakdown across week / month / year / all-time.
+/* wjp-bill-breakdown.js v2 — MutationObserver re-injection (kill flicker from Smart Summary re-renders) v1 — Per-bill / per-merchant spending breakdown across week / month / year / all-time.
  *
  *   - Adds a "📊 Bill history" button to the Transactions tab Smart Summary header.
  *   - Click → opens a modal with:
@@ -398,9 +398,37 @@
 
   function boot() {
     injectStyle();
-    setInterval(ensureButton, 4000);
-    setTimeout(ensureButton, 1500);
-    setTimeout(ensureButton, 3500);
+    // v2: replace setInterval polling with a MutationObserver on the Smart
+    // Summary box. The host wjp-transactions-tab-enhance.js re-renders the
+    // header every 6s which nukes the button — observe and re-inject
+    // synchronously on every mutation so the user never sees it disappear.
+    function watch() {
+      var box = document.getElementById('wjp-tx-summary-box');
+      if (!box) {
+        setTimeout(watch, 800);
+        return;
+      }
+      ensureButton();
+      if (box._wjpBillObserved) return;
+      box._wjpBillObserved = true;
+      var mo = new MutationObserver(function () {
+        if (box._wjpBillPending) return;
+        box._wjpBillPending = true;
+        requestAnimationFrame(function () {
+          box._wjpBillPending = false;
+          ensureButton();
+        });
+      });
+      mo.observe(box, { childList: true, subtree: true });
+    }
+    watch();
+    // Belt-and-suspenders: re-scan every 10s in case the box itself is
+    // remounted at a different node.
+    setInterval(function () {
+      var box = document.getElementById('wjp-tx-summary-box');
+      if (box && !box._wjpBillObserved) watch();
+      else ensureButton();
+    }, 10000);
   }
 
   if (document.readyState === 'loading') {

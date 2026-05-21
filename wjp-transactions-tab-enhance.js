@@ -152,6 +152,33 @@
   }
 
   // ---- Account lookup (via wjp-source-badge) ----
+  // v10: bank pills use window.WJP_AcctLookup populated by
+  // wjp-source-badge-enhance.js v2. Falls back to t.institutionName if not
+  // ready yet. Renders per-bank pills like "BoA ··0060", "Citi ··9295".
+  function shortInst(name) {
+    if (!name) return 'Bank';
+    var lower = String(name).toLowerCase();
+    if (lower.indexOf('bank of america') !== -1) return 'BoA';
+    if (lower.indexOf('citibank') !== -1 || lower.indexOf('citi') !== -1) return 'Citi';
+    if (lower.indexOf('jpmorgan') !== -1 || lower.indexOf('chase') !== -1) return 'Chase';
+    if (lower.indexOf('wells fargo') !== -1) return 'Wells';
+    if (lower.indexOf('capital one') !== -1) return 'Cap One';
+    if (lower.indexOf('discover') !== -1) return 'Discover';
+    if (lower.indexOf('amex') !== -1 || lower.indexOf('american express') !== -1) return 'Amex';
+    if (lower.indexOf('sofi') !== -1) return 'SoFi';
+    if (lower.indexOf('principal') !== -1) return 'Principal';
+    return name.length > 14 ? name.slice(0, 14) + '…' : name;
+  }
+  function txnAccountKey(t) {
+    if (!t) return 'Bank';
+    var lookup = window.WJP_AcctLookup;
+    if (lookup && t.plaidAccountId && lookup[t.plaidAccountId]) {
+      var info = lookup[t.plaidAccountId];
+      var inst = shortInst(info.institutionName);
+      return info.mask ? (inst + ' ··' + info.mask) : inst;
+    }
+    return t.institutionName || 'Bank';
+  }
   function getAccountList() {
     var s = getAppState();
     if (!s || !Array.isArray(s.transactions)) return [];
@@ -159,25 +186,15 @@
     var list = [];
     s.transactions.forEach(function (t) {
       if (t.source !== 'plaid') return;
-      var inst = t.institutionName || 'Bank';
-      var key = inst;
-      // Use wjp-source-badge lookup for nicer short names if available
-      var shortName = inst;
-      try {
-        if (window.WJP_SourceBadge && typeof window.WJP_SourceBadge.shortInstName === 'function') {
-          shortName = window.WJP_SourceBadge.shortInstName(inst);
-        }
-      } catch (_) {}
-      if (!seen[key]) {
-        seen[key] = true;
-        list.push({ key: key, label: shortName, count: 0 });
+      var k = txnAccountKey(t);
+      if (!seen[k]) {
+        seen[k] = true;
+        list.push({ key: k, label: k, count: 0 });
       }
     });
-    // Count txs per account for badge
     s.transactions.forEach(function (t) {
       if (t.source !== 'plaid') return;
-      var k = t.institutionName || 'Bank';
-      var entry = list.find(function (e) { return e.key === k; });
+      var entry = list.find(function (e) { return e.key === txnAccountKey(t); });
       if (entry) entry.count++;
     });
     list.sort(function (a, b) { return b.count - a.count; });
@@ -225,7 +242,7 @@
     }
     s.transactions.forEach(function (t) {
       if (accountFilter && accountFilter !== 'all') {
-        if (t.institutionName !== accountFilter) return;
+        if (txnAccountKey(t) !== accountFilter) return;
       }
       // Skip synthetic recurring-payment templates — they shouldn't count
       // until the matching real Plaid transaction confirms (or the user
@@ -555,8 +572,8 @@
     rows.forEach(function (row) {
       var id = row.getAttribute('data-txn-id');
       var t = txnsById[id];
-      var inst = t && t.institutionName;
-      var matches = (filter === 'all') || (inst === filter);
+      var key = t && txnAccountKey(t);
+      var matches = (filter === 'all') || (key === filter);
       row.style.display = matches ? '' : 'none';
       if (!matches) hiddenCount++;
     });
@@ -732,6 +749,7 @@
     window.addEventListener('hashchange', function () { setTimeout(tick, 300); });
     window.addEventListener('wjp-tx-category-changed', tick);
     window.addEventListener('wjp-transactions-rehydrated', tick);
+    window.addEventListener('wjp-acct-lookup-ready', function () { setTimeout(tick, 200); });
     setTimeout(tick, 2000);
   }
 
