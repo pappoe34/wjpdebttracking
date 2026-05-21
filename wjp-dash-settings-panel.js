@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v13 — default layout for new users v12 — flat order !important beats pin v11 — flat order overrides pin v10 — greeting/bar always-top v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -13,6 +13,48 @@
   "use strict";
   if (window._wjpDashSettingsPanelInstalled) return;
   window._wjpDashSettingsPanelInstalled = true;
+
+  // ===== Default dashboard layout =====
+  // Used when a user has no saved prefs yet (new users + admin's "Reset to
+  // default" button). Captured from Winston's preferred layout 2026-05-20.
+  // Any user can override via the gear panel.
+  var DEFAULT_FLAT_ORDER = [
+    'exec-summary',         // Executive Summary
+    'wjp-active-target',    // Active Target
+    'last-7-days',          // Last 7 Days
+    'wjp-debit-balances',   // Debit Balances
+    'upcoming',             // Upcoming Payments
+    'spending',             // Spending Tracker
+    'credit-profile',       // Credit Profile
+    'wjp-paycheck-ai',      // Paycheck AI
+    'resilience',           // Financial Resilience
+    'strategy-indicators',  // Strategy Indicators
+    'stats-row',            // Stats Row
+    'ai-advisor',           // AI Advisor
+    'math-breakdown',       // Math Breakdown
+    'payoff-engine',        // Payoff Engine
+    'wjp-edu-tip',          // Daily Money Lesson
+    'top3-strategy',        // Top 3 to Attack
+    'resilience-detail',    // Resilience Detail
+    'linked-assets',        // Linked Assets (hidden by default)
+    'money-left'            // Money Left (hidden by default)
+  ];
+  var DEFAULT_HIDDEN = { 'linked-assets': true, 'money-left': true };
+  var DEFAULT_SIZES = {
+    'exec-summary': 'large',
+    'last-7-days': 'large',
+    'upcoming': 'medium',
+    'ai-advisor': 'medium',
+    'payoff-engine': 'small',
+    'strategy-indicators': 'full',
+    'linked-assets': 'medium',
+    'spending': 'full',
+    'top3-strategy': 'full',
+    'math-breakdown': 'small',
+    'money-left': 'small',
+    'resilience': 'small',
+    'credit-profile': 'medium'
+  };
 
   var GEAR_ID = "wjp-dash-settings-gear";
   var PANEL_ID = "wjp-dash-settings-panel";
@@ -83,10 +125,10 @@
         if (bar !== firstAfterGreeting) page.insertBefore(bar, firstAfterGreeting);
       }
 
-      // 3. Build flat order — prefer prefs.dashFlatOrder (set by our panel
-      //    save), then fall back to the existing per-parent cardOrder, then
-      //    finally current DOM order.
-      var flat = Array.isArray(prefs.dashFlatOrder) ? prefs.dashFlatOrder.slice() : null;
+      // 3. Build flat order — saved > legacy > DEFAULT_FLAT_ORDER (Winston's layout).
+      var flat = Array.isArray(prefs.dashFlatOrder) && prefs.dashFlatOrder.length
+        ? prefs.dashFlatOrder.slice()
+        : null;
       if (!flat) {
         flat = [];
         var legacy = prefs.cardOrder || {};
@@ -95,6 +137,27 @@
           ids.forEach(function (id) { if (flat.indexOf(id) < 0) flat.push(id); });
         });
       }
+      if (!flat.length) {
+        // New user — apply the default layout.
+        flat = DEFAULT_FLAT_ORDER.slice();
+      }
+
+      // 3b. Hidden defaults — only when user has no saved cardHidden.
+      var userHidden = (prefs.cardHidden && Object.keys(prefs.cardHidden).length) ? prefs.cardHidden : null;
+      var effectiveHidden = userHidden || DEFAULT_HIDDEN;
+      // Re-apply hide based on the EFFECTIVE map (overrides step 1 result if defaults are kicking in).
+      Array.from(page.querySelectorAll('.reorderable')).forEach(function (card) {
+        var cid = card.getAttribute('data-card-id');
+        card.style.display = (cid && effectiveHidden[cid]) ? 'none' : '';
+      });
+
+      // 3c. Size defaults — only when user has no saved cardSize.
+      var userSize = (prefs.cardSize && Object.keys(prefs.cardSize).length) ? prefs.cardSize : null;
+      var effectiveSizes = userSize || DEFAULT_SIZES;
+      Object.keys(effectiveSizes).forEach(function (cid) {
+        var card = page.querySelector('.reorderable[data-card-id="' + cid + '"]');
+        if (card) card.setAttribute('data-size', effectiveSizes[cid]);
+      });
 
       // 4. For every reorderable not yet in `flat`, append in current DOM order.
       var byCid = {};
