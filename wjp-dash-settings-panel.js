@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
+/* wjp-dash-settings-panel.js v9 — auto-fit grid v8 — full cross-container moves (flat order) v7 — panel reflects visual order v6 — customize bar pinned top + gear inline in bar v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -120,8 +120,13 @@
         prev = node;
       });
 
-      // 6. Cleanup: leave dash-grid / dash-left / dash-right intact (they may
-      //    have other non-reorderable children). No further moves needed.
+      // 6. Hide empty dash-grid (its reorderable children were flattened to
+      //    top-level; only its empty .dash-left + .dash-right columns remain).
+      var grid = document.getElementById('dash-grid') || page.querySelector('.dash-grid');
+      if (grid) {
+        var stillHasReord = grid.querySelector('.reorderable');
+        grid.style.display = stillHasReord ? '' : 'none';
+      }
     } catch (e) {
       try { console.warn('[wjp-dash-settings] applyLayout fail', e); } catch (_) {}
     }
@@ -161,6 +166,23 @@
     css.push('body.light #' + PANEL_ID + ' .wjp-sp-btn{border:1px solid rgba(10,10,10,0.2);color:#0a0a0a;}');
     css.push('body.dark #' + PANEL_ID + ' .wjp-sp-btn,body:not(.light) #' + PANEL_ID + ' .wjp-sp-btn{border:1px solid rgba(255,255,255,0.2);color:#f1f5f9;}');
     css.push('#' + PANEL_ID + ' .wjp-sp-btn-primary{background:#10b981;color:#ffffff;border-color:transparent !important;}');
+
+    // ===== Dashboard layout — flex grid when auto-fit is ON =====
+    // Auto-fit ON: #page-dashboard becomes a flex-wrap grid. Cards pack into
+    // 2-3 columns based on viewport + per-card data-size. Greeting + customize
+    // bar always full-width.
+    css.push('body.dash-autofit #page-dashboard{display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start;}');
+    // Non-reorderable system elements span the full row.
+    css.push('body.dash-autofit #page-dashboard > #dash-greeting,body.dash-autofit #page-dashboard > #dash-customize-bar,body.dash-autofit #page-dashboard > #dash-grid,body.dash-autofit #page-dashboard > #wjp-dash-settings-gear{flex:0 0 100%;width:100%;}');
+    // Reorderable card default (no explicit data-size): 2 per row at min 320px.
+    css.push('body.dash-autofit #page-dashboard > .reorderable:not([data-size]){flex:1 1 calc(50% - 14px);min-width:320px;max-width:100%;}');
+    // Hide the now-empty dash-grid (its contents were flattened to top-level)
+    css.push('body.dash-autofit #page-dashboard > #dash-grid:empty,body.dash-autofit #page-dashboard > #dash-grid:has(> .dash-left:empty):has(> .dash-right:empty){display:none;}');
+
+    // Auto-fit OFF: single-column block flow (user wants exact placement, no row packing).
+    css.push('body:not(.dash-autofit) #page-dashboard{display:block;}');
+    css.push('body:not(.dash-autofit) #page-dashboard > .reorderable{width:100%;margin-top:14px;}');
+
     st.textContent = css.join('');
     document.head.appendChild(st);
   }
