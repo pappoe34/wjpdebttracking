@@ -76,8 +76,24 @@
     var liquidCash = 0;
     if (cs.mode === 'manual' && typeof cs.amount === 'number') {
       liquidCash = cs.amount;
+    } else if (cs.mode === 'accounts' && Array.isArray(cs.accountIds) && cs.accountIds.length) {
+      // v3 — multi-account sum across linkedAssets + legacy pools
+      var pools3 = [s.linkedAssets, s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
+      var sumA = 0;
+      cs.accountIds.forEach(function (wantId) {
+        pools3.forEach(function (arr) {
+          arr.forEach(function (a) {
+            var id = a && (a.id || a.account_id || a.accountId || (a.name + ':' + (a.mask || '')));
+            if (id === wantId) {
+              var bal = (a.balances && (a.balances.current != null ? a.balances.current : a.balances.available)) || a.balance || a.amount || 0;
+              sumA += Number(bal) || 0;
+            }
+          });
+        });
+      });
+      liquidCash = sumA;
     } else if (cs.mode === 'account' && cs.accountId) {
-      var pools = [s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
+      var pools = [s.linkedAssets, s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
       var picked = null;
       pools.forEach(function (arr) {
         arr.forEach(function (a) {

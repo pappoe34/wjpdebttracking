@@ -68,18 +68,25 @@
     try { if (typeof window.cloudPush === 'function') window.cloudPush(); } catch (_) {}
   }
   function listConnectedCashAccounts() {
-    // No new Plaid Link flow — read whatever is already in appState
+    // v7 — read from appState.linkedAssets (the actual Plaid-asset storage in this app).
+    // Also fall back to other legacy shapes. No type filter — user picks what counts.
     var s = getState2() || {};
-    var pools = [s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
+    var pools = [s.linkedAssets, s.linkedAccounts, s.plaidAccounts, s.accounts, s.assets].filter(Array.isArray);
     var out = [];
     pools.forEach(function (arr) {
       arr.forEach(function (a) {
         if (!a) return;
-        var t = (a.type || a.subtype || a.accountType || '').toLowerCase();
-        if (!/checking|savings|cash|money\s*market|brokerage/.test(t)) return;
-        var id = a.id || a.account_id || a.accountId || (a.name + ':' + (a.mask||''));
-        var bal = (a.balances && (a.balances.current || a.balances.available)) || a.balance || a.amount || 0;
-        out.push({ id: id, name: a.name || a.officialName || 'Account', mask: a.mask || '', balance: Number(bal) || 0, type: t });
+        var id = a.id || a.account_id || a.accountId || (a.name + ':' + (a.mask || ''));
+        var bal = (a.balances && (a.balances.current != null ? a.balances.current : a.balances.available))
+                  || a.balance || a.amount || 0;
+        out.push({
+          id: id,
+          name: a.name || a.officialName || 'Account',
+          mask: a.mask || '',
+          balance: Number(bal) || 0,
+          type: (a.type || a.subtype || '').toLowerCase(),
+          institutionName: a.institutionName || ''
+        });
       });
     });
     // Dedupe by id
@@ -88,11 +95,22 @@
   function getCurrentCashOnHand() {
     var cs = getCashSettings();
     if (cs.mode === 'manual' && typeof cs.amount === 'number') return cs.amount;
+    var all = listConnectedCashAccounts();
+    // v7: multi-account mode
+    if (cs.mode === 'accounts' && Array.isArray(cs.accountIds) && cs.accountIds.length) {
+      return cs.accountIds.reduce(function (sum, id) {
+        var a = all.find(function (x) { return x.id === id; });
+        return sum + (a ? a.balance : 0);
+      }, 0);
+    }
+    // Back-compat: single account mode
     if (cs.mode === 'account' && cs.accountId) {
-      var acct = listConnectedCashAccounts().find(function (a) { return a.id === cs.accountId; });
+      var acct = all.find(function (a) { return a.id === cs.accountId; });
       if (acct) return acct.balance;
     }
-    // Auto fallback: sum of cash-like assets (existing behavior)
+    // Auto fallback: sum every cash-like linked asset, then any legacy assets
+    var cashLike = all.filter(function (a) { return /checking|savings|cash|money\s*market|depository/.test(a.type || ''); });
+    if (cashLike.length) return cashLike.reduce(function (sum, a) { return sum + a.balance; }, 0);
     var s = getState2() || {};
     return (s.assets || []).filter(function (a) {
       if (!a) return false;
@@ -140,11 +158,12 @@
       var sign  = deltaGood && deltaVal > 0 ? '+' : (deltaGood && deltaVal < 0 ? '−' : (deltaVal > 0 ? '+' : (deltaVal < 0 ? '−' : '')));
       var deltaAbsTxt = '$' + Math.abs(Math.round(deltaVal)).toLocaleString('en-US');
       var absTxt = '$' + Math.round(absVal).toLocaleString('en-US');
+      var infoBtn = '<span onclick="event.stopPropagation();window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What does this mean?" style="cursor:pointer;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-3,#94a3b8);color:var(--text-3,#94a3b8);display:inline-grid;place-items:center;font-size:9px;font-style:italic;font-weight:900;flex-shrink:0;">i</span>';
       return ''
         + '<div ' + (clickAttr || '') + ' style="flex:1;min-width:0;padding:10px 14px;background:' + bg + ';border:1px solid ' + color + '33;border-radius:10px;display:flex;align-items:center;gap:10px;' + (clickAttr ? 'cursor:pointer;' : '') + '">'
         + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + '22;display:grid;place-items:center;flex-shrink:0;color:' + color + ';"><i class="' + icon + '" style="font-size:14px;"></i></div>'
         + '<div style="flex:1;min-width:0;">'
-        +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</div>'
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + label + '</span>' + infoBtn + '</div>'
         +   '<div style="font-size:15px;font-weight:900;color:var(--ink, var(--text-1, #0a0a0a));letter-spacing:-0.005em;">' + absTxt + '</div>'
         +   '<div style="font-size:10px;font-weight:700;color:' + color + ';">' + arrow + ' ' + sign + deltaAbsTxt + (sub ? '  · ' + sub : '') + '</div>'
         + '</div>'
@@ -157,11 +176,12 @@
       var arrow = value === 0 ? '' : (good ? '↑' : '↓');
       var sign = good && value > 0 ? '+' : (good && value < 0 ? '−' : (value > 0 ? '+' : (value < 0 ? '−' : '')));
       var absV = Math.abs(Math.round(value));
+      var infoBtn = '<span onclick="event.stopPropagation();window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What does this mean?" style="cursor:pointer;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-3,#94a3b8);color:var(--text-3,#94a3b8);display:inline-grid;place-items:center;font-size:9px;font-style:italic;font-weight:900;flex-shrink:0;">i</span>';
       return ''
         + '<div style="flex:1;min-width:0;padding:10px 14px;background:' + bg + ';border:1px solid ' + color + '33;border-radius:10px;display:flex;align-items:center;gap:10px;">'
         + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + '22;display:grid;place-items:center;flex-shrink:0;color:' + color + ';"><i class="' + icon + '" style="font-size:14px;"></i></div>'
         + '<div style="flex:1;min-width:0;">'
-        +   '<div style="font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">' + label + '</div>'
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + label + '</span>' + infoBtn + '</div>'
         +   '<div style="font-size:14.5px;font-weight:900;color:' + color + ';letter-spacing:-0.005em;">' + arrow + ' ' + sign + (label === 'Credit' || label === 'Health' ? absV : '$' + absV.toLocaleString('en-US')) + '</div>'
         +   (sub ? '<div style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">' + sub + '</div>' : '')
         + '</div>'
@@ -179,9 +199,10 @@
     // Cash chip — now clickable + shows absolute + delta sub-line
     var cashSettings = getCashSettings();
     var cashSub = '';
-    if (cashSettings.mode === 'manual')    cashSub = 'manual entry';
-    else if (cashSettings.mode === 'account') cashSub = 'from linked account';
-    else                                    cashSub = 'tap to set';
+    if (cashSettings.mode === 'manual')        cashSub = 'manual entry';
+    else if (cashSettings.mode === 'accounts') cashSub = ((cashSettings.accountIds || []).length) + ' linked accounts';
+    else if (cashSettings.mode === 'account')  cashSub = 'from linked account';
+    else                                       cashSub = 'tap to set';
     if (d && (d.liquidCash || 0) !== 0) {
       cashSub = (d.liquidCash > 0 ? 'saved this week' : 'drawn down this week');
     }
@@ -207,12 +228,12 @@
       + '<div style="flex:1;min-width:0;">'
       +   '<div style="display:flex;align-items:center;justify-content:space-between;font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);">'
       +     '<span>Scores</span>'
-      +     '<span onclick="window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" style="cursor:pointer;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:inline-grid;place-items:center;font-size:10px;font-style:italic;font-weight:900;letter-spacing:0;">i</span>'
+      +     '<span onclick="window.WJP_Momentum_openInfo && window.WJP_Momentum_openInfo()" role="button" tabindex="0" aria-label="What does this mean?" style="cursor:pointer;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:inline-grid;place-items:center;font-size:10px;font-style:italic;font-weight:900;letter-spacing:0;">i</span>'
       +   '</div>'
-      +   '<div style="display:flex;gap:8px;align-items:baseline;margin-top:2px;">'
-      +     '<span style="font-size:12px;font-weight:800;color:' + creditColor + ';">' + creditDisplay + '</span><span style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">credit</span>'
-      +     '<span style="opacity:0.4;">·</span>'
-      +     '<span style="font-size:12px;font-weight:800;color:' + healthColor + ';">' + healthDisplay + '</span><span style="font-size:9.5px;color:var(--text-3,#94a3b8);font-weight:600;">health</span>'
+      +   '<div style="display:flex;gap:10px;align-items:baseline;margin-top:3px;flex-wrap:wrap;">'
+      +     '<span style="font-size:18px;font-weight:900;color:' + creditColor + ';letter-spacing:-0.005em;">' + creditDisplay + '</span><span style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">credit</span>'
+      +     '<span style="opacity:0.4;font-size:14px;">·</span>'
+      +     '<span style="font-size:18px;font-weight:900;color:' + healthColor + ';letter-spacing:-0.005em;">' + healthDisplay + '</span><span style="font-size:10px;color:var(--text-3,#94a3b8);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">health</span>'
       +   '</div>'
       + '</div>'
       + '</div>';
@@ -230,45 +251,78 @@
   // ===== Cash on Hand edit modal =====
   function openCashEdit() {
     closeMomentumModal();
+    // Trigger a refresh of Plaid-linked assets so the picker sees fresh balances
+    try { if (typeof window.refreshLinkedAccounts === 'function') Promise.resolve(window.refreshLinkedAccounts()).then(renderModalBody).catch(function(){}); } catch (_) {}
     var cs = getCashSettings();
-    var accounts = listConnectedCashAccounts();
     var isLight = document.body.classList.contains('light');
     var bg = isLight ? '#ffffff' : '#13192a';
     var ink = isLight ? '#0a0a0a' : '#f1f5f9';
     var subInk = isLight ? 'rgba(10,10,10,0.55)' : 'rgba(241,245,249,0.55)';
     var border = isLight ? 'rgba(10,10,10,0.10)' : 'rgba(255,255,255,0.10)';
+    var rowHover = isLight ? 'rgba(16,185,129,0.05)' : 'rgba(16,185,129,0.10)';
 
-    var html = ''
+    var holder = document.createElement('div');
+    holder.id = 'wjp-mom-modal-holder';
+    holder.innerHTML = ''
       + '<div id="wjp-mom-scrim" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;"></div>'
-      + '<div id="wjp-mom-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,90vw);background:' + bg + ';color:' + ink + ';border:1px solid ' + border + ';border-radius:14px;padding:20px;z-index:9001;box-shadow:0 24px 64px rgba(0,0,0,0.45);">'
+      + '<div id="wjp-mom-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,92vw);max-height:85vh;display:flex;flex-direction:column;background:' + bg + ';color:' + ink + ';border:1px solid ' + border + ';border-radius:14px;padding:20px;z-index:9001;box-shadow:0 24px 64px rgba(0,0,0,0.45);">'
       +   '<h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;">Cash on Hand</h3>'
-      +   '<p style="margin:0 0 16px 0;font-size:12px;color:' + subInk + ';">Type your current savings, or pick an already-connected account. No new bank link needed.</p>'
+      +   '<p style="margin:0 0 14px 0;font-size:12px;color:' + subInk + ';">Type your current savings, or pick one or more already-connected accounts. We total the balances. No new bank link needed.</p>'
       +   '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:' + subInk + ';margin-bottom:6px;">Manual amount</label>'
       +   '<input id="wjp-mom-cash-input" type="number" inputmode="decimal" placeholder="0.00" min="0" step="0.01" value="' + (cs.mode === 'manual' && typeof cs.amount === 'number' ? cs.amount : '') + '" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';font-size:16px;font-weight:600;box-sizing:border-box;"/>'
-      +   '<div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:' + subInk + ';font-size:11px;font-weight:700;">'
+      +   '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px 0;color:' + subInk + ';font-size:11px;font-weight:700;">'
       +     '<div style="flex:1;height:1px;background:' + border + ';"></div><span>OR</span><div style="flex:1;height:1px;background:' + border + ';"></div>'
       +   '</div>'
-      +   '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:' + subInk + ';margin-bottom:6px;">Link to a connected account</label>'
-      +   '<select id="wjp-mom-cash-acct" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';font-size:14px;font-weight:600;box-sizing:border-box;">'
-      +     '<option value="">— None —</option>'
-      +     accounts.map(function (a) {
-              var sel = (cs.mode === 'account' && cs.accountId === a.id) ? ' selected' : '';
-              return '<option value="' + String(a.id).replace(/"/g, '&quot;') + '"' + sel + '>' + (a.name || 'Account') + (a.mask ? ' ·' + a.mask : '') + ' — $' + Math.round(a.balance).toLocaleString('en-US') + '</option>';
-            }).join('')
-      +   '</select>'
-      +   (accounts.length === 0 ? '<p style="font-size:11px;color:' + subInk + ';margin:6px 0 0 0;">No connected checking/savings accounts yet. Use Sync Bank from the Bank Health tab to add one.</p>' : '')
-      +   '<div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;">'
+      +   '<label style="display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:' + subInk + ';margin-bottom:6px;"><span>Link to connected accounts</span><span id="wjp-mom-total" style="font-weight:800;color:' + ink + ';"></span></label>'
+      +   '<div id="wjp-mom-acct-list" style="flex:1;overflow-y:auto;border:1px solid ' + border + ';border-radius:8px;max-height:240px;"></div>'
+      +   '<div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px;">'
       +     '<button id="wjp-mom-clear" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';cursor:pointer;font-weight:600;">Clear</button>'
       +     '<div style="display:flex;gap:10px;">'
       +       '<button id="wjp-mom-cancel" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid ' + border + ';background:transparent;color:' + ink + ';cursor:pointer;font-weight:600;">Cancel</button>'
       +       '<button id="wjp-mom-save"   type="button" style="padding:8px 14px;border-radius:8px;border:0;background:#10b981;color:#ffffff;cursor:pointer;font-weight:700;">Save</button>'
       +     '</div>'
-      +   '</div>'
-      + '</div>';
-    var holder = document.createElement('div');
-    holder.id = 'wjp-mom-modal-holder';
-    holder.innerHTML = html;
+      +   '</div>';
     document.body.appendChild(holder);
+
+    function renderModalBody() {
+      var list = document.getElementById('wjp-mom-acct-list');
+      var totalEl = document.getElementById('wjp-mom-total');
+      if (!list) return;
+      var accounts = listConnectedCashAccounts();
+      var preselect = new Set(
+        cs.mode === 'accounts' && Array.isArray(cs.accountIds) ? cs.accountIds :
+        cs.mode === 'account'  && cs.accountId ? [cs.accountId] : []
+      );
+      if (!accounts.length) {
+        list.innerHTML = '<div style="padding:14px;font-size:12px;color:' + subInk + ';text-align:center;">No connected accounts yet. Add one from <strong>Sync Bank</strong> on the Bank Health tab.</div>';
+        if (totalEl) totalEl.textContent = '';
+        return;
+      }
+      list.innerHTML = accounts.map(function (a) {
+        var checked = preselect.has(a.id) ? ' checked' : '';
+        var subtitle = (a.institutionName ? a.institutionName + ' · ' : '') + (a.type || 'account') + (a.mask ? ' ·' + a.mask : '');
+        return ''
+          + '<label class="wjp-mom-acct-row" data-id="' + String(a.id).replace(/"/g, '&quot;') + '" data-bal="' + a.balance + '" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid ' + border + ';cursor:pointer;">'
+          + '  <input type="checkbox"' + checked + ' />'
+          + '  <div style="flex:1;min-width:0;">'
+          + '    <div style="font-size:13px;font-weight:700;color:' + ink + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + a.name + '</div>'
+          + '    <div style="font-size:11px;color:' + subInk + ';">' + subtitle + '</div>'
+          + '  </div>'
+          + '  <div style="font-size:13px;font-weight:800;color:' + ink + ';">$' + Math.round(a.balance).toLocaleString('en-US') + '</div>'
+          + '</label>';
+      }).join('');
+      function updateTotal() {
+        var sum = 0;
+        Array.from(list.querySelectorAll('.wjp-mom-acct-row')).forEach(function (row) {
+          if (row.querySelector('input').checked) sum += Number(row.dataset.bal) || 0;
+        });
+        if (totalEl) totalEl.textContent = sum > 0 ? 'Selected total: $' + Math.round(sum).toLocaleString('en-US') : '';
+      }
+      list.addEventListener('change', updateTotal);
+      updateTotal();
+    }
+    renderModalBody();
+
     document.getElementById('wjp-mom-scrim').addEventListener('click', closeMomentumModal);
     document.getElementById('wjp-mom-cancel').addEventListener('click', closeMomentumModal);
     document.getElementById('wjp-mom-clear').addEventListener('click', function () {
@@ -278,9 +332,11 @@
     });
     document.getElementById('wjp-mom-save').addEventListener('click', function () {
       var amount = parseFloat(document.getElementById('wjp-mom-cash-input').value);
-      var acctId = document.getElementById('wjp-mom-cash-acct').value;
-      if (acctId) setCashSettings({ mode: 'account', accountId: acctId });
-      else if (!isNaN(amount) && amount >= 0) setCashSettings({ mode: 'manual', amount: amount });
+      var checkedIds = Array.from(document.querySelectorAll('#wjp-mom-acct-list .wjp-mom-acct-row'))
+        .filter(function (row) { return row.querySelector('input').checked; })
+        .map(function (row) { return row.dataset.id; });
+      if (checkedIds.length) setCashSettings({ mode: 'accounts', accountIds: checkedIds });
+      else if (!isNaN(amount) && amount > 0) setCashSettings({ mode: 'manual', amount: amount });
       else setCashSettings({ mode: 'auto' });
       closeMomentumModal();
       try { mountHero(); } catch (_) {}
