@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v5 — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
+/* wjp-transactions-tab-enhance.js v8 — smart categorizer applied for real — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
  *
  * Adds four upgrades to the Transactions tab:
  *
@@ -57,6 +57,34 @@
     var sign = n >= 0 ? '+' : '-';
     return sign + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
   }
+  // Extended merchant classifier — covers common merchants the host's
+  // autoCategorizeMerchant misses. Aligns with the Calendar's category names.
+  var EXT_CAT_RULES = [
+    { re: /\betsy\b|\bebay\b|\bshopify\b|wayfair|ikea|home\s*depot|lowes/i, cat: 'Shopping' },
+    { re: /amazon|amzn\s*mktp|prime\s*now/i, cat: 'Shopping' },
+    { re: /best\s*buy|apple\.com|microcenter|newegg|fry'?s/i, cat: 'Shopping' },
+    { re: /aidvantage|sallie\s*mae|navient|nelnet|mohela|edfinancial|ed\s*financial|great\s*lakes/i, cat: 'Debt Payment' },
+    { re: /westlake|americredit|gm\s*financial|toyota\s*financial|honda\s*financial|ford\s*credit|nissan\s*finance|hyundai\s*finance|kia\s*finance|carvana|carmax/i, cat: 'Auto' },
+    { re: /\bcapital\s*one\b|\bcitibank\b|\bdiscover\b|\bchase\b|\bamex\b|barclays|synchrony|comenity|merrick|credit\s*one|avant|milestone/i, cat: 'Debt Payment' },
+    { re: /origin\s*financial|geico|state\s*farm|allstate|progressive|liberty\s*mutual|nationwide|farmers/i, cat: 'Insurance' },
+    { re: /\bstash\b|robinhood|fidelity|vanguard|schwab|coinbase|wealthfront|betterment/i, cat: 'Investing' },
+    { re: /pse&g|peco|coned|ameren|duke\s*energy|pg&e|sce|sdg&e/i, cat: 'Utilities' },
+    { re: /openai|anthropic|claude|notion|figma|cursor|vercel|netlify|render|heroku/i, cat: 'Subscriptions' }
+  ];
+  function extCategorize(m) {
+    if (!m) return null;
+    for (var i = 0; i < EXT_CAT_RULES.length; i++) if (EXT_CAT_RULES[i].re.test(m)) return EXT_CAT_RULES[i].cat;
+    return null;
+  }
+  function smartCategorize(t) {
+    if (!t) return 'Other';
+    var c = t.category;
+    if (c && !/^(other|uncategorized|unknown)$/i.test(c)) return c;
+    var merch = t.merchant || '';
+    try { if (typeof window.autoCategorizeMerchant === 'function') { var hit = window.autoCategorizeMerchant(merch); if (hit) return hit; } } catch (_) {}
+    return extCategorize(merch) || 'Other';
+  }
+
   // Canonicalize merchant names so multiple payroll IDs from the same
   // company group into a single income source. Strips bank-batch identifiers
   // (PAYROLL ID:..., INDN:..., CO ID:..., Conf#..., Confirmation#...) and
@@ -245,15 +273,16 @@
         incomeByMerchant[m] = (incomeByMerchant[m] || 0) + amt;
       } else if (isExpense(t)) {
         expenses += Math.abs(amt);
-        var c = t.category || 'Other';
+        var c = smartCategorize(t);
         spendByCategory[c] = (spendByCategory[c] || 0) + Math.abs(amt);
       }
     });
     previous.forEach(function (t) {
       if (isTransfer(t) || !isExpense(t)) return;
+      if (t && t.synthetic === true) return;
       var amt = Number(t.amount);
       if (!isFinite(amt)) return;
-      var c = t.category || 'Other';
+      var c = smartCategorize(t);
       prevSpendByCategory[c] = (prevSpendByCategory[c] || 0) + Math.abs(amt);
     });
 
