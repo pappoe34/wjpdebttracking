@@ -1,4 +1,4 @@
-/* wjp-transactions-tab-enhance.js v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
+/* wjp-transactions-tab-enhance.js v5 — clickable bank chips filter table v4 — group paychecks by employer v3 — exclude synthetic from Smart Summary v2 — TZ-safe date parsing v1 — Transactions tab Smart Summary + filters.
  *
  * Adds four upgrades to the Transactions tab:
  *
@@ -441,10 +441,51 @@
         p.classList.add('active');
         // Re-render summary
         renderSummary();
-        // Trigger Transactions tab re-render (txnRenderAll uses its own filter)
+        // Trigger Transactions tab re-render
         try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch (_) {}
+        // Also hide table rows that don't match the institution filter.
+        try { applyAccountFilterToTable(); } catch (_) {}
+        // Fire a custom event so other modules (e.g. wjp-txn-stats-fix) can
+        // recompute their numbers using the new account filter.
+        try { document.dispatchEvent(new CustomEvent('wjp-account-filter-changed', { detail: { account: v } })); } catch (_) {}
       };
     });
+  }
+
+  // Hide table rows whose txn doesn't match the current account filter. We
+  // look up each row's txn id, find the txn in appState, compare its
+  // institutionName to the active filter.
+  function applyAccountFilterToTable() {
+    var filter = getCurrentFilter();
+    var tbody = document.getElementById('txn-tbody');
+    if (!tbody) return;
+    var state = getAppState();
+    var txnsById = {};
+    if (state && Array.isArray(state.transactions)) {
+      state.transactions.forEach(function (t) { if (t && t.id) txnsById[t.id] = t; });
+    }
+    var rows = tbody.querySelectorAll('tr.txn-row');
+    var hiddenCount = 0;
+    rows.forEach(function (row) {
+      var id = row.getAttribute('data-txn-id');
+      var t = txnsById[id];
+      var inst = t && t.institutionName;
+      var matches = (filter === 'all') || (inst === filter);
+      row.style.display = matches ? '' : 'none';
+      if (!matches) hiddenCount++;
+    });
+    // Update pagination label so user sees the post-filter count
+    try {
+      var label = document.getElementById('txn-page-label');
+      if (label && filter !== 'all') {
+        var totalShown = rows.length - hiddenCount;
+        label.textContent = 'Showing ' + totalShown + ' of ' + rows.length + ' (' + filter + ')';
+      }
+    } catch (_) {}
+  }
+  // Re-apply filter after any host re-render so the chip's effect is sticky.
+  if (typeof window !== 'undefined') {
+    window.WJP_TxnTabFilter = { apply: applyAccountFilterToTable };
   }
 
   function renderSummary() {

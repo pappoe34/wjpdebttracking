@@ -1,4 +1,4 @@
-/* wjp-txn-stats-fix.js v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
+/* wjp-txn-stats-fix.js v10 — respect bank chip filter v9 — group paychecks by employer v8 — exclude synthetic recurring v7 — memo compares against live DOM v6 — always-run recompute (memo guarded) v5 — fingerprint-skip host calls — memo updates kill flicker v2 — magnitude display + income tooltip v1 — 2026-05-20
  *
  * Two fixes in one module:
  *   1) Smart Summary + Total Spend in Debts > Transactions now EXCLUDES
@@ -106,10 +106,14 @@
       // from recurring-payment schedules and shouldn't count until either:
       //   (a) the matching real Plaid transaction confirms, or
       //   (b) the user manually marks the synthetic as confirmed/paid.
+      // Plus respect the active account filter (set by the bank chips).
+      var accountFilter = 'all';
+      try { accountFilter = localStorage.getItem('wjp.tx.accountFilter') || 'all'; } catch (_) {}
       var txns = state.transactions.filter(function (t) {
         if (!t) return false;
         if (t.synthetic === true) return false;
         if (isTransfer(t)) return false;
+        if (accountFilter !== 'all' && t.institutionName !== accountFilter) return false;
         return true;
       });
       var income = 0, spend = 0;
@@ -235,14 +239,16 @@
 
   function boot() {
     injectModalStyles();
-    // Try wrapping now and on a few retries for late-mount safety
     if (!wrapRenderer()) {
       [500, 1500, 4000, 9000].forEach(function (ms) {
         setTimeout(wrapRenderer, ms);
       });
     }
-    // Immediate recompute in case stats are already rendered
     setTimeout(recomputeStats, 1500);
+    // React to bank-chip clicks: recompute stats immediately when filter changes.
+    document.addEventListener('wjp-account-filter-changed', function () {
+      try { recomputeStats(); } catch (_) {}
+    });
   }
 
   if (document.readyState === 'loading') {
