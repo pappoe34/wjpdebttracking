@@ -1,4 +1,4 @@
-/* wjp-planner.js v3 — insert page BEFORE site footer so it appears below all content not above v1 — Consolidate Goals + Notes into a single "Planner" tab.
+/* wjp-planner.js v4 — centered finance-grade title + AI Coach assessment tab v1 — Consolidate Goals + Notes into a single "Planner" tab.
  *
  *   • Adds a "Planner" item to the sidebar (with a clipboard icon)
  *   • Hides the old "Goals" and "Notes" sidebar items
@@ -137,7 +137,50 @@
       '#pl-grid .pl-ovrow.today .pl-ovrow-meta { color:#16a34a; font-weight:800; }',
       '#pl-grid .pl-ovrow-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; color:var(--ink,#0a0a0a); font-weight:600; }',
       '#pl-grid .pl-ovrow-meta { font-size:10.5px; color:var(--ink-dim,#6b7280); font-weight:700; flex-shrink:0; }',
-      '#pl-grid .pl-ovcard-cta { font-size:11px; font-weight:800; color:#1f7a4a; margin-top:auto; padding-top:6px; }'
+      '#pl-grid .pl-ovcard-cta { font-size:11px; font-weight:800; color:#1f7a4a; margin-top:auto; padding-top:6px; }',
+      // Hero (centered title block)
+      '#page-planner .pl-hero { text-align:center; padding:32px 16px 28px; margin-bottom:18px; border-radius:18px; background:linear-gradient(160deg, rgba(31,122,74,0.06) 0%, rgba(124,58,237,0.05) 50%, rgba(201,154,42,0.04) 100%); border:1px solid rgba(31,122,74,0.10); position:relative; overflow:hidden; }',
+      '#page-planner .pl-hero::before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 50% 0%, rgba(31,122,74,0.10), transparent 60%); pointer-events:none; }',
+      '#page-planner .pl-hero-eyebrow { font-size:10px; font-weight:800; letter-spacing:0.22em; color:#1f7a4a; margin-bottom:10px; position:relative; }',
+      '#page-planner .pl-hero-title { font-size:clamp(28px, 4.5vw, 44px); font-weight:900; margin:0 0 10px; letter-spacing:-0.025em; line-height:1.05; color:var(--ink, #0a0a0a); position:relative; }',
+      '#page-planner .pl-hero-accent { background:linear-gradient(90deg, #1f7a4a, #16a34a 40%, #c99a2a 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }',
+      '#page-planner .pl-hero-sub { font-size:14px; color:var(--ink-dim, #6b7280); line-height:1.6; max-width:680px; margin:0 auto; position:relative; }',
+      '#page-planner .pl-hero-sub b { color:var(--ink, #0a0a0a); font-weight:800; }',
+      '#page-planner .pl-hero-stats { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:18px; position:relative; }',
+      '#page-planner .pl-hs-card { min-width:84px; padding:10px 14px; background:var(--card, rgba(255,255,255,0.85)); border:1px solid var(--border, rgba(0,0,0,0.08)); border-radius:12px; text-align:center; position:relative; }',
+      '#page-planner .pl-hs-card.pl-hs-warn { border-color:rgba(220,38,38,0.30); background:rgba(220,38,38,0.04); }',
+      '#page-planner .pl-hs-card.pl-hs-ok { border-color:rgba(31,122,74,0.40); background:rgba(31,122,74,0.06); }',
+      '#page-planner .pl-hs-num { font-size:20px; font-weight:900; color:var(--ink, #0a0a0a); letter-spacing:-0.01em; line-height:1.1; }',
+      '#page-planner .pl-hs-lbl { font-size:9.5px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-dim, #6b7280); margin-top:2px; }',
+      '#page-planner .pl-hs-flag { font-size:9px; font-weight:800; color:#dc2626; margin-top:3px; }',
+      // Center the tabs row
+      '#page-planner .pl-tabs { justify-content:center; }',
+      // AI Coach tab — purple accent
+      '#page-planner .pl-tab-coach { background:linear-gradient(135deg, rgba(124,58,237,0.08), rgba(31,122,74,0.05)) !important; }',
+      '#page-planner .pl-tab-coach.active { color:#7c3aed; }',
+      '#page-planner .pl-tab-coach.active::after { background:#7c3aed !important; }',
+      // Coach pane
+      '#page-planner .pl-coach-top { display:grid; grid-template-columns:200px 1fr; gap:20px; margin-bottom:16px; align-items:stretch; }',
+      '@media (max-width: 720px) { #page-planner .pl-coach-top { grid-template-columns:1fr; } }',
+      '#page-planner .pl-coach-score { background:var(--card,#fff); border:2px solid var(--ring, #1f7a4a); border-radius:18px; padding:18px; text-align:center; display:flex; flex-direction:column; justify-content:center; gap:4px; }',
+      '#page-planner .pl-coach-score-num { font-size:56px; font-weight:900; line-height:1; letter-spacing:-0.04em; }',
+      '#page-planner .pl-coach-score-lbl { font-size:9.5px; font-weight:800; letter-spacing:0.10em; text-transform:uppercase; color:var(--ink-dim, #6b7280); margin-top:4px; }',
+      '#page-planner .pl-coach-score-band { font-size:13px; font-weight:800; letter-spacing:-0.005em; margin-top:6px; }',
+      '#page-planner .pl-coach-summary { background:var(--card,#fff); border:1px solid var(--border, rgba(0,0,0,0.08)); border-radius:14px; padding:18px; }',
+      '#page-planner .pl-coach-title { font-size:14px; font-weight:800; margin-bottom:10px; color:var(--ink, #0a0a0a); }',
+      '#page-planner .pl-coach-checks { display:flex; flex-direction:column; gap:6px; }',
+      '#page-planner .pl-coach-check { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--ink, #0a0a0a); padding:6px 0; }',
+      '#page-planner .pl-coach-check.ok .pl-coach-check-icon { color:#16a34a; }',
+      '#page-planner .pl-coach-check.todo .pl-coach-check-icon { color:#c99a2a; }',
+      '#page-planner .pl-coach-check-icon { font-weight:900; flex-shrink:0; font-size:13px; line-height:1.4; }',
+      '#page-planner .pl-coach-sug { display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--border, rgba(0,0,0,0.06)); }',
+      '#page-planner .pl-coach-sug:last-child { border-bottom:0; }',
+      '#page-planner .pl-coach-sug-emoji { font-size:24px; flex-shrink:0; line-height:1.1; }',
+      '#page-planner .pl-coach-sug-body { flex:1; }',
+      '#page-planner .pl-coach-sug-title { font-size:14px; font-weight:800; color:var(--ink, #0a0a0a); margin-bottom:4px; }',
+      '#page-planner .pl-coach-sug-text { font-size:12.5px; color:var(--ink-dim, #6b7280); line-height:1.55; margin-bottom:10px; }',
+      '#page-planner .pl-coach-sug-cta { margin-top:4px; }',
+      '#page-planner .pl-coach-chat { background:linear-gradient(160deg, rgba(124,58,237,0.06), rgba(31,122,74,0.04)); border:1px solid rgba(124,58,237,0.20); }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -201,11 +244,11 @@
     page.className = 'page';
     page.style.display = 'none';
     page.innerHTML =
-      '<div class="pl-head">' +
-        '<div>' +
-          '<h1>Planner</h1>' +
-          '<div class="pl-sub">Goals, notes, to-dos, and reminders in one place.</div>' +
-        '</div>' +
+      '<div class="pl-hero">' +
+        '<div class="pl-hero-eyebrow">FINANCIAL PLANNING WORKSPACE</div>' +
+        '<h1 class="pl-hero-title">Your Money <span class="pl-hero-accent">Planner</span></h1>' +
+        '<p class="pl-hero-sub">A single command center for the financial work you do between paydays — track <b>goals</b>, hold yourself to <b>to-dos</b>, surface <b>bill reminders</b>, capture <b>notes</b>, and run a weekly <b>review</b>. Everything you write here is part of the same plan as your debts and budget.</p>' +
+        '<div class="pl-hero-stats" id="pl-hero-stats"></div>' +
       '</div>' +
       '<div class="pl-tabs" id="pl-tabs">' +
         '<button class="pl-tab active" data-pane="goals">🎯 Goals <span class="pl-count" data-count="goals">0</span></button>' +
@@ -213,12 +256,14 @@
         '<button class="pl-tab" data-pane="reminders">⏰ Reminders <span class="pl-count" data-count="reminders">0</span></button>' +
         '<button class="pl-tab" data-pane="notes">📝 Notes <span class="pl-count" data-count="notes">0</span></button>' +
         '<button class="pl-tab" data-pane="review">🪞 Weekly Review</button>' +
+        '<button class="pl-tab pl-tab-coach" data-pane="coach">✨ AI Coach</button>' +
       '</div>' +
       '<div class="pl-pane active" data-pane="goals" id="pl-pane-goals"></div>' +
       '<div class="pl-pane" data-pane="todos" id="pl-pane-todos"></div>' +
       '<div class="pl-pane" data-pane="reminders" id="pl-pane-reminders"></div>' +
       '<div class="pl-pane" data-pane="notes" id="pl-pane-notes"></div>' +
-      '<div class="pl-pane" data-pane="review" id="pl-pane-review"></div>';
+      '<div class="pl-pane" data-pane="review" id="pl-pane-review"></div>' +
+      '<div class="pl-pane" data-pane="coach" id="pl-pane-coach"></div>';
     var footer = main.querySelector('.page-footer, footer.page-footer, footer');
     if (footer) main.insertBefore(page, footer); else main.appendChild(page);
 
@@ -369,8 +414,10 @@
     else if (pane === 'reminders') renderRemindersPane(active);
     else if (pane === 'notes') renderNotesPane(active);
     else if (pane === 'review') renderReviewPane(active);
+    else if (pane === 'coach') renderCoachPane(active);
     updateCounts();
     try { renderOverviewGrid(); } catch (_) {}
+    try { renderHeroStats(); } catch (_) {}
   }
 
   function updateCounts() {
@@ -709,7 +756,264 @@
     };
   }
 
-  // --- Boot ---
+  // v4: Hero stats — small summary metrics rendered under the title
+  function renderHeroStats() {
+    var host = document.getElementById('pl-hero-stats');
+    if (!host) return;
+    var s = getAppState() || {};
+    var prefs = getPrefs() || { todos: [], reminders: [], reviews: {} };
+    var goals = Array.isArray(s.goals) ? s.goals : [];
+    var notes = Array.isArray(s.notes) ? s.notes : [];
+    var pendingTodos = prefs.todos.filter(function (t) { return !t.done; }).length;
+    var auto = autoReminders();
+    var overdue = auto.filter(function (r) { return r.cls === 'overdue'; }).length;
+    var hasReviewThisWeek = !!(prefs.reviews && prefs.reviews[isoWeekKey(new Date())] && (prefs.reviews[isoWeekKey(new Date())].wins || prefs.reviews[isoWeekKey(new Date())].next));
+    host.innerHTML =
+      '<div class="pl-hs-card"><div class="pl-hs-num">' + goals.length + '</div><div class="pl-hs-lbl">Goals</div></div>' +
+      '<div class="pl-hs-card"><div class="pl-hs-num">' + pendingTodos + '</div><div class="pl-hs-lbl">Open to-dos</div></div>' +
+      '<div class="pl-hs-card ' + (overdue > 0 ? 'pl-hs-warn' : '') + '"><div class="pl-hs-num">' + auto.length + '</div><div class="pl-hs-lbl">Bills · 14d</div>' + (overdue > 0 ? '<div class="pl-hs-flag">' + overdue + ' overdue</div>' : '') + '</div>' +
+      '<div class="pl-hs-card"><div class="pl-hs-num">' + notes.length + '</div><div class="pl-hs-lbl">Notes</div></div>' +
+      '<div class="pl-hs-card ' + (hasReviewThisWeek ? 'pl-hs-ok' : '') + '"><div class="pl-hs-num">' + (hasReviewThisWeek ? '\u2713' : '\u2014') + '</div><div class="pl-hs-lbl">Review</div></div>';
+  }
+
+  // v4: AI Coach pane — assesses the planner and gives tailored suggestions
+  function renderCoachPane(host) {
+    var s = getAppState() || {};
+    var prefs = getPrefs() || { todos: [], reminders: [], reviews: {} };
+    var goals = Array.isArray(s.goals) ? s.goals : [];
+    var notes = Array.isArray(s.notes) ? s.notes : [];
+    var debts = Array.isArray(s.debts) ? s.debts : [];
+    var auto = autoReminders();
+    var pendingTodos = prefs.todos.filter(function (t) { return !t.done; });
+    var oldTodos = pendingTodos.filter(function (t) { return t.created && Date.now() - t.created > 21 * 86400000; });
+    var weekKey = isoWeekKey(new Date());
+    var thisReview = (prefs.reviews && prefs.reviews[weekKey]) || null;
+
+    // Compute a planner-health score (0..100)
+    var score = 0;
+    var checks = [];
+    if (goals.length > 0) { score += 20; checks.push({ ok: true, text: 'You\'ve set at least one financial goal' }); }
+    else checks.push({ ok: false, text: 'No goals defined yet — even one anchors your plan' });
+    if (pendingTodos.length > 0 && pendingTodos.length <= 10) { score += 15; checks.push({ ok: true, text: pendingTodos.length + ' active to-dos — a manageable list' }); }
+    else if (pendingTodos.length === 0) checks.push({ ok: false, text: 'No to-dos — capture the financial admin work in your head' });
+    else checks.push({ ok: false, text: pendingTodos.length + ' open to-dos — too many in flight; pick 3 to finish this week' });
+    if (auto.filter(function (r) { return r.cls === 'overdue'; }).length === 0) { score += 20; checks.push({ ok: true, text: 'Nothing overdue right now' }); }
+    else checks.push({ ok: false, text: auto.filter(function(r){return r.cls==='overdue';}).length + ' overdue bills — handle these today' });
+    if (notes.length > 0) { score += 10; checks.push({ ok: true, text: notes.length + ' note' + (notes.length === 1 ? '' : 's') + ' captured' }); }
+    else checks.push({ ok: false, text: 'No notes — use them to capture callbacks, vendor names, due-date changes' });
+    if (thisReview && (thisReview.wins || thisReview.next)) { score += 25; checks.push({ ok: true, text: 'Weekly review written for ' + weekKey }); }
+    else checks.push({ ok: false, text: 'Weekly review not started — 3 minutes on Sunday compounds over the year' });
+    if (oldTodos.length === 0) { score += 10; checks.push({ ok: true, text: 'No stale to-dos (older than 3 weeks)' }); }
+    else checks.push({ ok: false, text: oldTodos.length + ' to-do' + (oldTodos.length === 1 ? '' : 's') + ' older than 3 weeks — kill or commit' });
+
+    // Generate suggestions
+    var suggestions = [];
+    if (goals.length === 0 && debts.length > 0) {
+      var hot = debts.slice().sort(function (a, b) { return (b.apr || 0) - (a.apr || 0); })[0];
+      if (hot) suggestions.push({
+        emoji: '🎯',
+        title: 'Set your first goal: clear ' + hot.name,
+        body: 'Your highest-APR debt at ' + (hot.apr || 0) + '% costs you the most every month it sits. A target like "pay off ' + hot.name + ' by Q4" turns the dashboard from informational into directional.',
+        action: 'Add goal'
+      });
+    }
+    if (auto.filter(function (r) { return r.cls === 'overdue'; }).length > 0) {
+      suggestions.push({
+        emoji: '🚨',
+        title: 'Clear overdue bills first',
+        body: 'You have payments past their due date. Late fees and interest stack up fast — these belong at the top of your to-do list today.',
+        action: 'Review reminders'
+      });
+    }
+    if (oldTodos.length >= 3) {
+      suggestions.push({
+        emoji: '🧹',
+        title: 'Prune stale to-dos',
+        body: oldTodos.length + ' items have been pending for 3+ weeks. If they\'re still relevant, schedule a date. If not, delete them. Stale lists become invisible.',
+        action: 'Open to-do'
+      });
+    }
+    if (!thisReview || !(thisReview.wins || thisReview.next)) {
+      suggestions.push({
+        emoji: '🪞',
+        title: 'Write your weekly review',
+        body: 'A short review (Wins / Struggles / One next move) is the highest-ROI 3-minute exercise in personal finance. Patterns become impossible to miss.',
+        action: 'Open review'
+      });
+    }
+    var clusters = bigClusterDays(auto);
+    if (clusters.length) {
+      suggestions.push({
+        emoji: '⚖️',
+        title: 'Smooth your due-date cluster',
+        body: 'You have ' + clusters[0].count + ' bills due on the ' + clusters[0].dom + ordinalSuffix(clusters[0].dom) + ' totaling ' + fmtUsd(clusters[0].total) + '. Call one issuer to shift their due date 7-10 days — the cash flow eases instantly.',
+        action: 'See calendar'
+      });
+    }
+    if (pendingTodos.length > 7) {
+      suggestions.push({
+        emoji: '🎯',
+        title: 'Pick 3 wins this week',
+        body: pendingTodos.length + ' open to-dos is a lot. Star three you commit to closing by Sunday. The rest can wait. Focus beats volume.',
+        action: 'Open to-do'
+      });
+    }
+    if (suggestions.length === 0) {
+      suggestions.push({
+        emoji: '🎉',
+        title: 'You\'re in great shape',
+        body: 'Goals tracked, to-dos manageable, bills current, review written. Keep momentum — your future self thanks you.',
+        action: null
+      });
+    }
+
+    // Build HTML
+    var scoreColor = score >= 80 ? '#16a34a' : score >= 60 ? '#1f7a4a' : score >= 40 ? '#c99a2a' : '#dc2626';
+    var scoreLabel = score >= 80 ? 'Strong' : score >= 60 ? 'Solid' : score >= 40 ? 'Needs work' : 'Reset needed';
+
+    var html =
+      '<div class="pl-coach-top">' +
+        '<div class="pl-coach-score" style="--ring:' + scoreColor + ';">' +
+          '<div class="pl-coach-score-num" style="color:' + scoreColor + ';">' + score + '</div>' +
+          '<div class="pl-coach-score-lbl">PLAN HEALTH</div>' +
+          '<div class="pl-coach-score-band" style="color:' + scoreColor + ';">' + scoreLabel + '</div>' +
+        '</div>' +
+        '<div class="pl-coach-summary">' +
+          '<div class="pl-coach-title">How your plan looks today</div>' +
+          '<div class="pl-coach-checks">' +
+            checks.map(function (c) {
+              return '<div class="pl-coach-check ' + (c.ok ? 'ok' : 'todo') + '">' +
+                '<span class="pl-coach-check-icon">' + (c.ok ? '\u2713' : '\u2022') + '</span>' +
+                '<span>' + escapeHtml(c.text) + '</span>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="pl-card">' +
+        '<div class="pl-card-head"><h2>\u2728 Suggestions to make this plan more effective</h2></div>' +
+        suggestions.map(function (sug) {
+          return '<div class="pl-coach-sug">' +
+            '<div class="pl-coach-sug-emoji">' + sug.emoji + '</div>' +
+            '<div class="pl-coach-sug-body">' +
+              '<div class="pl-coach-sug-title">' + escapeHtml(sug.title) + '</div>' +
+              '<div class="pl-coach-sug-text">' + escapeHtml(sug.body) + '</div>' +
+              (sug.action ? '<button class="pl-btn pl-btn-pri pl-coach-sug-cta" data-action="' + sug.action + '">' + escapeHtml(sug.action) + ' \u2192</button>' : '') +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+
+      '<div class="pl-card pl-coach-chat">' +
+        '<div class="pl-card-head"><h2>Ask the AI Coach about your plan</h2></div>' +
+        '<div class="pl-row-meta" style="margin-bottom:10px;">Pre-loaded with your goals, to-dos, reminders, notes, and this week\'s review.</div>' +
+        '<button id="pl-coach-ask" class="pl-btn pl-btn-pri" style="font-size:13px;padding:11px 20px;">\u2728 Open AI Coach with planner context</button>' +
+      '</div>';
+
+    host.innerHTML = html;
+
+    // Wire suggestion CTAs
+    host.querySelectorAll('.pl-coach-sug-cta').forEach(function (btn) {
+      btn.onclick = function () {
+        var a = btn.dataset.action || '';
+        var lower = a.toLowerCase();
+        if (lower.indexOf('goal') !== -1) openAddGoal();
+        else if (lower.indexOf('reminder') !== -1) jumpTo('reminders');
+        else if (lower.indexOf('to-do') !== -1) jumpTo('todos');
+        else if (lower.indexOf('review') !== -1) jumpTo('review');
+        else if (lower.indexOf('calendar') !== -1) {
+          // Send user to the recurring tab
+          var rec = document.querySelector('[data-page="recurring"]');
+          if (rec) rec.click();
+        }
+      };
+    });
+
+    var askBtn = document.getElementById('pl-coach-ask');
+    if (askBtn) askBtn.onclick = function () {
+      var prompt = buildCoachPrompt();
+      try {
+        var fab = document.getElementById('ai-chat-fab');
+        var panel = document.getElementById('ai-chat-panel');
+        if (panel && !panel.classList.contains('active') && fab) fab.click();
+        setTimeout(function () {
+          if (window.WJP_ChatCore && typeof window.WJP_ChatCore.send === 'function') {
+            window.WJP_ChatCore.send(prompt);
+            return;
+          }
+          var input = document.getElementById('chat-input-v2') || document.getElementById('chat-input');
+          if (input) {
+            input.value = prompt;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            var sendBtn = document.getElementById('chat-send-v2') || document.getElementById('chat-send');
+            if (sendBtn) sendBtn.click();
+          }
+        }, 350);
+      } catch (e) { try { console.warn('[wjp-planner-coach]', e); } catch (_) {} }
+    };
+  }
+
+  function jumpTo(paneName) {
+    var btn = document.querySelector('#page-planner .pl-tab[data-pane="' + paneName + '"]');
+    if (btn) { btn.click(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  }
+  function ordinalSuffix(n) {
+    var v = n % 100;
+    if (v >= 11 && v <= 13) return 'th';
+    var m = n % 10;
+    return m === 1 ? 'st' : m === 2 ? 'nd' : m === 3 ? 'rd' : 'th';
+  }
+  function bigClusterDays(reminders) {
+    var byDom = {};
+    reminders.forEach(function (r) {
+      // r is from autoReminders — extract day-of-month from meta string
+      var m = (r.meta || '').match(/(\w{3}) (\d+)/);
+      if (!m) return;
+      var dom = parseInt(m[2], 10);
+      if (!isFinite(dom)) return;
+      if (!byDom[dom]) byDom[dom] = { dom: dom, count: 0, total: 0 };
+      byDom[dom].count++;
+      var amtMatch = (r.meta || '').match(/\$([\d,]+)/);
+      if (amtMatch) byDom[dom].total += parseFloat(amtMatch[1].replace(/,/g, '')) || 0;
+    });
+    return Object.values(byDom).filter(function (x) { return x.count >= 3; }).sort(function (a, b) { return b.count - a.count; });
+  }
+  function buildCoachPrompt() {
+    var s = getAppState() || {};
+    var prefs = getPrefs() || { todos: [], reminders: [], reviews: {} };
+    var goals = Array.isArray(s.goals) ? s.goals : [];
+    var pendingTodos = prefs.todos.filter(function (t) { return !t.done; });
+    var auto = autoReminders();
+    var weekKey = isoWeekKey(new Date());
+    var thisReview = (prefs.reviews && prefs.reviews[weekKey]) || {};
+
+    var parts = ['Here\'s my financial planner state. Help me make this plan more efficient. Be concrete.'];
+    if (goals.length) {
+      parts.push('GOALS:');
+      goals.forEach(function (g) {
+        parts.push('- ' + g.name + ' — ' + fmtUsd(g.saved || 0) + ' / ' + fmtUsd(g.target || 0) + (g.deadline ? ' (target ' + g.deadline + ')' : ''));
+      });
+    } else parts.push('GOALS: none set yet.');
+    if (pendingTodos.length) {
+      parts.push('OPEN TO-DOS (' + pendingTodos.length + '):');
+      pendingTodos.slice(0, 10).forEach(function (t) { parts.push('- ' + t.text); });
+    }
+    if (auto.length) {
+      parts.push('UPCOMING BILLS (next 14d):');
+      auto.slice(0, 8).forEach(function (r) { parts.push('- ' + r.title + ' — ' + r.when); });
+    }
+    if (thisReview && (thisReview.wins || thisReview.struggles || thisReview.next)) {
+      parts.push('THIS WEEK\'S REVIEW (' + weekKey + '):');
+      if (thisReview.wins) parts.push('Wins: ' + thisReview.wins);
+      if (thisReview.struggles) parts.push('Struggles: ' + thisReview.struggles);
+      if (thisReview.next) parts.push('Next: ' + thisReview.next);
+    }
+    parts.push('Give me 3 specific moves I can make this week, in priority order, to improve the plan.');
+    return parts.join('\n');
+  }
+
+  // --- Boot ---  // --- Boot ---
   function boot() {
     injectStyle();
     function tick() {
