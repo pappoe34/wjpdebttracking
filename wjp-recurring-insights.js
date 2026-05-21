@@ -263,14 +263,16 @@
     }
   }
 
-  // Debounced re-inject — coalesces rapid table rebuilds into a single tick.
-  var _reinjectTimer = null;
+  // Same-frame re-inject — coalesces rapid table rebuilds into a single
+  // synchronous pass at the next animation frame. Eliminates the 60ms gap
+  // that caused the visible button-flash.
+  var _reinjectScheduled = false;
   function scheduleReinject() {
-    if (_reinjectTimer) return;
-    _reinjectTimer = setTimeout(function () {
-      _reinjectTimer = null;
-      try { tick(); } catch (_) {}
-    }, 60);
+    if (_reinjectScheduled) return;
+    _reinjectScheduled = true;
+    var run = function () { _reinjectScheduled = false; try { tick(); } catch (_) {} };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 0);
   }
 
   // Scoped MutationObserver: watches childList on the .debts-subtab-content
@@ -289,13 +291,34 @@
     } catch (_) {}
   }
 
+  // Wrap host renderers so the inject runs SYNCHRONOUSLY in the same call
+  // stack that rewrote the table — no visible gap between rebuild + buttons.
+  function wrapHostRenderers() {
+    ['renderTransactions', 'renderRecurringPayments', 'renderRecurring'].forEach(function (name) {
+      try {
+        var fn = window[name];
+        if (typeof fn !== 'function' || fn.__wjpRiWrapped) return;
+        var wrapped = function () {
+          var r = fn.apply(this, arguments);
+          try { tick(); } catch (_) {}
+          return r;
+        };
+        wrapped.__wjpRiWrapped = true;
+        window[name] = wrapped;
+      } catch (_) {}
+    });
+  }
+
   function boot() {
-    // Initial pass after host has rendered.
+    // Initial passes after host has rendered.
     setTimeout(tick, 800);
     setTimeout(tick, 2500);
-    // Subsequent injections driven by DOM mutation, not by a 1.5s tick.
+    // Hook into host renderers so the button is restored synchronously, no gap.
+    wrapHostRenderers();
+    setTimeout(wrapHostRenderers, 1500); // retry — host fn might not exist at boot
+    setTimeout(wrapHostRenderers, 5000);
+    // MO catches any non-host paths that mutate the table.
     attachObserver();
-    // Also re-inject on page navigation in case the observer misses something.
     window.addEventListener('hashchange', scheduleReinject);
   }
 
