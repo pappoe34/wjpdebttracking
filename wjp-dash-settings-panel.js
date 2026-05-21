@@ -1,4 +1,4 @@
-/* wjp-dash-settings-panel.js v4 — 2026-05-20
+/* wjp-dash-settings-panel.js v5 — 2026-05-20 hero pin respects saved order
  *
  * Iteration on v3:
  *   - Override window.applyDashboardLayout with a smarter slot-anchoring
@@ -100,15 +100,29 @@
       });
 
       // 3. Pin top heroes — they always come right after #dash-greeting and
-      //    always BEFORE #dash-customize-bar / .dash-grid. Defensive against
-      //    any saved order that would otherwise push them to the bottom.
+      //    BEFORE #dash-customize-bar / .dash-grid. Their RELATIVE order
+      //    respects appState.prefs.cardOrder['page-dashboard'] so the user
+      //    can swap Last 7 Days above Executive Summary (or vice versa).
       var page = document.getElementById('page-dashboard');
       if (page) {
         var greeting = document.getElementById('dash-greeting');
-        var anchor = greeting ? greeting.nextSibling : page.firstChild;
+        var savedPageOrder = Array.isArray(order['page-dashboard']) ? order['page-dashboard'] : [];
+        var heroCardIds = { 'exec-summary': 'dfd-hero', 'last-7-days': 'wjp-momentum-hero' };
+        // Build hero element list in the order the user saved.
+        var heroNodes = [];
+        savedPageOrder.forEach(function (cid) {
+          var elId = heroCardIds[cid];
+          if (!elId) return;
+          var el = document.getElementById(elId);
+          if (el && el.parentElement === page && heroNodes.indexOf(el) < 0) heroNodes.push(el);
+        });
+        // Any heroes not present in saved order — append in default order.
         TOP_PIN.forEach(function (id) {
-          var node = document.getElementById(id);
-          if (!node || node.parentElement !== page) return;
+          var el = document.getElementById(id);
+          if (el && el.parentElement === page && heroNodes.indexOf(el) < 0) heroNodes.push(el);
+        });
+        var anchor = greeting ? greeting.nextSibling : page.firstChild;
+        heroNodes.forEach(function (node) {
           if (node !== anchor) page.insertBefore(node, anchor);
           anchor = node.nextSibling;
         });
