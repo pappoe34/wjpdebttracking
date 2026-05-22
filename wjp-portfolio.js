@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v13 (asset rows clickable → insights modal — 2026-05-22). v12 (memoize render + Allocation Donut + Performance Toggle at top — 2026-05-22). v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v14 (Insights + Milestones visual pop — color-coded, gradients, progress bars — 2026-05-22). v13 (asset rows clickable → insights modal — 2026-05-22). v12 (memoize render + Allocation Donut + Performance Toggle at top — 2026-05-22). v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -938,22 +938,54 @@
       + '</div>';
   }
 
+  // Classify insight by content for semantic coloring (green=positive, red=negative,
+  // amber=warning, indigo=info). Looks at icon + body keywords.
+  function _classifyInsight(i) {
+    var icon = (i.icon || '') + '';
+    var body = (i.body || '') + '';
+    if (/warning|warn|circle/i.test(icon)) {
+      return { c: '#f59e0b', bg: 'linear-gradient(135deg,rgba(245,158,11,0.16),rgba(245,158,11,0.03))', br: 'rgba(245,158,11,0.40)', bar: '#f59e0b' };
+    }
+    if (/trending|trend|up|chart/i.test(icon)) {
+      if (/down|shortfall|negative|drop|lost/i.test(body)) {
+        return { c: '#ef4444', bg: 'linear-gradient(135deg,rgba(239,68,68,0.14),rgba(239,68,68,0.03))', br: 'rgba(239,68,68,0.35)', bar: '#ef4444' };
+      }
+      return { c: '#10b981', bg: 'linear-gradient(135deg,rgba(16,185,129,0.14),rgba(16,185,129,0.03))', br: 'rgba(16,185,129,0.35)', bar: '#10b981' };
+    }
+    if (/crystal|ball|future/i.test(icon)) {
+      if (/shortfall|negative|deficit/i.test(body)) {
+        return { c: '#ef4444', bg: 'linear-gradient(135deg,rgba(239,68,68,0.14),rgba(239,68,68,0.03))', br: 'rgba(239,68,68,0.35)', bar: '#ef4444' };
+      }
+      return { c: '#10b981', bg: 'linear-gradient(135deg,rgba(16,185,129,0.14),rgba(16,185,129,0.03))', br: 'rgba(16,185,129,0.35)', bar: '#10b981' };
+    }
+    if (/television|tv/i.test(icon)) {
+      return { c: '#8b5cf6', bg: 'linear-gradient(135deg,rgba(139,92,246,0.14),rgba(139,92,246,0.03))', br: 'rgba(139,92,246,0.35)', bar: '#8b5cf6' };
+    }
+    // Default = indigo info
+    return { c: '#6366f1', bg: 'linear-gradient(135deg,rgba(99,102,241,0.14),rgba(99,102,241,0.03))', br: 'rgba(99,102,241,0.35)', bar: '#6366f1' };
+  }
+
   function s6Insights() {
     var ins = getInsights();
     var rows = ins.map(function (i) {
+      var c = _classifyInsight(i);
       return ''
-        + '<div style="display:flex;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.02);border:1px solid ' + gridCol() + ';border-radius:10px;">'
-        +   '<div style="width:36px;height:36px;border-radius:9px;background:rgba(99,102,241,0.12);display:grid;place-items:center;flex-shrink:0;color:#818cf8;"><i class="ph ' + i.icon + '" style="font-size:18px;"></i></div>'
+        + '<div style="display:flex;gap:12px;padding:14px 16px 14px 12px;background:' + c.bg + ';border:1px solid ' + c.br + ';border-radius:12px;position:relative;overflow:hidden;">'
+        +   '<div style="position:absolute;left:0;top:10%;bottom:10%;width:3px;background:' + c.bar + ';border-radius:0 3px 3px 0;"></div>'
+        +   '<div style="width:40px;height:40px;border-radius:10px;background:' + c.c + '22;display:grid;place-items:center;flex-shrink:0;color:' + c.c + ';margin-left:6px;"><i class="ph-fill ' + i.icon + '" style="font-size:20px;"></i></div>'
         +   '<div style="flex:1;min-width:0;">'
-        +     '<div style="font-size:12.5px;font-weight:700;color:' + ink() + ';">' + escapeHTML(i.title) + '</div>'
-        +     '<div style="font-size:11.5px;color:' + muted() + ';font-weight:600;margin-top:3px;line-height:1.4;">' + escapeHTML(i.body) + '</div>'
+        +     '<div style="font-size:13px;font-weight:700;color:' + ink() + ';letter-spacing:-0.01em;">' + escapeHTML(i.title) + '</div>'
+        +     '<div style="font-size:11.5px;color:' + muted() + ';font-weight:600;margin-top:3px;line-height:1.45;">' + escapeHTML(i.body) + '</div>'
         +   '</div>'
         + '</div>';
     }).join('');
     return ''
-      + '<div class="wjp-pf-card" style="padding:18px 20px;background:var(--card-2,#1c2540);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;">'
-      +   '<div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:' + muted() + ';font-weight:800;margin-bottom:12px;"><i class="ph-fill ph-magnifying-glass"></i> INSIGHTS & TRENDS</div>'
-      +   '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:10px;">'
+      + '<div class="wjp-pf-card" style="padding:20px 22px;background:var(--card-2,#1c2540);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;">'
+      +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
+      +     '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:grid;place-items:center;color:#fff;"><i class="ph-fill ph-magnifying-glass" style="font-size:14px;"></i></div>'
+      +     '<div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:' + ink() + ';font-weight:800;">Insights &amp; Trends</div>'
+      +   '</div>'
+      +   '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">'
       +     rows
       +   '</div>'
       + '</div>';
@@ -961,28 +993,79 @@
 
   function s7Milestones() {
     var mils = getMilestones();
+    var firstUnreachedIdx = -1;
+    for (var i = 0; i < mils.length; i++) { if (!mils[i].reached) { firstUnreachedIdx = i; break; } }
+    // Tier-appropriate emoji icons
+    var icons = ['🚨', '🌱', '🪴', '🌳', '🏆', '💎', '🚀', '👑'];
+
     var tiles = mils.map(function (m, i) {
-      var bg = m.reached ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)';
-      var brd = m.reached ? '#10b981' : gridCol();
-      var ico = m.reached ? '✓' : (i + 1);
-      var icoBg = m.reached ? '#10b981' : 'rgba(255,255,255,0.08)';
-      var icoColor = m.reached ? '#0b0f1a' : muted();
+      var isReached = m.reached;
+      var isCurrent = i === firstUnreachedIdx;
+      var emoji = icons[i] || '⭐';
+
+      var bgStyle, borderColor, glowShadow, labelColor, amountColor, iconBg, iconShadow;
+      if (isReached) {
+        // Gold + glow
+        bgStyle = 'linear-gradient(135deg,rgba(245,158,11,0.22),rgba(212,175,55,0.06))';
+        borderColor = 'rgba(212,175,55,0.55)';
+        glowShadow = '0 4px 14px rgba(212,175,55,0.18), inset 0 1px 0 rgba(255,255,255,0.10)';
+        labelColor = '#d4af37';
+        amountColor = '#d4af37';
+        iconBg = 'linear-gradient(135deg,#d4af37,#c5a572)';
+        iconShadow = '0 2px 8px rgba(212,175,55,0.40)';
+      } else if (isCurrent) {
+        // Purple highlight + pulse glow
+        bgStyle = 'linear-gradient(135deg,rgba(139,92,246,0.18),rgba(99,102,241,0.04))';
+        borderColor = 'rgba(139,92,246,0.50)';
+        glowShadow = '0 0 0 3px rgba(139,92,246,0.10), 0 4px 14px rgba(139,92,246,0.16)';
+        labelColor = '#8b5cf6';
+        amountColor = ink();
+        iconBg = 'linear-gradient(135deg,#8b5cf6,#6366f1)';
+        iconShadow = '0 2px 8px rgba(139,92,246,0.45)';
+      } else {
+        // Muted future
+        bgStyle = 'rgba(120,113,108,0.05)';
+        borderColor = 'rgba(120,113,108,0.20)';
+        glowShadow = 'none';
+        labelColor = muted();
+        amountColor = ink();
+        iconBg = 'rgba(120,113,108,0.12)';
+        iconShadow = 'none';
+      }
+
+      var iconHtml = isReached
+        ? '<div style="width:32px;height:32px;border-radius:9px;background:' + iconBg + ';display:grid;place-items:center;box-shadow:' + iconShadow + ';color:#1f1a14;font-weight:900;font-size:16px;">✓</div>'
+        : '<div style="width:32px;height:32px;border-radius:9px;background:' + iconBg + ';display:grid;place-items:center;box-shadow:' + iconShadow + ';font-size:17px;">' + emoji + '</div>';
+
+      var currentBadge = isCurrent ? '<div style="font-size:8.5px;font-weight:800;letter-spacing:0.10em;color:#8b5cf6;text-transform:uppercase;margin-top:2px;">⚡ Current target</div>' : '';
+      var reachedBadge = isReached ? '<div style="font-size:8.5px;font-weight:800;letter-spacing:0.10em;color:#d4af37;text-transform:uppercase;margin-top:2px;">✓ Unlocked</div>' : '';
+
+      var progressBar = (!isReached) ? (''
+        + '<div style="height:5px;background:rgba(120,113,108,0.12);border-radius:3px;margin-top:9px;overflow:hidden;">'
+        +   '<div style="height:100%;width:' + Math.round(m.pct) + '%;background:linear-gradient(90deg,' + (isCurrent ? '#6366f1,#8b5cf6' : '#10b981,#10b981') + ');border-radius:3px;transition:width .3s;"></div>'
+        + '</div>'
+        + '<div style="font-size:10px;color:' + (isCurrent ? '#8b5cf6' : muted()) + ';margin-top:4px;font-weight:700;letter-spacing:0.03em;">' + Math.round(m.pct) + '% there</div>') : '';
+
       return ''
-        + '<div style="padding:12px 14px;background:' + bg + ';border:1px solid ' + brd + ';border-radius:10px;min-width:140px;">'
-        +   '<div style="display:flex;align-items:center;gap:8px;">'
-        +     '<div style="width:22px;height:22px;border-radius:50%;background:' + icoBg + ';color:' + icoColor + ';display:grid;place-items:center;font-weight:800;font-size:11px;">' + ico + '</div>'
-        +     '<div style="font-size:11px;font-weight:700;color:' + ink() + ';">' + escapeHTML(m.label) + '</div>'
+        + '<div style="padding:14px 14px 12px;background:' + bgStyle + ';border:1px solid ' + borderColor + ';border-radius:12px;min-width:152px;flex:0 0 152px;box-shadow:' + glowShadow + ';">'
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+        +      iconHtml
+        +     '<div style="font-size:10.5px;font-weight:800;color:' + labelColor + ';letter-spacing:0.04em;text-transform:uppercase;">' + escapeHTML(m.label) + '</div>'
         +   '</div>'
-        +   '<div style="font-size:13.5px;font-weight:800;color:' + ink() + ';margin-top:4px;">' + (m.v >= 1000000 ? '$1M' : fmtUSDk(m.v)) + '</div>'
-        +   (m.reached ? '' :
-              '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + Math.round(m.pct) + '%;background:' + accent() + ';border-radius:3px;"></div></div>'
-              + '<div style="font-size:9.5px;color:' + muted() + ';margin-top:3px;font-weight:600;">' + Math.round(m.pct) + '% there</div>')
+        +   '<div style="font-size:18px;font-weight:800;color:' + amountColor + ';margin-top:10px;letter-spacing:-0.02em;">' + (m.v >= 1000000 ? '$1M' : fmtUSDk(m.v)) + '</div>'
+        +   currentBadge
+        +   reachedBadge
+        +   progressBar
         + '</div>';
     }).join('');
+
     return ''
-      + '<div class="wjp-pf-card" style="padding:18px 20px;background:var(--card-2,#1c2540);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;">'
-      +   '<div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:' + muted() + ';font-weight:800;margin-bottom:12px;"><i class="ph-fill ph-trophy"></i> NET WORTH MILESTONES</div>'
-      +   '<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;">' + tiles + '</div>'
+      + '<div class="wjp-pf-card" style="padding:20px 22px;background:var(--card-2,#1c2540);border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;">'
+      +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
+      +     '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#d4af37,#c5a572);display:grid;place-items:center;color:#1f1a14;box-shadow:0 2px 8px rgba(212,175,55,0.35);"><i class="ph-fill ph-trophy" style="font-size:14px;"></i></div>'
+      +     '<div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:' + ink() + ';font-weight:800;">Net Worth Milestones</div>'
+      +   '</div>'
+      +   '<div style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px;">' + tiles + '</div>'
       + '</div>';
   }
 
