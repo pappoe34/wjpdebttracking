@@ -453,7 +453,7 @@
           commitAsset({
             name: linked.name,
             value: linked.balance,
-            type: /invest|broker|retire|401|ira|roth/i.test((linked.subtype || '') + ' ' + (linked.type || '') + ' ' + linked.name) ? 'investment' : 'cash',
+            type: /invest|broker|retire|401|ira|roth|529|hsa/i.test((linked.subtype || '') + ' ' + (linked.type || '') + ' ' + linked.name) ? 'investment' : 'cash',
             plaidAccountId: linked.plaidAccountId,
             institutionName: linked.institutionName || '',
             notes: ''

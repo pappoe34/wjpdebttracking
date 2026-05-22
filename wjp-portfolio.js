@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v8 (unified appState.assets — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -125,30 +125,49 @@
     try { localStorage.setItem(manualAssetsKey(), JSON.stringify(arr || [])); } catch (_) {}
   }
 
-  // Net Worth snapshot — combines Plaid balances + manual assets - debts
+  // Net Worth snapshot — combines:
+  //   - LIVE Plaid balances (depository + investment) from WJP_Assets cache
+  //   - Manual assets (asset-card entries + legacy portfolio entries)
+  //   - minus debts
+  // Previously this read from appState.balances (which is just {monthlyIncome,
+  // availableCashflow} — the wrong source), making plaidAssets = $0 even when
+  // bank balances totaled hundreds of dollars. Fixed 2026-05-22.
   function getNetWorth() {
     var s = getAppState() || {};
     var debts = (s.debts || []).reduce(function (sum, d) { return sum + (Number(d.balance) || 0); }, 0);
-    var plaidAssets = 0;
-    var balances = s.balances || {};
-    // balances may be either an array or an object keyed by accountId
-    if (Array.isArray(balances)) {
-      plaidAssets = balances.filter(function (b) { return b && (b.subtype !== 'credit card' && b.type !== 'credit' && b.type !== 'loan'); })
-                            .reduce(function (sum, b) { return sum + (Number(b.balance || b.current || 0)); }, 0);
-    } else if (balances && typeof balances === 'object') {
-      Object.keys(balances).forEach(function (k) {
-        var b = balances[k];
-        if (!b) return;
-        var bal = Number(b.balance || b.current || b.available || 0);
-        var t = (b.type || '').toLowerCase();
-        var st = (b.subtype || '').toLowerCase();
-        if (t === 'credit' || t === 'loan' || st === 'credit card') return; // these are liabilities
-        plaidAssets += bal;
-      });
-    }
+
+    // Plaid live balances — depository accounts (the "liquid" portion). We
+    // intentionally EXCLUDE investment accounts here so the Money Working
+    // box doesn't pretend you're earning savings APY on a 401k.
+    var liquid = 0;
+    try {
+      if (window.WJP_Assets && typeof window.WJP_Assets.debugCache === 'function') {
+        var dc = window.WJP_Assets.debugCache();
+        if (dc && Array.isArray(dc.items)) {
+          dc.items.forEach(function (it) {
+            var t = String(it.type || '').toLowerCase();
+            var st = String(it.subtype || '').toLowerCase();
+            if (t === 'credit' || t === 'loan') return;
+            if (/credit|loan|mortgage|student/.test(st)) return;
+            // Depository / cash / savings only — NOT investments
+            if (t === 'depository' || /checking|savings|cash|money_market|cd/.test(st)) {
+              liquid += Number(it.balance) || 0;
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    // All assets (manual + Plaid-linked) via getManualAssets which unions
+    // appState.assets in v8+.
     var manual = getManualAssets().reduce(function (sum, a) { return sum + (Number(a.value) || 0); }, 0);
+
+    // plaidAssets in the return = LIQUID for backwards compat with Money
+    // Working box. Total assets = liquid + manual (which already includes
+    // promoted Plaid investment accounts via appState.assets).
+    var plaidAssets = liquid;
     var assets = plaidAssets + manual;
-    return { assets: assets, liabilities: debts, net: assets - debts, plaidAssets: plaidAssets, manualAssets: manual };
+    return { assets: assets, liabilities: debts, net: assets - debts, plaidAssets: plaidAssets, manualAssets: manual, liquid: liquid };
   }
 
   // Linked Plaid institutions — derived from transactions since host doesn't
