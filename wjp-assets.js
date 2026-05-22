@@ -1,4 +1,4 @@
-/* wjp-assets.js v1 — Asset tracker for Dashboard + Debts tab.
+/* wjp-assets.js v2 — dark-mode hardening on the modal + card body. — Asset tracker for Dashboard + Debts tab.
  *
  * Joins the existing dashboard customize system: each mount is a
  * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
@@ -189,7 +189,24 @@
       '#wjp-asset-modal .am-save{background:linear-gradient(135deg, #c5a572 0%, #d4af37 100%);color:#1f1a14;}',
       '#wjp-asset-modal .am-link-sync{background:transparent;border:1px solid var(--border, var(--ink-10, rgba(120,113,108,.25)));color:var(--ink, var(--text-1, #1f1a14));padding:10px 14px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:8px;width:100%;font-family:inherit;}',
       '#wjp-asset-modal .am-link-sync:hover{border-color:#c5a572;}',
-      '#wjp-asset-modal .am-helper{font-size:12px;color:var(--text-2, #8b8378);margin-top:6px;line-height:1.5;}'
+      '#wjp-asset-modal .am-helper{font-size:12px;color:var(--text-2, #8b8378);margin-top:6px;line-height:1.5;}',
+      // ---- Dark mode overrides (the site doesn't define --surface/--card-bg
+      // in dark, so we explicitly target body.dark + [data-theme=dark]) ----
+      'body.dark #wjp-asset-modal, [data-theme="dark"] #wjp-asset-modal { background: #131929; color: #f0f4ff; border-color: rgba(255,255,255,0.10); }',
+      'body.dark #wjp-asset-modal h3, [data-theme="dark"] #wjp-asset-modal h3 { color: #f0f4ff; }',
+      'body.dark #wjp-asset-modal .am-tabs, [data-theme="dark"] #wjp-asset-modal .am-tabs { background: rgba(255,255,255,0.05); }',
+      'body.dark #wjp-asset-modal .am-tabs button.active, [data-theme="dark"] #wjp-asset-modal .am-tabs button.active { background: #1c2335; color: #f0f4ff; }',
+      'body.dark #wjp-asset-modal input, body.dark #wjp-asset-modal select, body.dark #wjp-asset-modal textarea, [data-theme="dark"] #wjp-asset-modal input, [data-theme="dark"] #wjp-asset-modal select, [data-theme="dark"] #wjp-asset-modal textarea { background: #1c2335; color: #f0f4ff; border-color: rgba(255,255,255,0.12); }',
+      'body.dark #wjp-asset-modal input::placeholder, body.dark #wjp-asset-modal textarea::placeholder, [data-theme="dark"] #wjp-asset-modal input::placeholder, [data-theme="dark"] #wjp-asset-modal textarea::placeholder { color: rgba(240,244,255,0.45); }',
+      'body.dark #wjp-asset-modal .am-link-sync, [data-theme="dark"] #wjp-asset-modal .am-link-sync { color: #f0f4ff; border-color: rgba(255,255,255,0.15); }',
+      // Also harden the .card body in dark mode (border between rows)
+      'body.dark .wjp-assets-body .ac-asset, [data-theme="dark"] .wjp-assets-body .ac-asset { border-bottom-color: rgba(255,255,255,0.08); }',
+      'body.dark .wjp-assets-body .ac-asset .ac-name, [data-theme="dark"] .wjp-assets-body .ac-asset .ac-name { color: #f0f4ff; }',
+      'body.dark .wjp-assets-body .ac-asset .ac-val, [data-theme="dark"] .wjp-assets-body .ac-asset .ac-val { color: #f0f4ff; }',
+      'body.dark .wjp-assets-body .ac-title, [data-theme="dark"] .wjp-assets-body .ac-title { color: #f0f4ff; }',
+      'body.dark .wjp-assets-body .ac-total, [data-theme="dark"] .wjp-assets-body .ac-total { color: #f0f4ff; }',
+      'body.dark .wjp-assets-body .ac-networth strong, [data-theme="dark"] .wjp-assets-body .ac-networth strong { color: #f0f4ff; }',
+      'body.dark .wjp-assets-body .ac-empty strong, [data-theme="dark"] .wjp-assets-body .ac-empty strong { color: #f0f4ff; }'
     ].join('\n');
     var st = document.createElement('style');
     st.id = 'wjp-assets-styles';
@@ -541,6 +558,6 @@
     openAddModal: function () { openModal(null); },
     totalAssets: totalAssets,
     netWorth: netWorth,
-    version: 1
+    version: 2
   };
 })();
