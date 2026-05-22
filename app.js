@@ -210,6 +210,9 @@ function loadState() {
                 // Anything else the user persisted that we don't explicitly model
                 // here — keep it so future fields aren't dropped on reload.
                 mutedTxnIds: Array.isArray(parsed.mutedTxnIds) ? parsed.mutedTxnIds : [],
+                // User-tracked assets (investments, crypto, real estate, vehicles, etc).
+                // Per-user scoped + cloud-synced via STATE_KEYS whitelist.
+                assets: Array.isArray(parsed.assets) ? parsed.assets : [],
                 prefs: {
                     ...defaultState.prefs,
                     ...(parsed.prefs || {}),
@@ -7031,8 +7034,12 @@ function initDashCustomize() {
         if (appState && appState.prefs) {
             const FLAG = 'cardLayoutMigrationV2';
             if (!appState.prefs[FLAG]) {
-                appState.prefs.cardOrder = {};
-                appState.prefs.cardHidden = {};
+                // Old broken shape was an ARRAY; valid shape is an OBJECT.
+                // Only wipe when actually broken, NEVER when valid customizations exist.
+                if (Array.isArray(appState.prefs.cardOrder))  appState.prefs.cardOrder  = {};
+                if (Array.isArray(appState.prefs.cardHidden)) appState.prefs.cardHidden = {};
+                if (!appState.prefs.cardOrder  || typeof appState.prefs.cardOrder  !== 'object') appState.prefs.cardOrder  = {};
+                if (!appState.prefs.cardHidden || typeof appState.prefs.cardHidden !== 'object') appState.prefs.cardHidden = {};
                 appState.prefs[FLAG] = true;
                 saveState();
             }
@@ -23960,7 +23967,7 @@ window.showPrivacyHint = function showPrivacyHint() {
 
     var _db = null, _uid = null, _ready = false, _pushTimer = null, _pulling = false;
     var _firestore = null, _docFn = null, _setDocFn = null, _getDocFn = null;
-    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds','inbox'];
+    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds','inbox','assets'];
     var FB_BASE = 'https://www.gstatic.com/firebasejs/10.13.0/';
 
     function setIndicator(state) {
