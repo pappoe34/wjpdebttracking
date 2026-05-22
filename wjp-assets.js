@@ -1,4 +1,4 @@
-/* wjp-assets.js v6 (Debts: mount inside Overview sub-tab right after hero — 2026-05-22). v5 (lengthened refresh intervals to reduce flicker — 2026-05-22) — v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
+/* wjp-assets.js v7 (Debts: anchor right before Debit balances = 2nd box — 2026-05-22). v6 (Debts: mount inside Overview sub-tab right after hero — 2026-05-22). v5 (lengthened refresh intervals to reduce flicker — 2026-05-22) — v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
  *
  * Joins the existing dashboard customize system: each mount is a
  * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
@@ -580,6 +580,33 @@
       card = null;
     }
 
+    // Find Debit balances card (currently the 2nd item) — we want to land
+    // BEFORE it so the Assets card becomes the 2nd box.
+    var debitBalancesAnchor = null;
+    try {
+      var debitHdr = Array.from(overview.querySelectorAll('h2, h3, .card-title, [class*="title"], [class*="header"]'))
+        .find(function (el) { return /Debit balances/i.test(el.textContent || ''); });
+      if (debitHdr) {
+        // Walk up to the nearest direct-child of overview
+        var n = debitHdr;
+        while (n && n.parentElement && n.parentElement !== overview) n = n.parentElement;
+        if (n && n.parentElement === overview) debitBalancesAnchor = n;
+      }
+    } catch (_) {}
+
+    function placeCard() {
+      if (debitBalancesAnchor && debitBalancesAnchor.parentElement === overview) {
+        // Insert right before Debit balances (= 2nd box, right after hero)
+        overview.insertBefore(card, debitBalancesAnchor);
+      } else if (hero && hero.parentElement === overview) {
+        // Fallback: just after hero
+        hero.insertAdjacentElement('afterend', card);
+      } else {
+        // Last resort: at the top of overview
+        overview.insertBefore(card, overview.firstChild);
+      }
+    }
+
     if (!card) {
       card = document.createElement('div');
       card.id = DEBTS_CARD_ID;
@@ -594,24 +621,18 @@
         }
       } catch (_) {}
       card.setAttribute('data-size', savedSize);
-      // Add a subtle top margin so it visually separates from the hero
       card.style.marginTop = '16px';
       card.innerHTML = buildBodyHTML();
-      // Insert right after the hero (Overview's 2nd content position)
-      if (hero && hero.parentElement === overview) {
-        hero.insertAdjacentElement('afterend', card);
-      } else {
-        overview.insertBefore(card, overview.firstChild);
-      }
+      placeCard();
       wireCardEvents(card);
     } else {
-      // Card already in correct parent (overview) — ensure it's right after hero
-      if (hero && hero.parentElement === overview) {
-        var heroIdx = Array.prototype.indexOf.call(overview.children, hero);
-        var cardIdx = Array.prototype.indexOf.call(overview.children, card);
-        if (cardIdx !== heroIdx + 1) {
-          hero.insertAdjacentElement('afterend', card);
-        }
+      // Card exists — check position. If not directly before Debit balances
+      // (or after hero when no Debit balances), reposition.
+      var desiredAnchor = debitBalancesAnchor || (hero && hero.nextElementSibling === card ? null : hero);
+      if (debitBalancesAnchor && card.nextElementSibling !== debitBalancesAnchor) {
+        placeCard();
+      } else if (!debitBalancesAnchor && hero && card.previousElementSibling !== hero) {
+        placeCard();
       }
     }
     try { if (typeof window.applyCardSizes === 'function') window.applyCardSizes(); } catch (_) {}
@@ -704,6 +725,6 @@
     repairBalances: repairAssetBalances,
     debugCache: function () { return { items: _acctCache.items, ts: _acctCache.ts, inflight: !!_acctCache.inflight }; },
     listLinked: listLinkedAccounts,
-    version: 6
+    version: 7
   };
 })();
