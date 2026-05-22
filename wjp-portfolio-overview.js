@@ -1,4 +1,4 @@
-/* wjp-portfolio-overview.js v1 — adds Asset Allocation donut + Performance
+/* wjp-portfolio-overview.js v2 (sparkline NaN fix + rAF-debounced re-renders) — v1 — adds Asset Allocation donut + Performance
  * period toggle (7d/30d/90d/1y/all) to the existing Portfolio tab.
  *
  * Mounts AFTER the existing #wjp-pf-trajectory canvas inside #page-portfolio,
@@ -257,19 +257,19 @@
     var deltaCls = deltaAbs >= 0 ? 'up' : 'down';
     var deltaArrow = deltaAbs >= 0 ? '▲' : '▼';
 
-    // Sparkline SVG
-    var w = 600, h = 60, padX = 8, padY = 6;
-    var values = hist.map(function (h) { return h.net; });
+    // Sparkline SVG (use uppercase W/H so the .map iterator var doesn't shadow them)
+    var W = 600, H = 60, padX = 8, padY = 6;
+    var values = hist.map(function (p) { return p.net; });
     var minV = Math.min.apply(null, values), maxV = Math.max.apply(null, values);
     var range = (maxV - minV) || 1;
-    var xs = hist.map(function (h, i) { return padX + (i / Math.max(1, hist.length - 1)) * (w - 2 * padX); });
-    var ys = hist.map(function (h) { return padY + (1 - (h.net - minV) / range) * (h - 2 * padY); });
+    var xs = hist.map(function (p, i) { return padX + (i / Math.max(1, hist.length - 1)) * (W - 2 * padX); });
+    var ys = hist.map(function (p) { return padY + (1 - (p.net - minV) / range) * (H - 2 * padY); });
     var color = deltaAbs >= 0 ? '#10b981' : '#ef4444';
     var d = '';
     for (var i = 0; i < xs.length; i++) {
       d += (i === 0 ? 'M' : 'L') + xs[i].toFixed(2) + ' ' + ys[i].toFixed(2) + ' ';
     }
-    var area = d + 'L' + xs[xs.length-1].toFixed(2) + ' ' + (h - padY).toFixed(2) + ' L' + xs[0].toFixed(2) + ' ' + (h - padY).toFixed(2) + ' Z';
+    var area = d + 'L' + xs[xs.length-1].toFixed(2) + ' ' + (H - padY).toFixed(2) + ' L' + xs[0].toFixed(2) + ' ' + (H - padY).toFixed(2) + ' Z';
 
     return ''
       + buildPerfTabs()
@@ -280,7 +280,7 @@
       + '    <div class="delta ' + deltaCls + '">' + deltaArrow + ' ' + fmtPct(deltaPct) + '</div></div>'
       + '  <div class="wjp-pfov-perf-cell"><div class="label">Samples</div><div class="val">' + hist.length + '</div></div>'
       + '</div>'
-      + '<svg class="wjp-pfov-perf-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
+      + '<svg class="wjp-pfov-perf-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">'
       + '  <path d="' + area + '" fill="' + color + '" fill-opacity="0.12"></path>'
       + '  <path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2"></path>'
       + '</svg>';
@@ -298,9 +298,37 @@
     if (!page) return null;
     return page;
   }
-  function renderInto(host) {
+  // Fingerprint memo: only re-render if data actually changed.
+  // Prevents the graph from flickering when wjp-assets-changed fires constantly.
+  var _lastFingerprint = '';
+  function dataFingerprint() {
+    try {
+      var s = getAppState() || {};
+      var aSig = Array.isArray(s.assets) ? s.assets.map(function (a) {
+        return [a.id, a.type, getLiveAssetValue(a), a.plaidAccountId || ''];
+      }) : [];
+      var dSig = Array.isArray(s.debts) ? s.debts.reduce(function (n, d) { return n + (Number(d.balance) || 0); }, 0) : 0;
+      var hSig = (s.netWorthHistory || []).length;
+      return JSON.stringify({ a: aSig, d: dSig, h: hSig, p: _currentPeriod });
+    } catch (_) { return ''; }
+  }
+
+  // rAF-debounced renderer so a burst of events triggers ONE paint.
+  var _renderQueued = false;
+  function renderInto(host, force) {
+    if (_renderQueued && !force) return;
+    _renderQueued = true;
+    requestAnimationFrame(function () {
+      _renderQueued = false;
+      try { renderInto_now(host, force); } catch (_) {}
+    });
+  }
+  function renderInto_now(host, force) {
     ensureStyles();
+    var fp = dataFingerprint();
     var existing = document.getElementById('wjp-pf-overview');
+    if (existing && !force && fp === _lastFingerprint) return; // skip — nothing changed
+    _lastFingerprint = fp;
     if (existing) {
       existing.innerHTML = buildHTML();
     } else {
@@ -308,7 +336,6 @@
       section.id = 'wjp-pf-overview';
       section.className = 'wjp-pfov-grid';
       section.innerHTML = buildHTML();
-      // Insert just after the trajectory canvas if present, else at top
       var traj = host.querySelector('#wjp-pf-trajectory');
       var anchor = traj ? traj.closest('div') : null;
       if (anchor && anchor.parentElement === host) anchor.insertAdjacentElement('afterend', section);
@@ -400,6 +427,6 @@
     totalAssets: totalAssets,
     totalDebts: totalDebts,
     history: function () { var s = getAppState(); return (s && s.netWorthHistory) || []; },
-    version: 1
+    version: 2
   };
 })();
