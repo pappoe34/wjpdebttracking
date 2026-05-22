@@ -1,4 +1,4 @@
-/* wjp-assets.js v2 — dark-mode hardening on the modal + card body. — Asset tracker for Dashboard + Debts tab.
+/* wjp-assets.js v3 — live Plaid balances via /get-accounts (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
  *
  * Joins the existing dashboard customize system: each mount is a
  * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
@@ -57,7 +57,14 @@
     try { window.dispatchEvent(new CustomEvent('wjp-assets-changed')); } catch (_) {}
   }
   function totalAssets() {
-    return getAssets().reduce(function (sum, a) { return sum + (Number(a.value) || 0); }, 0);
+    return getAssets().reduce(function (sum, a) {
+      var v = Number(a.value) || 0;
+      if (a.plaidAccountId) {
+        var live = liveBalanceFor(a.plaidAccountId);
+        if (live != null) v = live;
+      }
+      return sum + v;
+    }, 0);
   }
   function totalDebts() {
     var s = getAppState();
@@ -76,49 +83,97 @@
   function uuid() {
     return 'asset-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   }
+  // ---- Plaid live-balance cache (60s TTL) ----
+  var _acctCache = { ts: 0, items: null, inflight: null };
+  var ACCT_CACHE_TTL = 60 * 1000;
+
+  async function fetchAccountsLive(force) {
+    var now = Date.now();
+    if (!force && _acctCache.items && (now - _acctCache.ts) < ACCT_CACHE_TTL) {
+      return _acctCache.items;
+    }
+    if (_acctCache.inflight) return _acctCache.inflight;
+    _acctCache.inflight = (async function () {
+      try {
+        if (!window.__wjpAuth || !window.__wjpAuth.currentUser) return _acctCache.items || [];
+        var token = await window.__wjpAuth.currentUser.getIdToken();
+        var r = await fetch('/.netlify/functions/get-accounts', {
+          method: 'GET',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!r.ok) return _acctCache.items || [];
+        var data = await r.json();
+        var flat = [];
+        (data.items || []).forEach(function (item) {
+          (item.accounts || []).forEach(function (a) {
+            var bal = (a.balances && (a.balances.current != null ? a.balances.current : a.balances.available));
+            flat.push({
+              plaidAccountId: a.account_id,
+              name: a.name || a.official_name || 'Account',
+              official_name: a.official_name || '',
+              institutionName: item.institutionName || '',
+              mask: a.mask || '',
+              subtype: a.subtype || '',
+              type: a.type || '',
+              balance: Number(bal) || 0
+            });
+          });
+        });
+        _acctCache.items = flat;
+        _acctCache.ts = Date.now();
+        return flat;
+      } catch (_) { return _acctCache.items || []; }
+      finally { _acctCache.inflight = null; }
+    })();
+    return _acctCache.inflight;
+  }
+
+  function liveBalanceFor(plaidAccountId) {
+    if (!plaidAccountId || !_acctCache.items) return null;
+    for (var i = 0; i < _acctCache.items.length; i++) {
+      if (_acctCache.items[i].plaidAccountId === plaidAccountId) return _acctCache.items[i].balance;
+    }
+    return null;
+  }
+
+  async function repairAssetBalances() {
+    var list = await fetchAccountsLive(false);
+    if (!list || !list.length) return false;
+    var s = getAppState();
+    if (!s || !Array.isArray(s.assets)) return false;
+    var changed = false;
+    s.assets.forEach(function (a) {
+      if (!a.plaidAccountId) return;
+      var live = liveBalanceFor(a.plaidAccountId);
+      if (live != null && Math.abs((Number(a.value) || 0) - live) > 0.01) {
+        a.value = live;
+        a.updatedAt = new Date().toISOString();
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveState();
+      try { window.dispatchEvent(new CustomEvent('wjp-assets-changed')); } catch (_) {}
+    }
+    return changed;
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
-  // ---------- Plaid-linked discovery ----------
-  function listLinkedAccounts() {
-    var out = [];
-    try {
-      if (window.WJP_AcctLookup && typeof window.WJP_AcctLookup === 'object') {
-        Object.keys(window.WJP_AcctLookup).forEach(function (id) {
-          var a = window.WJP_AcctLookup[id];
-          if (!a || !a.name) return;
-          out.push({
-            plaidAccountId: id,
-            name: a.name,
-            institutionName: a.institutionName || a.bank || '',
-            subtype: a.subtype || a.type || '',
-            balance: Number(a.balance) || 0
-          });
-        });
-      }
-    } catch (_) {}
-    try {
-      var s = getAppState();
-      if (s && Array.isArray(s.debts)) {
-        s.debts.forEach(function (d) {
-          if (d.source !== 'plaid') return;
-          if (d.plaidAccountId && out.find(function (o) { return o.plaidAccountId === d.plaidAccountId; })) return;
-          out.push({
-            plaidAccountId: d.plaidAccountId || d.id,
-            name: d.name || 'Account',
-            institutionName: d.institutionName || '',
-            subtype: d.type || '',
-            balance: Number(d.balance) || 0
-          });
-        });
-      }
-    } catch (_) {}
-    return out.filter(function (a) {
+  // ---------- Plaid-linked discovery (live via /get-accounts) ----------
+  async function listLinkedAccounts() {
+    var all = await fetchAccountsLive(false);
+    if (!all || !all.length) return [];
+    return all.filter(function (a) {
       var t = String(a.subtype || '').toLowerCase();
-      return !/credit|loan|mortgage|student/.test(t);
+      var tt = String(a.type || '').toLowerCase();
+      if (/credit|loan|mortgage|student/.test(t)) return false;
+      if (/loan|credit/.test(tt)) return false;
+      return true;
     });
   }
 
@@ -244,7 +299,7 @@
           + '    <div class="ac-name">' + escapeHtml(a.name || 'Asset') + '</div>'
           + '    <div class="ac-sub">' + escapeHtml(subBits.join(' · ')) + '</div>'
           + '  </div>'
-          + '  <div class="ac-val">' + fmtUsd(a.value) + '</div>'
+          + '  <div class="ac-val">' + fmtUsd((a.plaidAccountId && liveBalanceFor(a.plaidAccountId) != null) ? liveBalanceFor(a.plaidAccountId) : a.value) + '</div>'
           + '  <div class="ac-actions">'
           + '    <button class="ac-edit" data-asset-id="' + escapeHtml(a.id) + '" title="Edit">Edit</button>'
           + '    <button class="ac-del"  data-asset-id="' + escapeHtml(a.id) + '" title="Remove">×</button>'
@@ -299,10 +354,12 @@
       p.classList.toggle('active', p.dataset.pane === name);
     });
   }
-  function populatePlaidDropdown() {
+  async function populatePlaidDropdown() {
     var sel = document.getElementById('am-plaid-select');
     if (!sel) return;
-    var linked = listLinkedAccounts();
+    sel.innerHTML = '<option value="">Loading…</option>';
+    sel.disabled = true;
+    var linked = await listLinkedAccounts();
     if (!linked.length) {
       sel.innerHTML = '<option value="">No linked accounts available yet</option>';
       sel.disabled = true;
@@ -390,16 +447,20 @@
         var sel = bg.querySelector('#am-plaid-select');
         var id = sel.value;
         if (!id) { sel.focus(); return; }
-        var linked = listLinkedAccounts().find(function (a) { return a.plaidAccountId === id; });
-        if (!linked) return;
-        commitAsset({
-          name: linked.name,
-          value: linked.balance,
-          type: /invest|broker|retire|401|ira/i.test(linked.subtype + ' ' + linked.name) ? 'investment' : 'cash',
-          plaidAccountId: linked.plaidAccountId,
-          institutionName: linked.institutionName || '',
-          notes: ''
+        listLinkedAccounts().then(function (linkedList) {
+          var linked = linkedList.find(function (a) { return a.plaidAccountId === id; });
+          if (!linked) return;
+          commitAsset({
+            name: linked.name,
+            value: linked.balance,
+            type: /invest|broker|retire|401|ira|roth/i.test((linked.subtype || '') + ' ' + (linked.type || '') + ' ' + linked.name) ? 'investment' : 'cash',
+            plaidAccountId: linked.plaidAccountId,
+            institutionName: linked.institutionName || '',
+            notes: ''
+          });
+          closeModal();
         });
+        return;
       } else {
         var data = readForm();
         if (!data.name) { document.querySelector('#wjp-asset-form [name="name"]').focus(); return; }
@@ -526,7 +587,14 @@
     renderAllMounts();
     startObserver();
     window.addEventListener('wjp-assets-changed', renderAllMounts);
-    window.addEventListener('wjp-auth-ready', renderAllMounts);
+    window.addEventListener('wjp-auth-ready', function () {
+      renderAllMounts();
+      fetchAccountsLive(true).then(function () { repairAssetBalances().then(renderAllMounts); });
+    });
+    fetchAccountsLive(false).then(function () { repairAssetBalances().then(renderAllMounts); });
+    setInterval(function () {
+      fetchAccountsLive(true).then(function () { repairAssetBalances().then(renderAllMounts); });
+    }, 60000);
     // Lightweight dirty-checking re-render so totals stay current when debts change.
     setInterval(function () {
       var s = getAppState();
@@ -558,6 +626,6 @@
     openAddModal: function () { openModal(null); },
     totalAssets: totalAssets,
     netWorth: netWorth,
-    version: 2
+    version: 3
   };
 })();
