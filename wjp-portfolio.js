@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -1107,13 +1107,17 @@
 
   function showPortfolio() {
     var host = getHostContainer();
-    // 2026-05-18 fix: drop display:none !important — its inline cssText was
-    // sticking permanently and breaking subsequent tab navigation to Budgets/Strategy.
+    // 2026-05-22 fix: stop setting inline display:none on other pages — inline
+    // beats the .page.active CSS class rule, so when user later clicks
+    // Budgets/Strategy and the host adds .active, the page stays hidden
+    // (blank tab). Just remove .active and clear any stuck inline display:none;
+    // the CSS default ".page{display:none}" + ".page.active{display:block}"
+    // handles visibility correctly.
     host.querySelectorAll('.page, [id^="page-"]').forEach(function (p) {
       if (p.id === 'page-portfolio') return;
       if (p.style.cssText && p.style.cssText.indexOf('!important') !== -1) p.style.cssText = '';
-      p.style.display = 'none';
       p.classList.remove('active');
+      if (p.style.display === 'none') p.style.display = '';
     });
     var page = ensurePage();
     // v2: give page-portfolio an opaque min-height background so the host's
@@ -1186,6 +1190,13 @@
         var pf = document.getElementById('page-portfolio');
         if (pf) { pf.style.cssText = 'display:none;'; pf.classList.remove('active'); }
         setActiveTab('other');
+        // 2026-05-22 fix: clear stuck inline display:none on OTHER pages so the
+        // host's bubble-phase nav handler (which adds .active class) can make
+        // the target page visible via the .page.active CSS rule.
+        document.querySelectorAll('.page, [id^="page-"]').forEach(function (p) {
+          if (p.id === 'page-portfolio') return;
+          if (p.style.display === 'none') p.style.display = '';
+        });
       }, true);
     });
 
