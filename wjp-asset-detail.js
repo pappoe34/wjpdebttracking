@@ -1,4 +1,4 @@
-/* wjp-asset-detail.js v1 — click any asset row → modal with details + manual holdings.
+/* wjp-asset-detail.js v2 — INSIGHTS section with type-specific assessments. v1 — click any asset row → modal with details + manual holdings.
  *
  * Listens for clicks on:
  *   - .ac-asset rows (Dashboard Assets card)
@@ -42,6 +42,148 @@
       }
     } catch (_) {}
     return null;
+  }
+
+  // ---- Per-asset insights engine (type-specific assessments) ----
+  function getAssetInsights(asset, liveBalance) {
+    var insights = [];
+    var v = (liveBalance != null) ? liveBalance : (Number(asset.value) || 0);
+    var t = asset.type || 'other';
+
+    // Net-worth context (always)
+    try {
+      var s = getAppState() || {};
+      var totalA = (s.assets || []).reduce(function (n, a) {
+        var live = (a.plaidAccountId && window.WJP_Assets && window.WJP_Assets.debugCache)
+          ? (function () { var dc = window.WJP_Assets.debugCache(); if (dc && dc.items) { for (var i = 0; i < dc.items.length; i++) if (dc.items[i].plaidAccountId === a.plaidAccountId) return dc.items[i].balance; } return null; })()
+          : null;
+        return n + ((live != null) ? live : (Number(a.value) || 0));
+      }, 0);
+      var totalD = (s.debts || []).reduce(function (n, d) { return n + (Number(d.balance) || 0); }, 0);
+      if (v > 0 && totalA > 0) {
+        var pct = (v / totalA * 100).toFixed(1);
+        insights.push({
+          icon: '📊',
+          title: 'Share of your wealth',
+          body: 'This account holds ' + pct + '% of your $' + Math.round(totalA).toLocaleString() + ' in total assets.'
+        });
+      }
+      if (v > 0 && totalD > v * 1.5) {
+        insights.push({
+          icon: '⚠️',
+          title: 'Debt outpaces this asset',
+          body: 'You owe $' + Math.round(totalD).toLocaleString() + ' across debts vs $' + Math.round(v).toLocaleString() + ' here. Aggressive debt paydown likely outperforms any conservative growth here.'
+        });
+      }
+    } catch (_) {}
+
+    // Type-specific
+    if (t === 'investment') {
+      if (v >= 500) {
+        var future10 = Math.round(v * Math.pow(1.07, 10));
+        var future30 = Math.round(v * Math.pow(1.07, 30));
+        insights.push({
+          icon: '📈',
+          title: 'Compound growth projection',
+          body: 'At a 7% average annual return (S&P historical), $' + Math.round(v).toLocaleString() + ' today grows to ~$' + future10.toLocaleString() + ' in 10 years, ~$' + future30.toLocaleString() + ' in 30 years — without additional contributions.'
+        });
+      }
+      if (/401|ira|roth/i.test((asset.name || '') + ' ' + (asset.notes || ''))) {
+        insights.push({
+          icon: '🎯',
+          title: 'Retirement account',
+          body: 'If you\'re under 50, you can contribute up to $23,000 to a 401k or $7,000 to an IRA per year (2025 limits). Maxing employer match is the highest-return move you can make.'
+        });
+      }
+      if (asset.plaidAccountId) {
+        insights.push({
+          icon: '🔗',
+          title: 'Live-linked',
+          body: 'Balance refreshes from Plaid every ~5 min. Holdings (tickers, shares) will auto-populate once the Plaid Investments product is approved on your account.'
+        });
+      } else if (v > 0) {
+        insights.push({
+          icon: '✏️',
+          title: 'Manual entry',
+          body: 'Update this balance monthly to keep your net worth + allocation donut accurate. Better yet, link the account via Sync Bank for auto-refresh.'
+        });
+      }
+    }
+
+    if (t === 'cash' || t === 'checking' || t === 'savings') {
+      if (v >= 500) {
+        var yearly = Math.round(v * 0.045);
+        insights.push({
+          icon: '💸',
+          title: 'Yield opportunity',
+          body: '$' + Math.round(v).toLocaleString() + ' sitting in this account would earn ~$' + yearly.toLocaleString() + '/year in a high-yield savings account at 4.5% APY (Marcus, Ally, Wealthfront). Currently earning ~$0 in a 0% checking account.'
+        });
+      }
+      if (v >= 1000 && v <= 30000) {
+        insights.push({
+          icon: '🛡️',
+          title: 'Emergency fund check',
+          body: 'Most planners recommend 3–6 months of essential expenses in liquid savings before investing aggressively. Estimate your monthly bills, multiply by 6 — does this balance cover it?'
+        });
+      }
+    }
+
+    if (t === 'real_estate' || t === 'realestate') {
+      insights.push({
+        icon: '🏠',
+        title: 'Equity tracking',
+        body: 'This shows estimated market value. Subtract your outstanding mortgage balance (in the Debts list) to see actual home equity. Update the value annually using Zillow / Redfin estimates.'
+      });
+      if (v >= 100000) {
+        insights.push({
+          icon: '📈',
+          title: 'Appreciation history',
+          body: 'US home values averaged 4.3% annual appreciation over the past 30 years. At that rate, $' + Math.round(v).toLocaleString() + ' grows to ~$' + Math.round(v * Math.pow(1.043, 10)).toLocaleString() + ' in 10 years.'
+        });
+      }
+    }
+
+    if (t === 'crypto') {
+      insights.push({
+        icon: '⚠️',
+        title: 'Volatility warning',
+        body: 'Crypto balances can swing 30–50% in a single month. Most financial planners recommend keeping crypto at < 5% of net worth so a crash doesn\'t derail your long-term plan.'
+      });
+      if (v >= 1000) {
+        insights.push({
+          icon: '🔐',
+          title: 'Self-custody check',
+          body: 'If this is held on an exchange (Coinbase, Kraken, etc.), consider moving to a hardware wallet for amounts above your daily-spending threshold. Not your keys, not your coins.'
+        });
+      }
+    }
+
+    if (t === 'vehicle') {
+      insights.push({
+        icon: '🚗',
+        title: 'Depreciating asset',
+        body: 'Vehicles typically lose 10–15% of value per year (more in the first 3 years off the lot). Update this value annually using KBB / Edmunds estimates — accuracy here makes your net worth honest.'
+      });
+    }
+
+    if (t === 'other') {
+      insights.push({
+        icon: '💎',
+        title: 'Tracking note',
+        body: 'For collectibles, art, equipment — re-appraise annually. For business equity / illiquid assets, only count what you could realistically convert to cash.'
+      });
+    }
+
+    // Holdings completeness
+    if (Array.isArray(asset.holdings) && asset.holdings.length === 0 && t === 'investment') {
+      insights.push({
+        icon: '🧩',
+        title: 'Add holdings to enrich insights',
+        body: 'Manual entry of positions (tickers + shares) unlocks deeper analysis like sector exposure and concentration risk.'
+      });
+    }
+
+    return insights;
   }
 
   function findAsset(id) {
@@ -94,6 +236,15 @@
       'body.dark #wjp-ad-modal .ad-stat,[data-theme="dark"] #wjp-ad-modal .ad-stat{background:rgba(255,255,255,.04);}',
       '#wjp-ad-modal .ad-stat .l{font-size:9.5px;color:var(--text-2,#8b8378);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}',
       '#wjp-ad-modal .ad-stat .v{font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ink,#0a0a0a);}',
+      // Insights list
+      '#wjp-ad-modal .ad-ins-list{display:flex;flex-direction:column;gap:10px;}',
+      '#wjp-ad-modal .ad-ins-item{display:flex;gap:12px;background:linear-gradient(135deg,rgba(197,165,114,.08),rgba(197,165,114,.02));border:1px solid rgba(197,165,114,.20);border-radius:12px;padding:12px 14px;}',
+      'body.dark #wjp-ad-modal .ad-ins-item,[data-theme="dark"] #wjp-ad-modal .ad-ins-item{background:linear-gradient(135deg,rgba(197,165,114,.10),rgba(197,165,114,.03));border-color:rgba(197,165,114,.22);}',
+      '#wjp-ad-modal .ad-ins-ico{font-size:18px;line-height:1;flex:0 0 24px;text-align:center;padding-top:2px;}',
+      '#wjp-ad-modal .ad-ins-body{flex:1;min-width:0;}',
+      '#wjp-ad-modal .ad-ins-title{font-size:13px;font-weight:700;color:var(--ink,#0a0a0a);margin-bottom:3px;}',
+      'body.dark #wjp-ad-modal .ad-ins-title,[data-theme="dark"] #wjp-ad-modal .ad-ins-title{color:#f0f4ff;}',
+      '#wjp-ad-modal .ad-ins-text{font-size:12.5px;color:var(--text-2,#8b8378);line-height:1.55;}',
       'body.dark #wjp-ad-modal .ad-stat .v,[data-theme="dark"] #wjp-ad-modal .ad-stat .v{color:#f0f4ff;}'
     ].join('\n');
     var st = document.createElement('style'); st.id = 'wjp-asset-detail-styles'; st.textContent = css;
@@ -188,6 +339,23 @@
       + '  </div>'
       + '</div>'
 
+      // INSIGHTS (type-specific assessments)
+      + (function () {
+          var ins = getAssetInsights(a, live);
+          if (!ins.length) return '';
+          var html = '<div class="ad-section"><div class="ad-section-h"><h4>Insights &amp; assessments</h4></div>';
+          html += '<div class="ad-ins-list">';
+          ins.forEach(function (i) {
+            html += '<div class="ad-ins-item">'
+                 + '<div class="ad-ins-ico">' + i.icon + '</div>'
+                 + '<div class="ad-ins-body"><div class="ad-ins-title">' + escapeHtml(i.title) + '</div>'
+                 + '<div class="ad-ins-text">' + escapeHtml(i.body) + '</div></div>'
+                 + '</div>';
+          });
+          html += '</div></div>';
+          return html;
+        })()
+
       // Notes
       + '<div class="ad-section">'
       + '  <div class="ad-section-h"><h4>Notes</h4></div>'
@@ -272,6 +440,6 @@
   window.WJP_AssetDetail = {
     open: openAssetDetail,
     close: closeModal,
-    version: 1
+    version: 2
   };
 })();

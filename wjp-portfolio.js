@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v12 (memoize render + Allocation Donut + Performance Toggle at top — 2026-05-22). v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v13 (asset rows clickable → insights modal — 2026-05-22). v12 (memoize render + Allocation Donut + Performance Toggle at top — 2026-05-22). v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -752,7 +752,7 @@
     function assetRow(a) {
       var meta = assetTypeMeta(a.type);
       return ''
-        + '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.20);border-radius:8px;margin:6px 0;">'
+        + '<div data-wjp-asset-id="' + escapeHTML(a.id) + '" title="Click for insights + holdings" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.20);border-radius:8px;margin:6px 0;cursor:pointer;transition:background .15s, border-color .15s;" onmouseover="this.style.background=\'rgba(197,165,114,0.10)\';this.style.borderColor=\'rgba(197,165,114,0.40)\'" onmouseout="this.style.background=\'rgba(16,185,129,0.05)\';this.style.borderColor=\'rgba(16,185,129,0.20)\'">'
         +   '<div style="width:30px;height:30px;border-radius:8px;background:' + meta.color + '22;display:grid;place-items:center;color:' + meta.color + ';flex-shrink:0;"><i class="ph-fill ' + meta.icon + '" style="font-size:14px;"></i></div>'
         +   '<div style="flex:1;min-width:0;">'
         +     '<div style="font-size:12.5px;font-weight:600;color:' + ink() + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHTML(a.name) + '</div>'
@@ -1302,10 +1302,11 @@
       };
     });
     page.querySelectorAll('.wjp-pf-edit').forEach(function (b) {
-      b.onclick = function () { editManualAsset(b.getAttribute('data-id')); };
+      b.onclick = function (e) { if (e) { e.stopPropagation(); } editManualAsset(b.getAttribute('data-id')); };
     });
     page.querySelectorAll('.wjp-pf-delete').forEach(function (b) {
-      b.onclick = function () {
+      b.onclick = function (e) {
+        if (e) { e.stopPropagation(); }
         var id = b.getAttribute('data-id');
         if (confirm('Delete this asset?')) deleteManualAsset(id);
       };
