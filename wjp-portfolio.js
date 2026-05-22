@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -1041,13 +1041,26 @@
   }
 
   function ensurePage() {
+    var host = getHostContainer();
+    // The host has a .page-footer at the end. We must insert page-portfolio
+    // BEFORE the footer so the footer stays at the bottom. Earlier versions
+    // used appendChild here, which pushed the footer ABOVE page-portfolio
+    // (footer rendered at the top of the Portfolio content area).
+    var footer = host.querySelector(':scope > .page-footer, :scope > footer.page-footer');
     var page = document.getElementById('page-portfolio');
     if (!page) {
       page = document.createElement('div');
       page.id = 'page-portfolio';
       page.className = 'page';
       page.style.cssText = 'padding:20px 24px;display:none;';
-      getHostContainer().appendChild(page);
+      if (footer && footer.parentElement === host) host.insertBefore(page, footer);
+      else host.appendChild(page);
+    } else if (footer && footer.parentElement === host) {
+      // Existing page-portfolio might have been appended AFTER the footer by
+      // a previous version. Move it back to the correct position (before footer).
+      var pageIdx = Array.prototype.indexOf.call(host.children, page);
+      var footerIdx = Array.prototype.indexOf.call(host.children, footer);
+      if (pageIdx > footerIdx) host.insertBefore(page, footer);
     }
     return page;
   }
