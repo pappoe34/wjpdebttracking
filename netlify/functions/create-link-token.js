@@ -133,7 +133,14 @@ exports.handler = async (event) => {
       //   ($0.18/account/mo — only billed when user actually has investment
       //   accounts; depository-only users pay $0).
       if (userTier === 'plus' || userTier === 'pro_plus' || userTier === 'proplus') {
-        linkPayload.optional_products = ['liabilities', 'investments'];
+        // 'investments' is intentionally OMITTED until Plaid approves the
+        // product on the Pappoe Venture LLC account. Listing a product the
+        // account isn't approved for causes Plaid to hard-reject the entire
+        // link token request with INVALID_PRODUCT (HTTP 400). Existing
+        // investment-product items keep working because they were authorized
+        // when the product was previously available; new links can't include
+        // it until reapproval at https://dashboard.plaid.com/overview/request-products
+        linkPayload.optional_products = ['liabilities'];
       }
     }
     if (webhookUrl) linkPayload.webhook = webhookUrl;
@@ -147,17 +154,7 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     const msg = (err && err.message) || 'unknown error';
-    const plaidErr = err && err.response && err.response.data;
-    console.error('create-link-token error:', msg, plaidErr);
-    return {
-      statusCode: 500,
-      headers: CORS,
-      body: JSON.stringify({
-        error: msg,
-        // Expose the Plaid error so client can diagnose (sandbox vs prod
-        // mismatch, missing product, malformed webhook, expired secret, etc.)
-        plaid: plaidErr || null
-      })
-    };
+    console.error('create-link-token error:', msg, err && err.response && err.response.data);
+    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: msg }) };
   }
 };
