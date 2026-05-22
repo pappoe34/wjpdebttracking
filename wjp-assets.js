@@ -1,0 +1,546 @@
+/* wjp-assets.js v1 — Asset tracker for Dashboard + Debts tab.
+ *
+ * Joins the existing dashboard customize system: each mount is a
+ * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
+ * with data-card-id + data-card-label + data-size attributes so it inherits
+ * resize, reorder, hide, pin behavior automatically.
+ *
+ * Storage:
+ *   appState.assets = [{ id, name, type, value, plaidAccountId?, notes?,
+ *                        institutionName?, createdAt, updatedAt }]
+ *
+ * Asset types: investment, crypto, real_estate, vehicle, cash, other.
+ * Add via manual form, or promote a Plaid-linked account, or open Sync
+ * Bank to link a new one (memory rule: don't touch Plaid.create — only
+ * .click() the existing Sync Bank button).
+ *
+ * Memory rules honored:
+ *   - appState read via try/catch (bare `let`, not window.appState)
+ *   - Per-user storage (rides app.js getStateKey which routes to scoped key)
+ *   - All styling uses CSS vars (var(--ink, var(--text-1, #fallback)))
+ *     so it inherits the host theme — light AND dark mode just work.
+ *   - Uses `.card` class so card chrome (border, bg, shadow, dark-mode flip)
+ *     comes from the host stylesheet. No custom dark-mode rules needed.
+ *   - Joins customize system: data-card-id="assets" + reorderable class.
+ *   - Works for every user out of the box: empty state when assets is [].
+ *   - MutationObserver scoped to the page-dashboard / page-debts ids and
+ *     coalesces work in rAF to avoid recursion.
+ *   - Does NOT replace the existing `dash-linked-assets-card` (different
+ *     module's territory — uses card-id "assets" instead of "linked-assets").
+ */
+(function () {
+  'use strict';
+  if (window._wjpAssetsInstalled) return;
+  window._wjpAssetsInstalled = true;
+
+  var DASH_CARD_ID  = 'dash-assets-card';        // DOM id, dashboard
+  var DEBTS_CARD_ID = 'debts-assets-card';       // DOM id, strategy/debts
+  var CARD_SLUG     = 'assets';                  // customize-system slug
+  var CARD_LABEL    = 'Assets';                  // customize-system label
+
+  // ---------- state helpers ----------
+  function getAppState() { try { return appState; } catch (_) { return null; } }
+  function saveState() {
+    try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+  }
+  function getAssets() {
+    var s = getAppState();
+    if (!s) return [];
+    if (!Array.isArray(s.assets)) s.assets = [];
+    return s.assets;
+  }
+  function setAssets(arr) {
+    var s = getAppState();
+    if (!s) return;
+    s.assets = arr;
+    saveState();
+    try { window.dispatchEvent(new CustomEvent('wjp-assets-changed')); } catch (_) {}
+  }
+  function totalAssets() {
+    return getAssets().reduce(function (sum, a) { return sum + (Number(a.value) || 0); }, 0);
+  }
+  function totalDebts() {
+    var s = getAppState();
+    if (!s || !Array.isArray(s.debts)) return 0;
+    return s.debts.reduce(function (sum, d) { return sum + (Number(d.balance) || 0); }, 0);
+  }
+  function netWorth() { return totalAssets() - totalDebts(); }
+
+  function fmtUsd(n) {
+    if (!isFinite(n)) return '$0';
+    var neg = n < 0;
+    var abs = Math.abs(n);
+    var str = '$' + abs.toLocaleString('en-US', { minimumFractionDigits: abs >= 1000 ? 0 : 2, maximumFractionDigits: 2 });
+    return neg ? '−' + str : str;
+  }
+  function uuid() {
+    return 'asset-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // ---------- Plaid-linked discovery ----------
+  function listLinkedAccounts() {
+    var out = [];
+    try {
+      if (window.WJP_AcctLookup && typeof window.WJP_AcctLookup === 'object') {
+        Object.keys(window.WJP_AcctLookup).forEach(function (id) {
+          var a = window.WJP_AcctLookup[id];
+          if (!a || !a.name) return;
+          out.push({
+            plaidAccountId: id,
+            name: a.name,
+            institutionName: a.institutionName || a.bank || '',
+            subtype: a.subtype || a.type || '',
+            balance: Number(a.balance) || 0
+          });
+        });
+      }
+    } catch (_) {}
+    try {
+      var s = getAppState();
+      if (s && Array.isArray(s.debts)) {
+        s.debts.forEach(function (d) {
+          if (d.source !== 'plaid') return;
+          if (d.plaidAccountId && out.find(function (o) { return o.plaidAccountId === d.plaidAccountId; })) return;
+          out.push({
+            plaidAccountId: d.plaidAccountId || d.id,
+            name: d.name || 'Account',
+            institutionName: d.institutionName || '',
+            subtype: d.type || '',
+            balance: Number(d.balance) || 0
+          });
+        });
+      }
+    } catch (_) {}
+    return out.filter(function (a) {
+      var t = String(a.subtype || '').toLowerCase();
+      return !/credit|loan|mortgage|student/.test(t);
+    });
+  }
+
+  // ---------- type metadata ----------
+  var TYPE_META = {
+    investment:  { label: 'Investment',  icon: '📈' },
+    crypto:      { label: 'Crypto',      icon: '₿'  },
+    real_estate: { label: 'Real estate', icon: '🏠' },
+    vehicle:     { label: 'Vehicle',     icon: '🚗' },
+    cash:        { label: 'Cash',        icon: '🏦' },
+    other:       { label: 'Other',       icon: '💎' }
+  };
+  function metaFor(type) { return TYPE_META[type] || TYPE_META.other; }
+
+  // ---------- CSS (idempotent inject) ----------
+  function ensureStyles() {
+    if (document.getElementById('wjp-assets-styles')) return;
+    var css = [
+      // The outer .card class handles bg/border/shadow + dark mode flip.
+      // We only style the interior. All colors via CSS vars so they
+      // automatically swap in dark mode.
+      '.wjp-assets-body{padding:18px 22px 4px 22px;}',
+      '.wjp-assets-body .ac-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}',
+      '.wjp-assets-body .ac-eyebrow{font-size:11px;letter-spacing:.16em;font-weight:700;color:#c5a572;text-transform:uppercase;}',
+      '.wjp-assets-body .ac-eyebrow-r{font-size:11px;letter-spacing:.10em;font-weight:600;color:var(--text-2, #8b8378);text-transform:uppercase;}',
+      '.wjp-assets-body .ac-row2{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;}',
+      '.wjp-assets-body .ac-title{font-size:20px;font-weight:700;margin:0;color:var(--ink, var(--text-1, #1f1a14));}',
+      '.wjp-assets-body .ac-total{font-size:30px;font-weight:800;color:var(--ink, var(--text-1, #1f1a14));letter-spacing:-0.5px;font-variant-numeric:tabular-nums;}',
+      // Gold band marker — subtle, works in both modes
+      '.wjp-assets-body .ac-band{height:3px;width:54px;border-radius:999px;background:linear-gradient(90deg, #c5a572 0%, #d4af37 60%, #c5a572 100%);margin-bottom:14px;}',
+      '.wjp-assets-body .ac-list{display:flex;flex-direction:column;}',
+      '.wjp-assets-body .ac-asset{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border, var(--ink-10, rgba(120,113,108,.18)));}',
+      '.wjp-assets-body .ac-asset:last-child{border-bottom:0;}',
+      '.wjp-assets-body .ac-asset .ac-ico{width:34px;height:34px;border-radius:10px;background:rgba(197,165,114,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 34px;color:#c5a572;}',
+      '.wjp-assets-body .ac-asset .ac-meta{flex:1;min-width:0;}',
+      '.wjp-assets-body .ac-asset .ac-name{font-weight:600;font-size:14.5px;color:var(--ink, var(--text-1, #1f1a14));}',
+      '.wjp-assets-body .ac-asset .ac-sub{font-size:12px;color:var(--text-2, #8b8378);}',
+      '.wjp-assets-body .ac-asset .ac-val{font-weight:700;color:var(--ink, var(--text-1, #1f1a14));font-variant-numeric:tabular-nums;}',
+      '.wjp-assets-body .ac-asset .ac-actions{display:flex;gap:4px;margin-left:8px;opacity:.0;transition:opacity .15s;}',
+      '.wjp-assets-body .ac-asset:hover .ac-actions{opacity:1;}',
+      '.wjp-assets-body .ac-actions button{background:transparent;border:0;color:var(--text-2, #8b8378);cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px;font-family:inherit;}',
+      '.wjp-assets-body .ac-actions button:hover{background:var(--ink-5, rgba(120,113,108,.12));color:var(--ink, var(--text-1, #1f1a14));}',
+      '.wjp-assets-body .ac-empty{padding:24px 6px;text-align:center;color:var(--text-2, #8b8378);font-size:13.5px;line-height:1.55;}',
+      '.wjp-assets-body .ac-empty strong{color:var(--ink, var(--text-1, #1f1a14));font-weight:600;}',
+      '.wjp-assets-body .ac-foot{margin-top:14px;padding-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}',
+      '.wjp-assets-body .ac-networth{font-size:12.5px;color:var(--text-2, #8b8378);}',
+      '.wjp-assets-body .ac-networth strong{color:var(--ink, var(--text-1, #1f1a14));font-variant-numeric:tabular-nums;font-weight:700;}',
+      '.wjp-assets-body .ac-networth-neg strong{color:#dc2626;}',
+      '.wjp-assets-body .ac-add-btn{background:linear-gradient(135deg, #c5a572 0%, #d4af37 100%);color:#1f1a14;font-weight:700;border:0;border-radius:10px;padding:9px 16px;font-size:13.5px;cursor:pointer;letter-spacing:.02em;box-shadow:0 1px 3px rgba(197,165,114,0.35);font-family:inherit;}',
+      '.wjp-assets-body .ac-add-btn:hover{filter:brightness(1.05);}',
+      // Modal
+      '#wjp-asset-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.52);z-index:9990;display:none;align-items:center;justify-content:center;}',
+      '#wjp-asset-modal-bg.open{display:flex;}',
+      '#wjp-asset-modal{background:var(--surface, var(--card-bg, #fff));color:var(--ink, var(--text-1, #1f1a14));border-radius:18px;width:min(520px, 92vw);max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:24px;border:1px solid var(--border, var(--ink-10, rgba(120,113,108,.18)));font-family:inherit;}',
+      '#wjp-asset-modal h3{margin:0 0 4px 0;font-size:20px;color:var(--ink, var(--text-1, #1f1a14));}',
+      '#wjp-asset-modal .am-sub{color:var(--text-2, #8b8378);font-size:13px;margin-bottom:18px;}',
+      '#wjp-asset-modal .am-tabs{display:flex;gap:6px;background:var(--ink-5, rgba(120,113,108,0.10));border-radius:10px;padding:4px;margin-bottom:18px;}',
+      '#wjp-asset-modal .am-tabs button{flex:1;background:transparent;border:0;padding:8px 12px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--text-2, #8b8378);font-family:inherit;}',
+      '#wjp-asset-modal .am-tabs button.active{background:var(--surface, var(--card-bg, #fff));color:var(--ink, var(--text-1, #1f1a14));box-shadow:0 1px 2px rgba(0,0,0,0.05);}',
+      '#wjp-asset-modal .am-pane{display:none;}#wjp-asset-modal .am-pane.active{display:block;}',
+      '#wjp-asset-modal label{display:block;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-2, #8b8378);margin:14px 0 6px;}',
+      '#wjp-asset-modal input, #wjp-asset-modal select, #wjp-asset-modal textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border, var(--ink-10, rgba(120,113,108,.2)));background:var(--surface, var(--card-bg, #fff));color:var(--ink, var(--text-1, #1f1a14));font-size:14px;box-sizing:border-box;font-family:inherit;}',
+      '#wjp-asset-modal input:focus, #wjp-asset-modal select:focus, #wjp-asset-modal textarea:focus{outline:none;border-color:#c5a572;box-shadow:0 0 0 3px rgba(197,165,114,0.18);}',
+      '#wjp-asset-modal .am-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}',
+      '#wjp-asset-modal .am-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}',
+      '#wjp-asset-modal .am-foot button{padding:9px 16px;border-radius:10px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}',
+      '#wjp-asset-modal .am-cancel{background:transparent;color:var(--text-2, #8b8378);}',
+      '#wjp-asset-modal .am-save{background:linear-gradient(135deg, #c5a572 0%, #d4af37 100%);color:#1f1a14;}',
+      '#wjp-asset-modal .am-link-sync{background:transparent;border:1px solid var(--border, var(--ink-10, rgba(120,113,108,.25)));color:var(--ink, var(--text-1, #1f1a14));padding:10px 14px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:8px;width:100%;font-family:inherit;}',
+      '#wjp-asset-modal .am-link-sync:hover{border-color:#c5a572;}',
+      '#wjp-asset-modal .am-helper{font-size:12px;color:var(--text-2, #8b8378);margin-top:6px;line-height:1.5;}'
+    ].join('\n');
+    var st = document.createElement('style');
+    st.id = 'wjp-assets-styles';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  // ---------- card body HTML ----------
+  function buildBodyHTML(opts) {
+    opts = opts || {};
+    var assets = getAssets();
+    var total = totalAssets();
+    var nw = netWorth();
+    var nwStr = fmtUsd(nw);
+    var nwClass = nw < 0 ? 'ac-networth ac-networth-neg' : 'ac-networth';
+
+    var listHTML;
+    if (assets.length === 0) {
+      listHTML = ''
+        + '<div class="ac-empty">'
+        + '<strong>No assets tracked yet.</strong><br>'
+        + 'Add your investments, real estate, vehicles, or other valuables to see your real net worth.'
+        + '</div>';
+    } else {
+      listHTML = '<div class="ac-list">' + assets.map(function (a) {
+        var m = metaFor(a.type);
+        var subBits = [m.label];
+        if (a.plaidAccountId) subBits.push('linked');
+        if (a.institutionName) subBits.push(a.institutionName);
+        if (a.notes) subBits.push(a.notes.slice(0, 32) + (a.notes.length > 32 ? '…' : ''));
+        return ''
+          + '<div class="ac-asset" data-asset-id="' + escapeHtml(a.id) + '">'
+          + '  <div class="ac-ico">' + m.icon + '</div>'
+          + '  <div class="ac-meta">'
+          + '    <div class="ac-name">' + escapeHtml(a.name || 'Asset') + '</div>'
+          + '    <div class="ac-sub">' + escapeHtml(subBits.join(' · ')) + '</div>'
+          + '  </div>'
+          + '  <div class="ac-val">' + fmtUsd(a.value) + '</div>'
+          + '  <div class="ac-actions">'
+          + '    <button class="ac-edit" data-asset-id="' + escapeHtml(a.id) + '" title="Edit">Edit</button>'
+          + '    <button class="ac-del"  data-asset-id="' + escapeHtml(a.id) + '" title="Remove">×</button>'
+          + '  </div>'
+          + '</div>';
+      }).join('') + '</div>';
+    }
+
+    return ''
++ '<div class="wjp-assets-body">'
++ '  <div class="ac-row1">'
++ '    <span class="ac-eyebrow">Assets · what you own</span>'
++ '    <span class="ac-eyebrow-r">Total assets</span>'
++ '  </div>'
++ '  <div class="ac-row2">'
++ '    <h2 class="ac-title">Your wealth across accounts</h2>'
++ '    <div class="ac-total">' + fmtUsd(total) + '</div>'
++ '  </div>'
++ '  <div class="ac-band"></div>'
++ listHTML
++ '  <div class="ac-foot">'
++ '    <div class="' + nwClass + '">Net worth: <strong>' + nwStr + '</strong> <span style="opacity:.7">(assets − debts)</span></div>'
++ '    <button class="ac-add-btn" type="button" data-action="add-asset">+ Add asset</button>'
++ '  </div>'
++ '</div>';
+  }
+
+  // ---------- modal ----------
+  var editingId = null;
+  function openModal(assetId) {
+    editingId = assetId || null;
+    ensureModal();
+    var bg = document.getElementById('wjp-asset-modal-bg');
+    bg.classList.add('open');
+    switchTab('manual');
+    var asset = null;
+    if (editingId) asset = getAssets().find(function (a) { return a.id === editingId; });
+    fillForm(asset || { type: 'investment' });
+    populatePlaidDropdown();
+    document.getElementById('am-title').textContent = editingId ? 'Edit asset' : 'Add asset';
+  }
+  function closeModal() {
+    var bg = document.getElementById('wjp-asset-modal-bg');
+    if (bg) bg.classList.remove('open');
+    editingId = null;
+  }
+  function switchTab(name) {
+    document.querySelectorAll('#wjp-asset-modal .am-tabs button').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    document.querySelectorAll('#wjp-asset-modal .am-pane').forEach(function (p) {
+      p.classList.toggle('active', p.dataset.pane === name);
+    });
+  }
+  function populatePlaidDropdown() {
+    var sel = document.getElementById('am-plaid-select');
+    if (!sel) return;
+    var linked = listLinkedAccounts();
+    if (!linked.length) {
+      sel.innerHTML = '<option value="">No linked accounts available yet</option>';
+      sel.disabled = true;
+    } else {
+      sel.disabled = false;
+      sel.innerHTML = '<option value="">— Choose an account —</option>' + linked.map(function (a) {
+        return '<option value="' + escapeHtml(a.plaidAccountId) + '">'
+          + escapeHtml(a.name)
+          + (a.institutionName ? ' · ' + escapeHtml(a.institutionName) : '')
+          + ' (' + fmtUsd(a.balance) + ')</option>';
+      }).join('');
+    }
+  }
+  function fillForm(a) {
+    var f = document.getElementById('wjp-asset-form');
+    if (!f) return;
+    f.querySelector('[name="type"]').value = a.type || 'investment';
+    f.querySelector('[name="name"]').value = a.name || '';
+    f.querySelector('[name="value"]').value = a.value != null ? a.value : '';
+    f.querySelector('[name="notes"]').value = a.notes || '';
+  }
+  function readForm() {
+    var f = document.getElementById('wjp-asset-form');
+    return {
+      type:  f.querySelector('[name="type"]').value || 'other',
+      name:  (f.querySelector('[name="name"]').value || '').trim(),
+      value: parseFloat(f.querySelector('[name="value"]').value) || 0,
+      notes: (f.querySelector('[name="notes"]').value || '').trim()
+    };
+  }
+  function ensureModal() {
+    if (document.getElementById('wjp-asset-modal-bg')) return;
+    var bg = document.createElement('div');
+    bg.id = 'wjp-asset-modal-bg';
+    bg.innerHTML = ''
++ '<div id="wjp-asset-modal" role="dialog" aria-modal="true">'
++ '  <h3 id="am-title">Add asset</h3>'
++ '  <div class="am-sub">Track what you own — investments, crypto, real estate, anything of value.</div>'
++ '  <div class="am-tabs">'
++ '    <button type="button" data-tab="manual" class="active">Add manually</button>'
++ '    <button type="button" data-tab="plaid">From your bank</button>'
++ '  </div>'
++ '  <div class="am-pane active" data-pane="manual">'
++ '    <form id="wjp-asset-form" onsubmit="return false">'
++ '      <label>Type</label>'
++ '      <select name="type">'
++ '        <option value="investment">Investment (401k, IRA, brokerage)</option>'
++ '        <option value="crypto">Crypto</option>'
++ '        <option value="real_estate">Real estate</option>'
++ '        <option value="vehicle">Vehicle / valuable</option>'
++ '        <option value="cash">Cash account</option>'
++ '        <option value="other">Other</option>'
++ '      </select>'
++ '      <div class="am-row">'
++ '        <div><label>Name</label><input name="name" placeholder="e.g. Vanguard 401k"></div>'
++ '        <div><label>Current value</label><input name="value" type="number" min="0" step="0.01" placeholder="0.00"></div>'
++ '      </div>'
++ '      <label>Notes (optional)</label>'
++ '      <textarea name="notes" rows="2" placeholder="Custodian, contribution rate, anything else…"></textarea>'
++ '    </form>'
++ '  </div>'
++ '  <div class="am-pane" data-pane="plaid">'
++ '    <label>Promote a linked bank account</label>'
++ '    <select id="am-plaid-select"></select>'
++ '    <div class="am-helper">Pick a Plaid-linked account to track as an asset. Live balance is used.</div>'
++ '    <label style="margin-top:18px">Or link a new account</label>'
++ '    <button type="button" class="am-link-sync" id="am-open-sync">Open Sync Bank →</button>'
++ '    <div class="am-helper">Opens the existing Sync Bank flow. Link your brokerage, investment, or savings account, then come back here to track it.</div>'
++ '  </div>'
++ '  <div class="am-foot">'
++ '    <button type="button" class="am-cancel" id="am-cancel">Cancel</button>'
++ '    <button type="button" class="am-save"   id="am-save">Save asset</button>'
++ '  </div>'
++ '</div>';
+    document.body.appendChild(bg);
+
+    bg.addEventListener('click', function (e) { if (e.target === bg) closeModal(); });
+    bg.querySelector('#am-cancel').addEventListener('click', closeModal);
+    bg.querySelectorAll('.am-tabs button').forEach(function (b) {
+      b.addEventListener('click', function () { switchTab(b.dataset.tab); });
+    });
+    bg.querySelector('#am-save').addEventListener('click', function () {
+      var activePane = bg.querySelector('.am-pane.active').dataset.pane;
+      if (activePane === 'plaid') {
+        var sel = bg.querySelector('#am-plaid-select');
+        var id = sel.value;
+        if (!id) { sel.focus(); return; }
+        var linked = listLinkedAccounts().find(function (a) { return a.plaidAccountId === id; });
+        if (!linked) return;
+        commitAsset({
+          name: linked.name,
+          value: linked.balance,
+          type: /invest|broker|retire|401|ira/i.test(linked.subtype + ' ' + linked.name) ? 'investment' : 'cash',
+          plaidAccountId: linked.plaidAccountId,
+          institutionName: linked.institutionName || '',
+          notes: ''
+        });
+      } else {
+        var data = readForm();
+        if (!data.name) { document.querySelector('#wjp-asset-form [name="name"]').focus(); return; }
+        commitAsset(data);
+      }
+      closeModal();
+    });
+    bg.querySelector('#am-open-sync').addEventListener('click', function () {
+      var btn = Array.from(document.querySelectorAll('button,a,[role="button"]'))
+        .find(function (e) { return /Sync Bank/i.test(e.textContent || ''); });
+      if (btn) { closeModal(); setTimeout(function () { btn.click(); }, 80); }
+      else { alert('Sync Bank button not found. Open Bank Health from the sidebar to link a new account.'); }
+    });
+  }
+  function commitAsset(data) {
+    var list = getAssets().slice();
+    if (editingId) {
+      var idx = list.findIndex(function (a) { return a.id === editingId; });
+      if (idx >= 0) list[idx] = Object.assign({}, list[idx], data, { updatedAt: new Date().toISOString() });
+    } else {
+      list.push(Object.assign({
+        id: uuid(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }, data));
+    }
+    setAssets(list);
+    renderAllMounts();
+  }
+  function deleteAsset(id) {
+    if (!confirm('Remove this asset?')) return;
+    setAssets(getAssets().filter(function (a) { return a.id !== id; }));
+    renderAllMounts();
+  }
+
+  // ---------- mount as a first-class reorderable dashboard card ----------
+  function ensureCard(pageId, cardId, sizeDefault) {
+    var page = document.getElementById(pageId);
+    if (!page) return null;
+    var card = document.getElementById(cardId);
+    if (card) return card;
+
+    card = document.createElement('div');
+    card.id = cardId;
+    card.className = 'card reveal reorderable';
+    card.setAttribute('data-card-id', CARD_SLUG);
+    card.setAttribute('data-card-label', CARD_LABEL);
+
+    // Read saved size from prefs, fall back to default
+    var savedSize = sizeDefault;
+    try {
+      var s = getAppState();
+      if (s && s.prefs && s.prefs.cardSize && s.prefs.cardSize[CARD_SLUG]) {
+        savedSize = s.prefs.cardSize[CARD_SLUG];
+      }
+    } catch (_) {}
+    card.setAttribute('data-size', savedSize);
+
+    card.innerHTML = buildBodyHTML();
+    page.appendChild(card);
+    wireCardEvents(card);
+
+    // Refresh sizing via the host's helper if available
+    try { if (typeof window.applyCardSizes === 'function') window.applyCardSizes(); } catch (_) {}
+    try { if (typeof window.injectCardControls === 'function') window.injectCardControls(card); } catch (_) {}
+    return card;
+  }
+  function refreshCard(card) {
+    if (!card) return;
+    // Preserve any controls the customize system injected; only refresh body
+    var existing = card.querySelector('.wjp-assets-body');
+    if (existing) {
+      existing.outerHTML = buildBodyHTML();
+    } else {
+      card.insertAdjacentHTML('afterbegin', buildBodyHTML());
+    }
+  }
+  function wireCardEvents(card) {
+    if (card.__wjpAssetsWired) return;
+    card.__wjpAssetsWired = true;
+    card.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t) return;
+      if (t.closest && t.closest('[data-action="add-asset"]')) { openModal(null); return; }
+      var editBtn = t.closest && t.closest('.ac-edit');
+      if (editBtn) { openModal(editBtn.dataset.assetId); return; }
+      var delBtn = t.closest && t.closest('.ac-del');
+      if (delBtn) { deleteAsset(delBtn.dataset.assetId); return; }
+    });
+  }
+  function renderAllMounts() {
+    ensureStyles();
+    var dash  = ensureCard('page-dashboard', DASH_CARD_ID,  'medium');
+    var debts = ensureCard('page-debts',     DEBTS_CARD_ID, 'medium');
+    refreshCard(dash);
+    refreshCard(debts);
+  }
+
+  // ---------- observer: re-mount when host re-renders the page ----------
+  // Scoped to body but coalesced + we re-render only if our cards vanish
+  // (cheap check), to avoid the recursion issue called out in memory.
+  var obs = null;
+  function startObserver() {
+    if (obs) return;
+    obs = new MutationObserver(function () {
+      if (startObserver._raf) return;
+      startObserver._raf = requestAnimationFrame(function () {
+        startObserver._raf = null;
+        var needsDash  = document.getElementById('page-dashboard') && !document.getElementById(DASH_CARD_ID);
+        var needsDebts = document.getElementById('page-debts')     && !document.getElementById(DEBTS_CARD_ID);
+        if (needsDash || needsDebts) {
+          if (obs) obs.disconnect();
+          try { renderAllMounts(); } catch (_) {}
+          if (obs) obs.observe(document.body, { childList: true, subtree: true });
+        }
+      });
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // ---------- boot ----------
+  function boot() {
+    ensureStyles();
+    renderAllMounts();
+    startObserver();
+    window.addEventListener('wjp-assets-changed', renderAllMounts);
+    window.addEventListener('wjp-auth-ready', renderAllMounts);
+    // Lightweight dirty-checking re-render so totals stay current when debts change.
+    setInterval(function () {
+      var s = getAppState();
+      var sig = JSON.stringify({
+        a: (s && s.assets) ? s.assets.map(function (a) { return [a.id, a.value, a.name, a.type]; }) : [],
+        d: (s && s.debts)  ? s.debts.reduce(function (n,d){ return n + (Number(d.balance)||0); }, 0) : 0
+      });
+      if (sig !== boot._lastSig) {
+        boot._lastSig = sig;
+        var card1 = document.getElementById(DASH_CARD_ID);
+        var card2 = document.getElementById(DEBTS_CARD_ID);
+        refreshCard(card1);
+        refreshCard(card2);
+      }
+    }, 1500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  // ---------- public API ----------
+  window.WJP_Assets = {
+    list: getAssets,
+    add: function (data) { commitAsset(data); },
+    remove: deleteAsset,
+    openAddModal: function () { openModal(null); },
+    totalAssets: totalAssets,
+    netWorth: netWorth,
+    version: 1
+  };
+})();
