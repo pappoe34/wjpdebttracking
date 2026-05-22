@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v8 (unified appState.assets — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -83,7 +83,43 @@
     catch (_) { return 'wjp.portfolio.manualAssets.v1'; }
   }
   function getManualAssets() {
-    try { return JSON.parse(localStorage.getItem(manualAssetsKey()) || '[]'); } catch (_) { return []; }
+    // Legacy storage (pre-2026-05-22).
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem(manualAssetsKey()) || '[]') || []; } catch (_) {}
+    // Unified source — read from appState.assets where the new Asset card (wjp-assets.js)
+    // stores everything. Per the data-must-be-connected rule (2026-05-21): Portfolio's
+    // Assets number must match the Dashboard's Assets number.
+    var fromState = [];
+    try {
+      var s = getAppState();
+      if (s && Array.isArray(s.assets)) {
+        fromState = s.assets.map(function (a) {
+          // For Plaid-linked assets, prefer the LIVE balance over stored value.
+          var live = null;
+          try { if (window.WJP_Assets && a.plaidAccountId) {
+            // WJP_Assets exposes debugCache().items where each has .balance for Plaid id.
+            var dc = window.WJP_Assets.debugCache ? window.WJP_Assets.debugCache() : null;
+            if (dc && Array.isArray(dc.items)) {
+              for (var i = 0; i < dc.items.length; i++) {
+                if (dc.items[i].plaidAccountId === a.plaidAccountId) { live = dc.items[i].balance; break; }
+              }
+            }
+          } } catch (_) {}
+          return {
+            id: a.id, name: a.name,
+            value: (live != null ? live : (Number(a.value) || 0)),
+            type: a.type, institutionName: a.institutionName || '',
+            plaidAccountId: a.plaidAccountId || null,
+            notes: a.notes || ''
+          };
+        });
+      }
+    } catch (_) {}
+    // De-dup by id; appState.assets wins on conflict.
+    var byId = {};
+    legacy.forEach(function (a) { if (a && a.id) byId[a.id] = a; });
+    fromState.forEach(function (a) { if (a && a.id) byId[a.id] = a; });
+    return Object.keys(byId).map(function (k) { return byId[k]; });
   }
   function setManualAssets(arr) {
     try { localStorage.setItem(manualAssetsKey(), JSON.stringify(arr || [])); } catch (_) {}
