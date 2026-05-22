@@ -24067,6 +24067,24 @@ window.showPrivacyHint = function showPrivacyHint() {
         }
     }
 
+    // Walk a value tree and replace `undefined` with `null` recursively.
+    // Used to sanitize the cloudPush payload before sending to Firestore,
+    // which throws on undefined.
+    function _wjpStripUndefined(v) {
+        if (v === undefined) return null;
+        if (v === null) return null;
+        if (typeof v !== 'object') return v;
+        if (Array.isArray(v)) return v.map(_wjpStripUndefined);
+        var out = {};
+        Object.keys(v).forEach(function (k) {
+            var vv = v[k];
+            if (vv === undefined) { out[k] = null; }
+            else if (vv !== null && typeof vv === 'object') { out[k] = _wjpStripUndefined(vv); }
+            else { out[k] = vv; }
+        });
+        return out;
+    }
+
     async function cloudPushNow() {
         try {
             await ensureFirestore();
@@ -24080,6 +24098,11 @@ window.showPrivacyHint = function showPrivacyHint() {
             payload._cloudSyncTs = Date.now();
             payload._cloudSyncFrom = (navigator.userAgent || '').slice(0, 80);
             appState._cloudSyncTs = payload._cloudSyncTs;
+            // Firestore rejects undefined values (only accepts null). Walk the
+            // payload and convert any undefined → null so a stray field doesn't
+            // block all cloud pushes. See subscription.stripeSubscriptionId bug
+            // 2026-05-22 that silently broke cloud sync for everyone.
+            payload = _wjpStripUndefined(payload);
             await _setDocFn(ref, payload, { merge: false });
             try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch(_){}
             setIndicator('synced');

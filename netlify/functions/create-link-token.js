@@ -147,7 +147,17 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     const msg = (err && err.message) || 'unknown error';
-    console.error('create-link-token error:', msg, err && err.response && err.response.data);
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: msg }) };
+    const plaidErr = err && err.response && err.response.data;
+    console.error('create-link-token error:', msg, plaidErr);
+    return {
+      statusCode: 500,
+      headers: CORS,
+      body: JSON.stringify({
+        error: msg,
+        // Expose the Plaid error so client can diagnose (sandbox vs prod
+        // mismatch, missing product, malformed webhook, expired secret, etc.)
+        plaid: plaidErr || null
+      })
+    };
   }
 };
