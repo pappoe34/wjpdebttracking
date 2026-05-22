@@ -1,4 +1,4 @@
-/* wjp-assets.js v3 — live Plaid balances via /get-accounts (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
+/* wjp-assets.js v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
  *
  * Joins the existing dashboard customize system: each mount is a
  * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
@@ -591,10 +591,25 @@
       renderAllMounts();
       fetchAccountsLive(true).then(function () { repairAssetBalances().then(renderAllMounts); });
     });
-    fetchAccountsLive(false).then(function () { repairAssetBalances().then(renderAllMounts); });
+    // Auth might already be ready, or about to be — retry quickly so the
+    // dropdown isn't stuck on "Loading…" if the user opens the modal early.
+    (function retryUntilReady() {
+      var attempts = 0;
+      function tick() {
+        attempts++;
+        if (window.__wjpAuth && window.__wjpAuth.currentUser) {
+          fetchAccountsLive(true).then(function () {
+            repairAssetBalances().then(renderAllMounts);
+          });
+          return;
+        }
+        if (attempts < 20) setTimeout(tick, 250); // up to 5s of polling
+      }
+      tick();
+    })();
     setInterval(function () {
       fetchAccountsLive(true).then(function () { repairAssetBalances().then(renderAllMounts); });
-    }, 60000);
+    }, 30000);
     // Lightweight dirty-checking re-render so totals stay current when debts change.
     setInterval(function () {
       var s = getAppState();
@@ -626,6 +641,10 @@
     openAddModal: function () { openModal(null); },
     totalAssets: totalAssets,
     netWorth: netWorth,
-    version: 3
+    refreshLive: function () { return fetchAccountsLive(true); },
+    repairBalances: repairAssetBalances,
+    debugCache: function () { return { items: _acctCache.items, ts: _acctCache.ts, inflight: !!_acctCache.inflight }; },
+    listLinked: listLinkedAccounts,
+    version: 4
   };
 })();
