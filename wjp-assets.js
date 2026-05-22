@@ -1,4 +1,4 @@
-/* wjp-assets.js v5 (lengthened refresh intervals to reduce flicker — 2026-05-22) — v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
+/* wjp-assets.js v6 (Debts: mount inside Overview sub-tab right after hero — 2026-05-22). v5 (lengthened refresh intervals to reduce flicker — 2026-05-22) — v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
  *
  * Joins the existing dashboard customize system: each mount is a
  * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
@@ -554,9 +554,68 @@
   function renderAllMounts() {
     ensureStyles();
     var dash  = ensureCard('page-dashboard', DASH_CARD_ID,  'medium');
-    var debts = ensureCard('page-debts',     DEBTS_CARD_ID, 'medium');
+    var debts = ensureDebtsCard();  // special: insert inside Overview sub-tab, not at bottom of page-debts
     refreshCard(dash);
     refreshCard(debts);
+  }
+
+  // Mount the Assets card INSIDE the Debts → Overview sub-tab, right after the
+  // 'WHAT YOU STILL OWE' hero. Previous version used ensureCard with
+  // appendChild(#page-debts), which put the card OUTSIDE the sub-tab system
+  // — visible at the bottom of every sub-tab (Overview, Transactions,
+  // Recurring, Analysis, etc.). Now it lives inside Overview only.
+  function ensureDebtsCard() {
+    var page = document.getElementById('page-debts');
+    if (!page) return null;
+    // The Overview sub-tab is the FIRST .debts-subtab-content child of #page-debts.
+    var overview = page.querySelector(':scope > .debts-subtab-content');
+    if (!overview) return null;
+    var hero = overview.querySelector('.debts-header-card');
+
+    var card = document.getElementById(DEBTS_CARD_ID);
+    // If the existing card is in the wrong place (e.g. directly on #page-debts
+    // from a previous version), pull it out so we can re-insert it correctly.
+    if (card && card.parentElement !== overview) {
+      try { card.parentElement.removeChild(card); } catch (_) {}
+      card = null;
+    }
+
+    if (!card) {
+      card = document.createElement('div');
+      card.id = DEBTS_CARD_ID;
+      card.className = 'card reveal reorderable';
+      card.setAttribute('data-card-id', CARD_SLUG);
+      card.setAttribute('data-card-label', CARD_LABEL);
+      var savedSize = 'medium';
+      try {
+        var s = getAppState();
+        if (s && s.prefs && s.prefs.cardSize && s.prefs.cardSize[CARD_SLUG]) {
+          savedSize = s.prefs.cardSize[CARD_SLUG];
+        }
+      } catch (_) {}
+      card.setAttribute('data-size', savedSize);
+      // Add a subtle top margin so it visually separates from the hero
+      card.style.marginTop = '16px';
+      card.innerHTML = buildBodyHTML();
+      // Insert right after the hero (Overview's 2nd content position)
+      if (hero && hero.parentElement === overview) {
+        hero.insertAdjacentElement('afterend', card);
+      } else {
+        overview.insertBefore(card, overview.firstChild);
+      }
+      wireCardEvents(card);
+    } else {
+      // Card already in correct parent (overview) — ensure it's right after hero
+      if (hero && hero.parentElement === overview) {
+        var heroIdx = Array.prototype.indexOf.call(overview.children, hero);
+        var cardIdx = Array.prototype.indexOf.call(overview.children, card);
+        if (cardIdx !== heroIdx + 1) {
+          hero.insertAdjacentElement('afterend', card);
+        }
+      }
+    }
+    try { if (typeof window.applyCardSizes === 'function') window.applyCardSizes(); } catch (_) {}
+    return card;
   }
 
   // ---------- observer: re-mount when host re-renders the page ----------
@@ -645,6 +704,6 @@
     repairBalances: repairAssetBalances,
     debugCache: function () { return { items: _acctCache.items, ts: _acctCache.ts, inflight: !!_acctCache.inflight }; },
     listLinked: listLinkedAccounts,
-    version: 5
+    version: 6
   };
 })();
