@@ -1,4 +1,4 @@
-/* wjp-portfolio.js v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
+/* wjp-portfolio.js v12 (memoize render + Allocation Donut + Performance Toggle at top — 2026-05-22). v11 (Budgets/Strategy blank fix — drop inline display:none — 2026-05-22). v10 (footer-at-top fix — insertBefore footer, 2026-05-22). v9 (real liquid calc from WJP_Assets cache — 2026-05-22). v7 (observer recursion fix 2026-05-19) — original: v6 — explicit asset list + edit/delete + Plaid balance attribution.
  * Assets/Liabilities, All-Accounts, Money Working, Insights, Milestones.
  *
  * Architecture:
@@ -421,6 +421,183 @@
   // =====================================================================
   // section renderers
   // =====================================================================
+  // =====================================================================
+  // s0OverviewBox — Asset Allocation Donut + Performance Period Toggle
+  // Added 2026-05-22 as the top section of the Portfolio tab. Embedded
+  // INSIDE renderPortfolio() so it shares the render lifecycle (no separate
+  // observer, no separate render = no flicker).
+  // =====================================================================
+  var _wjpPfPeriod = '30d';
+
+  function _wjpPfHistoryForPeriod(period) {
+    var s = getAppState() || {};
+    var hist = Array.isArray(s.netWorthHistory) ? s.netWorthHistory.slice() : [];
+    if (!hist.length) return [];
+    hist.sort(function (a, b) { return a.date.localeCompare(b.date); });
+    if (period === 'all') return hist;
+    var daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+    var days = daysMap[period] || 30;
+    var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    var cutoffKey = cutoff.toISOString().slice(0, 10);
+    return hist.filter(function (h) { return h.date >= cutoffKey; });
+  }
+
+  function _wjpPfSampleNetWorth() {
+    var s = getAppState(); if (!s) return;
+    if (!Array.isArray(s.netWorthHistory)) s.netWorthHistory = [];
+    var d = new Date();
+    var k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    var nw = getNetWorth();
+    var existing = s.netWorthHistory.find(function (h) { return h.date === k; });
+    if (existing) {
+      if (Math.round(existing.net) === Math.round(nw.net)) return;
+      existing.net = nw.net; existing.assets = nw.assets; existing.debts = nw.liabilities;
+    } else {
+      s.netWorthHistory.push({ date: k, assets: nw.assets, debts: nw.liabilities, net: nw.net, ts: Date.now() });
+    }
+    if (s.netWorthHistory.length > 365) s.netWorthHistory = s.netWorthHistory.slice(-365);
+    try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+  }
+
+  function _wjpPfBuildAllocation() {
+    var assets = getManualAssets();
+    var buckets = {};
+    var TYPE = {
+      investment:  { label: 'Investments',  color: '#c5a572' },
+      crypto:      { label: 'Crypto',       color: '#f59e0b' },
+      real_estate: { label: 'Real estate',  color: '#10b981' },
+      vehicle:     { label: 'Vehicles',     color: '#3b82f6' },
+      cash:        { label: 'Cash',         color: '#22c55e' },
+      retirement:  { label: 'Retirement',   color: '#a78bfa' },
+      checking:    { label: 'Checking',     color: '#22c55e' },
+      savings:     { label: 'Savings',      color: '#0ea5e9' },
+      realestate:  { label: 'Real estate',  color: '#10b981' },
+      other:       { label: 'Other',        color: '#a78bfa' },
+      _debt:       { label: 'Liabilities',  color: '#dc2626' }
+    };
+    assets.forEach(function (a) {
+      var t = a.type || 'other'; if (!TYPE[t]) t = 'other';
+      var v = Number(a.value) || 0; if (v <= 0) return;
+      buckets[t] = (buckets[t] || 0) + v;
+    });
+    var nw = getNetWorth();
+    if (nw.liabilities > 0) buckets._debt = nw.liabilities;
+    var entries = Object.keys(buckets).map(function (k) {
+      return { key: k, label: TYPE[k].label, color: TYPE[k].color, value: buckets[k] };
+    }).sort(function (a, b) { return b.value - a.value; });
+    return { entries: entries, totalAssets: nw.assets };
+  }
+
+  function s0OverviewBox() {
+    // Sample net worth on render (silent — happens inside the existing render cycle)
+    try { _wjpPfSampleNetWorth(); } catch (_) {}
+
+    var alloc = _wjpPfBuildAllocation();
+    var total = alloc.entries.reduce(function (s, e) { return s + e.value; }, 0);
+
+    // Donut
+    var donutSvg;
+    if (!total) {
+      donutSvg = '<div style="text-align:center;color:' + muted() + ';padding:28px 8px;font-size:13px;line-height:1.5;">Add assets or debts to see how your wealth breaks down.</div>';
+    } else {
+      var r = 70, cx = 100, cy = 100, C = 2 * Math.PI * r;
+      var off = 0;
+      var paths = alloc.entries.map(function (e) {
+        var pct = e.value / total;
+        var dash = (pct * C).toFixed(2);
+        var gap = (C - parseFloat(dash)).toFixed(2);
+        var seg = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="transparent" '
+                + 'stroke="' + e.color + '" stroke-width="22" '
+                + 'stroke-dasharray="' + dash + ' ' + gap + '" '
+                + 'stroke-dashoffset="' + (-off).toFixed(2) + '" '
+                + 'transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>';
+        off += parseFloat(dash);
+        return seg;
+      }).join('');
+      donutSvg = ''
+        + '<div style="position:relative;width:200px;height:200px;flex:0 0 200px;">'
+        + '  <svg viewBox="0 0 200 200" width="200" height="200">'
+        + '    <circle cx="100" cy="100" r="70" fill="transparent" stroke="rgba(120,113,108,.10)" stroke-width="22"></circle>'
+        +      paths
+        + '  </svg>'
+        + '  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">'
+        + '    <div style="font-size:18px;font-weight:800;color:' + ink() + ';">' + fmtUSDk(alloc.totalAssets) + '</div>'
+        + '    <div style="font-size:9.5px;font-weight:700;color:' + muted() + ';letter-spacing:.06em;text-transform:uppercase;margin-top:2px;">total assets</div>'
+        + '  </div>'
+        + '</div>';
+    }
+
+    // Legend
+    var legend = alloc.entries.map(function (e) {
+      var pct = total ? (e.value / total * 100) : 0;
+      return ''
+        + '<div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:' + ink() + ';padding:5px 0;">'
+        + '  <span style="width:10px;height:10px;border-radius:3px;background:' + e.color + ';flex:0 0 10px;"></span>'
+        + '  <span style="flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + e.label + '</span>'
+        + '  <span style="font-weight:700;font-variant-numeric:tabular-nums;">' + fmtUSDk(e.value) + '</span>'
+        + '  <span style="font-size:10.5px;color:' + muted() + ';min-width:38px;text-align:right;">' + pct.toFixed(1) + '%</span>'
+        + '</div>';
+    }).join('');
+
+    // Performance
+    var hist = _wjpPfHistoryForPeriod(_wjpPfPeriod);
+    var perfHtml;
+    if (hist.length < 2) {
+      perfHtml = '<div style="font-size:12px;color:' + muted() + ';padding:16px 4px;text-align:center;line-height:1.55;">We sample your net worth daily. Pick a period after a few days of data is collected.</div>';
+    } else {
+      var first = hist[0], last = hist[hist.length - 1];
+      var deltaAbs = last.net - first.net;
+      var deltaPct = first.net !== 0 ? (deltaAbs / Math.abs(first.net)) * 100 : 0;
+      var color = deltaAbs >= 0 ? '#10b981' : '#ef4444';
+      var arrow = deltaAbs >= 0 ? '▲' : '▼';
+      // Sparkline
+      var W = 600, H = 60, padX = 8, padY = 6;
+      var vs = hist.map(function (p) { return p.net; });
+      var mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs);
+      var rng = (mx - mn) || 1;
+      var xs = hist.map(function (p, i) { return padX + (i / Math.max(1, hist.length - 1)) * (W - 2 * padX); });
+      var ys = hist.map(function (p) { return padY + (1 - (p.net - mn) / rng) * (H - 2 * padY); });
+      var d = ''; for (var i = 0; i < xs.length; i++) d += (i === 0 ? 'M' : 'L') + xs[i].toFixed(2) + ' ' + ys[i].toFixed(2) + ' ';
+      var area = d + 'L' + xs[xs.length-1].toFixed(2) + ' ' + (H - padY).toFixed(2) + ' L' + xs[0].toFixed(2) + ' ' + (H - padY).toFixed(2) + ' Z';
+      perfHtml = ''
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px;">'
+        + '  <div><div style="font-size:9.5px;color:' + muted() + ';text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Net worth</div><div style="font-size:18px;font-weight:800;color:' + ink() + ';margin-top:2px;">' + fmtUSDk(last.net) + '</div></div>'
+        + '  <div><div style="font-size:9.5px;color:' + muted() + ';text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Change · ' + _wjpPfPeriod.toUpperCase() + '</div><div style="font-size:18px;font-weight:800;color:' + color + ';margin-top:2px;">' + (deltaAbs >= 0 ? '+' : '') + fmtUSDk(deltaAbs) + '</div><div style="font-size:11px;font-weight:700;color:' + color + ';">' + arrow + ' ' + (deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(1) + '%</div></div>'
+        + '  <div><div style="font-size:9.5px;color:' + muted() + ';text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Samples</div><div style="font-size:18px;font-weight:800;color:' + ink() + ';margin-top:2px;">' + hist.length + '</div></div>'
+        + '</div>'
+        + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:60px;">'
+        + '  <path d="' + area + '" fill="' + color + '" fill-opacity="0.12"></path>'
+        + '  <path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2"></path>'
+        + '</svg>';
+    }
+
+    var periods = ['7d', '30d', '90d', '1y', 'all'];
+    var tabs = '<div class="wjp-pf-period-tabs" style="display:flex;gap:4px;background:rgba(120,113,108,.08);border-radius:9px;padding:3px;margin-bottom:10px;">'
+      + periods.map(function (p) {
+        var active = p === _wjpPfPeriod;
+        return '<button type="button" data-wjp-period="' + p + '" style="flex:1;background:' + (active ? 'var(--card, #fff)' : 'transparent') + ';border:0;padding:6px 8px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:' + (active ? ink() : muted()) + ';font-family:inherit;letter-spacing:.04em;">' + p.toUpperCase() + '</button>';
+      }).join('') + '</div>';
+
+    return ''
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'
+      // Donut card
+      + '  <div style="background:var(--card, #fff);border:1px solid ' + gridCol() + ';border-radius:14px;padding:18px 20px;">'
+      + '    <div style="font-size:10.5px;letter-spacing:.14em;font-weight:700;color:#c5a572;text-transform:uppercase;">Allocation</div>'
+      + '    <div style="font-size:16px;font-weight:700;color:' + ink() + ';margin:4px 0 12px;">How your wealth breaks down</div>'
+      + '    <div style="display:flex;align-items:center;gap:18px;">' + donutSvg
+      + '      <div style="flex:1;min-width:0;">' + (legend || '<div style="font-size:12px;color:' + muted() + ';">No data yet.</div>') + '</div>'
+      + '    </div>'
+      + '  </div>'
+      // Performance card
+      + '  <div style="background:var(--card, #fff);border:1px solid ' + gridCol() + ';border-radius:14px;padding:18px 20px;">'
+      + '    <div style="font-size:10.5px;letter-spacing:.14em;font-weight:700;color:#c5a572;text-transform:uppercase;">Performance</div>'
+      + '    <div style="font-size:16px;font-weight:700;color:' + ink() + ';margin:4px 0 12px;">Net worth change over time</div>'
+      +      tabs
+      +      perfHtml
+      + '  </div>'
+      + '</div>';
+  }
+
   function s1NetWorthHero() {
     var nw = getNetWorth();
     var series = getNetWorthSeries();
@@ -1065,10 +1242,29 @@
     return page;
   }
 
+  var _wjpPfLastSig = null;
+  function _wjpPfDataSig() {
+    var s = getAppState() || {};
+    var debts = (s.debts || []).reduce(function (n, d) { return n + Math.round(Number(d.balance) || 0); }, 0);
+    var assetSig = '';
+    try {
+      assetSig = getManualAssets().map(function (a) { return [a.id, a.type, Math.round(Number(a.value) || 0)]; }).join('|');
+    } catch (_) {}
+    var hist = Array.isArray(s.netWorthHistory) ? s.netWorthHistory.length : 0;
+    return debts + '~' + assetSig + '~' + hist + '~' + _wjpPfPeriod;
+  }
   function renderPortfolio() {
     var page = ensurePage();
+    // Memoize — only re-render the full innerHTML if data actually changed.
+    // The trajectory canvas was redrawing on every render before this fix
+    // (innerHTML reset destroys + recreates the canvas, Chart.js redraws).
+    // Now we skip if nothing changed; that kills the flicker.
+    var sig = _wjpPfDataSig();
+    if (sig === _wjpPfLastSig && page.children.length > 0) return;
+    _wjpPfLastSig = sig;
     page.innerHTML = ''
       + '<div style="display:flex;flex-direction:column;gap:16px;">'
+      +   s0OverviewBox()
       +   s1NetWorthHero()
       +   s2HealthScore()
       +   s3AssetsLiabilities()
@@ -1079,6 +1275,19 @@
       + '</div>';
     // Wire up — Add Manual, Sync Bank, Set-Balance per institution
     page.querySelectorAll('.wjp-pf-add-asset').forEach(function (b) { b.onclick = function () { openAddAssetModal(); }; });
+    // Period toggle for s0 Overview box — only re-render the s0 section in place
+    page.querySelectorAll('[data-wjp-period]').forEach(function (btn) {
+      btn.onclick = function () {
+        _wjpPfPeriod = btn.getAttribute('data-wjp-period');
+        // Find the s0 wrapper (first .grid in the column) and replace its HTML
+        var wrap = page.firstElementChild && page.firstElementChild.firstElementChild;
+        if (wrap) wrap.outerHTML = s0OverviewBox();
+        // Re-bind the toggle on the new buttons
+        page.querySelectorAll('[data-wjp-period]').forEach(function (b2) {
+          b2.onclick = btn.onclick;
+        });
+      };
+    });
     page.querySelectorAll('.wjp-pf-sync-bank').forEach(function (b) {
       b.onclick = function () {
         var hostBtn = document.getElementById('btn-link-bank')
