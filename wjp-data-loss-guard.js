@@ -1,48 +1,21 @@
 /* wjp-data-loss-guard.js v2 — 2026-05-22 emergency patch
  *
- * Closes a critical data-loss race in the boot path. Symptoms: dashboard
- * shows "0 debts", payoff date wrong, total debt $0, both localStorage AND
- * Firestore wiped over time.
+ * Closes a critical data-loss race in the boot path.
  *
- * Root cause (confirmed via live diagnostic):
- *   1. app.js's DOMContentLoaded handler calls loadState() BEFORE Firebase
- *      auth resolves (__wjpUser/__wjpAuth.currentUser not set yet).
- *   2. getStateKey() in that pre-auth window returns the bare key
- *      'wjp_budget_state'. The privacy fix shipped 2026-05-21 retires that
- *      bare key to '_legacy_orphan' once a user signs in. On the next page
- *      load, the bare key is null.
- *   3. loadState() reads null, JSON.parse throws, falls back to defaultState
- *      → appState.debts = [], appState.assets = [].
- *   4. wjp-firestore-tx-bootstrap then hydrates appState.transactions from
- *      Firestore (independent path), and calls window.saveState() OR writes
- *      localStorage.setItem('wjp_budget_state', JSON.stringify(lsState))
- *      DIRECTLY. The storage-hygiene proxy redirects bare→scoped, so a
- *      direct write to the bare key wipes the scoped key.
- *   5. saveState() / direct setItem writes empty-debts state to scoped key,
- *      and cloudPushDebounced sends empty to Firestore — total wipe.
+ * Root cause: app.js loadState() runs in DOMContentLoaded BEFORE Firebase
+ * auth resolves. getStateKey returns bare 'wjp_budget_state' which the
+ * 2026-05-21 privacy fix retires to _legacy_orphan once a user signs in.
+ * So on every page refresh, bare is null, loadState falls back to
+ * defaultState (empty arrays), then wjp-firestore-tx-bootstrap merges in
+ * txs and calls saveState() OR writes localStorage.setItem('wjp_budget_state',
+ * ...) directly. The hygiene proxy redirects bare->scoped, wiping the
+ * good data. cloudPushDebounced then pushes empty to Firestore. Total wipe.
  *
- * What this patch does (additive only, no edits to app.js):
- *
- *   A) WRAP getStateKey(): if no authed user yet, scan localStorage for any
- *      'wjp_budget_state_u_*' key. If exactly one exists, return that.
- *      Prevents loadState from returning null in the pre-auth window.
- *
- *   B) WRAP saveState(): refuse to write an empty appState (zero debts AND
- *      zero assets) over a stored state that has debts or assets. Logs a
- *      warning so we can spot the race. Auto-recovers by calling loadState()
- *      then re-saving with the recovered data.
- *
- *   C) WRAP cloudPushNow / cloudPushDebounced: same guard — never push
- *      empty arrays over non-empty cloud state.
- *
- *   D) WRAP localStorage.setItem (NEW IN v2): catches DIRECT writes to the
- *      bare key 'wjp_budget_state' or any scoped 'wjp_budget_state_u_*' key
- *      that would clobber existing debts/assets data. Sits OUTSIDE the
- *      hygiene proxy, so even modules that bypass saveState (like
- *      wjp-firestore-tx-bootstrap's fallback path) are caught.
- *
- * Safe to ship: additive only. Removing this file restores prior (broken)
- * behavior.
+ * Patches (additive only, no edits to app.js):
+ *   A) Wrap getStateKey(): pre-auth fallback to find scoped key
+ *   B) Wrap saveState(): refuse empty-clobber, auto-recover via loadState
+ *   C) Wrap cloudPushNow / cloudPushDebounced: refuse empty cloud push
+ *   D) Wrap localStorage.setItem: catch direct raw writes that wipe data
  */
 (function () {
   'use strict';
@@ -53,12 +26,10 @@
   var BARE_KEY = 'wjp_budget_state';
   var SCOPED_PREFIX = 'wjp_budget_state_u_';
 
-  // Raw localStorage access (bypasses any proxy that's already installed)
   function rawGet(key) {
     try { return Object.getPrototypeOf(localStorage).getItem.call(localStorage, key); } catch(_) { return null; }
   }
 
-  // ── PATCH A: pre-auth fallback for getStateKey ──────────────────────────
   function findUniqueScopedKey() {
     try {
       var hits = [];
@@ -82,6 +53,7 @@
     return null;
   }
 
+  // PATCH A
   function wrapGetStateKey() {
     if (typeof window.getStateKey !== 'function') return false;
     if (window.getStateKey.__wjpGuardWrapped) return true;
@@ -91,7 +63,7 @@
       if (k === BARE_KEY) {
         var scoped = findUniqueScopedKey();
         if (scoped) {
-          try { console.log('[wjp-data-loss-guard] pre-auth: redirected ' + BARE_KEY + ' → ' + scoped); } catch(_){}
+          try { console.log('[wjp-data-loss-guard] pre-auth redirected ' + BARE_KEY + ' to ' + scoped); } catch(_){}
           return scoped;
         }
       }
@@ -102,7 +74,6 @@
     return true;
   }
 
-  // ── PATCH B: refuse empty-clobber saveState ─────────────────────────────
   function wouldClobber(targetKey) {
     try {
       var existing = rawGet(targetKey);
@@ -118,6 +89,7 @@
     return false;
   }
 
+  // PATCH B
   function wrapSaveState() {
     if (typeof window.saveState !== 'function') return false;
     if (window.saveState.__wjpGuardWrapped) return true;
@@ -127,9 +99,8 @@
         var key = (typeof window.getStateKey === 'function') ? window.getStateKey() : BARE_KEY;
         var clobber = wouldClobber(key);
         if (clobber) {
-          try { console.warn('[wjp-data-loss-guard] saveState BLOCKED clobber to ' + clobber.axis + ' (stored=' + clobber['existing' + (clobber.axis === 'debts' ? 'Debts' : 'Assets')] + ', in-memory=0)'); } catch(_){}
+          try { console.warn('[wjp-data-loss-guard] saveState BLOCKED clobber to ' + clobber.axis + ' (stored=' + clobber.existingDebts + 'd/' + clobber.existingAssets + 'a, mem=0d/0a)'); } catch(_){}
           window.__wjpClobbersBlocked = (window.__wjpClobbersBlocked || 0) + 1;
-          // Auto-recover via loadState
           try {
             if (typeof window.loadState === 'function') {
               window.loadState();
@@ -140,7 +111,7 @@
               }
             }
           } catch(_) {}
-          return; // refuse the write
+          return;
         }
       } catch(_) {}
       return orig.apply(this, arguments);
@@ -150,7 +121,7 @@
     return true;
   }
 
-  // ── PATCH C: same guard for cloud push ──────────────────────────────────
+  // PATCH C
   function wrapCloudPush(fnName) {
     if (typeof window[fnName] !== 'function') return false;
     if (window[fnName].__wjpGuardWrapped) return true;
@@ -168,7 +139,7 @@
               var storedDebts = (parsed && Array.isArray(parsed.debts)) ? parsed.debts.length : 0;
               var storedAssets = (parsed && Array.isArray(parsed.assets)) ? parsed.assets.length : 0;
               if (storedDebts > 0 || storedAssets > 0) {
-                try { console.warn('[wjp-data-loss-guard] ' + fnName + ' BLOCKED empty push (stored=' + storedDebts + ' debts + ' + storedAssets + ' assets)'); } catch(_){}
+                try { console.warn('[wjp-data-loss-guard] ' + fnName + ' BLOCKED empty push (stored=' + storedDebts + 'd/' + storedAssets + 'a)'); } catch(_){}
                 window.__wjpCloudClobbersBlocked = (window.__wjpCloudClobbersBlocked || 0) + 1;
                 return;
               }
@@ -183,36 +154,28 @@
     return true;
   }
 
-  // ── PATCH D (NEW v2): wrap localStorage.setItem for direct-write writes ─
-  // Sits OUTSIDE the hygiene proxy. Any write to bare key, OR to any scoped
-  // wjp_budget_state_u_* key, gets pre-validated: if new payload has empty
-  // debts/assets and stored has non-empty, refuse.
+  // PATCH D
   function wrapLocalStorageSetItem() {
     try {
       if (localStorage.setItem.__wjpGuardWrapped) return true;
       var prev = localStorage.setItem.bind(localStorage);
       var wrapped = function (key, value) {
         try {
-          // Only intercept budget_state-related writes. Anything else passes through.
           if (typeof key === 'string' &&
               (key === BARE_KEY || (key.indexOf(SCOPED_PREFIX) === 0 && key.indexOf('_legacy_orphan') === -1))) {
-            // Determine the EFFECTIVE target key (where data will land after hygiene proxy redirect)
             var targetKey = key;
             if (key === BARE_KEY) {
               var scopedTarget = findUniqueScopedKey();
               if (scopedTarget) targetKey = scopedTarget;
             }
-            // Parse new value to get debts/assets counts
             var newDebts = 0, newAssets = 0;
             try {
               var newParsed = JSON.parse(value);
               newDebts = (newParsed && Array.isArray(newParsed.debts)) ? newParsed.debts.length : 0;
               newAssets = (newParsed && Array.isArray(newParsed.assets)) ? newParsed.assets.length : 0;
             } catch(_) {
-              // Unparseable value — let it through (might be a different shape)
               return prev(key, value);
             }
-            // Read current state from the EFFECTIVE target key
             var existing = rawGet(targetKey);
             if (existing) {
               try {
@@ -220,4 +183,69 @@
                 var existingDebts = (existingParsed && Array.isArray(existingParsed.debts)) ? existingParsed.debts.length : 0;
                 var existingAssets = (existingParsed && Array.isArray(existingParsed.assets)) ? existingParsed.assets.length : 0;
                 if ((existingDebts > 0 && newDebts === 0) || (existingAssets > 0 && newAssets === 0)) {
-                  try { console.warn('[wjp-data-loss-guard] RAW lo
+                  try { console.warn('[wjp-data-loss-guard] raw setItem BLOCKED key=' + key + ' target=' + targetKey + ' stored=' + existingDebts + 'd/' + existingAssets + 'a new=' + newDebts + 'd/' + newAssets + 'a'); } catch(_){}
+                  window.__wjpRawClobbersBlocked = (window.__wjpRawClobbersBlocked || 0) + 1;
+                  return;
+                }
+              } catch(_){}
+            }
+          }
+        } catch(_) {}
+        return prev(key, value);
+      };
+      wrapped.__wjpGuardWrapped = true;
+      localStorage.setItem = wrapped;
+      return true;
+    } catch(_) { return false; }
+  }
+
+  function bootInstall() {
+    var a = wrapGetStateKey();
+    var b = wrapSaveState();
+    var c1 = wrapCloudPush('cloudPushNow');
+    var c2 = wrapCloudPush('cloudPushDebounced');
+    var d = wrapLocalStorageSetItem();
+    return a && b && c1 && c2 && d;
+  }
+
+  wrapLocalStorageSetItem();
+
+  if (bootInstall()) {
+    try { console.log('[wjp-data-loss-guard v2] all patches installed at boot'); } catch(_){}
+  } else {
+    var attempts = 0;
+    var iv = setInterval(function () {
+      attempts++;
+      if (!(localStorage.setItem && localStorage.setItem.__wjpGuardWrapped)) wrapLocalStorageSetItem();
+      if (bootInstall() || attempts > 50) {
+        clearInterval(iv);
+        try { console.log('[wjp-data-loss-guard v2] patches installed after ' + attempts + ' attempts'); } catch(_){}
+      }
+    }, 100);
+  }
+
+  window.WJP_DataLossGuard = {
+    version: 2,
+    forceReload: function () {
+      try {
+        if (typeof window.loadState === 'function') window.loadState();
+        if (typeof window.updateUI === 'function') window.updateUI();
+        return {
+          debts: (window.appState && window.appState.debts || []).length,
+          assets: (window.appState && window.appState.assets || []).length,
+          tx: (window.appState && window.appState.transactions || []).length
+        };
+      } catch(e) { return { err: e.message }; }
+    },
+    blockedCount: function () {
+      return {
+        saveState_blocked: window.__wjpClobbersBlocked || 0,
+        cloudPush_blocked: window.__wjpCloudClobbersBlocked || 0,
+        rawSetItem_blocked: window.__wjpRawClobbersBlocked || 0
+      };
+    },
+    findScopedKey: findUniqueScopedKey,
+    wouldClobber: wouldClobber,
+    rawGet: rawGet
+  };
+})();
