@@ -1099,20 +1099,7 @@
                 </div>
               </div>
 
-              <!-- Linked Assets — checking/savings/investment accounts (NOT debts) -->
-              <div class="card reveal reveal-2 reorderable" id="dash-linked-assets-card" data-card-id="linked-assets" style="position:relative;">
-                <button class="pin-card-btn" data-pin-id="dash-linked-assets-card" title="Pin to top" style="position:absolute; top:10px; right:10px; background:transparent; border:none; color:var(--text-3); cursor:pointer; padding:4px; z-index:3;" aria-label="Pin Linked Assets"><i class="ph-fill ph-push-pin" style="font-size:14px;"></i></button>
-                <div class="card-label" style="font-size:10px;display:flex;align-items:center;gap:6px;">
-                  <i class="ph-fill ph-piggy-bank" style="color:var(--accent);"></i> Linked Assets
-                  <span style="margin-left:auto;font-size:9px;color:var(--text-3);font-weight:500;">checking · savings · investments</span>
-                </div>
-                <div id="linked-assets-body" style="margin-top:14px;">
-                  <div style="text-align:center;color:var(--text-3);font-size:11px;padding:18px;">
-                    <i class="ph ph-piggy-bank" style="font-size:22px;display:block;margin-bottom:6px;opacity:0.4;"></i>
-                    No linked assets yet
-                  </div>
-                </div>
-              </div>
+              <!-- Linked Assets card removed 2026-05-21 — superseded by wjp-assets.js (gold Assets box with broader asset types). renderLinkedAssets() in app.js is now a no-op (no host element). -->
 
               <!-- Spending Card -->
               <div class="card reveal reveal-3 reorderable" id="dash-spending-card" data-card-id="spending" style="position:relative;">
