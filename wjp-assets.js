@@ -1,4 +1,4 @@
-/* wjp-assets.js v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
+/* wjp-assets.js v5 (lengthened refresh intervals to reduce flicker — 2026-05-22) — v4 — retry-until-auth boot + debug API exposure (v3 raced auth) (was reading $0 because WJP_AcctLookup has no balance field). — Asset tracker for Dashboard + Debts tab.
  *
  * Joins the existing dashboard customize system: each mount is a
  * `.card.reveal.reorderable` direct child of #page-dashboard / #page-debts
@@ -609,7 +609,7 @@
     })();
     setInterval(function () {
       fetchAccountsLive(true).then(function () { repairAssetBalances().then(renderAllMounts); });
-    }, 30000);
+    }, 300000);
     // Lightweight dirty-checking re-render so totals stay current when debts change.
     setInterval(function () {
       var s = getAppState();
@@ -624,7 +624,7 @@
         refreshCard(card1);
         refreshCard(card2);
       }
-    }, 1500);
+    }, 5000);
   }
 
   if (document.readyState === 'loading') {
@@ -645,6 +645,6 @@
     repairBalances: repairAssetBalances,
     debugCache: function () { return { items: _acctCache.items, ts: _acctCache.ts, inflight: !!_acctCache.inflight }; },
     listLinked: listLinkedAccounts,
-    version: 4
+    version: 5
   };
 })();

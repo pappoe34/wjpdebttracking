@@ -1,4 +1,4 @@
-/* wjp-portfolio-overview.js v2 (sparkline NaN fix + rAF-debounced re-renders) — v1 — adds Asset Allocation donut + Performance
+/* wjp-portfolio-overview.js v3 (drop observer + event listeners — flicker fix) — v2 (sparkline NaN fix + rAF-debounced re-renders) — v1 — adds Asset Allocation donut + Performance
  * period toggle (7d/30d/90d/1y/all) to the existing Portfolio tab.
  *
  * Mounts AFTER the existing #wjp-pf-trajectory canvas inside #page-portfolio,
@@ -305,7 +305,7 @@
     try {
       var s = getAppState() || {};
       var aSig = Array.isArray(s.assets) ? s.assets.map(function (a) {
-        return [a.id, a.type, getLiveAssetValue(a), a.plaidAccountId || ''];
+        return [a.id, a.type, Math.round(getLiveAssetValue(a)), a.plaidAccountId || ''];
       }) : [];
       var dSig = Array.isArray(s.debts) ? s.debts.reduce(function (n, d) { return n + (Number(d.balance) || 0); }, 0) : 0;
       var hSig = (s.netWorthHistory || []).length;
@@ -371,47 +371,38 @@
   }
 
   // ---------- boot ----------
-  var obs = null;
-  function startObserver() {
-    if (obs) return;
-    obs = new MutationObserver(function () {
-      if (startObserver._raf) return;
-      startObserver._raf = requestAnimationFrame(function () {
-        startObserver._raf = null;
-        var host = findMount();
-        if (host && !document.getElementById('wjp-pf-overview')) {
-          if (obs) obs.disconnect();
-          try { renderInto(host); } catch (_) {}
-          if (obs) obs.observe(document.body, { childList: true, subtree: true });
-        }
-      });
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-  }
+  // (MutationObserver removed in v3 — was causing flicker on rapid DOM churn from other modules.)
 
   function boot() {
     ensureStyles();
-    // Sample today's net worth on boot
+    // Sample today's net worth on boot (silent — no UI re-render triggered)
     try { sampleNetWorth(); } catch (_) {}
-    var host = findMount();
-    if (host) {
-      try { renderInto(host); } catch (_) {}
+
+    // Mount immediately if the portfolio page exists; otherwise wait until
+    // the user clicks the Portfolio nav. We re-check on a 5-second cadence
+    // instead of using a MutationObserver — observers were causing flicker
+    // because they fired on every DOM change from other modules.
+    function tryMount() {
+      var host = findMount();
+      if (host && !document.getElementById('wjp-pf-overview')) {
+        try { renderInto_now(host, true); } catch (_) {}
+      }
     }
-    startObserver();
-    // Re-sample once per minute + re-render on asset/debt changes
-    setInterval(function () { try { sampleNetWorth(); } catch (_) {} }, 60000);
-    window.addEventListener('wjp-assets-changed', function () {
-      var h = findMount();
-      if (h) try { renderInto(h); } catch (_) {}
-    });
-    window.addEventListener('wjp-debt-updated', function () {
-      var h = findMount();
-      if (h) try { renderInto(h); } catch (_) {}
-    });
+    tryMount();
+    setInterval(tryMount, 5000);
+
+    // Sample net worth every 5 minutes (used to be 60s — too aggressive,
+    // contributed to constant state churn).
+    setInterval(function () { try { sampleNetWorth(); } catch (_) {} }, 300000);
+
+    // Only one external re-render trigger: when the user signs in fresh.
+    // Removed wjp-assets-changed and wjp-debt-updated listeners — they were
+    // firing too often and causing the page to flicker. The donut/sparkline
+    // refresh naturally on the next render cycle, which is fine for a
+    // historical-data card. Click the period toggle to force a refresh.
     window.addEventListener('wjp-auth-ready', function () {
       try { sampleNetWorth(); } catch (_) {}
-      var h = findMount();
-      if (h) try { renderInto(h); } catch (_) {}
+      tryMount();
     });
   }
 
@@ -427,6 +418,6 @@
     totalAssets: totalAssets,
     totalDebts: totalDebts,
     history: function () { var s = getAppState(); return (s && s.netWorthHistory) || []; },
-    version: 2
+    version: 3
   };
 })();
