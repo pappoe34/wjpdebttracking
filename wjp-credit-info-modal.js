@@ -39,7 +39,7 @@
       +     'box-shadow:0 20px 60px rgba(0,0,0,0.30);'
       +     'animation:wjpCsSlideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);'
       +   '">'
-      +     // Header
+           // Header
       +     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;">'
       +       '<div style="display:flex;align-items:center;gap:12px;">'
       +         '<div style="width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#10b981,#6366f1);display:grid;place-items:center;box-shadow:0 4px 14px rgba(99,102,241,0.30);"><i class="ph-fill ph-info" style="font-size:21px;color:#fff;"></i></div>'
@@ -51,34 +51,34 @@
       +       '<button type="button" data-cs-info-action="close" style="background:transparent;border:0;width:36px;height:36px;border-radius:9px;cursor:pointer;display:grid;place-items:center;color:var(--text-3,#94a3b8);font-family:inherit;" title="Close"><i class="ph ph-x" style="font-size:18px;"></i></button>'
       +     '</div>'
 
-      +     // Section: VantageScore 3.0 vs FICO 8
+           // Section: VantageScore 3.0 vs FICO 8
       +     section('VantageScore 3.0 vs FICO 8',
       +       'Both score you 300 to 850, but they weight things differently. Most lenders use FICO 8 for decisions; VantageScore 3.0 (what we show) is widely used by Credit Karma, Experian Free, and others. Scores can differ by 10-50 points between the two models. Directionally they move together — what helps one helps the other.',
       +       'ph-scales', '#6366f1')
 
-      +     // Section: Score bands
+           // Section: Score bands
       +     '<div style="margin-bottom:20px;">'
       +       sectionHeader('Score bands · 300 to 850', 'ph-thermometer', '#f59e0b')
       +       bandsTable()
       +     '</div>'
 
-      +     // Section: The 3 bureaus
+           // Section: The 3 bureaus
       +     section('The 3 bureaus',
       +       'Equifax, Experian, and TransUnion each maintain a separate credit file on you. They can have different data (one lender may report to all 3, another to only 1). Your score at each bureau will vary slightly. Most lenders pull from one bureau when you apply.',
       +       'ph-buildings', '#a855f7')
 
-      +     // Section: 5 factors
+           // Section: 5 factors
       +     '<div style="margin-bottom:20px;">'
       +       sectionHeader('What affects your score', 'ph-chart-pie-slice', '#10b981')
       +       factorsTable()
       +     '</div>'
 
-      +     // Section: Utilization deep-dive
+           // Section: Utilization deep-dive
       +     section('The utilization sweet spot',
       +       'Credit utilization = balance ÷ limit. Bureaus look at both per-card AND overall utilization. Under 10% is the sweet spot — anything above 30% costs you ~10-20 points, above 50% costs ~30-60 points. The bureau sees whatever balance is on your statement closing day, so paying mid-cycle (before close) reports a lower balance even though you spent the same.',
       +       'ph-target', '#22c55e')
 
-      +     // Footer
+           // Footer
       +     '<div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border,rgba(0,0,0,0.06));display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
       +       '<span style="font-size:10.5px;color:var(--text-3,#94a3b8);font-weight:600;">VantageScore is a registered trademark of VantageScore Solutions, LLC. FICO is a registered trademark of Fair Isaac Corporation.</span>'
       +       '<button type="button" data-cs-info-action="close" style="background:var(--text-1,#0a0a0a);color:var(--card,#fff);border:0;padding:8px 18px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:0.02em;">Got it</button>'

@@ -82,6 +82,24 @@
   }
 
   // ── Chart SVG ───────────────────────────────────────────────────────────
+  function multiSeriesData() {
+    // Returns array of series objects: { bureau, color, points }
+    var hist = getHistory();
+    if (!hist.length) return [];
+    var rangeMs = state.range === 'all' ? Infinity : state.range * 30 * 86400000;
+    var cutoff = Date.now() - rangeMs;
+    var filtered = hist.filter(function (h) { return h.ts >= cutoff; });
+    var bureaus = ['vantage', 'equifax', 'experian', 'transunion'];
+    return bureaus.map(function (b) {
+      return {
+        bureau: b,
+        color: bureauColor(b),
+        label: bureauLabel(b),
+        points: filtered.map(function (h) { return { ts: h.ts, score: h[b] }; }).filter(function (p) { return p.score != null && p.score >= 300 && p.score <= 850; })
+      };
+    }).filter(function (s) { return s.points.length >= 2; });
+  }
+
   function chartSVG(points) {
     if (points.length < 2) {
       return '<div style="padding:24px;text-align:center;color:var(--text-3,#94a3b8);font-size:12px;font-weight:600;">Not enough history to chart yet.</div>';
@@ -94,10 +112,14 @@
     var values = points.map(function (p) { return p.score; });
     var minV = Math.min.apply(null, values);
     var maxV = Math.max.apply(null, values);
-    // Pad the range a bit so the line doesn't hug the top/bottom edges
-    var range = Math.max(40, maxV - minV);
-    var yMin = Math.max(300, minV - Math.round(range * 0.15));
-    var yMax = Math.min(850, maxV + Math.round(range * 0.15));
+    // Pad the range generously so the user sees band context, not a zoom-in.
+    // Snap min down to nearest 50 below, max up to nearest 50 above, with at
+    // least a 100-point window so even flat history shows context.
+    var dataRange = Math.max(40, maxV - minV);
+    var pad = Math.max(40, Math.round(dataRange * 0.4));
+    var yMin = Math.max(300, Math.floor((minV - pad) / 50) * 50);
+    var yMax = Math.min(850, Math.ceil((maxV + pad) / 50) * 50);
+    if (yMax - yMin < 100) { yMin = Math.max(300, yMin - 50); yMax = Math.min(850, yMax + 50); }
     var yRange = yMax - yMin;
 
     var color = bureauColor(state.bureau);
@@ -113,8 +135,9 @@
     var line = 'M ' + pts.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' L ');
     var fill = line + ' L ' + pts[pts.length - 1].x.toFixed(1) + ',' + (padT + innerH) + ' L ' + pts[0].x.toFixed(1) + ',' + (padT + innerH) + ' Z';
 
-    // Y-axis labels — 3 ticks
-    var yTicks = [yMin, Math.round((yMin + yMax) / 2), yMax];
+    // Y-axis labels — 5 ticks for fuller scale visibility
+    var step = (yMax - yMin) / 4;
+    var yTicks = [yMin, yMin + step, yMin + step * 2, yMin + step * 3, yMax].map(Math.round);
     var yLabelsHTML = yTicks.map(function (v) {
       var y = padT + (1 - (v - yMin) / yRange) * innerH;
       return '<text x="' + (padL - 6) + '" y="' + y.toFixed(1) + '" text-anchor="end" dominant-baseline="middle" font-size="10" font-weight="700" fill="var(--text-3, #94a3b8)" font-family="inherit">' + v + '</text>'
@@ -217,11 +240,89 @@
     var host = document.getElementById(HOST_ID);
     if (!host) return;
     var pts = filteredSeries();
+    var multiHTML = '';
+    if (state.bureau === 'vantage') {
+      // Overlay all 3 bureau lines underneath the vantage line
+      multiHTML = renderMultiSeriesOverlay();
+    }
     host.innerHTML = ''
       + '<div style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;margin-bottom:8px;">Score history</div>'
       + controlsHTML()
-      + chartSVG(pts);
+      + (multiHTML || chartSVG(pts));
     wireEvents();
+  }
+
+  // Multi-series overlay: VantageScore primary + Equifax/Experian/TransUnion overlays
+  function renderMultiSeriesOverlay() {
+    var series = multiSeriesData();
+    if (series.length < 2) return chartSVG(filteredSeries());
+
+    var W = 720, H = 180, padL = 38, padR = 16, padT = 12, padB = 24;
+    var innerW = W - padL - padR, innerH = H - padT - padB;
+
+    // Compute combined min/max across all series for shared y-scale
+    var allVals = [];
+    series.forEach(function (s) { s.points.forEach(function (p) { allVals.push(p.score); }); });
+    var minV = Math.min.apply(null, allVals);
+    var maxV = Math.max.apply(null, allVals);
+    var dataRange = Math.max(40, maxV - minV);
+    var pad = Math.max(40, Math.round(dataRange * 0.4));
+    var yMin = Math.max(300, Math.floor((minV - pad) / 50) * 50);
+    var yMax = Math.min(850, Math.ceil((maxV + pad) / 50) * 50);
+    if (yMax - yMin < 100) { yMin = Math.max(300, yMin - 50); yMax = Math.min(850, yMax + 50); }
+    var yRange = yMax - yMin;
+
+    var step = (yMax - yMin) / 4;
+    var yTicks = [yMin, yMin + step, yMin + step * 2, yMin + step * 3, yMax].map(Math.round);
+    var yLabelsHTML = yTicks.map(function (v) {
+      var y = padT + (1 - (v - yMin) / yRange) * innerH;
+      return '<text x="' + (padL - 6) + '" y="' + y.toFixed(1) + '" text-anchor="end" dominant-baseline="middle" font-size="10" font-weight="700" fill="var(--text-3, #94a3b8)" font-family="inherit">' + v + '</text>'
+           + '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" stroke="var(--border, rgba(0,0,0,0.06))" stroke-width="1" stroke-dasharray="2 3"/>';
+    }).join('');
+
+    var linesHTML = '';
+    series.forEach(function (s) {
+      var pts = s.points.map(function (p, i) {
+        var x = padL + (i / (s.points.length - 1)) * innerW;
+        var y = padT + (1 - (p.score - yMin) / yRange) * innerH;
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      });
+      var isPrimary = s.bureau === 'vantage';
+      var strokeWidth = isPrimary ? 2.8 : 1.8;
+      var opacity = isPrimary ? '1' : '0.55';
+      linesHTML += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + s.color + '" stroke-width="' + strokeWidth + '" stroke-linecap="round" stroke-linejoin="round" opacity="' + opacity + '"/>';
+    });
+
+    // X-axis labels from the primary (vantage) series
+    var vSeries = series.find(function (s) { return s.bureau === 'vantage'; }) || series[0];
+    var vPts = vSeries.points.map(function (p, i) {
+      var x = padL + (i / (vSeries.points.length - 1)) * innerW;
+      return { x: x, ts: p.ts };
+    });
+    var xLabels = '';
+    [0, Math.floor(vPts.length / 2), vPts.length - 1].forEach(function (i, idx) {
+      if (i < 0 || i >= vPts.length) return;
+      var d = new Date(vPts[i].ts);
+      var label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      var anchor = idx === 0 ? 'start' : idx === 1 ? 'middle' : 'end';
+      xLabels += '<text x="' + vPts[i].x.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="' + anchor + '" font-size="10" font-weight="700" fill="var(--text-3, #94a3b8)" font-family="inherit">' + label + '</text>';
+    });
+
+    // Legend
+    var legendHTML = '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;font-weight:700;color:var(--text-2,#475569);margin-top:8px;">'
+      + series.map(function (s) {
+          var weight = s.bureau === 'vantage' ? '900' : '600';
+          return '<span style="display:inline-flex;align-items:center;gap:5px;font-weight:' + weight + ';opacity:' + (s.bureau === 'vantage' ? '1' : '0.7') + ';"><span style="width:11px;height:3px;border-radius:2px;background:' + s.color + ';"></span>' + s.label + '</span>';
+        }).join('')
+      + '</div>';
+
+    return ''
+      + '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;max-width:100%;display:block;" aria-hidden="true">'
+      +   yLabelsHTML
+      +   linesHTML
+      +   xLabels
+      + '</svg>'
+      + legendHTML;
   }
 
   function wireEvents() {

@@ -220,6 +220,7 @@
     opts = opts || {};
     var locked = !!opts.locked;
     var primary = !!opts.primary;
+    var bureauId = name.toLowerCase();
     var label = name.toUpperCase();
     var color = value && !locked ? scoreBand(value).color : '#9ca3af';
     var bg = primary ? 'rgba(16,185,129,0.10)' : 'var(--card-2, rgba(255,255,255,0.04))';
@@ -242,8 +243,9 @@
       inner = '<span style="font-size:11px;color:var(--text-3,#94a3b8);font-weight:600;">Not pulled yet</span>';
     }
 
+    var clickable = !locked && value;
     return ''
-      + '<div style="flex:1;min-width:155px;padding:12px 14px;border-radius:11px;background:' + bg + ';border:1px solid ' + border + ';">'
+      + '<div ' + (clickable ? 'data-cs-focus-bureau="' + bureauId + '" ' : '') + 'style="flex:1;min-width:155px;padding:12px 14px;border-radius:11px;background:' + bg + ';border:1px solid ' + border + ';' + (clickable ? 'cursor:pointer;transition:transform 0.15s ease, box-shadow 0.15s ease;' : '') + '">'
       +   '<div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;font-weight:800;color:var(--text-3,#94a3b8);margin-bottom:6px;">' + label + '</div>'
       +   inner
       + '</div>';
@@ -378,6 +380,26 @@
         if (legacy) legacy.style.display = 'none';
       } catch (_) {}
 
+      // Hide the entire legacy Score Detail / giant gauge / per-bureau cards
+      // block rendered by wjp-credit-score-overhaul.js — our new hero replaces it.
+      try {
+        var overhaulWrap = document.getElementById('wjp-cs-overhaul');
+        if (overhaulWrap) overhaulWrap.style.display = 'none';
+      } catch (_) {}
+
+      // Hide any "Score Detail" headers that older modules render
+      try {
+        var headers = page.querySelectorAll('h3, h4, div');
+        headers.forEach(function (h) {
+          if (h === wrap || wrap.contains(h)) return;
+          var txt = (h.textContent || '').trim();
+          if (/^Score Detail$/i.test(txt)) {
+            var box = h.closest('div');
+            if (box && box !== page) box.style.display = 'none';
+          }
+        });
+      } catch (_) {}
+
       // Hide the legacy "Score Detail · VantageScore 3.0 · 300 to 850" header inside
       // wjp-credit-actions — now redundant since our hero owns the score display.
       try {
@@ -390,6 +412,21 @@
   }
 
   function wireEvents() {
+    // Bureau strip chips clickable -> focus chart
+    document.querySelectorAll('[data-cs-focus-bureau]').forEach(function (chip) {
+      if (chip.__wjpWired) return;
+      chip.__wjpWired = true;
+      chip.addEventListener('click', function () {
+        var b = chip.getAttribute('data-cs-focus-bureau');
+        if (window.WJP_CreditHistoryChart && WJP_CreditHistoryChart.setBureau) {
+          WJP_CreditHistoryChart.setBureau(b);
+          // Scroll chart into view
+          var chart = document.getElementById('wjp-cs-history-chart');
+          if (chart) chart.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    });
+
     var refresh = document.getElementById('wjp-cs-refresh-btn');
     if (refresh && !refresh.__wjpWired) {
       refresh.__wjpWired = true;
