@@ -283,16 +283,36 @@
     }).join('');
 
     var linesHTML = '';
+    var fillsHTML = '';
+    var dotsHTML = '';
     series.forEach(function (s) {
-      var pts = s.points.map(function (p, i) {
+      var ptsArr = s.points.map(function (p, i) {
         var x = padL + (i / (s.points.length - 1)) * innerW;
         var y = padT + (1 - (p.score - yMin) / yRange) * innerH;
-        return x.toFixed(1) + ',' + y.toFixed(1);
+        return { x: x, y: y, ts: p.ts, score: p.score };
       });
-      var isPrimary = s.bureau === 'vantage';
-      var strokeWidth = isPrimary ? 2.8 : 1.8;
-      var opacity = isPrimary ? '1' : '0.55';
-      linesHTML += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + s.color + '" stroke-width="' + strokeWidth + '" stroke-linecap="round" stroke-linejoin="round" opacity="' + opacity + '"/>';
+      var pts = ptsArr.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); });
+      var fadeId = 'wjp-cmp-grad-' + s.bureau;
+
+      // Soft area fill under each line (low opacity to avoid muddiness with 3 series)
+      var fillPath = 'M ' + pts.join(' L ') + ' L ' + ptsArr[ptsArr.length-1].x.toFixed(1) + ',' + (padT + innerH) + ' L ' + ptsArr[0].x.toFixed(1) + ',' + (padT + innerH) + ' Z';
+      fillsHTML += '<defs><linearGradient id="' + fadeId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + s.color + '" stop-opacity="0.18"/><stop offset="100%" stop-color="' + s.color + '" stop-opacity="0"/></linearGradient></defs>';
+      fillsHTML += '<path d="' + fillPath + '" fill="url(#' + fadeId + ')" stroke="none"/>';
+
+      // Line
+      linesHTML += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + s.color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>';
+
+      // Per-point dots with hover tooltip
+      ptsArr.forEach(function (p, i) {
+        var d = new Date(p.ts);
+        var dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var title = s.label + ': ' + p.score + ' · ' + dateStr;
+        dotsHTML += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="' + s.color + '" stroke="var(--card, #fff)" stroke-width="1.6" style="cursor:pointer;"><title>' + title + '</title></circle>';
+      });
+
+      // Highlighted latest-point dot per series
+      var last = ptsArr[ptsArr.length - 1];
+      dotsHTML += '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="5" fill="' + s.color + '" stroke="var(--card, #fff)" stroke-width="3"/>';
     });
 
     // X-axis labels from the primary (vantage) series
@@ -319,9 +339,11 @@
       + '</div>';
 
     return ''
-      + '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;max-width:100%;display:block;" aria-hidden="true">'
+      + '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;max-width:100%;display:block;overflow:visible;">'
       +   yLabelsHTML
+      +   fillsHTML
       +   linesHTML
+      +   dotsHTML
       +   xLabels
       + '</svg>'
       + legendHTML;
