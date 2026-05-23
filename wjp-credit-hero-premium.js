@@ -352,17 +352,22 @@
       }
       wrap.innerHTML = statusStripHTML(pullState) + heroHTML(score, band, history, bureaus);
 
-      // Hide the duplicate "Score 616 / Equifax 656" header that wjp-credit-actions
-      // (or its parent renderer) writes at the very top of the page.
+      // Hide the duplicate "Score 616 / Equifax 656" header (rendered by
+      // wjp-credit-actions). The header contains a "Score NNN" pattern and
+      // a small Equifax/Experian/TransUnion stat line — kill it entirely.
       try {
-        var olderTop = page.querySelectorAll(':scope > div, :scope > section');
+        var olderTop = page.querySelectorAll('h1, h2, div');
         olderTop.forEach(function (el) {
-          if (el === wrap) return;
-          // Heuristic: hide any block that contains "Score" + an exact score
-          // number AND lives above us in the DOM (already moved out by our insertBefore).
-          var txt = (el.textContent || '').slice(0, 200);
-          if (/^\s*(Credit Health|Score\s+\d{3})/.test(txt) && el.compareDocumentPosition(wrap) & Node.DOCUMENT_POSITION_FOLLOWING) {
-            el.style.display = 'none';
+          if (el === wrap || wrap.contains(el)) return;
+          var txt = (el.textContent || '').trim();
+          // Match the original header pattern only (short, starts with "Credit Health" or "Score NNN")
+          if (/^Credit Health$/i.test(txt) || /^Score\s+\d{3}\b/i.test(txt)) {
+            var parent = el.parentElement;
+            if (parent && page.contains(parent) && parent !== page) {
+              parent.style.display = 'none';
+            } else {
+              el.style.display = 'none';
+            }
           }
         });
       } catch (_) {}
@@ -380,6 +385,7 @@
       } catch (_) {}
 
       wireEvents();
+      try { window.dispatchEvent(new CustomEvent('wjp:credit-hero-rendered')); } catch (_) {}
     } catch (_) {}
   }
 

@@ -294,6 +294,7 @@
     if (window.addEventListener) {
       window.addEventListener('hashchange', function () { setTimeout(function () { ensureHost(); render(); }, 100); });
       window.addEventListener('wjp:page-change', function () { setTimeout(function () { ensureHost(); render(); }, 100); });
+      window.addEventListener('wjp:credit-hero-rendered', function () { setTimeout(function () { ensureHost(); render(); }, 50); });
     }
   }
 

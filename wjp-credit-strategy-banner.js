@@ -274,6 +274,7 @@
       window.addEventListener('hashchange', function () { setTimeout(render, 80); });
       window.addEventListener('wjp:page-change', function () { setTimeout(render, 80); });
       window.addEventListener('wjp:state-changed', function () { setTimeout(render, 80); });
+      window.addEventListener('wjp:credit-hero-rendered', function () { setTimeout(render, 30); });
     }
     var attempts = 0;
     var iv = setInterval(function () {

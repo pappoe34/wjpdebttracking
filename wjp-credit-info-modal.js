@@ -230,11 +230,12 @@
     if (window.addEventListener) {
       window.addEventListener('hashchange', function () { setTimeout(injectButton, 100); });
       window.addEventListener('wjp:page-change', function () { setTimeout(injectButton, 100); });
+      window.addEventListener('wjp:credit-hero-rendered', function () { setTimeout(injectButton, 50); });
     }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.WJP_CreditInfoModal = { open: open, close: close };
+  window.WJP_CreditInfoModal = { open: open, close: close, injectButton: injectButton };
 })();
