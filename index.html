@@ -236,6 +236,15 @@
   #page-activity > *:not(#wjp-edu-root) {
     display: none !important;
   }
+
+  /* Credit Health page — hide legacy renderers from first paint so the new
+     premium hero owns the top of the page without flicker. */
+  #wjp-credit-autopull-card { display: none !important; }
+  #wjp-cs-overhaul          { display: none !important; }
+  /* Hide the legacy "Score Detail / VantageScore 3.0 · 300 to 850" block
+     that wjp-credit-actions renders. Targeted via descendant selector since
+     the actions module doesn't tag a clean wrapper. */
+  #page-credit-wjp [data-cs-section="score-detail-header"] { display: none !important; }
 </style>
 </head>
 <body class="light">
@@ -4496,13 +4505,4 @@
 <script src="/wjp-strategy-simulator.js?v=1" defer></script>
 <script src="/wjp-snapshots.js?v=4-multi-acct" defer></script>
 <script src="/wjp-momentum.js?v=12-ai-tips" defer></script>
-<script src="/wjp-goals.js?v=7" defer></script>
-<script src="/wjp-credit-actions.js?v=14" defer></script>
-<script src="/wjp-credit-pull.js?v=2" defer></script>
-<script src="/wjp-credit-mock-data.js?v=1" defer></script>
-<script src="/wjp-credit-tier-gate.js?v=1" defer></script>
-<script src="/wjp-credit-hero-premium.js?v=1" defer></script>
-<script src="/wjp-credit-strategy-banner.js?v=1" defer></script>
-<script src="/wjp-credit-simulator.js?v=1" defer></script>
-<script src="/wjp-credit-history-chart.js?v=1" defer></script>
-<script src="/wjp-credit-info-modal.j
+<script s
