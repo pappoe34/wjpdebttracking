@@ -220,21 +220,42 @@ async function runArrayFlow({ base, identity, sandbox }) {
     // Step 3 — Match answers
     const answers = pickAnswers(questions);
 
-    // Step 4 — Submit Verification
-    const submitRes = await fetch(`${base}/api/authenticate/v2`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({
-        appKey: ARRAY_APP_KEY,
-        userId,
-        authToken,
-        answers
-      })
-    });
-    if (!submitRes.ok) return fail('submit_verification', submitRes);
-    const submitData = await submitRes.json();
-    const userToken = submitData.userToken;
-    if (!userToken) return { ok: false, err: 'verification_failed', details: submitData };
+    // Step 4 — Submit Verification (multi-round KBA loop)
+    // Experian sometimes responds with another set of questions instead of a
+    // userToken — happens on sandbox identities when "None of the above"
+    // answers exceed a threshold. Loop until we get a userToken or run out
+    // of attempts.
+    let userToken = null;
+    let currentAuthToken = authToken;
+    let currentQuestions = questions;
+    let currentAnswers = answers;
+    const MAX_KBA_ROUNDS = 5;
+    let lastSubmit = null;
+    for (let round = 0; round < MAX_KBA_ROUNDS; round++) {
+      const submitRes = await fetch(`${base}/api/authenticate/v2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+          appKey: ARRAY_APP_KEY,
+          userId,
+          authToken: currentAuthToken,
+          answers: currentAnswers
+        })
+      });
+      if (!submitRes.ok) return fail('submit_verification', submitRes);
+      lastSubmit = await submitRes.json();
+      if (lastSubmit.userToken) { userToken = lastSubmit.userToken; break; }
+      // Another round of questions — keep going
+      if (Array.isArray(lastSubmit.questions) && lastSubmit.questions.length > 0) {
+        currentAuthToken = lastSubmit.authToken || currentAuthToken;
+        currentQuestions = lastSubmit.questions;
+        currentAnswers = pickAnswers(currentQuestions);
+        continue;
+      }
+      // Neither userToken nor more questions — verification failed
+      break;
+    }
+    if (!userToken) return { ok: false, err: 'verification_failed', details: lastSubmit };
 
     // Step 5 — Order Credit Report (Experian 1B Vantage)
     const orderRes = await fetch(`${base}/api/report/v2`, {
