@@ -193,6 +193,15 @@ exports.handler = async (event) => {
 };
 
 
+
+// Build the auth headers Array expects on every API call.
+function arrayHeaders(extra) {
+  return Object.assign({
+    'Authorization': 'Bearer ' + ARRAY_API_TOKEN,
+    'Content-Type': 'application/json; charset=utf-8'
+  }, extra || {});
+}
+
 // ─── Array API flow (5 steps) ───────────────────────────────────────────────
 async function runArrayFlow({ base, identity, sandbox }) {
   try {
@@ -200,7 +209,7 @@ async function runArrayFlow({ base, identity, sandbox }) {
     const createBody = Object.assign({ appKey: ARRAY_APP_KEY }, identity);
     const userRes = await fetch(`${base}/api/user/v2`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: arrayHeaders(),
       body: JSON.stringify(createBody)
     });
     if (!userRes.ok) return fail('create_user', userRes);
@@ -210,7 +219,7 @@ async function runArrayFlow({ base, identity, sandbox }) {
 
     // Step 2 — Initiate Verification (Experian KBA)
     const initUrl = `${base}/api/authenticate/v2?appKey=${encodeURIComponent(ARRAY_APP_KEY)}&userId=${encodeURIComponent(userId)}&provider1=efx`;
-    const initRes = await fetch(initUrl);
+    const initRes = await fetch(initUrl, { headers: arrayHeaders() });
     if (!initRes.ok) return fail('init_verification', initRes);
     const initData = await initRes.json();
     const authToken = initData.authToken;
@@ -234,7 +243,7 @@ async function runArrayFlow({ base, identity, sandbox }) {
     for (let round = 0; round < MAX_KBA_ROUNDS; round++) {
       const submitRes = await fetch(`${base}/api/authenticate/v2`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: arrayHeaders(),
         body: JSON.stringify({
           appKey: ARRAY_APP_KEY,
           userId,
@@ -260,10 +269,7 @@ async function runArrayFlow({ base, identity, sandbox }) {
     // Step 5 — Order Credit Report (Experian 1B Vantage)
     const orderRes = await fetch(`${base}/api/report/v2`, {
       method: 'POST',
-      headers: {
-        'x-array-user-token': userToken,
-        'Content-Type': 'application/json'
-      },
+      headers: arrayHeaders({ 'x-array-user-token': userToken }),
       body: JSON.stringify({ userId, productCode: 'efx1bReportScore' })
     });
     if (!orderRes.ok) return fail('order_report', orderRes);
@@ -361,7 +367,7 @@ async function retrieveScoreFromHtml(base, reportKey, displayToken) {
   const url = `${base}/api/report/v2/html?reportKey=${encodeURIComponent(reportKey)}&displayToken=${encodeURIComponent(displayToken)}`;
   // Array may return 202 while the report is generating — poll up to 8s
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: arrayHeaders() });
     if (res.status === 200) {
       const html = await res.text();
       const m = html.match(/Vantage[\s\S]{0,300}?(\d{3})/i)
