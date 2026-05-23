@@ -253,6 +253,12 @@
 
   // ── Hero card composition ───────────────────────────────────────────────
   function heroHTML(score, band, history, bureaus) {
+    // Track which bureau the chart is currently focusing on so chip highlight matches.
+    var focused = (window.WJP_CreditHistoryChart && WJP_CreditHistoryChart.getBureau)
+      ? WJP_CreditHistoryChart.getBureau()
+      : 'equifax';
+    if (focused === 'vantage') focused = 'equifax'; // map vantage to equifax (primary bureau)
+
     var ptsToNext = band.next ? (band.next.threshold - score) : 0;
     var deltaPts = history && history.length >= 2 ? (history[history.length - 1].score - history[history.length - 2].score) : 0;
     var deltaColor = deltaPts > 0 ? '#22c55e' : deltaPts < 0 ? '#ef4444' : '#94a3b8';
@@ -307,9 +313,9 @@
       +       '</div>'
              // Bureau strip
       +       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">'
-      +         bureauChipHTML('Equifax',    bureaus.equifax,    { primary: true })
-      +         bureauChipHTML('Experian',   bureaus.experian,   { locked: !hasAccess('plus') })
-      +         bureauChipHTML('TransUnion', bureaus.transunion, { locked: !hasAccess('plus') })
+      +         bureauChipHTML('Equifax',    bureaus.equifax,    { primary: focused === 'equifax' })
+      +         bureauChipHTML('Experian',   bureaus.experian,   { primary: focused === 'experian',   locked: !hasAccess('plus') })
+      +         bureauChipHTML('TransUnion', bureaus.transunion, { primary: focused === 'transunion', locked: !hasAccess('plus') })
       +       '</div>'
       +     '</div>'
       +   '</div>'
@@ -387,15 +393,19 @@
         if (overhaulWrap) overhaulWrap.style.display = 'none';
       } catch (_) {}
 
-      // Hide any "Score Detail" headers that older modules render
+      // Hide any block that contains the legacy "VantageScore 3.0 · 300 to 850"
+      // label OR shows "experian / not pulled yet" cards (rendered by older modules).
       try {
-        var headers = page.querySelectorAll('h3, h4, div');
-        headers.forEach(function (h) {
-          if (h === wrap || wrap.contains(h)) return;
-          var txt = (h.textContent || '').trim();
-          if (/^Score Detail$/i.test(txt)) {
-            var box = h.closest('div');
-            if (box && box !== page) box.style.display = 'none';
+        var legacyBlocks = page.querySelectorAll('div');
+        legacyBlocks.forEach(function (el) {
+          if (el === wrap || wrap.contains(el) || el.contains(wrap)) return;
+          var txt = (el.textContent || '').slice(0, 400);
+          // Only target small wrappers — avoid hiding the whole page accidentally
+          if (el.childElementCount > 30) return;
+          if (/Score Detail\s*VantageScore 3\.0/i.test(txt)
+              || /VantageScore 3\.0\s*·\s*300 to 850/i.test(txt)
+              || /not pulled yet/i.test(txt) && /Score Detail/i.test(txt)) {
+            el.style.display = 'none';
           }
         });
       } catch (_) {}
@@ -477,6 +487,7 @@
     if (window.addEventListener) {
       window.addEventListener('hashchange', function () { setTimeout(render, 50); });
       window.addEventListener('wjp:page-change', function () { setTimeout(render, 50); });
+      window.addEventListener('wjp:credit-bureau-changed', function () { setTimeout(render, 30); });
     }
     // Idempotent retry — wait for #page-credit-wjp to mount if not present yet
     var attempts = 0;

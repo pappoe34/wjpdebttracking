@@ -330,8 +330,7 @@
       if (btn.__wjpWired) return;
       btn.__wjpWired = true;
       btn.addEventListener('click', function () {
-        state.bureau = btn.getAttribute('data-cs-bureau');
-        render();
+        setBureauAndNotify(btn.getAttribute('data-cs-bureau'));
       });
     });
     document.querySelectorAll('[data-cs-range]').forEach(function (btn) {
@@ -402,9 +401,16 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
+  function setBureauAndNotify(b) {
+    state.bureau = b;
+    render();
+    try { window.dispatchEvent(new CustomEvent('wjp:credit-bureau-changed', { detail: { bureau: b } })); } catch (_) {}
+  }
+
   window.WJP_CreditHistoryChart = {
     render: render,
-    setBureau: function (b) { state.bureau = b; render(); },
+    getBureau: function () { return state.bureau; },
+    setBureau: setBureauAndNotify,
     setRange: function (r) { state.range = r; render(); }
   };
 })();

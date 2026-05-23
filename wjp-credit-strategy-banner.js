@@ -26,7 +26,14 @@
 
   function loadCS() { try { return JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch (_) { return {}; } }
   function getDebts() { try { return (typeof appState !== 'undefined' && appState && appState.debts) || []; } catch (_) { return []; } }
-  function isCreditCard(d) { var t = String(d.type || d.category || '').toLowerCase(); return /credit/.test(t) || /\bcard\b/.test(t) || t === 'cc'; }
+  function isCreditCard(d) {
+    if (!d) return false;
+    var t = String(d.type || d.category || d.kind || '').toLowerCase();
+    var n = String(d.name || d.label || '').toLowerCase();
+    return /credit/.test(t) || /\bcard\b/.test(t) || t === 'cc'
+        || /\bvisa\b|\bmastercard\b|\bdiscover\b|\bamex\b/.test(n)
+        || /credit\s*card/.test(n);
+  }
   function fmtUSD(n) { try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0); } catch (_) { return '$' + Math.round(n || 0); } }
   function currentScore() {
     try {
@@ -268,8 +275,25 @@
     });
   }
 
+  // Poll for appState.debts to hydrate from Firestore before showing no-data
+  function pollForDebts() {
+    var attempts = 0;
+    var iv = setInterval(function () {
+      attempts++;
+      try {
+        if (typeof appState !== 'undefined' && appState && Array.isArray(appState.debts) && appState.debts.length > 0) {
+          render();
+          clearInterval(iv);
+          return;
+        }
+      } catch (_) {}
+      if (attempts > 30) clearInterval(iv); // give up after ~15s
+    }, 500);
+  }
+
   function init() {
     render();
+    pollForDebts();
     if (window.addEventListener) {
       window.addEventListener('hashchange', function () { setTimeout(render, 80); });
       window.addEventListener('wjp:page-change', function () { setTimeout(render, 80); });
