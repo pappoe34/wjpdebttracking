@@ -88,12 +88,39 @@
   // It receives the user's Firebase UID and returns a Promise<{ok, scores}>.
   // scores shape: { fico8, equifax, experian, transunion, pulledAt }
   function fetchScoresFromBackend(uid) {
-    // Placeholder — returns null so UI shows "Backend not connected yet" message.
-    return Promise.resolve({
-      ok: false,
-      err: 'Array backend not yet deployed — see /docs/credit-array-setup.md',
-      scores: null
-    });
+    // Calls /.netlify/functions/array-credit-pull with the user's Firebase ID
+    // token. Returns: { ok, scores: { vantage, experian, equifax, transunion,
+    // pulledAt, provider, scoreModel, sandbox }, err? }
+    return (async function () {
+      try {
+        var auth = (window.firebase && window.firebase.auth) ? window.firebase.auth() : null;
+        var user = auth && auth.currentUser;
+        if (!user) return { ok: false, err: 'Sign in required to refresh your score.', scores: null };
+        var idToken = await user.getIdToken(false);
+        var res = await fetch('/.netlify/functions/array-credit-pull', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + idToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        var data = null;
+        try { data = await res.json(); } catch (_) { data = {}; }
+        if (!res.ok || !data || !data.ok) {
+          var msg = (data && (data.message || data.error)) || ('Request failed (' + res.status + ')');
+          if (data && data.error === 'rate_limited' && data.nextEligibleAt) {
+            var d = new Date(data.nextEligibleAt);
+            msg = 'Next refresh available ' + d.toLocaleDateString();
+          } else if (data && data.error === 'tier_locked') {
+            msg = 'Pro tier required to refresh your score.';
+          } else if (data && data.error === 'identity_required') {
+            msg = 'Complete your identity profile to unlock credit pulls.';
+          }
+          return { ok: false, err: msg, scores: null };
+        }
+        return { ok: true, scores: data.scores };
+      } catch (e) {
+        return { ok: false, err: (e && e.message) || 'Network error', scores: null };
+      }
+    })();
   }
 
   function commitScores(scores) {
@@ -105,14 +132,19 @@
       var ci = JSON.parse(localStorage.getItem(scoped) || localStorage.getItem(key) || '{}');
       ci.bureauScores = ci.bureauScores || {};
       var now = Date.now();
-      if (scores.equifax)    ci.bureauScores.equifax   = { value: scores.equifax,    capturedAt: now };
-      if (scores.experian)   ci.bureauScores.experian  = { value: scores.experian,   capturedAt: now };
-      if (scores.transunion) ci.bureauScores.transunion= { value: scores.transunion, capturedAt: now };
-      if (scores.fico8) ci.currentScore = String(scores.fico8);
+      var primary = scores.vantage || scores.experian || scores.equifax || scores.fico8;
+      if (scores.equifax)    ci.bureauScores.equifax    = { value: scores.equifax,    capturedAt: now };
+      if (scores.experian)   ci.bureauScores.experian   = { value: scores.experian,   capturedAt: now };
+      if (scores.transunion) ci.bureauScores.transunion = { value: scores.transunion, capturedAt: now };
+      if (primary) {
+        ci.currentScore = String(primary);
+        ci.scoreModel = scores.scoreModel || 'VantageScore 3.0';
+        ci.scoreProvider = scores.provider || 'experian';
+      }
       localStorage.setItem(scoped, JSON.stringify(ci));
       // Trigger host re-render
       try { if (typeof window.renderCreditScoreTab === 'function') window.renderCreditScoreTab(); } catch (_) {}
-      try { if (typeof window.recordScoreHistory === 'function' && scores.fico8) window.recordScoreHistory(scores.fico8); } catch (_) {}
+      try { if (typeof window.recordScoreHistory === 'function' && primary) window.recordScoreHistory(primary); } catch (_) {}
     } catch (_) {}
   }
 
@@ -158,18 +190,21 @@
       if (result.ok && result.scores) {
         commitScores(result.scores);
         s2.history = (s2.history || []).slice(-23);
+        var primary = result.scores.vantage || result.scores.experian || result.scores.equifax;
         s2.history.push({
           date: new Date().toISOString().slice(0, 10),
-          fico8: result.scores.fico8,
+          vantage: primary,
           equifax: result.scores.equifax,
           experian: result.scores.experian,
-          transunion: result.scores.transunion
+          transunion: result.scores.transunion,
+          model: result.scores.scoreModel || 'VantageScore 3.0',
+          provider: result.scores.provider || 'experian'
         });
         if (window.WJP_Momentum && typeof window.WJP_Momentum.showToast === 'function') {
           window.WJP_Momentum.showToast({
             eyebrow: 'CREDIT REFRESHED',
-            title: 'New scores pulled',
-            sub: 'FICO 8: ' + (result.scores.fico8 || '—') + ' · next auto-update ' + fmtRelative(s2.nextPullAt),
+            title: 'New score pulled',
+            sub: 'VantageScore: ' + (primary || '—') + ' · next refresh ' + fmtRelative(s2.nextPullAt),
             color: '#10b981',
             icon: 'ph-fill ph-shield-check'
           });
@@ -194,7 +229,7 @@
         +   '<div style="position:absolute;top:10px;right:14px;font-size:9px;letter-spacing:0.10em;font-weight:800;background:rgba(99,102,241,0.20);color:#818cf8;padding:4px 10px;border-radius:999px;text-transform:uppercase;"><i class="ph-fill ph-lock" style="font-size:9px;margin-right:3px;"></i>Pro</div>'
         +   '<div style="display:flex;align-items:center;gap:14px;">'
         +     '<div style="width:42px;height:42px;border-radius:11px;background:rgba(99,102,241,0.20);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-arrows-clockwise" style="font-size:20px;color:#818cf8;"></i></div>'
-        +     '<div style="flex:1;"><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:#818cf8;text-transform:uppercase;">Auto credit score updates</div><div style="font-size:16px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:2px;">Get your FICO 8 from all 3 bureaus, every month</div><div style="font-size:11.5px;color:var(--text-3,#94a3b8);font-weight:600;margin-top:6px;line-height:1.5;">Soft-pull, won\'t hurt your score. Stop guessing when your score changes — see it auto-update on the same day each month.</div></div>'
+        +     '<div style="flex:1;"><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:#818cf8;text-transform:uppercase;">Auto credit score updates</div><div style="font-size:16px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:2px;">Your VantageScore 3.0 — refreshed every month</div><div style="font-size:11.5px;color:var(--text-3,#94a3b8);font-weight:600;margin-top:6px;line-height:1.5;">Soft-pull, won\'t hurt your score. Stop guessing when your score changes — see it auto-update on the same day each month.</div></div>'
         +     '<button id="wjp-pull-upgrade" type="button" style="background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border:0;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;box-shadow:0 4px 14px rgba(99,102,241,0.30);">Upgrade to Pro</button>'
         +   '</div>'
         + '</div>';
@@ -210,7 +245,7 @@
       +   '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;">'
       +     '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:240px;">'
       +       '<div style="width:42px;height:42px;border-radius:11px;background:rgba(16,185,129,0.15);display:grid;place-items:center;flex-shrink:0;"><i class="ph-fill ph-arrows-clockwise" style="font-size:20px;color:#10b981;"></i></div>'
-      +       '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:#10b981;text-transform:uppercase;">Auto credit score updates</div><div style="font-size:16px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:2px;">' + (s.enabled ? 'On — ' + (s.cadence === 'weekly' ? 'Weekly' : 'Monthly · 30-day cap') : 'Off') + '</div></div>'
+      +       '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:#10b981;text-transform:uppercase;">VantageScore 3.0 · Auto-refresh</div><div style="font-size:16px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:2px;">' + (s.enabled ? 'On — ' + (s.cadence === 'weekly' ? 'Weekly' : 'Monthly · 30-day cap') : 'Off') + '</div></div>'
       +     '</div>'
       +     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
       +       cadenceToggleHTML(s, proPlus)
@@ -228,6 +263,10 @@
           ? '<div style="margin-top:12px;padding:10px 14px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.30);border-radius:8px;font-size:11.5px;color:#a16207;font-weight:600;line-height:1.5;"><i class="ph-fill ph-info" style="margin-right:6px;color:#f59e0b;"></i>' + escapeHTML(String(lastErr)) + '</div>'
           : '')
       + (s.history && s.history.length >= 2 ? historyChartHTML(s.history) : '')
+      +   '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border,rgba(255,255,255,0.06));display:flex;align-items:center;gap:8px;font-size:10px;font-weight:600;color:var(--text-3,#94a3b8);letter-spacing:0.02em;">'
+      +     '<i class="ph ph-shield-check" style="font-size:12px;color:#10b981;"></i>'
+      +     '<span>Powered by VantageScore 3.0 from Experian. Soft-pull, won&rsquo;t impact your score.</span>'
+      +   '</div>'
       + '</div>';
   }
 
@@ -250,7 +289,7 @@
 
   function historyChartHTML(hist) {
     if (!hist || hist.length < 2) return '';
-    var values = hist.map(function (h) { return h.fico8 || 0; }).filter(function (x) { return x > 0; });
+    var values = hist.map(function (h) { return h.vantage || h.fico8 || 0; }).filter(function (x) { return x > 0; });
     if (values.length < 2) return '';
     var min = Math.min.apply(null, values);
     var max = Math.max.apply(null, values);
@@ -305,7 +344,7 @@
       if (window.WJP_Momentum) window.WJP_Momentum.showToast({
         eyebrow: 'UPGRADE',
         title: 'Open Settings → Billing to choose your tier',
-        sub: 'Pro unlocks monthly FICO pulls from Equifax, Experian, and TransUnion.',
+        sub: 'Pro unlocks monthly VantageScore 3.0 pulls with instant credit alerts.',
         color: '#6366f1',
         icon: 'ph-fill ph-crown'
       });

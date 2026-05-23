@@ -463,7 +463,7 @@
     return ''
       + '<div style="margin-bottom:24px;">'
       +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">'
-      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Score Detail</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">FICO 8 · range 300 to 850</div></div>'
+      +     '<div><div style="font-size:10px;letter-spacing:0.10em;font-weight:800;color:var(--ink-dim, var(--ink-dim, var(--text-3, #94a3b8));text-transform:uppercase;">Score Detail</div><div style="font-size:15px;font-weight:800;color:var(--ink, var(--ink, var(--text-1, #0a0a0a));margin-top:2px;">VantageScore 3.0 · 300 to 850</div></div>'
       +   '</div>'
       // Big score band card
       +   '<div style="background:var(--card, var(--bg-2, #fff));border:1px solid var(--border,rgba(255,255,255,0.06));border-radius:14px;padding:18px 22px;">'
