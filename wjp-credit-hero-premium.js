@@ -496,13 +496,55 @@
   }
 
   // Initial mount + re-render hooks
+  // Surgical update for bureau switch — avoids re-rendering the whole hero
+  // (which would wipe and rebuild the chart host below, causing flicker).
+  function updateForBureauChange() {
+    try {
+      var wrap = document.getElementById(WRAP_ID);
+      if (!wrap) return;
+      var focused = focusedBureau();
+      var score = currentScore();
+      var band = scoreBand(score);
+
+      // Update main score number + color + band label
+      var scoreEls = wrap.querySelectorAll('div');
+      // Find the big-score node by its inline style sized at 64px
+      scoreEls.forEach(function (el) {
+        if (el.style && el.style.fontSize === '64px') {
+          el.textContent = score || '—';
+          el.style.color = band.color;
+        }
+        if (el.style && el.style.fontSize === '11px' && el.style.letterSpacing === '0.10em' && /EXCEPTIONAL|VERY GOOD|GOOD|FAIR|POOR|—/.test(el.textContent || '')) {
+          el.textContent = band.short;
+          el.style.color = band.color;
+        }
+        if (el.style && el.style.fontSize === '9.5px' && el.style.letterSpacing === '0.12em' && /· VantageScore$/i.test((el.textContent || '').trim())) {
+          el.textContent = focused.toUpperCase() + ' · VantageScore';
+        }
+      });
+
+      // Update bureau chip highlights
+      wrap.querySelectorAll('[data-cs-focus-bureau]').forEach(function (chip) {
+        var b = chip.getAttribute('data-cs-focus-bureau');
+        var isPrimary = (b === focused);
+        chip.style.background = isPrimary ? 'rgba(16,185,129,0.10)' : 'var(--card-2, rgba(255,255,255,0.04))';
+        chip.style.border = '1px solid ' + (isPrimary ? 'rgba(16,185,129,0.30)' : 'var(--border, rgba(0,0,0,0.06))');
+      });
+
+      // Re-render strategy banner only (no chart wipe)
+      if (window.WJP_CreditStrategy && WJP_CreditStrategy.render) {
+        setTimeout(function () { WJP_CreditStrategy.render(); }, 30);
+      }
+    } catch (_) {}
+  }
+
   function init() {
     render();
     // Re-render when the user navigates to the credit page
     if (window.addEventListener) {
       window.addEventListener('hashchange', function () { setTimeout(render, 50); });
       window.addEventListener('wjp:page-change', function () { setTimeout(render, 50); });
-      window.addEventListener('wjp:credit-bureau-changed', function () { setTimeout(render, 30); });
+      window.addEventListener('wjp:credit-bureau-changed', function () { setTimeout(updateForBureauChange, 16); });
     }
     // Idempotent retry — wait for #page-credit-wjp to mount if not present yet
     var attempts = 0;
