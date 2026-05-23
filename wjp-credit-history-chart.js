@@ -24,7 +24,7 @@
 
   var HOST_ID = 'wjp-cs-history-chart';
   var state = {
-    bureau: 'vantage',   // which series to display
+    bureau: 'equifax',   // which bureau to focus on (Equifax is our primary via Array REST)
     range: 12            // months
   };
 
@@ -71,14 +71,16 @@
     return b === 'equifax'    ? '#a855f7'
          : b === 'experian'   ? '#0ea5e9'
          : b === 'transunion' ? '#f59e0b'
-         : '#10b981';          // vantage = green
+         : b === 'compare'    ? '#10b981'
+         : '#10b981';
   }
 
   function bureauLabel(b) {
     return b === 'equifax'    ? 'Equifax'
          : b === 'experian'   ? 'Experian'
          : b === 'transunion' ? 'TransUnion'
-         : 'VantageScore';
+         : b === 'compare'    ? 'Compare all'
+         : 'Score';
   }
 
   // ── Chart SVG ───────────────────────────────────────────────────────────
@@ -193,10 +195,10 @@
   // ── Bureau / time range selectors ───────────────────────────────────────
   function controlsHTML() {
     var bureaus = [
-      { id: 'vantage',    label: 'VantageScore' },
       { id: 'equifax',    label: 'Equifax' },
       { id: 'experian',   label: 'Experian' },
-      { id: 'transunion', label: 'TransUnion' }
+      { id: 'transunion', label: 'TransUnion' },
+      { id: 'compare',    label: 'Compare all' }
     ];
     var ranges = [
       { id: 3,     label: '3M' },
@@ -241,7 +243,7 @@
     if (!host) return;
     var pts = filteredSeries();
     var multiHTML = '';
-    if (state.bureau === 'vantage') {
+    if (state.bureau === 'compare') {
       // Overlay all 3 bureau lines underneath the vantage line
       multiHTML = renderMultiSeriesOverlay();
     }

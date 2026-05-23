@@ -36,13 +36,30 @@
   function mock() { return window.WJP_CreditMock || {}; }
 
   function currentScore() {
+    var focused = focusedBureau();
+    // Try real per-bureau score first
     try {
       if (typeof appState !== 'undefined' && appState && appState.creditScores) {
-        var v = appState.creditScores.vantage || appState.creditScores.equifax;
+        var cs = appState.creditScores;
+        var v = cs[focused] || cs.vantage || cs.equifax || cs.experian || cs.transunion;
         if (v >= 300 && v <= 850) return v;
       }
     } catch (_) {}
+    // Fall back to mock per-bureau
+    if (mock().bureauScores) {
+      var bs = mock().bureauScores(mock().getCurrentScore ? mock().getCurrentScore() : 616);
+      if (bs && bs[focused] >= 300 && bs[focused] <= 850) return bs[focused];
+    }
     return mock().getCurrentScore ? mock().getCurrentScore() : 616;
+  }
+
+  function focusedBureau() {
+    try {
+      var b = window.WJP_CreditHistoryChart && WJP_CreditHistoryChart.getBureau && WJP_CreditHistoryChart.getBureau();
+      if (b === 'compare' || !b) return 'equifax'; // default & compare-mode show Equifax in hero
+      if (['equifax','experian','transunion'].indexOf(b) >= 0) return b;
+    } catch (_) {}
+    return 'equifax';
   }
 
   function scoreBand(score) {
@@ -254,10 +271,7 @@
   // ── Hero card composition ───────────────────────────────────────────────
   function heroHTML(score, band, history, bureaus) {
     // Track which bureau the chart is currently focusing on so chip highlight matches.
-    var focused = (window.WJP_CreditHistoryChart && WJP_CreditHistoryChart.getBureau)
-      ? WJP_CreditHistoryChart.getBureau()
-      : 'equifax';
-    if (focused === 'vantage') focused = 'equifax'; // map vantage to equifax (primary bureau)
+    var focused = focusedBureau();
 
     var ptsToNext = band.next ? (band.next.threshold - score) : 0;
     var deltaPts = history && history.length >= 2 ? (history[history.length - 1].score - history[history.length - 2].score) : 0;
@@ -294,7 +308,8 @@
            // Left: gauge with score in the middle
       +     '<div style="position:relative;flex-shrink:0;width:280px;max-width:100%;">'
       +       gaugeSVG(score, band)
-      +       '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-12%);display:flex;flex-direction:column;align-items:center;pointer-events:none;">'
+      +       '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-18%);display:flex;flex-direction:column;align-items:center;pointer-events:none;">'
+      +         '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3,#94a3b8);margin-bottom:2px;">' + focused.toUpperCase() + ' · VantageScore</div>'
       +         '<div style="font-size:64px;font-weight:900;color:' + band.color + ';line-height:1;letter-spacing:-0.03em;">' + (score || '—') + '</div>'
       +         '<div style="font-size:11px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:' + band.color + ';margin-top:6px;">' + band.short + '</div>'
       +       '</div>'
