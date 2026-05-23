@@ -102,7 +102,11 @@ exports.handler = async (event) => {
     tier = String(sub.tier || 'free').toLowerCase();
     isAdmin = !!(sub.isAdmin || tier === 'admin');
 
-    if (!isAdmin && !PRO_TIERS.has(tier)) {
+    // Sandbox mode is a dev/test path — skip the tier gate so engineering
+    // can validate the integration without billing or tier setup.
+    // Production mode enforces Pro+ as configured.
+    var sandboxRequested = (body.sandbox !== undefined ? !!body.sandbox : SANDBOX_DEFAULT);
+    if (!sandboxRequested && !isAdmin && !PRO_TIERS.has(tier)) {
       return json(403, {
         error: 'tier_locked',
         message: 'Credit pulls require Pro tier or higher. Upgrade to unlock.',
@@ -113,7 +117,7 @@ exports.handler = async (event) => {
     const creditMeta = state.creditMeta || {};
     const lastPull = creditMeta.lastPullAt || 0;
     const since = Date.now() - lastPull;
-    if (!isAdmin && !force && lastPull && since < MIN_INTERVAL_MS) {
+    if (!sandboxRequested && !isAdmin && !force && lastPull && since < MIN_INTERVAL_MS) {
       return json(429, {
         error: 'rate_limited',
         message: 'Credit pulls are limited to once every 30 days.',
