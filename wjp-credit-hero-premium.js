@@ -86,30 +86,30 @@
       +   'border-radius:10px;'
       +   'font-size:11px;font-weight:600;color:var(--text-3,#94a3b8);'
       + '">'
-      +   // Eyebrow: VantageScore 3.0
+         // Eyebrow: VantageScore 3.0
       +   '<span style="display:inline-flex;align-items:center;gap:6px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:var(--accent,#10b981);font-size:10px;">'
       +     '<i class="ph-fill ph-shield-check" style="font-size:12px;"></i>VantageScore 3.0'
       +   '</span>'
       +   '<span style="opacity:0.4;">·</span>'
-      +   // Last pulled
+         // Last pulled
       +   '<span>Updated <strong style="color:var(--text-1,#0a0a0a);font-weight:700;">' + (last ? fmtDate(last) : 'Never') + '</strong></span>'
       +   '<span style="opacity:0.4;">·</span>'
-      +   // Next refresh
+         // Next refresh
       +   '<span>Next refresh <strong style="color:var(--text-1,#0a0a0a);font-weight:700;">' + (next ? fmtRel(next) : '—') + '</strong></span>'
       +   '<span style="opacity:0.4;">·</span>'
-      +   // Auto-refresh status
+         // Auto-refresh status
       +   '<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Auto-refresh">'
       +     dot
       +     '<span>Auto-refresh <strong style="color:var(--text-1,#0a0a0a);font-weight:700;">' + (enabled ? 'ON' : 'OFF') + '</strong></span>'
       +     '<input type="checkbox" id="wjp-cs-autopull-toggle" ' + (enabled ? 'checked' : '') + ' style="display:none;">'
       +   '</label>'
       +   '<span style="opacity:0.4;">·</span>'
-      +   // Identity
+         // Identity
       +   '<span style="display:inline-flex;align-items:center;gap:6px;">'
       +     '<i class="ph' + (identityVerified ? '-fill ph-check-circle' : ' ph-warning-circle') + '" style="font-size:13px;color:' + (identityVerified ? '#10b981' : '#f59e0b') + ';"></i>'
       +     'Identity <strong style="color:var(--text-1,#0a0a0a);font-weight:700;">' + (identityVerified ? 'Verified' : 'Set up') + '</strong>'
       +   '</span>'
-      +   // Spacer + Refresh button (right-aligned)
+         // Spacer + Refresh button (right-aligned)
       +   '<span style="flex:1;"></span>'
       +   '<button type="button" id="wjp-cs-refresh-btn" ' + (refreshDisabled ? 'disabled' : '') + ' style="'
       +     'display:inline-flex;align-items:center;gap:6px;'
@@ -170,13 +170,13 @@
       +       '<stop offset="85%" stop-color="#22c55e"/>'
       +     '</linearGradient>'
       +   '</defs>'
-      +   // Faint background arc
+         // Faint background arc
       +   '<path d="' + bgPath + '" fill="none" stroke="var(--border, rgba(0,0,0,0.08))" stroke-width="' + stroke + '" stroke-linecap="round"/>'
-      +   // Foreground gradient arc, with animated stroke-dashoffset
+         // Foreground gradient arc, with animated stroke-dashoffset
       +   '<path d="' + bgPath + '" fill="none" stroke="url(#wjp-cs-grad)" stroke-width="' + stroke + '" stroke-linecap="round" stroke-dasharray="' + arcLen + ' ' + arcLen + '" stroke-dashoffset="' + (arcLen * (1 - pct)) + '" style="transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);"/>'
-      +   // Current-position dot
+         // Current-position dot
       +   '<circle cx="' + dotX.toFixed(2) + '" cy="' + dotY.toFixed(2) + '" r="' + (stroke / 2 + 3) + '" fill="' + band.color + '" stroke="var(--card, #fff)" stroke-width="3"/>'
-      +   // End-of-scale labels
+         // End-of-scale labels
       +   '<text x="' + (cx - r) + '" y="' + (cy + 24) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-3, #94a3b8)" font-family="inherit">300</text>'
       +   '<text x="' + (cx + r) + '" y="' + (cy + 24) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-3, #94a3b8)" font-family="inherit">850</text>'
       + '</svg>';
@@ -283,7 +283,7 @@
       + '">'
       +   sandboxBadgeHTML
       +   '<div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap;">'
-      +     // Left: gauge with score in the middle
+           // Left: gauge with score in the middle
       +     '<div style="position:relative;flex-shrink:0;width:280px;max-width:100%;">'
       +       gaugeSVG(score, band)
       +       '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-12%);display:flex;flex-direction:column;align-items:center;pointer-events:none;">'
@@ -291,19 +291,19 @@
       +         '<div style="font-size:11px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:' + band.color + ';margin-top:6px;">' + band.short + '</div>'
       +       '</div>'
       +     '</div>'
-      +     // Right: meta column
+           // Right: meta column
       +     '<div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:14px;">'
-      +       // Band pill + delta
+             // Band pill + delta
       +       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +         bandPillHTML
       +         deltaPillHTML
       +       '</div>'
-      +       // Sparkline + caption
+             // Sparkline + caption
       +       '<div>'
       +         '<div style="font-size:9.5px;letter-spacing:0.10em;font-weight:800;color:var(--text-3,#94a3b8);text-transform:uppercase;margin-bottom:4px;">Score history · last 12 pulls</div>'
       +         sparklineHTML(history)
       +       '</div>'
-      +       // Bureau strip
+             // Bureau strip
       +       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">'
       +         bureauChipHTML('Equifax',    bureaus.equifax,    { primary: true })
       +         bureauChipHTML('Experian',   bureaus.experian,   { locked: !hasAccess('plus') })

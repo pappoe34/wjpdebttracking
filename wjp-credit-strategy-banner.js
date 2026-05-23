@@ -177,15 +177,15 @@
       +       '<div style="font-size:17px;font-weight:900;color:var(--text-1,#0a0a0a);margin-top:3px;letter-spacing:-0.005em;">Pay <span style="color:#10b981;">' + fmtUSD(rec.paydown) + '</span> on ' + (c.name || 'your top card') + '</div>'
       +     '</div>'
       +   '</div>'
-      +   // Reasoning chain — three pills explaining why this works
+         // Reasoning chain — three pills explaining why this works
       +   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;">'
       +     reasonChip('ph-chart-line-down', 'Utilization drops', curUtilPct + '% → ' + newUtilPct + '%')
       +     reasonChip('ph-arrow-up-right',   'Estimated lift',     '+' + rec.lift + ' pts')
       +     reasonChip('ph-clock-clockwise',  'In about',           rec.etaMonths + ' months')
       +   '</div>'
-      +   // Unlock callout when projected score crosses a band threshold
+         // Unlock callout when projected score crosses a band threshold
       +   unlocksHTML
-      +   // Projected score readout + CTAs
+         // Projected score readout + CTAs
       +   '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">'
       +     '<div style="font-size:12px;color:var(--text-3,#94a3b8);font-weight:700;">'
       +       'Projected score: <strong style="color:#10b981;font-size:14px;">' + rec.projectedScore + '</strong> '
@@ -196,7 +196,7 @@
       +       '<button type="button" data-cs-action="explain-strategy" style="background:transparent;color:var(--text-2,#475569);border:1px solid var(--border,rgba(0,0,0,0.10));padding:9px 14px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Why this works</button>'
       +     '</div>'
       +   '</div>'
-      +   // Collapsible explainer
+         // Collapsible explainer
       +   '<div id="wjp-cs-explainer" style="display:none;margin-top:14px;padding:14px 16px;background:var(--card-2,rgba(0,0,0,0.02));border-radius:10px;border-left:3px solid #10b981;">'
       +     '<div style="font-size:11px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-3,#94a3b8);margin-bottom:8px;">Why this works</div>'
       +     '<p style="font-size:12.5px;color:var(--text-2,#475569);line-height:1.6;font-weight:600;margin:0 0 8px;">Credit utilization is <strong>30% of your VantageScore</strong> — the single fastest lever besides payment history. The bureau looks at <strong>per-card</strong> utilization, not just overall, so paying down your highest-util card has outsized impact.</p>'
