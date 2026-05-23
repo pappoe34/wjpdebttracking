@@ -53,8 +53,8 @@
 
            // Section: VantageScore 3.0 vs FICO 8
       +     section('VantageScore 3.0 vs FICO 8',
-      +       'Both score you 300 to 850, but they weight things differently. Most lenders use FICO 8 for decisions; VantageScore 3.0 (what we show) is widely used by Credit Karma, Experian Free, and others. Scores can differ by 10-50 points between the two models. Directionally they move together — what helps one helps the other.',
-      +       'ph-scales', '#6366f1')
+             'Both score you 300 to 850, but they weight things differently. Most lenders use FICO 8 for decisions; VantageScore 3.0 (what we show) is widely used by Credit Karma, Experian Free, and others. Scores can differ by 10-50 points between the two models. Directionally they move together — what helps one helps the other.',
+             'ph-scales', '#6366f1')
 
            // Section: Score bands
       +     '<div style="margin-bottom:20px;">'
@@ -64,8 +64,8 @@
 
            // Section: The 3 bureaus
       +     section('The 3 bureaus',
-      +       'Equifax, Experian, and TransUnion each maintain a separate credit file on you. They can have different data (one lender may report to all 3, another to only 1). Your score at each bureau will vary slightly. Most lenders pull from one bureau when you apply.',
-      +       'ph-buildings', '#a855f7')
+             'Equifax, Experian, and TransUnion each maintain a separate credit file on you. They can have different data (one lender may report to all 3, another to only 1). Your score at each bureau will vary slightly. Most lenders pull from one bureau when you apply.',
+             'ph-buildings', '#a855f7')
 
            // Section: 5 factors
       +     '<div style="margin-bottom:20px;">'
@@ -75,8 +75,8 @@
 
            // Section: Utilization deep-dive
       +     section('The utilization sweet spot',
-      +       'Credit utilization = balance ÷ limit. Bureaus look at both per-card AND overall utilization. Under 10% is the sweet spot — anything above 30% costs you ~10-20 points, above 50% costs ~30-60 points. The bureau sees whatever balance is on your statement closing day, so paying mid-cycle (before close) reports a lower balance even though you spent the same.',
-      +       'ph-target', '#22c55e')
+             'Credit utilization = balance ÷ limit. Bureaus look at both per-card AND overall utilization. Under 10% is the sweet spot — anything above 30% costs you ~10-20 points, above 50% costs ~30-60 points. The bureau sees whatever balance is on your statement closing day, so paying mid-cycle (before close) reports a lower balance even though you spent the same.',
+             'ph-target', '#22c55e')
 
            // Footer
       +     '<div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border,rgba(0,0,0,0.06));display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
