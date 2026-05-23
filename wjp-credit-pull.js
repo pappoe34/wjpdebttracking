@@ -93,10 +93,17 @@
     // pulledAt, provider, scoreModel, sandbox }, err? }
     return (async function () {
       try {
-        var auth = (window.firebase && window.firebase.auth) ? window.firebase.auth() : null;
-        var user = auth && auth.currentUser;
+        // App uses Firebase v9 modular SDK. The auth user is mirrored to
+        // window.__wjpUser (a FirebaseUser instance) by app.js once auth resolves.
+        // Fall back to the v8 namespace for any environments still on it.
+        var user = window.__wjpUser
+          || (window.__wjpAuth && window.__wjpAuth.currentUser)
+          || (window.firebase && window.firebase.auth && window.firebase.auth().currentUser)
+          || null;
         if (!user) return { ok: false, err: 'Sign in required to refresh your score.', scores: null };
-        var idToken = await user.getIdToken(false);
+        var idToken = typeof user.getIdToken === 'function'
+          ? await user.getIdToken(false)
+          : (await (await user).getIdToken && (await user).getIdToken(false));
         var res = await fetch('/.netlify/functions/array-credit-pull', {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + idToken, 'Content-Type': 'application/json' },
