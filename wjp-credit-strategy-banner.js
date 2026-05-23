@@ -26,6 +26,62 @@
 
   function loadCS() { try { return JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch (_) { return {}; } }
   function getDebts() { try { return (typeof appState !== 'undefined' && appState && appState.debts) || []; } catch (_) { return []; } }
+
+  // Cache for Plaid-derived credit cards (populated when appState.debts is empty)
+  var _plaidCardsCache = null;
+  var _plaidFetchInFlight = false;
+
+  // Maps Plaid liability rows to debt-shaped objects the compute() expects.
+  function plaidToDebtShape(items) {
+    var out = [];
+    (items || []).forEach(function (item) {
+      var accts = item.accounts || [];
+      var liab = (item.liabilities && item.liabilities.credit) || [];
+      // Build map account_id -> credit liability info (apr, last payment, etc.)
+      var liabMap = {};
+      liab.forEach(function (l) { if (l && l.account_id) liabMap[l.account_id] = l; });
+      accts.forEach(function (a) {
+        if (!a || a.type !== 'credit') return;
+        var lim = a.balances && (a.balances.limit || (a.balances.available != null && a.balances.current != null ? a.balances.available + a.balances.current : 0));
+        var bal = a.balances && a.balances.current;
+        if (!bal) return;
+        out.push({
+          id: 'plaid:' + a.account_id,
+          name: a.official_name || a.name || 'Credit card',
+          type: 'credit card',
+          balance: Math.round(bal),
+          limit: lim ? Math.round(lim) : 0
+        });
+      });
+    });
+    return out;
+  }
+
+  // Async Plaid fetch. Returns cached value on subsequent calls.
+  function fetchPlaidCards() {
+    if (_plaidCardsCache !== null) return Promise.resolve(_plaidCardsCache);
+    if (_plaidFetchInFlight) return Promise.resolve([]);
+    _plaidFetchInFlight = true;
+    return (async function () {
+      try {
+        var user = window.__wjpUser;
+        if (!user) { _plaidFetchInFlight = false; return []; }
+        var token = await user.getIdToken(false);
+        var res = await fetch('/.netlify/functions/get-accounts', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) { _plaidFetchInFlight = false; return []; }
+        var data = await res.json();
+        var cards = plaidToDebtShape(data.items || []);
+        _plaidCardsCache = cards;
+        _plaidFetchInFlight = false;
+        return cards;
+      } catch (e) {
+        _plaidFetchInFlight = false;
+        return [];
+      }
+    })();
+  }
   function isCreditCard(d) {
     if (!d) return false;
     var t = String(d.type || d.category || d.kind || '').toLowerCase();
@@ -60,8 +116,21 @@
       };
     }).filter(function (c) { return c.limit > 0 && c.balance > 0; });
 
+    // Fallback: if appState.debts gave us nothing, use Plaid-derived cache
+    if (cards.length === 0 && _plaidCardsCache && _plaidCardsCache.length) {
+      cards = _plaidCardsCache.map(function (d) {
+        var lim = parseFloat(cardLimits[d.id] || d.limit || 0);
+        var bal = parseFloat(d.balance || 0);
+        return { id: d.id, name: d.name, balance: bal, limit: lim, util: lim > 0 ? bal / lim : 0 };
+      }).filter(function (c) { return c.limit > 0 && c.balance > 0; });
+    }
+
     if (cards.length === 0) {
-      return { kind: 'no-data', message: 'Add your credit card limits to unlock strategy recommendations.' };
+      // Trigger an async Plaid fetch — when it resolves we'll re-render
+      fetchPlaidCards().then(function (fetched) {
+        if (fetched && fetched.length) { render(); }
+      });
+      return { kind: 'no-data', message: 'Pulling your card data from Plaid…' };
     }
 
     // Sort by utilization descending — highest-util card is the lever
@@ -275,7 +344,8 @@
     });
   }
 
-  // Poll for appState.debts to hydrate from Firestore before showing no-data
+  // Poll for appState.debts to hydrate from Firestore before showing no-data.
+  // After 4s, also kick off a Plaid liabilities fetch as the fallback path.
   function pollForDebts() {
     var attempts = 0;
     var iv = setInterval(function () {
@@ -287,7 +357,12 @@
           return;
         }
       } catch (_) {}
-      if (attempts > 30) clearInterval(iv); // give up after ~15s
+      if (attempts === 8) { // ~4s in — kick off the Plaid fallback fetch
+        fetchPlaidCards().then(function (cards) {
+          if (cards && cards.length) render();
+        });
+      }
+      if (attempts > 30) clearInterval(iv);
     }, 500);
   }
 
