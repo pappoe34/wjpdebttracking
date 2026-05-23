@@ -272,7 +272,7 @@
       + (s.history && s.history.length >= 2 ? historyChartHTML(s.history) : '')
       +   '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border,rgba(255,255,255,0.06));display:flex;align-items:center;gap:8px;font-size:10px;font-weight:600;color:var(--text-3,#94a3b8);letter-spacing:0.02em;">'
       +     '<i class="ph ph-shield-check" style="font-size:12px;color:#10b981;"></i>'
-      +     '<span>Powered by VantageScore 3.0 from Experian. Soft-pull, won&rsquo;t impact your score.</span>'
+      +     '<span>Powered by VantageScore 3.0 from Equifax. Soft-pull, won&rsquo;t impact your score.</span>'
       +   '</div>'
       + '</div>';
   }

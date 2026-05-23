@@ -342,7 +342,7 @@
       + '      <div style="flex:1;min-width:220px;">'
       + '        <div style="font-size:10px;font-weight:800;letter-spacing:0.12em;color:var(--accent,#22c55e);text-transform:uppercase;">YOUR CREDIT SCORE</div>'
       + '        <div style="font-size:18px;font-weight:800;color:var(--ink,#0a0a0a);margin:4px 0 6px;">VantageScore 3.0 · 300 → 850</div>'
-      + '        <div style="font-size:10px;font-weight:600;color:var(--ink-faint,#94a3b8);margin-bottom:8px;display:inline-flex;align-items:center;gap:4px;"><i class="ph ph-shield-check" style="font-size:11px;color:var(--accent,#22c55e);"></i>Powered by VantageScore 3.0 from Experian</div>'
+      + '        <div style="font-size:10px;font-weight:600;color:var(--ink-faint,#94a3b8);margin-bottom:8px;display:inline-flex;align-items:center;gap:4px;"><i class="ph ph-shield-check" style="font-size:11px;color:var(--accent,#22c55e);"></i>Powered by VantageScore 3.0 from Equifax</div>'
       +          (change != null ? (
                   '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:' + (change >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)') + ';color:' + (change >= 0 ? '#22c55e' : '#ef4444') + ';border-radius:999px;font-size:11px;font-weight:800;">'
                 + (change >= 0 ? '▲' : '▼') + ' ' + Math.abs(change) + ' pts since last update</div>'

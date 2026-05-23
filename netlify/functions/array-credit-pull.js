@@ -151,11 +151,11 @@ exports.handler = async (event) => {
     const now = Date.now();
     const scores = {
       vantage: result.score,
-      experian: result.score,
-      equifax: null,
+      equifax: result.score,
+      experian: null,
       transunion: null,   // intentional: not transmittable via REST
       pulledAt: now,
-      provider: 'experian',
+      provider: 'equifax',
       scoreModel: 'VantageScore 3.0',
       sandbox
     };
@@ -165,14 +165,14 @@ exports.handler = async (event) => {
       creditScores: scores,
       creditMeta: {
         lastPullAt: now,
-        lastProvider: 'experian',
+        lastProvider: 'equifax',
         lastReportKey: result.reportKey || null,
         sandbox
       },
       creditScoreHistory: admin.firestore.FieldValue.arrayUnion({
         ts: now,
         score: result.score,
-        provider: 'experian',
+        provider: 'equifax',
         model: 'VantageScore 3.0',
         sandbox
       })
@@ -209,7 +209,7 @@ async function runArrayFlow({ base, identity, sandbox }) {
     if (!userId) return { ok: false, err: 'no_user_id', details: userData };
 
     // Step 2 — Initiate Verification (Experian KBA)
-    const initUrl = `${base}/api/authenticate/v2?appKey=${encodeURIComponent(ARRAY_APP_KEY)}&userId=${encodeURIComponent(userId)}&provider1=exp`;
+    const initUrl = `${base}/api/authenticate/v2?appKey=${encodeURIComponent(ARRAY_APP_KEY)}&userId=${encodeURIComponent(userId)}&provider1=efx`;
     const initRes = await fetch(initUrl);
     if (!initRes.ok) return fail('init_verification', initRes);
     const initData = await initRes.json();
@@ -264,7 +264,7 @@ async function runArrayFlow({ base, identity, sandbox }) {
         'x-array-user-token': userToken,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ userId, productCode: 'exp1bReportScore' })
+      body: JSON.stringify({ userId, productCode: 'efx1bReportScore' })
     });
     if (!orderRes.ok) return fail('order_report', orderRes);
     const orderData = await orderRes.json();
@@ -347,7 +347,7 @@ function pickScore(data) {
   const candidates = [
     data.score, data.vantage, data.vantageScore, data.creditScore,
     data.scoreValue,
-    data.reports && data.reports.experian && (data.reports.experian.vantage || data.reports.experian.score),
+    (data.reports && data.reports.equifax && (data.reports.equifax.vantage || data.reports.equifax.score)) || (data.reports && data.reports.experian && (data.reports.experian.vantage || data.reports.experian.score)),
     data.reports && data.reports.experian && data.reports.experian.vantageScore
   ];
   for (const c of candidates) {
