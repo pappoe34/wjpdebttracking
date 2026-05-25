@@ -245,6 +245,17 @@
      that wjp-credit-actions renders. Targeted via descendant selector since
      the actions module doesn't tag a clean wrapper. */
   #page-credit-wjp [data-cs-section="score-detail-header"] { display: none !important; }
+
+  /* Wealthfront/Robinhood-style fade-in: hide the credit page until the
+     premium hero has finished rendering. wjp-credit-bridge.js flips
+     `.wjp-cs-ready` once the new hero + strategy + chart + bureau strip are
+     all in the DOM, eliminating the legacy-content flicker. */
+  #page-credit-wjp { transition: opacity 140ms ease-out; }
+  #page-credit-wjp:not(.wjp-cs-ready) {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #page-credit-wjp.wjp-cs-ready { opacity: 1; }
 </style>
 </head>
 <body class="light">

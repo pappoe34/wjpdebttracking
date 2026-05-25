@@ -38,6 +38,19 @@
       try { window.WJP_CreditStrategy && WJP_CreditStrategy.render && WJP_CreditStrategy.render(); } catch (_) {}
       try { window.WJP_CreditSimulator && WJP_CreditSimulator.render && WJP_CreditSimulator.render(); } catch (_) {}
       try { window.WJP_CreditInfoModal && WJP_CreditInfoModal.injectButton && WJP_CreditInfoModal.injectButton(); } catch (_) {}
+      // Fade-in: only reveal the credit page once the premium hero is in DOM.
+      // No flicker, no double-render, no legacy peek-through.
+      try {
+        var page = document.getElementById(PAGE_ID);
+        var hero = document.getElementById('wjp-cs-hero-premium');
+        if (page && hero && hero.innerHTML.length > 100) {
+          page.classList.add('wjp-cs-ready');
+        } else if (page) {
+          // Hero didn't render — show the page anyway as a fallback so the
+          // user never gets stuck on a blank screen.
+          setTimeout(function () { page.classList.add('wjp-cs-ready'); }, 250);
+        }
+      } catch (_) {}
     }, 80);
   }
 
