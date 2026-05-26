@@ -172,10 +172,37 @@ exports.handler = async (event) => {
       }
     });
 
+    // Fetch recent admin alerts (last 100, newest first)
+    var recentAlerts = [];
+    try {
+      const alertsSnap = await db.collection('adminAlerts').orderBy('ts', 'desc').limit(100).get();
+      alertsSnap.forEach(d => {
+        const a = d.data() || {};
+        recentAlerts.push({
+          id: d.id,
+          uid: a.uid,
+          email: a.email,
+          type: a.type,
+          source: a.source,
+          ts: a.ts,
+          before: a.before,
+          after: a.after,
+          details: a.details,
+          resolved: !!a.resolved
+        });
+      });
+      summary.alertsTotal = recentAlerts.length;
+      summary.alertsUnresolved = recentAlerts.filter(a => !a.resolved).length;
+      summary.alertsLast24h = recentAlerts.filter(a => a.ts && (Date.now() - a.ts) < 24 * 60 * 60 * 1000).length;
+    } catch (e) {
+      summary.alertsError = e.message;
+    }
+
     return json(200, {
       generatedAt: new Date().toISOString(),
       summary,
-      users: reports
+      users: reports,
+      alerts: recentAlerts
     });
   } catch (e) {
     return json(500, { error: e.message });
