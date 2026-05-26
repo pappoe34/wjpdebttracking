@@ -246,16 +246,29 @@
      the actions module doesn't tag a clean wrapper. */
   #page-credit-wjp [data-cs-section="score-detail-header"] { display: none !important; }
 
-  /* Wealthfront/Robinhood-style fade-in: hide the credit page until the
-     premium hero has finished rendering. wjp-credit-bridge.js flips
-     `.wjp-cs-ready` once the new hero + strategy + chart + bureau strip are
-     all in the DOM, eliminating the legacy-content flicker. */
-  #page-credit-wjp { transition: opacity 140ms ease-out; }
+  /* Zero-flicker entrance for Credit Health page.
+     CRITICAL: opacity:0 applies INSTANTLY (no transition) so the legacy
+     content from wjp-credit-actions.js never paints. Transition is only on
+     the FADE-IN once .wjp-cs-ready is added by wjp-credit-bridge.js.
+     !important defeats any inline style.opacity set by other modules. */
   #page-credit-wjp:not(.wjp-cs-ready) {
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: none !important;
   }
-  #page-credit-wjp.wjp-cs-ready { opacity: 1; }
+  #page-credit-wjp.wjp-cs-ready {
+    opacity: 1;
+    transition: opacity 160ms ease-out;
+  }
+  /* Also belt-and-suspenders: hide every direct child of #page-credit-wjp
+     except the new premium modules — kills any chance of legacy content
+     ever being visible, even at opacity:1. The hero, strategy banner,
+     simulator, and bridge-injected wrap own the page. Everything else from
+     wjp-credit-actions stays in DOM (for state) but is display:none until
+     hero render explicitly shows it via the .wjp-cs-keep marker class. */
+  #page-credit-wjp:not(.wjp-cs-ready) > *:not(#wjp-cs-hero-premium):not(#wjp-cs-strategy-banner):not(#wjp-cs-simulator):not(#wjp-credit-autopull-card) {
+    visibility: hidden !important;
+  }
 </style>
 </head>
 <body class="light">
@@ -4526,7 +4539,7 @@
 <script src="/wjp-credit-simulator.js?v=1" defer></script>
 <script src="/wjp-credit-history-chart.js?v=1" defer></script>
 <script src="/wjp-credit-info-modal.js?v=1" defer></script>
-<script src="/wjp-credit-bridge.js?v=2" defer></script>
+<script src="/wjp-credit-bridge.js?v=3" defer></script>
   <script src="/wjp-bank-manage.js?v=3" defer></script>
   <script src="/wjp-settings-linked-subtitles.js?v=1" defer></script>
   <script src="/wjp-debts-overview-enhance.js?v=3-share-cache" defer></script>
