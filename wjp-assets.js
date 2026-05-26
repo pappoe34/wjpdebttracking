@@ -354,52 +354,73 @@
       p.classList.toggle('active', p.dataset.pane === name);
     });
   }
-  // v8: Multi-select checkbox list. Filters out already-added accounts so
-  // each open shows only what's left to add.
+  // v9: Multi-select checkbox list — shows ALL linked accounts.
+  // Already-added accounts appear with a green ✓ Added badge and a
+  // disabled-but-checked checkbox (can't be un-added from this modal —
+  // user uses the main asset list's × button for that).
+  // Selecting and saving only adds the newly-checked items — already-added
+  // accounts are skipped, making the action idempotent.
   async function populatePlaidDropdown() {
     var list = document.getElementById('am-plaid-list');
     var helper = document.getElementById('am-plaid-helper');
     if (!list) return;
     list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">Loading…</div>';
     var linked = await listLinkedAccounts();
-    // Exclude accounts already linked to a manual asset
-    var existing = {};
-    getAssets().forEach(function (a) { if (a.plaidAccountId) existing[a.plaidAccountId] = true; });
-    var available = linked.filter(function (a) { return !existing[a.plaidAccountId]; });
-    if (!available.length) {
-      if (linked.length) {
-        list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">All ' + linked.length + ' linked account' + (linked.length === 1 ? '' : 's') + ' already added.</div>';
-      } else {
-        list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">No linked accounts available yet. Use Sync Bank below.</div>';
-      }
-      if (helper) helper.textContent = 'Nothing left to add.';
+    if (!linked.length) {
+      list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">No linked accounts found. Use Sync Bank below to link one.</div>';
+      if (helper) helper.textContent = 'No linked accounts yet.';
       return;
     }
-    var rows = available.map(function (a) {
+    var existing = {};
+    getAssets().forEach(function (a) { if (a.plaidAccountId) existing[a.plaidAccountId] = true; });
+    var alreadyCount = 0;
+    var rows = linked.map(function (a) {
+      var isAlready = !!existing[a.plaidAccountId];
+      if (isAlready) alreadyCount++;
       var subtypeLabel = (a.subtype || a.type || 'account').toLowerCase();
       var maskBit = a.mask ? ' · ' + escapeHtml(String(a.mask)) : '';
-      return '<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border,rgba(120,113,108,0.10));cursor:pointer;transition:background .12s;" onmouseover="this.style.background=\'rgba(120,113,108,0.06)\'" onmouseout="this.style.background=\'transparent\'">'
-        + '<input type="checkbox" class="am-plaid-chk" data-plaid-id="' + escapeHtml(a.plaidAccountId) + '" style="width:16px;height:16px;flex:0 0 16px;cursor:pointer;">'
+      var rowStyle = isAlready
+        ? 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border,rgba(120,113,108,0.10));opacity:0.78;cursor:default;'
+        : 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border,rgba(120,113,108,0.10));cursor:pointer;transition:background .12s;';
+      var hoverAttr = isAlready ? '' : ' onmouseover="this.style.background=\'rgba(120,113,108,0.06)\'" onmouseout="this.style.background=\'transparent\'"';
+      var chkAttrs = isAlready
+        ? ' checked disabled data-already="1"'
+        : '';
+      var badge = isAlready
+        ? '<span style="background:rgba(16,185,129,0.14);color:#10b981;padding:2px 8px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;margin-left:8px;">✓ Added</span>'
+        : '';
+      return '<label style="' + rowStyle + '"' + hoverAttr + '>'
+        + '<input type="checkbox" class="am-plaid-chk" data-plaid-id="' + escapeHtml(a.plaidAccountId) + '" style="width:16px;height:16px;flex:0 0 16px;cursor:' + (isAlready ? 'default' : 'pointer') + ';"' + chkAttrs + '>'
         + '<div style="flex:1;min-width:0;">'
-        +   '<div style="font-weight:600;font-size:13px;color:var(--ink,var(--text-1,#1f1a14));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(a.name) + '</div>'
+        +   '<div style="display:flex;align-items:center;gap:4px;"><span style="font-weight:600;font-size:13px;color:var(--ink,var(--text-1,#1f1a14));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(a.name) + '</span>' + badge + '</div>'
         +   '<div style="font-size:11px;color:var(--text-2,#8b8378);">' + escapeHtml(subtypeLabel) + maskBit + (a.institutionName ? ' · ' + escapeHtml(a.institutionName) : '') + '</div>'
         + '</div>'
         + '<div style="font-weight:700;font-size:13px;color:var(--ink,var(--text-1,#1f1a14));font-variant-numeric:tabular-nums;">' + fmtUsd(a.balance) + '</div>'
         + '</label>';
     }).join('');
     list.innerHTML = rows;
-    if (helper) helper.textContent = available.length + ' account' + (available.length === 1 ? '' : 's') + ' available. Tick to add. Live balance is used.';
+    var available = linked.length - alreadyCount;
+    if (helper) {
+      if (available === 0) {
+        helper.textContent = 'All ' + linked.length + ' linked account' + (linked.length === 1 ? '' : 's') + ' already added. Manage them in the main asset list.';
+      } else if (alreadyCount > 0) {
+        helper.textContent = available + ' new · ' + alreadyCount + ' already added. Tick the ones to add. Live balance is used.';
+      } else {
+        helper.textContent = linked.length + ' linked account' + (linked.length === 1 ? '' : 's') + '. Tick to add. Live balance is used.';
+      }
+      helper.style.color = '';
+    }
 
-    // Wire Select all / Clear
+    // Wire Select all / Clear — operate only on enabled checkboxes (skip already-added)
     var selAllEl = document.getElementById('am-plaid-select-all');
     var clearEl  = document.getElementById('am-plaid-clear-all');
     if (selAllEl && !selAllEl.__wjpWired) {
       selAllEl.__wjpWired = true;
-      selAllEl.addEventListener('click', function (e) { e.preventDefault(); list.querySelectorAll('.am-plaid-chk').forEach(function (c) { c.checked = true; }); });
+      selAllEl.addEventListener('click', function (e) { e.preventDefault(); list.querySelectorAll('.am-plaid-chk:not(:disabled)').forEach(function (c) { c.checked = true; }); });
     }
     if (clearEl && !clearEl.__wjpWired) {
       clearEl.__wjpWired = true;
-      clearEl.addEventListener('click', function (e) { e.preventDefault(); list.querySelectorAll('.am-plaid-chk').forEach(function (c) { c.checked = false; }); });
+      clearEl.addEventListener('click', function (e) { e.preventDefault(); list.querySelectorAll('.am-plaid-chk:not(:disabled)').forEach(function (c) { c.checked = false; }); });
     }
   }
   function fillForm(a) {
@@ -473,7 +494,12 @@
     bg.querySelector('#am-save').addEventListener('click', function () {
       var activePane = bg.querySelector('.am-pane.active').dataset.pane;
       if (activePane === 'plaid') {
-        var checked = Array.prototype.slice.call(bg.querySelectorAll('.am-plaid-chk:checked')).map(function (c) { return c.dataset.plaidId; });
+        // Only collect newly-selected (skip the disabled checkboxes for already-added accounts).
+        var checked = Array.prototype.slice.call(bg.querySelectorAll('.am-plaid-chk:checked:not(:disabled)')).map(function (c) { return c.dataset.plaidId; });
+        // Defensive: also skip any plaidId that already exists in assets
+        var existingPlaidIds = {};
+        getAssets().forEach(function (a) { if (a.plaidAccountId) existingPlaidIds[a.plaidAccountId] = true; });
+        checked = checked.filter(function (id) { return !existingPlaidIds[id]; });
         if (!checked.length) {
           var helper = document.getElementById('am-plaid-helper');
           if (helper) { helper.textContent = 'Tick at least one account to add.'; helper.style.color = '#ef4444'; }
