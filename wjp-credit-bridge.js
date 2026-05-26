@@ -32,26 +32,30 @@
     } catch (_) {}
     // Also call render() directly for belt-and-suspenders — some modules only
     // wire listeners on DOMContentLoaded and may miss event if dispatched too early.
-    setTimeout(function () {
-      try { window.WJP_CreditHero && WJP_CreditHero.render && WJP_CreditHero.render(); } catch (_) {}
-      try { window.WJP_CreditHistoryChart && WJP_CreditHistoryChart.render && WJP_CreditHistoryChart.render(); } catch (_) {}
-      try { window.WJP_CreditStrategy && WJP_CreditStrategy.render && WJP_CreditStrategy.render(); } catch (_) {}
-      try { window.WJP_CreditSimulator && WJP_CreditSimulator.render && WJP_CreditSimulator.render(); } catch (_) {}
-      try { window.WJP_CreditInfoModal && WJP_CreditInfoModal.injectButton && WJP_CreditInfoModal.injectButton(); } catch (_) {}
-      // Fade-in: only reveal the credit page once the premium hero is in DOM.
-      // No flicker, no double-render, no legacy peek-through.
-      try {
-        var page = document.getElementById(PAGE_ID);
-        var hero = document.getElementById('wjp-cs-hero-premium');
-        if (page && hero && hero.innerHTML.length > 100) {
-          page.classList.add('wjp-cs-ready');
-        } else if (page) {
-          // Hero didn't render — show the page anyway as a fallback so the
-          // user never gets stuck on a blank screen.
-          setTimeout(function () { page.classList.add('wjp-cs-ready'); }, 250);
-        }
-      } catch (_) {}
-    }, 80);
+    // Render SYNCHRONOUSLY so the page snaps in fast — no setTimeout delay.
+    // Hero/chart/banner/sim/info renders are all synchronous innerHTML inserts.
+    try { window.WJP_CreditHero && WJP_CreditHero.render && WJP_CreditHero.render(); } catch (_) {}
+    try { window.WJP_CreditHistoryChart && WJP_CreditHistoryChart.render && WJP_CreditHistoryChart.render(); } catch (_) {}
+    try { window.WJP_CreditStrategy && WJP_CreditStrategy.render && WJP_CreditStrategy.render(); } catch (_) {}
+    try { window.WJP_CreditSimulator && WJP_CreditSimulator.render && WJP_CreditSimulator.render(); } catch (_) {}
+    try { window.WJP_CreditInfoModal && WJP_CreditInfoModal.injectButton && WJP_CreditInfoModal.injectButton(); } catch (_) {}
+
+    // requestAnimationFrame so the hide rule has had one paint cycle with
+    // opacity:0 + visibility:hidden BEFORE we flip the ready class. This
+    // guarantees the legacy never paints visibly during the transition.
+    try {
+      var page = document.getElementById(PAGE_ID);
+      var hero = document.getElementById('wjp-cs-hero-premium');
+      if (page && hero && hero.innerHTML.length > 100) {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { page.classList.add('wjp-cs-ready'); });
+        });
+      } else if (page) {
+        // Hero didn't render — show the page anyway as a fallback so the
+        // user never gets stuck on a blank screen.
+        setTimeout(function () { page.classList.add('wjp-cs-ready'); }, 200);
+      }
+    } catch (_) {}
   }
 
   function watchPage() {
