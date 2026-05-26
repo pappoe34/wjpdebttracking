@@ -26,6 +26,15 @@
   var BARE_KEY = 'wjp_budget_state';
   var SCOPED_PREFIX = 'wjp_budget_state_u_';
 
+  // CRITICAL: appState is bare `let` in app.js, NOT on window. Must read
+  // bare first; window.appState may be a parallel orphan that's always 0
+  // and causes wouldClobber to falsely block every save.
+  function _appS() {
+    try { if (typeof appState !== 'undefined' && appState) return appState; } catch (_) {}
+    try { if (window.appState) return window.appState; } catch (_) {}
+    return null;
+  }
+
   function rawGet(key) {
     try { return Object.getPrototypeOf(localStorage).getItem.call(localStorage, key); } catch(_) { return null; }
   }
@@ -81,8 +90,8 @@
       var parsed = JSON.parse(existing);
       var existingDebts = (parsed && Array.isArray(parsed.debts)) ? parsed.debts.length : 0;
       var existingAssets = (parsed && Array.isArray(parsed.assets)) ? parsed.assets.length : 0;
-      var newDebts = (window.appState && Array.isArray(window.appState.debts)) ? window.appState.debts.length : 0;
-      var newAssets = (window.appState && Array.isArray(window.appState.assets)) ? window.appState.assets.length : 0;
+      var _s = _appS(); var newDebts = (_s && Array.isArray(_s.debts)) ? _s.debts.length : 0;
+      var newAssets = (_s && Array.isArray(_s.assets)) ? _s.assets.length : 0;
       if (existingDebts > 0 && newDebts === 0) return { axis: 'debts', existingDebts: existingDebts, existingAssets: existingAssets, newDebts: newDebts, newAssets: newAssets };
       if (existingAssets > 0 && newAssets === 0) return { axis: 'assets', existingDebts: existingDebts, existingAssets: existingAssets, newDebts: newDebts, newAssets: newAssets };
     } catch(_) {}
@@ -104,7 +113,7 @@
           try {
             if (typeof window.loadState === 'function') {
               window.loadState();
-              var newDebts = (window.appState && Array.isArray(window.appState.debts)) ? window.appState.debts.length : 0;
+              var _s = _appS(); var newDebts = (_s && Array.isArray(_s.debts)) ? _s.debts.length : 0;
               if (newDebts > 0) {
                 try { console.log('[wjp-data-loss-guard] auto-recovered ' + newDebts + ' debts'); } catch(_){}
                 return orig.apply(this, arguments);
@@ -128,8 +137,8 @@
     var orig = window[fnName];
     var wrapped = function () {
       try {
-        var newDebts = (window.appState && Array.isArray(window.appState.debts)) ? window.appState.debts.length : 0;
-        var newAssets = (window.appState && Array.isArray(window.appState.assets)) ? window.appState.assets.length : 0;
+        var _s = _appS(); var newDebts = (_s && Array.isArray(_s.debts)) ? _s.debts.length : 0;
+        var newAssets = (_s && Array.isArray(_s.assets)) ? _s.assets.length : 0;
         if (newDebts === 0 && newAssets === 0) {
           try {
             var key = (typeof window.getStateKey === 'function') ? window.getStateKey() : BARE_KEY;
