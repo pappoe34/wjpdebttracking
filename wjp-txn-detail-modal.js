@@ -1,4 +1,4 @@
-/* wjp-txn-detail-modal.js v5 — fix observer recursion freeze (2026-05-19). Original v1: — Center + bigger transaction detail + inline category editing.
+/* wjp-txn-detail-modal.js v6 — fix observer recursion freeze (2026-05-19). Original v1: — Center + bigger transaction detail + inline category editing.
  *
  * Winston request 2026-05-18: the right-side drawer is cramped; move it to
  * center, make it bigger, and let users change category right from the
@@ -159,6 +159,13 @@
       if (typeof window.saveState === 'function') window.saveState();
     } catch (_) {}
     try {
+      // v6 (2026-05-26): the transactions-tab-enhance render is exposed as
+      // WJP_CustomTxnRender. The legacy `renderTransactions`/`txnRenderAll`
+      // hooks don't exist in current build — that's why the list didn't
+      // refresh when category was changed from the detail modal. Call the
+      // real one + any others if they happen to exist.
+      if (typeof window.WJP_CustomTxnRender === 'function') window.WJP_CustomTxnRender();
+      if (window.WJP_TxTabEnhance && typeof window.WJP_TxTabEnhance.render === 'function') window.WJP_TxTabEnhance.render();
       if (typeof window.renderTransactions === 'function') window.renderTransactions();
       if (typeof window.txnRenderAll === 'function') window.txnRenderAll();
       if (typeof window.renderCalendar === 'function') window.renderCalendar();
