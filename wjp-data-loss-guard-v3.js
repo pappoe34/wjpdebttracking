@@ -46,7 +46,13 @@
     try { return window.__wjpUser && window.__wjpUser.uid; } catch (_) { return null; }
   }
   function appS() {
-    try { return window.appState || (typeof appState !== 'undefined' ? appState : null); } catch (_) { return null; }
+    // CRITICAL: appState is bare `let` in app.js, NOT on window. Reading
+    // window.appState first returns a parallel orphan object that desyncs
+    // from saveState + cloudPush, causing writes to vanish on next pull.
+    // See: memory file feedback_appstate_bare_identifier.
+    try { if (typeof appState !== 'undefined' && appState) return appState; } catch (_) {}
+    try { if (window.appState) return window.appState; } catch (_) {}
+    return null;
   }
   // v4: track every meaningful state array, not just debts/assets
   var TRACKED_ARRAYS = [
