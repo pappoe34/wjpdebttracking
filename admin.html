@@ -615,6 +615,7 @@ html, body {
     <button data-tab="tax"       type="button">Taxes</button>
     <button data-tab="users"     type="button">Users</button>
     <button data-tab="admins"    type="button">Admin Roster</button>
+    <button data-tab="data-health" type="button">🛡 Data Health</button>
   </div>
 
   <!-- ================== ANALYTICS TAB ================== -->
@@ -840,6 +841,37 @@ html, body {
       <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Current admins</div>
       <div id="admin-roster-body">
         <div style="text-align:center;color:#64748b;padding:14px;font-size:11px;">Loading…</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-data-health" class="tab-section">
+    <div class="banner-info">
+      <div class="icon">🛡</div>
+      <div>
+        <div class="title">Data Health · all-user integrity monitor</div>
+        <div class="msg">Three independent backup layers protect every user. KPIs below show current state across the user base. Refresh to re-query the server.</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;" id="dh-kpis">
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Total Users</div><div id="dh-total" style="font-size:28px;font-weight:900;color:#e2e8f0;margin-top:4px;">—</div></div>
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">With Data</div><div id="dh-with-data" style="font-size:28px;font-weight:900;color:#16a34a;margin-top:4px;">—</div></div>
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Empty Main</div><div id="dh-empty" style="font-size:28px;font-weight:900;color:#f59e0b;margin-top:4px;">—</div></div>
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Client Backups</div><div id="dh-client-backups" style="font-size:28px;font-weight:900;color:#3b82f6;margin-top:4px;">—</div></div>
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Server Backups</div><div id="dh-server-backups" style="font-size:28px;font-weight:900;color:#3b82f6;margin-top:4px;">—</div></div>
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Stale (>36h)</div><div id="dh-stale" style="font-size:28px;font-weight:900;color:#94a3b8;margin-top:4px;">—</div></div>
+      <div class="card"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;">⚠ Anomalies</div><div id="dh-anomalies" style="font-size:28px;font-weight:900;color:#94a3b8;margin-top:4px;">—</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:14px;font-weight:700;">Per-user data status</div>
+        <div style="display:flex;gap:8px;">
+          <button id="dh-refresh" type="button" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">↻ Refresh</button>
+          <button id="dh-run-cron" type="button" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">⏱ Run backup cron now</button>
+        </div>
+      </div>
+      <div id="dh-table-body">
+        <div style="text-align:center;color:#64748b;padding:14px;font-size:11px;">Click ↻ Refresh to load.</div>
       </div>
     </div>
   </section>
@@ -1908,4 +1940,98 @@ html, body {
 
         // Groq: ping the ai-cloud function with OPTIONS — returns 405 (method not allowed) which still means alive
         fetch('/.netlify/functions/ai-cloud', { method:'OPTIONS' })
-          .t
+          .then(function(r){ setHealth('groq', r.status === 405 || r.ok ? 'ok' : 'warn', r.status === 405 ? 'live (405 OK)' : 'status ' + r.status); })
+          .catch(function(){ setHealth('groq', 'fail', 'fn down'); });
+
+        // Resend: lightweight ping (just check the function exists)
+        fetch('/.netlify/functions/email-cron', { method:'OPTIONS' })
+          .then(function(r){ setHealth('resend', r.status === 405 || r.ok ? 'ok' : 'warn', r.status === 405 ? 'live (405 OK)' : 'status ' + r.status); })
+          .catch(function(){ setHealth('resend', 'fail', 'fn down'); });
+      }
+
+      // Trigger initial health pings on load (defensive: only if pingHealth exists)
+      try { if (typeof pingHealth === 'function') pingHealth(); } catch (_) {}
+
+      // === Data Health tab loader ===
+      (function () {
+        async function getIdToken() {
+          try {
+            var auth = window._wjpAdminAuth;
+            if (auth && auth.currentUser) return await auth.currentUser.getIdToken();
+          } catch (_) {}
+          return null;
+        }
+        function $(id) { return document.getElementById(id); }
+        function fmtTs(ms) { if (!ms) return '—'; try { return new Date(ms).toLocaleString(); } catch (_) { return '—'; } }
+        function fmtDay(d) { if (!d) return '—'; return d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8); }
+
+        async function loadDataHealth() {
+          var body = $('dh-table-body');
+          if (body) body.innerHTML = '<div style="text-align:center;color:#64748b;padding:14px;font-size:11px;">Loading…</div>';
+          var token = await getIdToken();
+          if (!token) {
+            if (body) body.innerHTML = '<div style="color:#f87171;padding:14px;font-size:12px;">No auth token — sign in as admin first.</div>';
+            return;
+          }
+          try {
+            var r = await fetch('/.netlify/functions/admin-data-health', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!r.ok) {
+              if (body) body.innerHTML = '<div style="color:#f87171;padding:14px;font-size:12px;">Error ' + r.status + ': ' + (await r.text()) + '</div>';
+              return;
+            }
+            var data = await r.json();
+            var s = data.summary || {};
+            $('dh-total').textContent = s.totalUsers != null ? s.totalUsers : '0';
+            $('dh-with-data').textContent = s.withMainData != null ? s.withMainData : '0';
+            $('dh-empty').textContent = (s.emptyMain || 0) + (s.noMainDoc ? ' (+'+s.noMainDoc+' no doc)' : '');
+            $('dh-client-backups').textContent = s.withClientBackup != null ? s.withClientBackup : '0';
+            $('dh-server-backups').textContent = s.withServerBackup != null ? s.withServerBackup : '0';
+            $('dh-stale').textContent = s.staleServerBackup != null ? s.staleServerBackup : '0';
+            var anomEl = $('dh-anomalies');
+            anomEl.textContent = s.anomalies != null ? s.anomalies : '0';
+            anomEl.style.color = (s.anomalies > 0) ? '#ef4444' : '#16a34a';
+            var users = (data.users || []).slice().sort(function(a,b){
+              if (a.anomaly !== b.anomaly) return a.anomaly ? -1 : 1;
+              return (b.lastSignIn||'').localeCompare(a.lastSignIn||'');
+            });
+            var rows = users.map(function(u){
+              var mc = u.main && u.main.counts || {};
+              var counts = ['debts','assets','transactions','recurringPayments'].map(function(k){return k[0]+':'+(mc[k]||0);}).join(' ');
+              var rowBg = u.anomaly ? 'background:rgba(239,68,68,0.10);' : '';
+              var anomBadge = u.anomaly ? ' <span style="background:#7f1d1d;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;">ANOMALY</span>' : '';
+              return '<div style="display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr 1fr 1fr;gap:10px;padding:10px 8px;border-bottom:1px solid #1e293b;font-size:11.5px;align-items:center;' + rowBg + '">'
+                + '<div><div style="color:#e2e8f0;font-weight:600;">' + (u.email || u.uid.slice(0,12)) + anomBadge + '</div><div style="color:#64748b;font-size:10px;margin-top:2px;">' + u.uid.slice(0,18) + '…</div></div>'
+                + '<div style="color:#94a3b8;font-family:monospace;">' + counts + '</div>'
+                + '<div style="color:#94a3b8;">' + (u.main && u.main.updatedAt ? fmtTs(u.main.updatedAt) : '—') + '</div>'
+                + '<div style="color:#94a3b8;">' + (u.backupLatest && u.backupLatest.exists ? '✓ ' + fmtTs(u.backupLatest.ts) : '—') + '</div>'
+                + '<div style="color:#94a3b8;">' + (u.serverBackupCount > 0 ? '✓ ' + u.serverBackupCount + ' (' + fmtDay(u.latestServerBackup && u.latestServerBackup.day) + ')' : '—') + '</div>'
+                + '<div style="color:#94a3b8;font-size:10px;">' + (u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString() : '—') + '</div>'
+                + '</div>';
+            }).join('');
+            if (body) body.innerHTML = ''
+              + '<div style="display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr 1fr 1fr;gap:10px;padding:8px;background:#0f172a;border-bottom:2px solid #334155;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">'
+              + '<div>User</div><div>Counts (d/a/t/r)</div><div>Main updated</div><div>Client backup</div><div>Server backups</div><div>Last sign-in</div>'
+              + '</div>' + rows;
+          } catch (e) {
+            if (body) body.innerHTML = '<div style="color:#f87171;padding:14px;font-size:12px;">Error: ' + (e && e.message || e) + '</div>';
+          }
+        }
+        document.addEventListener('click', function (e) {
+          var btn = e.target.closest && e.target.closest('button[data-tab="data-health"]');
+          if (btn) setTimeout(loadDataHealth, 80);
+          if (e.target && e.target.id === 'dh-refresh') loadDataHealth();
+          if (e.target && e.target.id === 'dh-run-cron') {
+            var b = e.target;
+            b.textContent = '… running';
+            b.disabled = true;
+            fetch('/.netlify/functions/state-backup-cron', { method: 'GET' })
+              .then(function(r){ return r.text(); })
+              .then(function(t){ alert('Cron run:\n' + t); loadDataHealth(); })
+              .catch(function(err){ alert('Cron error: ' + err.message); })
+              .finally(function(){ b.textContent = '⏱ Run backup cron now'; b.disabled = false; });
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
