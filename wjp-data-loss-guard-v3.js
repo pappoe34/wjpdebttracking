@@ -82,6 +82,21 @@
     return d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
   }
 
+
+  // --- ADMIN ALERT POSTER ---------------------------------------------------
+  async function postAdminAlert(type, before, after, source, details) {
+    try {
+      var auth = window.__wjpAuth;
+      if (!auth || !auth.currentUser) return;
+      var token = await auth.currentUser.getIdToken();
+      await fetch('/.netlify/functions/log-admin-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ type: type, before: before, after: after, source: source, details: details })
+      });
+    } catch (_) {}
+  }
+
   // --- AUDIT LOG -----------------------------------------------------------
   function logAudit(event, before, after) {
     try {
@@ -265,37 +280,44 @@
     return { ok: true, restored: bkCounts, was: before };
   }
 
-  // --- RESTORE BANNER UI ---------------------------------------------------
+  // --- SILENT AUTO-RESTORE (no user-facing UI) -----------------------------
+  // User shouldn't worry about possible data loss. Fail-safe happens in the
+  // background. Admin gets the alert via /.netlify/functions/log-admin-alert
+  // which writes to Firestore `adminAlerts` — surfaced in the admin Data
+  // Health tab.
+  async function silentAutoRestore(reason, beforeCounts) {
+    // Prevent re-firing on the same page load
+    if (window._wjpSilentRestoreFired) return;
+    window._wjpSilentRestoreFired = true;
+    try {
+      var bk = await readBackupLatest();
+      if (!bk) {
+        // No backup — still alert admin so they know a user is in a bad state
+        postAdminAlert('empty-state-no-backup', beforeCounts, beforeCounts, reason, 'No backup_latest exists');
+        return;
+      }
+      var bkC = counts(bk);
+      if (!hasAnyData(bkC)) {
+        // Backup is also empty — nothing to restore but alert
+        postAdminAlert('empty-state-empty-backup', beforeCounts, beforeCounts, reason, 'backup_latest is also empty');
+        return;
+      }
+      // Auto-restore silently
+      var r = await restoreFromBackup({ confirm: true });
+      if (r.ok) {
+        try { console.log('[guard-v3] silent auto-restore succeeded:', r.restored); } catch(_){}
+        postAdminAlert('auto-restored', r.was, r.restored, reason, 'Silent restore from backup_latest');
+      } else {
+        postAdminAlert('auto-restore-failed', beforeCounts, beforeCounts, reason, 'restoreFromBackup returned: ' + r.reason);
+      }
+    } catch (e) {
+      postAdminAlert('auto-restore-error', beforeCounts, beforeCounts, reason, e && e.message || String(e));
+    }
+  }
+  // Public alias for callers (no-op stub for callers that still reference
+  // the old banner function — they now silently auto-restore instead).
   function showRestoreBanner(reason, beforeCounts) {
-    if (document.getElementById('wjp-guard-restore-banner')) return;
-    var bk = readBackupLatest();
-    bk.then(function (bkData) {
-      if (!bkData) return;
-      var c = counts(bkData);
-      if (c.d === 0 && c.a === 0) return;
-      var when = bkData._backupMeta && bkData._backupMeta.ts ? new Date(bkData._backupMeta.ts).toLocaleString() : 'recent';
-      var div = document.createElement('div');
-      div.id = 'wjp-guard-restore-banner';
-      div.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999;max-width:520px;width:calc(100% - 32px);background:#fff8e1;color:#3b2a00;border:1px solid #f5c043;border-radius:12px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:system-ui,sans-serif;font-size:13.5px;line-height:1.5;';
-      div.innerHTML = '<div style="display:flex;align-items:start;gap:12px;">'
-        + '<div style="font-size:22px;line-height:1;">🛡️</div>'
-        + '<div style="flex:1;"><div style="font-weight:700;margin-bottom:4px;">Possible data loss detected</div>'
-        + '<div style="font-size:12.5px;margin-bottom:8px;">'
-        + 'A backup from <strong>' + when + '</strong> has <strong>' + c.d + ' debts</strong> and <strong>' + c.a + ' assets</strong>. '
-        + 'Restore them now?</div>'
-        + '<div style="display:flex;gap:8px;">'
-        + '<button id="wjp-guard-restore-btn" style="background:#1f9b54;color:#fff;border:0;padding:7px 14px;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;">Restore backup</button>'
-        + '<button id="wjp-guard-dismiss-btn" style="background:transparent;color:#3b2a00;border:1px solid #d6b349;padding:7px 14px;border-radius:7px;font-weight:600;font-size:12px;cursor:pointer;">Dismiss</button>'
-        + '</div></div></div>';
-      document.body.appendChild(div);
-      document.getElementById('wjp-guard-restore-btn').addEventListener('click', async function () {
-        var r = await restoreFromBackup({ confirm: true });
-        div.remove();
-        if (r.ok) alert('Restored ' + r.restored.d + ' debts and ' + r.restored.a + ' assets from backup.');
-        else alert('Restore failed: ' + r.reason);
-      });
-      document.getElementById('wjp-guard-dismiss-btn').addEventListener('click', function () { div.remove(); });
-    });
+    return silentAutoRestore(reason, beforeCounts);
   }
 
   // --- EMPTY-ON-LOAD DETECTION ---------------------------------------------
