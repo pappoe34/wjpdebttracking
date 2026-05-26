@@ -1,4 +1,4 @@
-/* wjp-txn-detail-modal.js v4 — fix observer recursion freeze (2026-05-19). Original v1: — Center + bigger transaction detail + inline category editing.
+/* wjp-txn-detail-modal.js v5 — fix observer recursion freeze (2026-05-19). Original v1: — Center + bigger transaction detail + inline category editing.
  *
  * Winston request 2026-05-18: the right-side drawer is cramped; move it to
  * center, make it bigger, and let users change category right from the
@@ -182,14 +182,18 @@
       }).join('') +
       '</select>';
 
-    // Find the category badge and replace it
-    var badges = content.querySelectorAll('.badge');
+    // v5: tolerant match + fallback append
+    var badges = content.querySelectorAll('.badge, [data-cat-badge]');
+    var injected = false;
     Array.prototype.forEach.call(badges, function (b) {
-      var t = (b.textContent || '').trim();
-      if (t.toLowerCase() === current.toLowerCase()) {
-        b.outerHTML = html;
-      }
+      if (injected) return;
+      var t = (b.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (t.indexOf(current.toLowerCase()) !== -1) { b.outerHTML = html; injected = true; }
     });
+    if (!injected) {
+      var anchor = content.querySelector('.badge-row, .badges, [class*="badge"], [class*="meta"]') || content;
+      if (anchor) anchor.insertAdjacentHTML('beforeend', html);
+    }
     // Wire change handler
     var sel = content.querySelector('.wjp-detail-cat-select');
     if (sel) {

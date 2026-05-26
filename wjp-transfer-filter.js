@@ -37,20 +37,13 @@
   }
 
   function tag(node) {
+    // v2: badge removed. The category is now the single source of truth.
     if (!node || node.dataset.wjpTransferTagged === '1') return;
     var text = (node.textContent || '').replace(/\s+/g, ' ');
     if (!isTransfer(text)) return;
     node.dataset.wjpTransferTagged = '1';
     node.style.opacity = '0.55';
-    // Add a small badge if there's room
-    var label = node.querySelector('[class*="title"], [class*="name"], [class*="desc"]') || node;
-    if (label && !label.querySelector('.wjp-tx-internal-badge')) {
-      var badge = document.createElement('span');
-      badge.className = 'wjp-tx-internal-badge';
-      badge.textContent = 'Internal transfer';
-      badge.style.cssText = 'display:inline-block;font-size:9.5px;letter-spacing:0.06em;text-transform:uppercase;background:rgba(107,114,128,0.12);color:#6b7280;padding:2px 8px;border-radius:999px;font-weight:700;margin-left:8px;vertical-align:middle;';
-      label.appendChild(badge);
-    }
+    try { var leftover = node.querySelector('.wjp-tx-internal-badge'); if (leftover) leftover.remove(); } catch (_) {}
   }
 
   function tick() {
