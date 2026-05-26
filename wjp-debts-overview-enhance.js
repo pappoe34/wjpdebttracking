@@ -175,6 +175,12 @@
       throw new Error('storage full');
     }
     _overridesCache = map;
+    // v2 (2026-05-26): dispatch event so wjp-acct-name-sync can propagate
+    // the rename to the Transactions tab + anywhere else WJP_AcctLookup
+    // is consumed.
+    try {
+      window.dispatchEvent(new CustomEvent('wjp-acct-renamed', { detail: { accountId: accountId, displayName: displayName } }));
+    } catch (_) {}
   }
 
   function extractDebitAccounts(items, overrides) {
