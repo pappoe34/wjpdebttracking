@@ -1,4 +1,7 @@
 [build]
+  # FIX 31 — integrity guard. Fails the deploy if index.html is truncated
+  # (the Edit tool has silently chopped it twice — see scripts/verify-index-html.js).
+  command = "node scripts/verify-index-html.js"
   publish = "."
   functions = "netlify/functions"
   # Skip build when only non-deployed paths changed (docs, scratch scripts, secrets).
