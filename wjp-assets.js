@@ -354,23 +354,52 @@
       p.classList.toggle('active', p.dataset.pane === name);
     });
   }
+  // v8: Multi-select checkbox list. Filters out already-added accounts so
+  // each open shows only what's left to add.
   async function populatePlaidDropdown() {
-    var sel = document.getElementById('am-plaid-select');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Loading…</option>';
-    sel.disabled = true;
+    var list = document.getElementById('am-plaid-list');
+    var helper = document.getElementById('am-plaid-helper');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">Loading…</div>';
     var linked = await listLinkedAccounts();
-    if (!linked.length) {
-      sel.innerHTML = '<option value="">No linked accounts available yet</option>';
-      sel.disabled = true;
-    } else {
-      sel.disabled = false;
-      sel.innerHTML = '<option value="">— Choose an account —</option>' + linked.map(function (a) {
-        return '<option value="' + escapeHtml(a.plaidAccountId) + '">'
-          + escapeHtml(a.name)
-          + (a.institutionName ? ' · ' + escapeHtml(a.institutionName) : '')
-          + ' (' + fmtUsd(a.balance) + ')</option>';
-      }).join('');
+    // Exclude accounts already linked to a manual asset
+    var existing = {};
+    getAssets().forEach(function (a) { if (a.plaidAccountId) existing[a.plaidAccountId] = true; });
+    var available = linked.filter(function (a) { return !existing[a.plaidAccountId]; });
+    if (!available.length) {
+      if (linked.length) {
+        list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">All ' + linked.length + ' linked account' + (linked.length === 1 ? '' : 's') + ' already added.</div>';
+      } else {
+        list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-2,#94a3b8);font-size:12px;">No linked accounts available yet. Use Sync Bank below.</div>';
+      }
+      if (helper) helper.textContent = 'Nothing left to add.';
+      return;
+    }
+    var rows = available.map(function (a) {
+      var subtypeLabel = (a.subtype || a.type || 'account').toLowerCase();
+      var maskBit = a.mask ? ' · ' + escapeHtml(String(a.mask)) : '';
+      return '<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border,rgba(120,113,108,0.10));cursor:pointer;transition:background .12s;" onmouseover="this.style.background=\'rgba(120,113,108,0.06)\'" onmouseout="this.style.background=\'transparent\'">'
+        + '<input type="checkbox" class="am-plaid-chk" data-plaid-id="' + escapeHtml(a.plaidAccountId) + '" style="width:16px;height:16px;flex:0 0 16px;cursor:pointer;">'
+        + '<div style="flex:1;min-width:0;">'
+        +   '<div style="font-weight:600;font-size:13px;color:var(--ink,var(--text-1,#1f1a14));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(a.name) + '</div>'
+        +   '<div style="font-size:11px;color:var(--text-2,#8b8378);">' + escapeHtml(subtypeLabel) + maskBit + (a.institutionName ? ' · ' + escapeHtml(a.institutionName) : '') + '</div>'
+        + '</div>'
+        + '<div style="font-weight:700;font-size:13px;color:var(--ink,var(--text-1,#1f1a14));font-variant-numeric:tabular-nums;">' + fmtUsd(a.balance) + '</div>'
+        + '</label>';
+    }).join('');
+    list.innerHTML = rows;
+    if (helper) helper.textContent = available.length + ' account' + (available.length === 1 ? '' : 's') + ' available. Tick to add. Live balance is used.';
+
+    // Wire Select all / Clear
+    var selAllEl = document.getElementById('am-plaid-select-all');
+    var clearEl  = document.getElementById('am-plaid-clear-all');
+    if (selAllEl && !selAllEl.__wjpWired) {
+      selAllEl.__wjpWired = true;
+      selAllEl.addEventListener('click', function (e) { e.preventDefault(); list.querySelectorAll('.am-plaid-chk').forEach(function (c) { c.checked = true; }); });
+    }
+    if (clearEl && !clearEl.__wjpWired) {
+      clearEl.__wjpWired = true;
+      clearEl.addEventListener('click', function (e) { e.preventDefault(); list.querySelectorAll('.am-plaid-chk').forEach(function (c) { c.checked = false; }); });
     }
   }
   function fillForm(a) {
@@ -422,9 +451,9 @@
 + '    </form>'
 + '  </div>'
 + '  <div class="am-pane" data-pane="plaid">'
-+ '    <label>Promote a linked bank account</label>'
-+ '    <select id="am-plaid-select"></select>'
-+ '    <div class="am-helper">Pick a Plaid-linked account to track as an asset. Live balance is used.</div>'
++ '    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><label style="margin:0;">Pick linked bank accounts to track</label><div style="display:flex;gap:8px;font-size:11px;"><a href="#" id="am-plaid-select-all" style="color:#1f9b54;text-decoration:none;">Select all</a><span style="color:#94a3b8;">·</span><a href="#" id="am-plaid-clear-all" style="color:#94a3b8;text-decoration:none;">Clear</a></div></div>'
++ '    <div id="am-plaid-list" style="max-height:280px;overflow:auto;border:1px solid var(--border,rgba(120,113,108,0.18));border-radius:8px;padding:4px 0;background:var(--card-2,rgba(255,255,255,0.02));">Loading…</div>'
++ '    <div class="am-helper" id="am-plaid-helper">Tick one or more accounts. Live balance is used.</div>'
 + '    <label style="margin-top:18px">Or link a new account</label>'
 + '    <button type="button" class="am-link-sync" id="am-open-sync">Open Sync Bank →</button>'
 + '    <div class="am-helper">Opens the existing Sync Bank flow. Link your brokerage, investment, or savings account, then come back here to track it.</div>'
@@ -444,21 +473,29 @@
     bg.querySelector('#am-save').addEventListener('click', function () {
       var activePane = bg.querySelector('.am-pane.active').dataset.pane;
       if (activePane === 'plaid') {
-        var sel = bg.querySelector('#am-plaid-select');
-        var id = sel.value;
-        if (!id) { sel.focus(); return; }
+        var checked = Array.prototype.slice.call(bg.querySelectorAll('.am-plaid-chk:checked')).map(function (c) { return c.dataset.plaidId; });
+        if (!checked.length) {
+          var helper = document.getElementById('am-plaid-helper');
+          if (helper) { helper.textContent = 'Tick at least one account to add.'; helper.style.color = '#ef4444'; }
+          return;
+        }
         listLinkedAccounts().then(function (linkedList) {
-          var linked = linkedList.find(function (a) { return a.plaidAccountId === id; });
-          if (!linked) return;
-          commitAsset({
-            name: linked.name,
-            value: linked.balance,
-            type: /invest|broker|retire|401|ira|roth|529|hsa/i.test((linked.subtype || '') + ' ' + (linked.type || '') + ' ' + linked.name) ? 'investment' : 'cash',
-            plaidAccountId: linked.plaidAccountId,
-            institutionName: linked.institutionName || '',
-            notes: ''
+          var added = 0;
+          checked.forEach(function (id) {
+            var linked = linkedList.find(function (a) { return a.plaidAccountId === id; });
+            if (!linked) return;
+            commitAsset({
+              name: linked.name,
+              value: linked.balance,
+              type: /invest|broker|retire|401|ira|roth|529|hsa/i.test((linked.subtype || '') + ' ' + (linked.type || '') + ' ' + linked.name) ? 'investment' : 'cash',
+              plaidAccountId: linked.plaidAccountId,
+              institutionName: linked.institutionName || '',
+              notes: ''
+            });
+            added++;
           });
           closeModal();
+          try { console.log('[wjp-assets] linked ' + added + ' Plaid account(s) as assets'); } catch (_) {}
         });
         return;
       } else {
