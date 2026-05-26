@@ -45,3 +45,9 @@
 # Plaid /item/remove on their items so we stop being billed for unpaid users.
 [functions."cleanup-free-tier-items"]
   schedule = "0 2 * * *"
+
+[functions."state-backup-cron"]
+  schedule = "0 3 * * *"
+  # Server-side nightly backup of every user's state/main doc to userBackups/{uid}/snapshots/{YYYYMMDD}.
+  # Independent of client browser — last line of defence against data loss.
+

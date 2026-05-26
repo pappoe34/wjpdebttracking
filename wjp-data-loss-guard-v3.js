@@ -1,4 +1,4 @@
-/* wjp-data-loss-guard-v3.js — Rolling Firestore backups + cloud-pull guard.
+/* wjp-data-loss-guard-v3.js v4 — Rolling Firestore backups + cloud-pull guard, ALL arrays.
  *
  * Complements wjp-data-loss-guard.js (v2) which blocks localStorage wipes.
  * This v3 module fills the gaps v2 doesn't cover:
@@ -28,7 +28,7 @@
   'use strict';
   if (window._wjpDataLossGuardV3Installed) return;
   window._wjpDataLossGuardV3Installed = true;
-  window._wjpDataLossGuardV3Version = 3;
+  window._wjpDataLossGuardV3Version = 4;
 
   var BACKUP_DOC_LATEST = 'backup_latest';
   var AUDIT_KEY = 'wjp_save_audit_log';
@@ -48,11 +48,28 @@
   function appS() {
     try { return window.appState || (typeof appState !== 'undefined' ? appState : null); } catch (_) { return null; }
   }
+  // v4: track every meaningful state array, not just debts/assets
+  var TRACKED_ARRAYS = [
+    'debts', 'assets', 'transactions', 'recurringPayments',
+    'notifications', 'creditScoreHistory', 'inbox', 'processedTxIds'
+  ];
   function counts(state) {
-    var d = state && Array.isArray(state.debts) ? state.debts.length : 0;
-    var a = state && Array.isArray(state.assets) ? state.assets.length : 0;
-    var t = state && Array.isArray(state.transactions) ? state.transactions.length : 0;
-    return { d: d, a: a, t: t };
+    var c = {};
+    if (!state) { TRACKED_ARRAYS.forEach(function (k) { c[k] = 0; }); return c; }
+    TRACKED_ARRAYS.forEach(function (k) {
+      c[k] = Array.isArray(state[k]) ? state[k].length : 0;
+    });
+    // Convenience shortcuts that older code expects
+    c.d = c.debts || 0;
+    c.a = c.assets || 0;
+    c.t = c.transactions || 0;
+    return c;
+  }
+  function hasAnyData(c) {
+    for (var i = 0; i < TRACKED_ARRAYS.length; i++) {
+      if (c[TRACKED_ARRAYS[i]] > 0) return true;
+    }
+    return false;
   }
   function nowDay() {
     var d = new Date();
@@ -88,9 +105,9 @@
       var s = appS();
       if (!s) return;
       var c = counts(s);
-      // Only back up if we actually have data — never overwrite a good backup
-      // with empty state.
-      if (c.d === 0 && c.a === 0) {
+      // Only back up if we actually have data in ANY tracked array — never
+      // overwrite a good backup with empty state.
+      if (!hasAnyData(c)) {
         try { console.log('[guard-v3] skip backup: empty state (' + reason + ')'); } catch(_){}
         return;
       }
@@ -104,8 +121,8 @@
         reason: reason,
         ts: Date.now(),
         day: nowDay(),
-        version: 3,
-        d: c.d, a: c.a, t: c.t
+        version: 4,
+        counts: c
       };
 
       // Write latest
@@ -139,7 +156,7 @@
         } catch (_) {}
       }
 
-      try { console.log('[guard-v3] backup written (' + reason + ') d=' + c.d + ' a=' + c.a + ' t=' + c.t); } catch(_){}
+      try { console.log('[guard-v3] backup written (' + reason + ') ' + JSON.stringify(TRACKED_ARRAYS.map(function(k){return k[0]+':'+c[k];}))); } catch(_){}
     } catch (e) {
       try { console.warn('[guard-v3] backup write failed: ' + e.message); } catch(_){}
     }
@@ -156,18 +173,17 @@
       var result = orig.apply(this, arguments);
       var after = counts(appS());
       prev = after;
-      // Audit + schedule backup only when state has data
-      if (after.d > 0 || after.a > 0) {
+      // Audit + schedule backup only when state has any meaningful data
+      if (hasAnyData(after)) {
         logAudit('saveState', before, after);
-        scheduleBackup('saveState d=' + after.d + ' a=' + after.a);
+        scheduleBackup('saveState ' + TRACKED_ARRAYS.map(function(k){return k[0]+':'+after[k];}).join(','));
       }
-      // Loud alarm if a save reduced data by > 50%
-      if (before.d >= 3 && after.d <= before.d / 2) {
-        try { console.error('[guard-v3] ALARM: debts dropped ' + before.d + ' -> ' + after.d); } catch(_){}
-      }
-      if (before.a >= 3 && after.a <= before.a / 2) {
-        try { console.error('[guard-v3] ALARM: assets dropped ' + before.a + ' -> ' + after.a); } catch(_){}
-      }
+      // Loud alarm if ANY tracked array dropped by > 50% (with >=3 baseline)
+      TRACKED_ARRAYS.forEach(function (k) {
+        if (before[k] >= 3 && after[k] <= before[k] / 2) {
+          try { console.error('[guard-v3] ALARM: ' + k + ' dropped ' + before[k] + ' -> ' + after[k]); } catch(_){}
+        }
+      });
       return result;
     };
     wrapped.__wjpGuardV3Wrapped = true;
@@ -187,10 +203,14 @@
       var result;
       try { result = await orig.apply(this, arguments); } catch (e) { throw e; }
       var after = counts(appS());
-      // Detect dangerous pull: local had data, remote replaced with empty
-      if ((before.d > 0 && after.d === 0) || (before.a > 0 && after.a === 0)) {
-        try { console.error('[guard-v3] DANGEROUS cloudPull replaced local data with empty remote! before=' + before.d + 'd/' + before.a + 'a after=' + after.d + 'd/' + after.a + 'a'); } catch(_){}
-        // Surface user banner
+      // Detect dangerous pull: ANY tracked array had data and remote replaced with empty
+      var dangerous = false; var droppedKey = null;
+      for (var i = 0; i < TRACKED_ARRAYS.length; i++) {
+        var k = TRACKED_ARRAYS[i];
+        if (before[k] > 0 && after[k] === 0) { dangerous = true; droppedKey = k; break; }
+      }
+      if (dangerous) {
+        try { console.error('[guard-v3] DANGEROUS cloudPull replaced local ' + droppedKey + ' with empty remote (before=' + before[droppedKey] + ')'); } catch(_){}
         showRestoreBanner('cloud-pull-empty', before);
       }
       logAudit('cloudPull', before, after);
@@ -224,10 +244,14 @@
     if (!opts.confirm && (before.d > 0 || before.a > 0)) {
       return { ok: false, reason: 'would-overwrite', before: before, backup: bkCounts };
     }
-    if (Array.isArray(bk.debts)) s.debts = bk.debts;
-    if (Array.isArray(bk.assets)) s.assets = bk.assets;
-    if (Array.isArray(bk.transactions)) s.transactions = bk.transactions;
-    if (Array.isArray(bk.recurringPayments)) s.recurringPayments = bk.recurringPayments;
+    TRACKED_ARRAYS.forEach(function (k) {
+      if (Array.isArray(bk[k])) s[k] = bk[k];
+    });
+    // Also restore non-array top-level keys (settings, budget, balances) so the
+    // entire user state is recovered, not just lists.
+    ['settings','budget','balances','prefs','household','subscription'].forEach(function (k) {
+      if (bk[k] != null) s[k] = bk[k];
+    });
     try { if (typeof window.saveState === 'function') window.saveState(); } catch(_){}
     try { if (typeof window.updateUI === 'function') window.updateUI(); } catch(_){}
     logAudit('restoreFromBackup', before, counts(s));
@@ -275,13 +299,19 @@
     var s = appS();
     if (!s) return;
     var c = counts(s);
-    // Only act if BOTH debts and assets are empty AND we have a backup with data
-    if (c.d > 0 || c.a > 0) return;
+    // Detect: ANY tracked array empty locally but backup has data for it
     var bk = await readBackupLatest();
     if (!bk) return;
     var bkC = counts(bk);
-    if (bkC.d > 0 || bkC.a > 0) {
-      try { console.warn('[guard-v3] empty-on-load detected. backup has d=' + bkC.d + ' a=' + bkC.a); } catch(_){}
+    // If user has data on at least one array AND backup is more complete on
+    // at least one OTHER array that is now empty, surface the banner.
+    var keysEmptyLocallyButBackedUp = TRACKED_ARRAYS.filter(function (k) { return c[k] === 0 && bkC[k] > 0; });
+    var keysWithLocalData = TRACKED_ARRAYS.filter(function (k) { return c[k] > 0; });
+    // Banner if: fully empty + backup has data, OR partial loss of important arrays
+    var fullyEmpty = keysWithLocalData.length === 0 && keysEmptyLocallyButBackedUp.length > 0;
+    var partialLoss = keysEmptyLocallyButBackedUp.some(function (k) { return ['debts','assets','transactions','recurringPayments'].indexOf(k) >= 0; });
+    if (fullyEmpty || partialLoss) {
+      try { console.warn('[guard-v3] data loss detected on load. Missing: ' + keysEmptyLocallyButBackedUp.join(',')); } catch(_){}
       showRestoreBanner('empty-on-load', c);
     }
   }
@@ -311,7 +341,8 @@
 
   // Public API
   window.WJP_DataLossGuardV3 = {
-    version: 3,
+    version: 4,
+    trackedArrays: TRACKED_ARRAYS,
     writeBackup: writeBackup,
     scheduleBackup: scheduleBackup,
     restoreFromBackup: restoreFromBackup,
