@@ -773,15 +773,13 @@
     var next = document.getElementById('btn-txn-next');
     if (prev) prev.disabled = page === 0;
     if (next) next.disabled = end >= total;
-    // v17 (2026-05-26): row click goes directly to Edit modal (txnOpenEditModal)
-    // instead of the read-only detail panel. Single save path, no inline-category
-    // refresh issues. Edit/delete buttons still handled separately below.
+    // Wire row clicks so detail panel still opens
     Array.prototype.forEach.call(tbody.querySelectorAll('.txn-row'), function (row) {
       row.onclick = function (e) {
         if (e.target.closest('.btn-txn-del') || e.target.closest('.btn-txn-edit')) return;
         var id = row.getAttribute('data-txn-id');
         var t = (getAppState().transactions || []).find(function (x) { return x.id === id; });
-        if (t && typeof window.txnOpenEditModal === 'function') window.txnOpenEditModal(t);
+        if (t && typeof window.txnShowDetail === 'function') window.txnShowDetail(t);
       };
     });
     Array.prototype.forEach.call(tbody.querySelectorAll('.btn-txn-edit'), function (b) {
