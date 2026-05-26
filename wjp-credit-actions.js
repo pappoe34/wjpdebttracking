@@ -1,4 +1,4 @@
-/* wjp-credit-actions.js v14 — rename tab Credit → Credit Health
+/* wjp-credit-actions.js v15 — legacy header+ScoreDetail removed (owned by premium hero)
  *
  * New "Credit" sidebar tab. Reads card limits + debts to compute per-card
  * utilization. Generates prioritized action cards based on FICO factors:
@@ -656,7 +656,11 @@
 
     var offersHTML = buildOffersHTML(p);
     var buildCreditHTML = buildBuildCreditHTML(p);
-    page.innerHTML = heroHTML + scoreDetailHTML + factorBreakdownHTML + utilGridHTML + actionCardsHTML + offersHTML + buildCreditHTML + projectionHTML;
+    // v15: Legacy heroHTML + scoreDetailHTML removed — the premium
+    // wjp-credit-hero-premium module owns the top of the page now.
+    // Keeping Factor Breakdown, Card Utilization, Action Plan, Offers,
+    // Credit Builder, and the projection footer (unique content).
+    page.innerHTML = factorBreakdownHTML + utilGridHTML + actionCardsHTML + offersHTML + buildCreditHTML + projectionHTML;
 
     // Wire action buttons
     Array.from(page.querySelectorAll('[data-bc-interest]')).forEach(function (b) {
