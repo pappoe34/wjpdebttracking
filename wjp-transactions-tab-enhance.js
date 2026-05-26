@@ -1110,7 +1110,12 @@
     injectStyle();
     setInterval(tick, 6000);
     window.addEventListener('hashchange', function () { setTimeout(tick, 300); });
-    window.addEventListener('wjp-tx-category-changed', tick);
+    window.addEventListener('wjp-tx-category-changed', function () {
+      // v16 (2026-05-26): also re-render rows on category change. `tick` only
+      // updates the summary card; rows are rendered by customRenderBankRows.
+      try { customRenderBankRows(); } catch (e) { try { console.warn('[wjp-tx-tab] custom render after cat change failed', e); } catch(_){} }
+      try { tick(); } catch (_) {}
+    });
     window.addEventListener('wjp-transactions-rehydrated', tick);
     window.addEventListener('wjp-acct-lookup-ready', function () { setTimeout(tick, 200); });
     setTimeout(tick, 2000);
