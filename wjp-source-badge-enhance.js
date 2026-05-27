@@ -118,15 +118,29 @@
     if (!t) return origGetMeta ? origGetMeta(t) : null;
     // Plaid txs — show full institution + mask
     if (t.source === 'plaid' || t.plaidTransactionId) {
-      var lookup = accountLookup[t.plaidAccountId];
+      // v3 (2026-05-26): prefer WJP_AcctLookup (which wjp-acct-name-sync
+      // augments with userDisplayName/userRenamed) over local accountLookup
+      // so user renames flow through to row SOURCE pills, not just filter chips.
+      var sharedLookup = window.WJP_AcctLookup && window.WJP_AcctLookup[t.plaidAccountId];
+      var lookup = sharedLookup || accountLookup[t.plaidAccountId];
       var instRaw = (lookup && lookup.institutionName) || t.institutionName || 'Bank';
-      var instShort = shortInstName(instRaw);
       var mask = (lookup && lookup.mask) || '';
+      // If the user renamed this account, use their name verbatim (capped at
+      // 24) instead of running through shortInstName which aggressively
+      // abbreviates ("Bank of America" → "BoA").
+      var instShort;
+      if (lookup && lookup.userRenamed && lookup.userDisplayName) {
+        var nm = String(lookup.userDisplayName);
+        instShort = nm.length > 24 ? nm.slice(0, 24) + '…' : nm;
+      } else {
+        instShort = shortInstName(instRaw);
+      }
       var displayLabel = mask ? (instShort + ' ··' + mask) : instShort;
-      var tooltip = 'From ' + instRaw + (lookup && lookup.name ? ' (' + lookup.name + (mask ? ' ····' + mask : '') + ')' : '');
+      var tooltipName = (lookup && lookup.userRenamed && lookup.userDisplayName) ? lookup.userDisplayName : instRaw;
+      var tooltip = 'From ' + tooltipName + (lookup && lookup.name ? ' (' + lookup.name + (mask ? ' ····' + mask : '') + ')' : '');
       return {
         kind: 'plaid',
-        label: instRaw,
+        label: tooltipName,
         shortLabel: displayLabel,
         icon: 'ph-bank',
         color: '#1f7a4a',
