@@ -59,37 +59,35 @@
     return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 });
   }
 
-  // Find the stat values inside #txn-stats-bar. The host renders cards
-  // each with a label + a number. We grab the 4 cards by the label text.
+  // The host renders cards with class 'card' and label class 'card-label'.
+  // findStatCard returns the .card whose label text matches.
   function findStatCard(bar, label) {
-    var cards = bar.querySelectorAll('div, section, article');
-    var match = null;
-    var lbl = label.toLowerCase().replace(/\s+/g,' ');
+    var lbl = label.toLowerCase().trim();
+    var cards = bar.querySelectorAll('.card');
     for (var i = 0; i < cards.length; i++) {
-      var c = cards[i];
-      var txt = (c.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
-      // The label is at the start of the card text
-      if (txt.indexOf(lbl) === 0 && c.children.length <= 6) {
-        match = c;
-        break;
+      var lblEl = cards[i].querySelector('.card-label');
+      if (lblEl && (lblEl.textContent || '').trim().toLowerCase() === lbl) {
+        return cards[i];
       }
     }
-    return match;
+    return null;
   }
 
   function valueElementOf(card) {
-    // The host renders a big number child — find the largest-font child
     if (!card) return null;
-    var best = null, bestSize = 0;
-    Array.prototype.forEach.call(card.querySelectorAll('div, span, h1, h2, h3, h4, p, strong'), function (e) {
-      var cs = window.getComputedStyle(e);
-      var size = parseFloat(cs.fontSize) || 0;
-      if (size > bestSize) {
-        bestSize = size;
-        best = e;
+    // The value is in the card but NOT inside the .card-label. Find any
+    // direct child that ISN'T the label, then drill to the deepest text node.
+    var children = card.children;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].classList && children[i].classList.contains('card-label')) continue;
+      // Drill to deepest single-text element
+      var el = children[i];
+      while (el && el.children && el.children.length === 1 && !el.children[0].classList.contains('card-label')) {
+        el = el.children[0];
       }
-    });
-    return best;
+      return el;
+    }
+    return null;
   }
 
   var _last = '';
