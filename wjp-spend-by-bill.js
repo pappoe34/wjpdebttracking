@@ -125,6 +125,25 @@
     var search = getSearch();
     var q = search.toLowerCase().trim();
 
+    // FIX (Winston 2026-05-27): Spend by Bill must only show ACTUAL bills.
+    // Walmart, Post Office, Ace Hardware, BKOFAMERICA WITHDRWL aren't bills.
+    // Allowlist: bills, utilities, insurance, debt-payment, subscriptions, rent, mortgage, medical, loan.
+    var BILL_CATS = {
+      'bills': 1, 'utilities': 1, 'utility': 1, 'insurance': 1,
+      'debt-payment': 1, 'debt_payment': 1, 'debt': 1,
+      'subscriptions': 1, 'subscription': 1,
+      'rent': 1, 'mortgage': 1, 'loan': 1,
+      'medical': 1, 'healthcare': 1
+    };
+    function isBillCat(c) {
+      if (!c) return false;
+      var k = String(c).toLowerCase().trim();
+      if (BILL_CATS[k]) return true;
+      // Also accept custom category IDs whose name CONTAINS a bill keyword
+      if (/(bill|insur|util|debt|subscript|rent|mortgage|loan|medic|health)/.test(k)) return true;
+      return false;
+    }
+
     var s = getState();
     var byMerchant = {};
     var total = 0;
@@ -138,12 +157,31 @@
         if (amt >= 0) return;
         var displayName = String(t.merchant || t.name || 'Unknown').slice(0, 60);
         var key = canonMerchant(displayName) || displayName.toLowerCase();
-        if (!byMerchant[key]) byMerchant[key] = { key: key, name: displayName, amount: 0, count: 0 };
+        if (!byMerchant[key]) byMerchant[key] = { key: key, name: displayName, amount: 0, count: 0, catCounts: {} };
         byMerchant[key].amount += Math.abs(amt);
         byMerchant[key].count++;
+        var c = t.userCategoryId || 'other';
+        byMerchant[key].catCounts[c] = (byMerchant[key].catCounts[c] || 0) + 1;
         total += Math.abs(amt);
       });
     }
+
+    // Filter to merchants whose DOMINANT category is bill-like
+    var filteredTotal = 0;
+    Object.keys(byMerchant).forEach(function (k) {
+      var m = byMerchant[k];
+      var topCat = null, topCnt = 0;
+      Object.keys(m.catCounts || {}).forEach(function (c) {
+        if (m.catCounts[c] > topCnt) { topCnt = m.catCounts[c]; topCat = c; }
+      });
+      m.dominantCat = topCat;
+      if (!isBillCat(topCat)) {
+        delete byMerchant[k];
+      } else {
+        filteredTotal += m.amount;
+      }
+    });
+    total = filteredTotal;
 
     var rows = Object.keys(byMerchant).map(function (k) { return byMerchant[k]; });
     if (q) {
