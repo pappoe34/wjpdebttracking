@@ -101,7 +101,18 @@
       '#' + CARD_ID + ' .cat-row .amt{font-weight:700;font-size:13px;color:var(--ink, #1f1a14);min-width:80px;text-align:right;}',
       '#' + CARD_ID + ' .cat-row .bar{flex:0 0 80px;height:4px;background:var(--bg-3, rgba(0,0,0,0.06));border-radius:999px;overflow:hidden;}',
       '#' + CARD_ID + ' .cat-row .bar > div{height:100%;border-radius:999px;}',
-      '#' + CARD_ID + ' .empty{padding:16px;text-align:center;font-size:12px;color:var(--ink-dim, #6b7280);}'
+      '#' + CARD_ID + ' .empty{padding:16px;text-align:center;font-size:12px;color:var(--ink-dim, #6b7280);}',
+      // Dark-mode parity (body.dark): search box was bright white in night mode; period pill 'This month' was also white.
+      'body.dark #' + CARD_ID + '{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.10);color:#e7e7ea;}',
+      'body.dark #' + CARD_ID + ' .title, body.dark #' + CARD_ID + ' .total, body.dark #' + CARD_ID + ' .cat-row .amt, body.dark #' + CARD_ID + ' .cat-row .nm{color:#f4f4f6;}',
+      'body.dark #' + CARD_ID + ' .sub, body.dark #' + CARD_ID + ' .total-label, body.dark #' + CARD_ID + ' .cat-row .cnt, body.dark #' + CARD_ID + ' .empty{color:rgba(255,255,255,0.55);}',
+      'body.dark #' + CARD_ID + ' .search input{background:rgba(255,255,255,0.05) !important;color:#f4f4f6 !important;border-color:rgba(255,255,255,0.12) !important;}',
+      'body.dark #' + CARD_ID + ' .search input::placeholder{color:rgba(255,255,255,0.40);}',
+      'body.dark #' + CARD_ID + ' .periods{background:rgba(255,255,255,0.05);}',
+      'body.dark #' + CARD_ID + ' .periods button{color:rgba(255,255,255,0.55);}',
+      'body.dark #' + CARD_ID + ' .periods button.active{background:rgba(255,255,255,0.10);color:#f4f4f6;box-shadow:none;}',
+      'body.dark #' + CARD_ID + ' .cat-row:hover{background:rgba(255,255,255,0.05);}',
+      'body.dark #' + CARD_ID + ' .cat-row .bar{background:rgba(255,255,255,0.08);}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -157,7 +168,7 @@
     return '<div id="' + CARD_ID + '">' +
       '<div class="head">' +
         '<div>' +
-          '<div class="title">Billing History</div>' +
+          '<div class="title">Category History</div>' +
           '<div class="sub">Spending by category for ' + period.label + '. Transfers and income excluded.</div>' +
         '</div>' +
         '<div style="text-align:right;">' +
@@ -287,7 +298,7 @@
   }
 
   window.WJP_BillingHistory = {
-    version: 1,
+    version: 2,
     refresh: refresh,
     getPeriod: getPeriod,
     setPeriod: setPeriod
