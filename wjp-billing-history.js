@@ -212,21 +212,27 @@
     card.setAttribute('data-sig', sig);
 
     if (existing) {
-      // Replace in place — but only if user isn't typing in the search box
       var activeSearch = document.activeElement && document.activeElement.id === 'wjp-bh-search';
-      if (activeSearch) return; // leave alone, will refresh after blur
+      if (activeSearch) return;
       existing.replaceWith(card);
     } else {
-      // Mount: after Smart Summary if present, else at top of subtab
-      var summary = sub.querySelector('#wjp-txsummary, [id*="summary"], [class*="smart-summary"]');
-      if (summary && summary.parentNode === sub) {
-        summary.insertAdjacentElement('afterend', card);
-      } else {
-        // Find the transactions table and insert before it
-        var table = sub.querySelector('#txn-table, table');
-        if (table) table.parentNode.insertBefore(card, table);
-        else sub.insertBefore(card, sub.firstChild);
+      // v3 (FIX 39, Winston): mount near the BOTTOM of the Transactions
+      // subtab so it doesn't dominate the top of the page. Find or create
+      // a flex row container so Billing History + Spend by Bill sit
+      // side-by-side.
+      var rowId = 'wjp-billing-row';
+      var row = sub.querySelector('#' + rowId);
+      if (!row) {
+        row = document.createElement('div');
+        row.id = rowId;
+        row.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 18px 0;';
+        // Append near bottom of subtab (after the txn table + any pagination)
+        sub.appendChild(row);
       }
+      // Card takes 50% on wide screens
+      card.style.flex = '1 1 380px';
+      card.style.margin = '0';
+      row.appendChild(card);
     }
     wireCard(card);
   }
@@ -280,7 +286,6 @@
     boot();
   }
 
-  // Public API
   window.WJP_BillingHistory = {
     version: 1,
     refresh: refresh,
