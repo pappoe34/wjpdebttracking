@@ -155,6 +155,27 @@
       }
       // Only act on txns currently uncategorized OR explicitly 'other'
       if (cur && cur !== 'other') return;
+      // FIX 50 (Winston 2026-05-27): positive-amount Plaid txns that
+      // aren't transfers → tag as 'income' (payroll, refunds, deposits).
+      var amt0 = Number(t.amount) || 0;
+      if (amt0 > 0 && t.source === 'plaid') {
+        t.userCategoryId = 'income';
+        t.userCategorySource = 'auto-income-boost';
+        hinted++;
+        return;
+      }
+      // FIX 50: credit-card / loan payment patterns → 'debt-payment'.
+      var fullText0 = [t.merchant, t.name, t.description, t.merchant_name].filter(Boolean).join(' ');
+      if (/\b(capital\s*one|credit\s*one|discover|chase|amex|american\s*express|citi|barclays|synchrony|sofi|aidvantage|onemain|navient|nelnet|great\s*lakes|mohela|fedloan)\b.*\b(payment|pymt|pmt|mobile)\b/i.test(fullText0)
+          || /\b(payment|pymt|pmt)\b.*\b(credit|card|loan)\b/i.test(fullText0)) {
+        var debtCatId = resolveCategoryId('Debt Payment') || (categoryExists('debt-payment') ? 'debt-payment' : null);
+        if (debtCatId) {
+          t.userCategoryId = debtCatId;
+          t.userCategorySource = 'auto-debt-payment-boost';
+          hinted++;
+          return;
+        }
+      }
       var name = t.merchant || t.name || '';
       var key = canonMerchant(name);
       // (1) Learned match
@@ -204,7 +225,6 @@
       }
       if (attempts < 20) setTimeout(tick, 1500);
     }
-    // Wait long enough for WJP_Categories + WJP_TxSmartCategorize + appState
     setTimeout(tick, 5000);
     window.addEventListener('wjp-tx-category-changed', function () { setTimeout(sweep, 500); });
     window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(sweep, 500); });
@@ -221,7 +241,7 @@
   }
 
   window.WJP_SmartCategorizeBoost = {
-    version: 2,
+    version: 3,
     sweep: sweep,
     buildIndex: buildIndex,
     KEYWORD_HINTS: KEYWORD_HINTS
