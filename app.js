@@ -23967,7 +23967,7 @@ window.showPrivacyHint = function showPrivacyHint() {
 
     var _db = null, _uid = null, _ready = false, _pushTimer = null, _pulling = false;
     var _firestore = null, _docFn = null, _setDocFn = null, _getDocFn = null;
-    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds','inbox','assets','netWorthHistory'];
+    var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds','inbox','assets','netWorthHistory','categories'];  // FIX 44 (2026-05-26 Winston): added 'categories' so user-defined categories sync to cloud and survive device switches.
     var FB_BASE = 'https://www.gstatic.com/firebasejs/10.13.0/';
 
     function setIndicator(state) {
