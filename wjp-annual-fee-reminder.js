@@ -124,7 +124,18 @@
   }
 
   // ───────── nudge injection ─────────
+  // FIX: debounced + signature-checked so DOM mutations from this function
+  // can't re-fire the MutationObserver into an infinite loop.
+  var _refreshScheduled = false;
   function refreshNudges() {
+    if (_refreshScheduled) return;
+    _refreshScheduled = true;
+    setTimeout(function () {
+      _refreshScheduled = false;
+      try { doRefreshNudges(); } catch (_) {}
+    }, 150);
+  }
+  function doRefreshNudges() {
     injectStyle();
     var grid = document.getElementById('wjp-rt-grid');
     if (!grid) return;
@@ -136,18 +147,26 @@
         return d && (d.id === key || ('plaid:' + d.id) === key || d.id === ('plaid:' + key));
       });
       if (!debt) return;
-      // Remove any stale nudge first so we always reflect current state
-      var stale = card.querySelector('.wjp-anfee-nudge, .wjp-anfee-set');
-      if (stale) stale.remove();
-      if (!isCard(debt)) return; // only cards have annual fees
+      var isCardDebt = isCard(debt);
       var bodyText = (card.textContent || '');
       var isExpanded = bodyText.length > 200 && /AI breakdown|EDIT DATA|What this is/i.test(bodyText);
-      if (!isExpanded) return;
-      var enh = card.querySelector('.wjp-debt-enh'); // FIX 37 utilization bar block
       var hasFee = Number(debt.annualFee) > 0 && Number(debt.annualFeeMonth) >= 1;
       var confirmedNone = debt.annualFeeConfirmedNone === true;
+      // Signature representing the desired nudge state
+      var desiredSig = !isCardDebt ? 'none'
+        : !isExpanded ? 'collapsed'
+        : hasFee ? ('set:' + Number(debt.annualFee).toFixed(2) + ':' + Number(debt.annualFeeMonth))
+        : confirmedNone ? 'none-confirmed'
+        : 'nudge';
+      var existingNudge = card.querySelector('.wjp-anfee-nudge, .wjp-anfee-set');
+      var existingSig = existingNudge ? existingNudge.getAttribute('data-sig') : null;
+      if (existingSig === desiredSig) return; // no-op (prevents MO loop)
+      if (existingNudge) existingNudge.remove();
+      if (!isCardDebt || !isExpanded) return;
+      var enh = card.querySelector('.wjp-debt-enh');
 
       var el = document.createElement('span');
+      el.setAttribute('data-sig', desiredSig);
       if (hasFee) {
         var feeMonth = MONTHS[Number(debt.annualFeeMonth) - 1];
         el.className = 'wjp-anfee-set';
@@ -257,33 +276,4 @@
     var late = 0;
     var iv = setInterval(function () {
       late++;
-      if (late > 30) return clearInterval(iv);
-      var g = document.getElementById('wjp-rt-grid');
-      if (g && !g._wjpFeeObserved) {
-        g._wjpFeeObserved = true;
-        try {
-          var mo2 = new MutationObserver(function () { refreshNudges(); });
-          mo2.observe(g, { childList: true, subtree: true });
-        } catch (_) {}
-        refreshNudges();
-      }
-    }, 1500);
-    // Reminder check runs every hour
-    setInterval(runReminderCheck, 60 * 60 * 1000);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-
-  // Public API
-  window.WJP_AnnualFeeReminder = {
-    version: 1,
-    refresh: refreshNudges,
-    runReminderCheck: runReminderCheck,
-    promptForFee: promptForFee,
-    nextFeeChargeMs: nextFeeChargeMs
-  };
-})();
+      if (late > 30) retu
