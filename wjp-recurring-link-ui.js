@@ -283,11 +283,24 @@
     // Build candidates: unlinked Plaid txns from last 60d, sorted by amount proximity
     var target = Math.abs(Number(rp.amount) || 0);
     var cutoff = Date.now() - (60 * 24 * 60 * 60 * 1000);
+    // v1 (2026-05-26, FIX 31): exclude transfers from picker candidates so
+    // the user can't accidentally link a bank-to-bank move as a bill payment.
+    function isTransferLocal(t) {
+      try {
+        if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.isTransfer) {
+          return !!window.WJP_TxSmartCategorize.isTransfer(t);
+        }
+      } catch (_) {}
+      var fields = [t.merchant, t.name, t.description, t.merchant_name].filter(Boolean).join(' ');
+      return /\b(transfer|xfer|zelle|venmo|cash\s*app)\b/i.test(fields);
+    }
     var candidates = (s.transactions || []).filter(function (t) {
       if (!t) return false;
       if (t.linkedRecurringId) return false;
       if (t.source !== 'plaid') return false;
       if (t.synthetic) return false;
+      if (t._supersededBy) return false; // pending row already promoted to a completed one
+      if (isTransferLocal(t)) return false;
       var ms = new Date(String(t.date || '').slice(0, 10) + 'T12:00:00').getTime();
       return ms >= cutoff;
     }).map(function (t) {

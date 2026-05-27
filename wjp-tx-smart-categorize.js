@@ -61,16 +61,19 @@
   // Same transfer patterns as wjp-transfer-filter so we keep the logic in
   // one mental model. We OWN this list now — wjp-transfer-filter just dims
   // the row (no badge).
+  // v2 (2026-05-26, per Winston): if the merchant text contains the word
+  // 'transfer' AT ALL, treat it as a transfer between the user's own banks
+  // — NOT a real transaction. Plus payment-service apps that are
+  // overwhelmingly used for inter-bank moves (Zelle, Venmo, Cash App).
   var TRANSFER_PATTERNS = [
-    /\btransfer\s+from\s+acct/i,
-    /\btransfer\s+to\s+acct/i,
-    /\bonline\s+transfer/i,
-    /\bach\s+transfer/i,
-    /\binternal\s+transfer/i,
-    /\bmobile\s+transfer/i,
-    /\bwire\s+transfer\b/i,
+    /\btransfer\b/i,         // catch-all — overrides any specific patterns below
+    /\bxfer\b/i,             // common Plaid abbreviation
     /\bzelle\b/i,
-    /\bvenmo\b.*transfer/i
+    /\bvenmo\b/i,
+    /\bcash\s*app\b/i,
+    /\bach\s+(deposit|withdrawal|credit|debit)\b/i,
+    /\bbank-to-bank\b/i,
+    /\bmove\s+(from|to|between)\s+(checking|savings|account)/i
   ];
   function isTransfer(t) {
     if (!t || typeof t !== 'object') return false;

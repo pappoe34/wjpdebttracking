@@ -73,23 +73,61 @@
     return hits / Math.max(aa.length, bb.length);
   }
 
+  // v2 (2026-05-26, Winston): scoreMatch overlay — when the recurring is
+  // income or marked allowVariableAmount, accept a strong-name match even
+  // if the amount drifts. ADP payroll comes in as $1109.14 one week and
+  // $908.18 the next, but the merchant string 'ACH Electronic Credit ADP
+  // TOTALSOURCE PAYROLL' is identical. Identity should travel with the
+  // merchant, not the amount.
   function scoreMatch(rp, txn) {
+    var base = null;
     if (window.WJP_PaymentDetector && window.WJP_PaymentDetector.scoreMatch) {
-      return window.WJP_PaymentDetector.scoreMatch(rp, txn);
+      base = window.WJP_PaymentDetector.scoreMatch(rp, txn);
+    } else {
+      var amt = Math.abs(Number(txn.amount) || 0);
+      var target = Math.abs(Number(rp.amount) || 0);
+      if (!target || !amt) base = { conf: 'none' };
+      else {
+        var amtRatio = Math.min(amt, target) / Math.max(amt, target);
+        var name = nameOverlap(rp.name, txn.merchant || txn.name || '');
+        if (name >= 0.5 && amtRatio >= 0.88) base = { conf: 'high', name: name, amt: amtRatio };
+        else if (name >= 0.5 && amtRatio >= 0.75) base = { conf: 'medium', name: name, amt: amtRatio };
+        else if (name >= 0.34 && amtRatio >= 0.95) base = { conf: 'medium', name: name, amt: amtRatio };
+        else base = { conf: 'none', name: name, amt: amtRatio };
+      }
     }
-    var amt = Math.abs(Number(txn.amount) || 0);
-    var target = Math.abs(Number(rp.amount) || 0);
-    if (!target || !amt) return { conf: 'none' };
-    var amtRatio = Math.min(amt, target) / Math.max(amt, target);
-    var name = nameOverlap(rp.name, txn.merchant || txn.name || '');
-    if (name >= 0.5 && amtRatio >= 0.88) return { conf: 'high', name: name, amt: amtRatio };
-    if (name >= 0.5 && amtRatio >= 0.75) return { conf: 'medium', name: name, amt: amtRatio };
-    if (name >= 0.34 && amtRatio >= 0.95) return { conf: 'medium', name: name, amt: amtRatio };
-    return { conf: 'none' };
+    // v2 income/variable-amount overlay: if the recurring tolerates amount
+    // drift (income or explicitly flagged), promote a strong-name match.
+    var allowDrift = (rp && (rp.type === 'income' || rp.allowVariableAmount === true || rp.category === 'income'));
+    if (allowDrift) {
+      var nm = (base && typeof base.name === 'number')
+        ? base.name
+        : nameOverlap(rp.name, txn.merchant || txn.name || '');
+      if (nm >= 0.65) return { conf: 'high', name: nm, amt: (base && base.amt) || 0, via: 'name-only' };
+      if (nm >= 0.5)  return { conf: 'medium', name: nm, amt: (base && base.amt) || 0, via: 'name-only' };
+    }
+    return base || { conf: 'none' };
   }
 
   function txnDateMs(t) {
     try { return new Date(String(t.date || t.timestamp || '').slice(0, 10) + 'T12:00:00').getTime() || 0; } catch (_) { return 0; }
+  }
+
+  // v1 (2026-05-26): Transfer check — defer to WJP_TxSmartCategorize when
+  // present, with a built-in fallback so this module works standalone.
+  // Per Winston: any txn containing the word 'transfer' is moving money
+  // between his own banks, NOT a real bill payment, so it must never be
+  // auto-linked to a recurring schedule.
+  function isTransfer(t) {
+    if (!t) return false;
+    if (t.userCategoryId === 'transfer' || t.userCategorySource === 'auto-transfer') return true;
+    try {
+      if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.isTransfer) {
+        return !!window.WJP_TxSmartCategorize.isTransfer(t);
+      }
+    } catch (_) {}
+    var fields = [t.merchant, t.name, t.description, t.merchant_name].filter(Boolean).join(' ');
+    return /\b(transfer|xfer|zelle|venmo|cash\s*app)\b/i.test(fields);
   }
 
   // Business-day arithmetic: skip Sat/Sun. Add `n` business days to `fromMs`.
@@ -182,10 +220,42 @@
       }
     });
 
+    // v1 (2026-05-26): ID-stability across Plaid pending→completed promotion.
+    // wjp-pending-promote sets t._supersededBy = newCompletedId when it
+    // detects a pair. If the user (or auto-sweep) linked the PENDING row,
+    // the link dies once pending is removed. Transfer the link to the
+    // successor by id-lookup, preserving lifecycle state.
+    s.transactions.forEach(function (t) {
+      if (!t || !t._supersededBy || !t.linkedRecurringId) return;
+      var successor = s.transactions.find(function (x) { return x && x.id === t._supersededBy; });
+      if (!successor) return;
+      if (successor.linkedRecurringId) return; // successor already has its own link
+      successor.linkedRecurringId = t.linkedRecurringId;
+      successor.linkedAt = t.linkedAt || Date.now();
+      successor.linkConfirmedAt = t.linkConfirmedAt || null;
+      successor.linkStatus = computeStatus(successor) || t.linkStatus || 'pending';
+      successor._userUnlinked = false;
+      // Update the recurring's openTxnId pointer too
+      var rp = s.recurringPayments.find(function (x) { return x && x.id === t.linkedRecurringId; });
+      if (rp) {
+        if (rp.openTxnId === t.id) rp.openTxnId = successor.id;
+        if (Array.isArray(rp.linkedTxnIds)) {
+          var i = rp.linkedTxnIds.indexOf(t.id);
+          if (i !== -1) rp.linkedTxnIds[i] = successor.id;
+          if (rp.linkedTxnIds.indexOf(successor.id) === -1) rp.linkedTxnIds.push(successor.id);
+        }
+      }
+      // Drop the link from the soon-removed pending row
+      t.linkedRecurringId = null;
+      t.linkStatus = null;
+    });
+
     s.transactions.forEach(function (t) {
       if (!t || t.linkedRecurringId || t._userUnlinked) return;
       if (t.synthetic) return; // synthetic txns are placeholders, don't auto-link them to themselves
       if (t.source !== 'plaid') return; // only auto-link real Plaid posts
+      if (t._supersededBy) return; // pending row replaced by a completed one — link the successor instead
+      if (isTransfer(t)) return;   // Winston rule: transfers between his own banks are not bills
       var ms = txnDateMs(t);
       if (!ms || ms < cutoff) return;
       var best = findBestRecurring(t, s.recurringPayments);
