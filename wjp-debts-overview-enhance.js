@@ -214,14 +214,37 @@
   }
 
   function findDebtsHost() {
-    // Strict mount: only the active Overview subtab content. Falls back to
-    // the page container itself if subtab isn't found.
+    // v3 (2026-05-26 FIX 36): strictly mount on the Overview subtab via
+    // data-subtab attribute. Previously used '.active' which incorrectly
+    // mounted Debit balances onto whichever subtab was currently active
+    // (Recurring Payments, Analysis, etc).
+    var overview = document.querySelector('.debts-subtab-content[data-subtab="overview"]');
+    if (overview) return overview;
+    // Legacy fallback for builds without data-subtab markup
     var subtab = document.querySelector('.debts-subtab-content.active');
     if (subtab && subtab.offsetParent !== null) return subtab;
     var pageEl = document.getElementById('page-debts');
     if (pageEl && pageEl.offsetParent !== null) return pageEl;
     return null;
   }
+
+  // FIX 36 cleanup helper: remove any Debit balances card that ended up
+  // mounted under a NON-overview subtab. Defensive — handles cards put
+  // there by earlier builds before this patch shipped.
+  function cleanupStrayDebitCards() {
+    try {
+      var cards = document.querySelectorAll('#' + (typeof DEBIT_CARD_ID !== 'undefined' ? DEBIT_CARD_ID : 'wjp-debit-balances-card'));
+      cards.forEach(function (c) {
+        var sub = c.closest('.debts-subtab-content');
+        if (sub && sub.getAttribute('data-subtab') !== 'overview') {
+          try { c.remove(); } catch (_) {}
+        }
+      });
+    } catch (_) {}
+  }
+  // Run on boot and every 2s
+  setTimeout(cleanupStrayDebitCards, 800);
+  setInterval(cleanupStrayDebitCards, 2000);
 
   async function mountDebitBalances() {
     if (!isOnDebts()) {

@@ -111,13 +111,53 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
-  // ───────── compute progress for the current cycle ─────────
+  // ───────── compute progress (FIX 36C — Winston) ─────────
+  // For credit cards (has .limit / .creditLimit): show paydown progress
+  //   pct = (limit - balance) / limit * 100  → "available credit"
+  //   label = 'Used $X of $Y limit (Z% used)'
+  // For loans (originalBalance > balance): show paydown progress
+  //   pct = (originalBalance - balance) / originalBalance * 100
+  //   label = 'Paid $X of $Y (Z%)'
+  // For everything else: fallback to per-cycle payment progress.
   function computeProgress(debt, rp) {
-    // "Cycle" = the current frequency window leading up to nextDate.
-    // Paid = sum of linked txn absolute amounts in that window.
-    if (!rp) return { paid: 0, target: 0, pct: 0, withinCycle: 0 };
-    var target = Math.abs(Number(rp.amount) || Number(debt && debt.minimumPayment) || 0);
-    if (!target) return { paid: 0, target: 0, pct: 0, withinCycle: 0 };
+    if (!debt) return { paid: 0, target: 0, pct: 0, label: '', subtext: '' };
+
+    var balance = Math.abs(Number(debt.balance) || Number(debt.currentBalance) || 0);
+    var limit = Math.abs(Number(debt.creditLimit) || Number(debt.limit) || Number(debt.creditLine) || 0);
+    var origBal = Math.abs(Number(debt.originalBalance) || Number(debt.startingBalance) || 0);
+
+    // Credit card path — non-zero limit + (it's truly a card, not a loan)
+    var isCard = limit > 0 && (debt.type === 'credit' || debt.type === 'card' || debt.type === 'creditCard' || limit >= balance);
+    if (isCard && limit > 0) {
+      var used = Math.min(balance, limit);
+      var availPct = Math.max(0, Math.round(((limit - used) / limit) * 100));
+      var usedPct = 100 - availPct;
+      return {
+        paid: used,
+        target: limit,
+        pct: availPct, // bar shows available credit (more = better)
+        label: 'Used ' + fmtUsd(used) + ' of ' + fmtUsd(limit) + ' limit (' + usedPct + '% utilization)',
+        subtext: (rp && rp.nextDate) ? ('Next due ' + fmtDateShort(rp.nextDate)) : ''
+      };
+    }
+
+    // Loan path — original balance present and > current balance
+    if (origBal > 0 && origBal >= balance) {
+      var paid = origBal - balance;
+      var pct = origBal > 0 ? Math.min(100, Math.round((paid / origBal) * 100)) : 0;
+      return {
+        paid: paid,
+        target: origBal,
+        pct: pct,
+        label: 'Paid ' + fmtUsd(paid) + ' of ' + fmtUsd(origBal) + ' (' + pct + '%)',
+        subtext: (rp && rp.nextDate) ? ('Next due ' + fmtDateShort(rp.nextDate)) : ''
+      };
+    }
+
+    // Fallback per-cycle progress (original behaviour)
+    if (!rp) return { paid: 0, target: 0, pct: 0, label: 'No progress data yet', subtext: '' };
+    var target = Math.abs(Number(rp.amount) || Number(debt.minimumPayment) || Number(debt.minPayment) || 0);
+    if (!target) return { paid: 0, target: 0, pct: 0, label: 'No payment target set', subtext: '' };
     var nextMs = rp.nextDate ? new Date(rp.nextDate + 'T12:00:00').getTime() : 0;
     var freqDays = 30;
     if (rp.frequency === 'weekly') freqDays = 7;
@@ -126,16 +166,19 @@
     else if (rp.frequency === 'yearly') freqDays = 365;
     var cycleStartMs = nextMs - (freqDays * 24 * 60 * 60 * 1000);
     var linked = linkedTxnsFor(rp);
-    var paid = 0, count = 0;
+    var paidCycle = 0;
     linked.forEach(function (t) {
       var ms = new Date(String(t.date || '').slice(0,10) + 'T12:00:00').getTime();
-      if (ms >= cycleStartMs && ms <= nextMs) {
-        paid += Math.abs(Number(t.amount) || 0);
-        count++;
-      }
+      if (ms >= cycleStartMs && ms <= nextMs) paidCycle += Math.abs(Number(t.amount) || 0);
     });
-    var pct = Math.min(100, Math.round((paid / target) * 100));
-    return { paid: paid, target: target, pct: pct, withinCycle: count };
+    var pctCycle = Math.min(100, Math.round((paidCycle / target) * 100));
+    return {
+      paid: paidCycle,
+      target: target,
+      pct: pctCycle,
+      label: 'Paid ' + fmtUsd(paidCycle) + ' of ' + fmtUsd(target) + ' this cycle (' + pctCycle + '%)',
+      subtext: (rp && rp.nextDate) ? ('Next due ' + fmtDateShort(rp.nextDate)) : ''
+    };
   }
 
   // ───────── build the enhancement block HTML ─────────
@@ -148,13 +191,14 @@
     var remDays = Number(debt.reminderDays) || 3;
     var remOn = debt.reminderEnabled === true;
 
-    // PROGRESS BAR
+    // PROGRESS BAR — label/subtext computed inside computeProgress per debt type
+    var progTitle = (Number(debt.creditLimit) || Number(debt.limit)) > 0 ? 'Credit utilization' : 'Payment progress';
     var progBar = '<div class="wjp-debt-enh-section">' +
-      '<div class="wjp-debt-enh-label">This cycle payment progress</div>' +
+      '<div class="wjp-debt-enh-label">' + progTitle + '</div>' +
       '<div class="wjp-debt-enh-bar"><div style="width:' + prog.pct + '%;"></div></div>' +
       '<div class="wjp-debt-enh-progress-meta">' +
-        '<span>Paid ' + fmtUsd(prog.paid) + ' of ' + fmtUsd(prog.target) + (prog.target ? ' (' + prog.pct + '%)' : '') + '</span>' +
-        '<span>' + (rp && rp.nextDate ? 'Next due ' + fmtDateShort(rp.nextDate) : '') + '</span>' +
+        '<span>' + htmlEscape(prog.label || '') + '</span>' +
+        '<span>' + htmlEscape(prog.subtext || '') + '</span>' +
       '</div>' +
     '</div>';
 
@@ -280,6 +324,10 @@
   }
 
   // ───────── inject into every expanded debt card ─────────
+  // FIX 36B (2026-05-26 Winston): NEVER rebuild a block that already exists,
+  // or input fields lose focus / their typed values every 1.5s. Only inject
+  // when the block is missing. Updates to linked-payments + progress flow
+  // through targeted DOM patches via patchProgressAndLinked().
   function injectAll() {
     var grid = document.getElementById('wjp-rt-grid');
     if (!grid) return;
@@ -287,14 +335,10 @@
     if (!s || !Array.isArray(s.debts)) return;
     Array.prototype.forEach.call(grid.querySelectorAll('[data-wjp-rt-key]'), function (card) {
       var key = card.getAttribute('data-wjp-rt-key');
-      // The card's debt.id may match the key with or without 'plaid:' prefix
       var debt = s.debts.find(function (d) {
         return d && (d.id === key || ('plaid:' + d.id) === key || d.id === ('plaid:' + key));
       });
       if (!debt) return;
-      // Only inject if the card is EXPANDED — heuristic: more than just the header.
-      // We check that the card has at least one descendant with substantial text
-      // matching the AI breakdown content.
       var bodyText = (card.textContent || '');
       var isExpanded = bodyText.length > 200 && /AI breakdown|EDIT DATA|Min\/mo|What this is/i.test(bodyText);
       var existing = card.querySelector('.wjp-debt-enh');
@@ -302,15 +346,74 @@
         if (existing) existing.remove();
         return;
       }
-      // Replace existing block to keep field values fresh
-      if (existing) existing.remove();
+      if (existing) {
+        // Already present — just refresh the dynamic bits (progress + linked list)
+        try { patchProgressAndLinked(existing, debt); } catch (_) {}
+        return;
+      }
       var wrapper = document.createElement('div');
       wrapper.innerHTML = buildEnhancementHtml(debt);
       var block = wrapper.firstElementChild;
-      // Append to end of card (after EDIT DATA section)
       card.appendChild(block);
       wireBlock(block, debt);
     });
+  }
+
+  // Refresh only the progress bar + linked payments list (the rest are
+  // form inputs that must not be re-rendered while the user is editing).
+  function patchProgressAndLinked(block, debt) {
+    var rp = findDerivedRecurring(debt.id);
+    var prog = computeProgress(debt, rp);
+    var bar = block.querySelector('.wjp-debt-enh-bar > div');
+    if (bar) bar.style.width = prog.pct + '%';
+    var meta = block.querySelector('.wjp-debt-enh-progress-meta');
+    if (meta) {
+      meta.innerHTML = '<span>' + prog.label + '</span>' +
+        '<span>' + (prog.subtext || '') + '</span>';
+    }
+    // Linked list — rebuild only that section, leave inputs alone
+    var sections = block.querySelectorAll('.wjp-debt-enh-section');
+    if (sections.length >= 2) {
+      var linked = rp ? linkedTxnsFor(rp).slice(0, 6) : [];
+      var html;
+      if (!linked.length) {
+        html = '<div class="wjp-debt-enh-empty">No payments linked yet. Click <strong>Mark as Paid</strong> to attach a transaction.</div>';
+      } else {
+        html = '<div class="wjp-debt-enh-linked-list">' + linked.map(function (t) {
+          var amtStr = fmtUsd(Math.abs(Number(t.amount) || 0));
+          var status = t.linkStatus || 'pending';
+          return '<div class="wjp-debt-enh-linked-row" data-txn-id="' + htmlEscape(t.id) + '">' +
+            '<span class="m">' + htmlEscape(t.merchant || t.name || 'Payment') + '</span>' +
+            '<span class="d">' + htmlEscape(fmtDateShort(t.date)) + '</span>' +
+            statusPill(status) +
+            '<span class="a">' + amtStr + '</span>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+      var linkedLabel = sections[1].querySelector('.wjp-debt-enh-label');
+      if (linkedLabel) linkedLabel.textContent = 'Linked payments (' + (rp ? (rp.linkedTxnIds || []).length : 0) + ')';
+      // Replace just the inner content after the label
+      var innerNodes = Array.prototype.slice.call(sections[1].children);
+      innerNodes.forEach(function (n, i) { if (i > 0) n.remove(); });
+      var tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      sections[1].appendChild(tmp.firstElementChild);
+      // Re-wire click-to-unlink on each row
+      Array.prototype.forEach.call(sections[1].querySelectorAll('.wjp-debt-enh-linked-row'), function (row) {
+        row.style.cursor = 'pointer';
+        row.title = 'Click to unlink this payment';
+        row.onclick = function (e) {
+          e.preventDefault();
+          var tid = row.getAttribute('data-txn-id');
+          if (!tid) return;
+          if (!confirm('Unlink this payment from ' + (debt.name || 'this debt') + '?')) return;
+          if (window.WJP_RecurringLink && window.WJP_RecurringLink.unlink) {
+            window.WJP_RecurringLink.unlink(tid);
+          }
+          setTimeout(refreshAll, 100);
+        };
+      });
+    }
   }
 
   // ───────── throttled refresher ─────────
