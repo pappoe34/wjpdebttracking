@@ -316,26 +316,63 @@
       return new Date(b.t.date) - new Date(a.t.date);
     }).slice(0, 50);
 
-    var rowsHtml = candidates.length
-      ? candidates.map(function (c) {
-          var amtStr = (c.t.amount < 0 ? '-$' : '+$') + Math.abs(c.t.amount).toFixed(2);
-          return '<div class="row" data-txn-id="' + htmlEscape(c.t.id) + '">' +
-            '<div>' +
-              '<div class="merchant">' + htmlEscape(c.t.merchant || c.t.name || 'Unknown') + '</div>' +
-              '<div class="date">' + htmlEscape(c.t.date || '') + (c.ratio > 0.9 ? ' · close match' : '') + '</div>' +
-            '</div>' +
-            '<div class="amt" style="margin-left:auto;color:' + (c.t.amount < 0 ? '#c0594a' : '#1f7a4a') + ';">' + amtStr + '</div>' +
-          '</div>';
-        }).join('')
-      : '<div class="row" style="cursor:default;color:var(--ink-dim,#6b7280);">No unlinked Plaid transactions in the last 60 days.</div>';
+    // FIX 35 (Winston): build per-bank groups so the user can filter by
+    // account before picking. Uses WJP_AcctLookup (populated by
+    // wjp-source-badge-enhance) to map plaidAccountId → friendly label.
+    function bankLabelFor(t) {
+      try {
+        var L = window.WJP_AcctLookup;
+        if (L && t.plaidAccountId && L[t.plaidAccountId]) {
+          var info = L[t.plaidAccountId];
+          var nm = (info.userRenamed && info.userDisplayName)
+            ? info.userDisplayName
+            : (info.institutionName || 'Bank');
+          if (nm.length > 26) nm = nm.slice(0, 26) + '…';
+          return info.mask ? (nm + ' ··' + info.mask) : nm;
+        }
+      } catch (_) {}
+      return t.institutionName || 'Bank';
+    }
+    // Collect unique bank labels from candidates
+    var bankCounts = {};
+    candidates.forEach(function (c) {
+      var b = bankLabelFor(c.t);
+      bankCounts[b] = (bankCounts[b] || 0) + 1;
+    });
+    var bankOptions = Object.keys(bankCounts).sort(function (a, b) { return bankCounts[b] - bankCounts[a]; });
+    var bankSelectHtml = '<select id="wjp-link-picker-bank" style="width:100%;padding:7px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:8px;font-size:12px;font-family:inherit;background:var(--bg-1, #fff);color:var(--ink, var(--text-1, #1f1a14));margin-bottom:10px;">' +
+      '<option value="">All banks (' + candidates.length + ' txns)</option>' +
+      bankOptions.map(function (b) {
+        return '<option value="' + htmlEscape(b) + '">' + htmlEscape(b) + ' (' + bankCounts[b] + ')</option>';
+      }).join('') +
+    '</select>';
+
+    function renderRows(filterBank) {
+      var filtered = filterBank ? candidates.filter(function (c) { return bankLabelFor(c.t) === filterBank; }) : candidates;
+      if (!filtered.length) {
+        return '<div class="row" style="cursor:default;color:var(--ink-dim,#6b7280);">No unlinked Plaid transactions for this filter.</div>';
+      }
+      return filtered.map(function (c) {
+        var amtStr = (c.t.amount < 0 ? '-$' : '+$') + Math.abs(c.t.amount).toFixed(2);
+        var bank = bankLabelFor(c.t);
+        return '<div class="row" data-txn-id="' + htmlEscape(c.t.id) + '">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div class="merchant">' + htmlEscape(c.t.merchant || c.t.name || 'Unknown') + '</div>' +
+            '<div class="date">' + htmlEscape(c.t.date || '') + ' · ' + htmlEscape(bank) + (c.ratio > 0.9 ? ' · close match' : '') + '</div>' +
+          '</div>' +
+          '<div class="amt" style="margin-left:auto;color:' + (c.t.amount < 0 ? '#c0594a' : '#1f7a4a') + ';">' + amtStr + '</div>' +
+        '</div>';
+      }).join('');
+    }
 
     modal.innerHTML =
       '<div class="panel">' +
         '<h3>Link a transaction</h3>' +
         '<div class="sub">Pick the transaction that paid <strong>' + htmlEscape(rp.name || 'this schedule') + '</strong>' +
           (target > 0 ? ' (~$' + target.toFixed(2) + ').' : '.') +
-          ' Sorted by closest amount.</div>' +
-        '<div class="list">' + rowsHtml + '</div>' +
+          ' Filter by bank below, then click the matching transaction.</div>' +
+        bankSelectHtml +
+        '<div class="list">' + renderRows('') + '</div>' +
         '<div class="actions">' +
           '<button class="btn btn-sec" id="wjp-link-picker-cancel" type="button">Cancel</button>' +
         '</div>' +
@@ -343,16 +380,28 @@
     modal.addEventListener('click', function (e) { if (e.target === modal) closePicker(); });
     document.body.appendChild(modal);
     document.getElementById('wjp-link-picker-cancel').onclick = closePicker;
-    modal.querySelectorAll('.row[data-txn-id]').forEach(function (r) {
-      r.onclick = function () {
-        var tid = r.getAttribute('data-txn-id');
-        if (window.WJP_RecurringLink && window.WJP_RecurringLink.link) {
-          window.WJP_RecurringLink.link(tid, rpId);
-        }
-        closePicker();
-        setTimeout(refreshAll, 100);
+    function wireRows() {
+      modal.querySelectorAll('.row[data-txn-id]').forEach(function (r) {
+        r.onclick = function () {
+          var tid = r.getAttribute('data-txn-id');
+          if (window.WJP_RecurringLink && window.WJP_RecurringLink.link) {
+            window.WJP_RecurringLink.link(tid, rpId);
+          }
+          closePicker();
+          setTimeout(refreshAll, 100);
+        };
+      });
+    }
+    wireRows();
+    // FIX 35: re-render rows when bank filter changes
+    var bankSel = document.getElementById('wjp-link-picker-bank');
+    if (bankSel) {
+      bankSel.onchange = function () {
+        var list = modal.querySelector('.list');
+        if (list) list.innerHTML = renderRows(bankSel.value);
+        wireRows();
       };
-    });
+    }
   }
 
   // ───────── Schedule picker (per-txn link from Transactions tab) ─────────
