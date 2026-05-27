@@ -135,15 +135,25 @@
     if (!s || !Array.isArray(s.transactions)) return { learned: 0, hinted: 0, total: 0 };
     var index = buildIndex(s.transactions);
 
-    var learned = 0, hinted = 0;
+    var learned = 0, hinted = 0, transfersTagged = 0;
     s.transactions.forEach(function (t) {
       if (!t) return;
-      if (isTransfer(t)) return;
       if (t.synthetic) return;
       if (t._supersededBy) return;
       if (t.userEdited) return; // respect explicit user choice
-      // Only act on txns currently uncategorized OR explicitly 'other'
       var cur = t.userCategoryId;
+      // FIX 49 (Winston 2026-05-27): if it's a transfer-like txn AND
+      // currently untagged, tag it as 'transfer' so it doesn't fall
+      // back to Other. Don't override an existing non-other category.
+      if (isTransfer(t)) {
+        if (!cur || cur === 'other') {
+          t.userCategoryId = 'transfer';
+          t.userCategorySource = 'auto-transfer-boost';
+          transfersTagged++;
+        }
+        return;
+      }
+      // Only act on txns currently uncategorized OR explicitly 'other'
       if (cur && cur !== 'other') return;
       var name = t.merchant || t.name || '';
       var key = canonMerchant(name);
@@ -172,15 +182,15 @@
       }
     });
 
-    var total = learned + hinted;
+    var total = learned + hinted + transfersTagged;
     if (total > 0) {
       saveState();
       try {
-        window.dispatchEvent(new CustomEvent('wjp-categories-changed', { detail: { reason: 'boost-sweep', learned: learned, hinted: hinted } }));
+        window.dispatchEvent(new CustomEvent('wjp-categories-changed', { detail: { reason: 'boost-sweep', learned: learned, hinted: hinted, transfersTagged: transfersTagged } }));
       } catch (_) {}
-      try { console.log('[wjp-smart-categorize-boost] learned', learned, 'keyword-hinted', hinted); } catch (_) {}
+      try { console.log('[wjp-smart-categorize-boost] learned', learned, 'keyword-hinted', hinted, 'transfers-tagged', transfersTagged); } catch (_) {}
     }
-    return { learned: learned, hinted: hinted, total: total };
+    return { learned: learned, hinted: hinted, transfersTagged: transfersTagged, total: total };
   }
 
   function boot() {
@@ -200,7 +210,6 @@
     window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(sweep, 500); });
     window.addEventListener('wjp-transactions-changed', function () { setTimeout(sweep, 500); });
     window.addEventListener('wjp-categories-changed', function (e) {
-      // Avoid recursion when our own sweep fires the event
       try { if (e && e.detail && /boost-sweep/.test(e.detail.reason)) return; } catch (_) {}
       setTimeout(sweep, 500);
     });
@@ -212,7 +221,7 @@
   }
 
   window.WJP_SmartCategorizeBoost = {
-    version: 1,
+    version: 2,
     sweep: sweep,
     buildIndex: buildIndex,
     KEYWORD_HINTS: KEYWORD_HINTS
