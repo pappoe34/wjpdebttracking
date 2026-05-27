@@ -278,3 +278,11 @@
   }
 
   // Public API
+  window.WJP_AnnualFeeReminder = {
+    version: 1,
+    refresh: refreshNudges,
+    runReminderCheck: runReminderCheck,
+    promptForFee: promptForFee,
+    nextFeeChargeMs: nextFeeChargeMs
+  };
+})();
