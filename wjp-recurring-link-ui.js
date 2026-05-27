@@ -92,14 +92,49 @@
     if (!rows.length) return;
     var s = getState();
     if (!s || !Array.isArray(s.transactions)) return;
+    var hasRecurrings = Array.isArray(s.recurringPayments) && s.recurringPayments.length > 0;
     rows.forEach(function (row) {
       var id = row.getAttribute('data-txn-id');
       var t = s.transactions.find(function (x) { return x && x.id === id; });
       var existing = row.querySelector('.wjp-rec-link-pill');
+      var existingGhost = row.querySelector('.wjp-rec-link-ghost');
       if (!t || !t.linkedRecurringId) {
         if (existing) existing.remove();
+        // v2 (FIX 33, 2026-05-26 Winston): if unlinked AND recurring
+        // schedules exist, show a faint "Link" pill so the user can
+        // attach this transaction to a recurring schedule right from
+        // the Transactions tab — no need to leave the page.
+        // Suppress on transfers + synthetic + non-Plaid (nothing to link).
+        var isTxfer = false;
+        try {
+          if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.isTransfer) {
+            isTxfer = !!window.WJP_TxSmartCategorize.isTransfer(t);
+          }
+        } catch (_) {}
+        var canOffer = hasRecurrings && !isTxfer && !t.synthetic && !t._supersededBy && t.source === 'plaid';
+        if (!canOffer) {
+          if (existingGhost) existingGhost.remove();
+          return;
+        }
+        if (existingGhost) return; // already showing
+        var firstTdU = row.querySelector('td');
+        if (!firstTdU) return;
+        var ghost = document.createElement('span');
+        ghost.className = 'wjp-rec-link-pill wjp-rec-link-ghost';
+        ghost.setAttribute('data-txn-id', id);
+        ghost.title = 'Link this transaction to a recurring schedule';
+        ghost.style.cssText = 'background:transparent;border:1px dashed var(--border, rgba(0,0,0,0.20));color:var(--ink-dim, #6b7280);opacity:0.75;';
+        ghost.innerHTML = '<i class="ph ph-link"></i><span>Link</span>';
+        ghost.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          openSchedulePickerForTxn(id);
+        });
+        firstTdU.appendChild(ghost);
         return;
       }
+      // Linked path — remove any stale ghost
+      if (existingGhost) existingGhost.remove();
       var st = (window.WJP_RecurringLink && window.WJP_RecurringLink.getLinkStatus)
         ? window.WJP_RecurringLink.getLinkStatus(t) : null;
       var status = (st && st.status) || t.linkStatus || 'pending';
@@ -352,6 +387,91 @@
     });
   }
 
+  // ───────── Schedule picker (per-txn link from Transactions tab) ─────────
+  // FIX 33: inverse of the txn picker. Opens from a transaction row,
+  // lists ALL recurring schedules sorted by (a) name overlap with the
+  // txn merchant, then (b) amount proximity, then (c) alphabetical.
+  function closeSchedulePicker() {
+    var m = document.getElementById('wjp-link-picker-modal');
+    if (m) m.remove();
+  }
+  function openSchedulePickerForTxn(txnId) {
+    var s = getState();
+    if (!s) return;
+    var t = (s.transactions || []).find(function (x) { return x && x.id === txnId; });
+    if (!t) return;
+    var schedules = (s.recurringPayments || []).filter(function (rp) { return rp && rp.id; });
+    if (!schedules.length) {
+      try { alert('No recurring schedules yet. Add one in Debts → Recurring Payments first.'); } catch (_) {}
+      return;
+    }
+    closeSchedulePicker();
+    var amt = Math.abs(Number(t.amount) || 0);
+    var merchant = String(t.merchant || t.name || '').toLowerCase();
+    function nameScore(rpName) {
+      if (!rpName || !merchant) return 0;
+      var a = String(rpName).toLowerCase().split(/\s+/).filter(function (w) { return w.length >= 3; });
+      var b = merchant.split(/\s+/).filter(function (w) { return w.length >= 3; });
+      if (!a.length || !b.length) return 0;
+      var setB = {}; b.forEach(function (w) { setB[w] = true; });
+      var hits = a.filter(function (w) { return setB[w]; }).length;
+      return hits / Math.max(a.length, b.length);
+    }
+    var scored = schedules.map(function (rp) {
+      var rpAmt = Math.abs(Number(rp.amount) || 0);
+      var amtRatio = (rpAmt && amt) ? (Math.min(amt, rpAmt) / Math.max(amt, rpAmt)) : 0;
+      var ns = nameScore(rp.name);
+      var score = ns * 2 + amtRatio; // name overlap is weighted higher
+      return { rp: rp, score: score, amtRatio: amtRatio, ns: ns };
+    }).sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(a.rp.name || '').localeCompare(String(b.rp.name || ''));
+    });
+
+    var modal = document.createElement('div');
+    modal.id = 'wjp-link-picker-modal';
+    var rowsHtml = scored.map(function (x) {
+      var rp = x.rp;
+      var rpAmt = Math.abs(Number(rp.amount) || 0);
+      var hint = '';
+      if (x.ns >= 0.5) hint = '<span style="color:#1f7a4a;font-weight:700;margin-left:6px;">· name match</span>';
+      else if (x.amtRatio >= 0.95) hint = '<span style="color:#2563eb;font-weight:700;margin-left:6px;">· amount match</span>';
+      else if (x.amtRatio >= 0.85) hint = '<span style="color:#b45309;font-weight:700;margin-left:6px;">· close amount</span>';
+      var typeLabel = (rp.type === 'income') ? 'Income' : (rp.type === 'debt' ? 'Debt' : (rp.type || 'Bill'));
+      return '<div class="row" data-rp-id="' + htmlEscape(rp.id) + '">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div class="merchant">' + htmlEscape(rp.name || 'Recurring') + hint + '</div>' +
+            '<div class="date">' + htmlEscape(typeLabel) + ' · ' + htmlEscape(rp.frequency || 'monthly') + (rp.nextDate ? ' · next ' + htmlEscape(rp.nextDate) : '') + '</div>' +
+          '</div>' +
+          '<div class="amt" style="margin-left:auto;color:var(--ink,#0a0a0a);">$' + rpAmt.toFixed(2) + '</div>' +
+        '</div>';
+    }).join('');
+
+    var txnAmtStr = (t.amount < 0 ? '-$' : '+$') + amt.toFixed(2);
+    modal.innerHTML =
+      '<div class="panel">' +
+        '<h3>Link this transaction</h3>' +
+        '<div class="sub"><strong>' + htmlEscape(t.merchant || t.name || 'Transaction') + '</strong> · ' + txnAmtStr + ' · ' + htmlEscape(t.date || '') + '<br>Sorted by best match. Click a schedule to link.</div>' +
+        '<div class="list">' + rowsHtml + '</div>' +
+        '<div class="actions">' +
+          '<button class="btn btn-sec" id="wjp-sched-picker-cancel" type="button">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeSchedulePicker(); });
+    document.body.appendChild(modal);
+    document.getElementById('wjp-sched-picker-cancel').onclick = closeSchedulePicker;
+    modal.querySelectorAll('.row[data-rp-id]').forEach(function (r) {
+      r.onclick = function () {
+        var rpId = r.getAttribute('data-rp-id');
+        if (window.WJP_RecurringLink && window.WJP_RecurringLink.link) {
+          window.WJP_RecurringLink.link(txnId, rpId);
+        }
+        closeSchedulePicker();
+        setTimeout(refreshAll, 100);
+      };
+    });
+  }
+
   // ───────── Throttled refresher ─────────
   var _refreshScheduled = false;
   function refreshAll() {
@@ -383,9 +503,10 @@
 
   // Public API
   window.WJP_RecurringLinkUI = {
-    version: 1,
+    version: 2,
     refresh: refreshAll,
     openLinkPicker: openLinkPicker,
-    openLinkPopover: openLinkPopover
+    openLinkPopover: openLinkPopover,
+    openSchedulePickerForTxn: openSchedulePickerForTxn
   };
 })();
