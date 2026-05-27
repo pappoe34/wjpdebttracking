@@ -1,18 +1,18 @@
-/* wjp-txn-stats-bankfilter.js v1 — Fix the 4 stats boxes to honor the
- * active bank chip filter.
+/* wjp-txn-stats-bankfilter.js v3 — HIDE the 4 stat boxes (FIX 42).
  *
- * Winston FIX 39C: clicking a bank chip changes the Smart Summary but
- * the TRANSACTIONS / TOTAL INCOME / TOTAL SPEND / NET CASH FLOW boxes
- * stay at the all-time numbers. Root cause: wjp-txn-stats-fix uses
- * `t.institutionName !== accountFilter` for the bank filter, but
- * accountFilter is the chip key (e.g. "Bank of America Checking… ··9298")
- * while institutionName is the bare bank name ("Bank of America").
- * They never match, so the filter has no effect.
+ * Winston 2026-05-26: "smart summary is basically better than the boxes
+ * below and seem to do the same job please get rid of transaction,
+ * income, total spend and net cashflow counter. smart summary does
+ * the same."
  *
- * Fix: this module re-computes the 4 boxes using window.WJP_TxAccountKey
- * (the same key derivation the chips use) and writes the values back to
- * the existing DOM elements. Runs on the same triggers as the host
- * (account-filter-changed event + transactions-changed + 2s tick).
+ * Prior v1/v2 of this module tried to make the boxes honor the bank
+ * chip filter. Winston decided to simply remove them since Smart
+ * Summary already shows the same totals (filtered, transfer-excluded).
+ *
+ * This module now does ONE thing: injects a small CSS rule that hides
+ * #txn-stats-bar and the explanatory subtitle right below it
+ * ("— totals exclude bank transfers"). Keeps the file in case we want
+ * to re-enable them later — just remove the style block.
  */
 (function () {
   'use strict';
@@ -24,156 +24,43 @@
     if (p.indexOf('/index') === -1 && p !== '/' && p !== '') return;
   } catch (_) {}
 
-  function getState() { try { return appState; } catch (_) { return window.appState || null; } }
+  function injectHideStyle() {
+    if (document.getElementById('wjp-hide-stats-bar-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-hide-stats-bar-style';
+    st.textContent = [
+      '/* FIX 42 (Winston 2026-05-26): Smart Summary already shows the same',
+      '   numbers, so hide the redundant 4-box stats bar + its subtitle. */',
+      '#txn-stats-bar{display:none !important;}',
+      // The "— totals exclude bank transfers" subtitle is a sibling div
+      // right after the bar. We can't target it by id (host doesn't set one)
+      // but it usually has a small font + the exact text. Use the immediately
+      // following sibling rule when possible.
+      '#txn-stats-bar + div, #txn-stats-bar + p, #txn-stats-bar + span{display:none !important;}'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
 
-  function isTransfer(t) {
-    if (!t) return false;
-    if (t.userCategoryId === 'transfer') return true;
+    // Also walk the DOM for any literal "totals exclude bank transfers"
+    // text node sibling that didn't match the CSS adjacent-sibling rule
+    // (host might wrap it in extra elements). Defensive — hide via class.
     try {
-      if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.isTransfer) {
-        return !!window.WJP_TxSmartCategorize.isTransfer(t);
-      }
-    } catch (_) {}
-    var fields = [t.merchant, t.name, t.description, t.merchant_name].filter(Boolean).join(' ');
-    return /\b(transfer|xfer|zelle|venmo|cash\s*app)\b/i.test(fields);
-  }
-
-  function accountKey(t) {
-    if (window.WJP_TxAccountKey) {
-      try { return window.WJP_TxAccountKey(t); } catch (_) {}
-    }
-    return t.institutionName || 'Bank';
-  }
-
-  function getActiveFilter() {
-    try { return localStorage.getItem('wjp.tx.accountFilter') || 'all'; } catch (_) { return 'all'; }
-  }
-
-  function fmtUsdSigned(n) {
-    if (!isFinite(n)) return '$0';
-    var s = n >= 0 ? '+' : '-';
-    return s + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 });
-  }
-  function fmtUsd(n) {
-    if (!isFinite(n)) return '$0';
-    return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 });
-  }
-
-  // The host renders cards with class 'card' and label class 'card-label'.
-  // findStatCard returns the .card whose label text matches.
-  function findStatCard(bar, label) {
-    var lbl = label.toLowerCase().trim();
-    var cards = bar.querySelectorAll('.card');
-    for (var i = 0; i < cards.length; i++) {
-      var lblEl = cards[i].querySelector('.card-label');
-      if (lblEl && (lblEl.textContent || '').trim().toLowerCase() === lbl) {
-        return cards[i];
-      }
-    }
-    return null;
-  }
-
-  function valueElementOf(card) {
-    if (!card) return null;
-    // The value is in the card but NOT inside the .card-label. Find any
-    // direct child that ISN'T the label, then drill to the deepest text node.
-    var children = card.children;
-    for (var i = 0; i < children.length; i++) {
-      if (children[i].classList && children[i].classList.contains('card-label')) continue;
-      // Drill to deepest single-text element
-      var el = children[i];
-      while (el && el.children && el.children.length === 1 && !el.children[0].classList.contains('card-label')) {
-        el = el.children[0];
-      }
-      return el;
-    }
-    return null;
-  }
-
-  var _last = '';
-  function recompute() {
-    try {
-      var s = getState();
-      if (!s || !Array.isArray(s.transactions)) return;
-      var bar = document.getElementById('txn-stats-bar');
-      if (!bar) return;
-      var filter = getActiveFilter();
-      var txns = s.transactions.filter(function (t) {
-        if (!t) return false;
-        if (t.synthetic) return false;
-        if (isTransfer(t)) return false;
-        if (filter && filter !== 'all') {
-          if (accountKey(t) !== filter) return false;
+      var nodes = document.querySelectorAll('div, p, span');
+      Array.prototype.forEach.call(nodes, function (n) {
+        var t = (n.textContent || '').trim().toLowerCase();
+        if (t === '— totals exclude bank transfers' || t === 'totals exclude bank transfers' || /^— totals exclude bank transfers$/i.test(t)) {
+          n.style.display = 'none';
         }
-        return true;
       });
-      var income = 0, spend = 0;
-      txns.forEach(function (t) {
-        var a = Number(t.amount) || 0;
-        if (a > 0) income += a;
-        else if (a < 0) spend += Math.abs(a);
-      });
-      var net = income - spend;
-      var sig = filter + '|' + txns.length + '|' + income.toFixed(2) + '|' + spend.toFixed(2);
-      if (sig === _last) return;
-      _last = sig;
-
-      var txCard = findStatCard(bar, 'transactions');
-      var incCard = findStatCard(bar, 'total income');
-      var spdCard = findStatCard(bar, 'total spend');
-      var netCard = findStatCard(bar, 'net cash flow');
-
-      var txEl = valueElementOf(txCard);
-      var incEl = valueElementOf(incCard);
-      var spdEl = valueElementOf(spdCard);
-      var netEl = valueElementOf(netCard);
-
-      if (txEl) txEl.textContent = txns.length.toLocaleString('en-US');
-      if (incEl) incEl.textContent = fmtUsdSigned(income);
-      if (spdEl) spdEl.textContent = fmtUsd(spend);
-      if (netEl) netEl.textContent = fmtUsdSigned(net);
-
-      // Update subtitle if we can find "totals exclude bank transfers"
-      var subtitle = bar.parentElement ? bar.parentElement.querySelector('div, span, p') : null;
-      // Add filter pill in the bar header if not present
-      var fp = bar.querySelector('.wjp-stats-filter-pill');
-      if (filter && filter !== 'all') {
-        if (!fp) {
-          fp = document.createElement('div');
-          fp.className = 'wjp-stats-filter-pill';
-          fp.style.cssText = 'font-size:10px;font-weight:700;color:#1f7a4a;background:rgba(31,122,74,0.10);border:1px solid rgba(31,122,74,0.30);border-radius:6px;padding:3px 8px;margin:0 0 8px 4px;display:inline-block;';
-          bar.insertBefore(fp, bar.firstChild);
-        }
-        fp.textContent = '↓ filtered to ' + filter;
-      } else if (fp) {
-        fp.remove();
-      }
     } catch (_) {}
-  }
-
-  function boot() {
-    // Initial
-    setTimeout(recompute, 1500);
-    // React to chip clicks
-    document.addEventListener('wjp-account-filter-changed', function () {
-      setTimeout(recompute, 50);
-    });
-    // React to txn data changes
-    window.addEventListener('wjp-transactions-changed', function () {
-      setTimeout(recompute, 50);
-    });
-    window.addEventListener('wjp-tx-rerendered', function () {
-      setTimeout(recompute, 50);
-    });
-    // Safety tick — runs every 2s. Sig check makes the no-op path free.
-    setInterval(recompute, 2000);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', injectHideStyle);
   } else {
-    boot();
+    injectHideStyle();
   }
+  // Re-run periodically in case the host injects after our CSS
+  setInterval(injectHideStyle, 5000);
 
-  window.WJP_TxnStatsBankFilter = { version: 1, recompute: recompute };
+  window.WJP_TxnStatsBankFilter = { version: 3, hidden: true };
 })();
