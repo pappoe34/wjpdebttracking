@@ -92,49 +92,17 @@
     if (!rows.length) return;
     var s = getState();
     if (!s || !Array.isArray(s.transactions)) return;
-    var hasRecurrings = Array.isArray(s.recurringPayments) && s.recurringPayments.length > 0;
     rows.forEach(function (row) {
       var id = row.getAttribute('data-txn-id');
       var t = s.transactions.find(function (x) { return x && x.id === id; });
       var existing = row.querySelector('.wjp-rec-link-pill');
-      var existingGhost = row.querySelector('.wjp-rec-link-ghost');
+      // Also clean up any legacy ghost pills from FIX 33 (reverted)
+      var ghost = row.querySelector('.wjp-rec-link-ghost');
+      if (ghost) ghost.remove();
       if (!t || !t.linkedRecurringId) {
         if (existing) existing.remove();
-        // v2 (FIX 33, 2026-05-26 Winston): if unlinked AND recurring
-        // schedules exist, show a faint "Link" pill so the user can
-        // attach this transaction to a recurring schedule right from
-        // the Transactions tab — no need to leave the page.
-        // Suppress on transfers + synthetic + non-Plaid (nothing to link).
-        var isTxfer = false;
-        try {
-          if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.isTransfer) {
-            isTxfer = !!window.WJP_TxSmartCategorize.isTransfer(t);
-          }
-        } catch (_) {}
-        var canOffer = hasRecurrings && !isTxfer && !t.synthetic && !t._supersededBy && t.source === 'plaid';
-        if (!canOffer) {
-          if (existingGhost) existingGhost.remove();
-          return;
-        }
-        if (existingGhost) return; // already showing
-        var firstTdU = row.querySelector('td');
-        if (!firstTdU) return;
-        var ghost = document.createElement('span');
-        ghost.className = 'wjp-rec-link-pill wjp-rec-link-ghost';
-        ghost.setAttribute('data-txn-id', id);
-        ghost.title = 'Link this transaction to a recurring schedule';
-        ghost.style.cssText = 'background:transparent;border:1px dashed var(--border, rgba(0,0,0,0.20));color:var(--ink-dim, #6b7280);opacity:0.75;';
-        ghost.innerHTML = '<i class="ph ph-link"></i><span>Link</span>';
-        ghost.addEventListener('click', function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          openSchedulePickerForTxn(id);
-        });
-        firstTdU.appendChild(ghost);
         return;
       }
-      // Linked path — remove any stale ghost
-      if (existingGhost) existingGhost.remove();
       var st = (window.WJP_RecurringLink && window.WJP_RecurringLink.getLinkStatus)
         ? window.WJP_RecurringLink.getLinkStatus(t) : null;
       var status = (st && st.status) || t.linkStatus || 'pending';
