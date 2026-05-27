@@ -201,7 +201,9 @@
       var k = txnAccountKey(t);
       if (!seen[k]) {
         seen[k] = true;
-        list.push({ key: k, label: k, count: 0 });
+        // v20 (2026-05-26): also carry plaidAccountId so the bank-vis modal
+        // can offer a rename action wired to wjp-acct-name-sync.
+        list.push({ key: k, label: k, count: 0, accountId: t.plaidAccountId || null });
       }
     });
     s.transactions.forEach(function (t) {
@@ -640,18 +642,22 @@
       return accounts.map(function (a) {
         var c = bankColor(a.label);
         var isHidden = hiddenSet.indexOf(a.key) !== -1;
-        return '<label class="row">' +
+        var renameBtn = a.accountId
+          ? '<button type="button" class="bv-rename" data-acct-id="' + a.accountId.replace(/"/g, '&quot;') + '" title="Rename this account" aria-label="Rename" style="margin-left:auto;background:transparent;border:1px solid var(--border,rgba(0,0,0,0.10));color:var(--ink,var(--text-1,#1f1a14));font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">✏️ Rename</button>'
+          : '';
+        return '<label class="row" style="display:flex;align-items:center;gap:8px;">' +
           '<input type="checkbox" data-acc-key="' + a.key.replace(/"/g, '&quot;') + '" ' + (isHidden ? '' : 'checked') + '/>' +
           '<span class="swatch" style="background:' + c.bg + ';"></span>' +
           '<span class="name">' + a.label + '</span>' +
           '<span class="count">' + a.count + ' txn' + (a.count === 1 ? '' : 's') + '</span>' +
+          renameBtn +
         '</label>';
       }).join('');
     }
     m.innerHTML =
       '<div class="panel">' +
-        '<h3>Show banks in transactions filter</h3>' +
-        '<div class="sub">Check the banks you want to see as filter chips. Uncheck a bank to hide it. Your data stays — you can show it again any time.</div>' +
+        '<h3>Show or rename banks</h3>' +
+        '<div class="sub">Check the banks you want to see as filter chips. Click <strong>Rename</strong> to give an account a friendlier name (e.g. "Joint Checking"). Renames apply everywhere in the app.</div>' +
         '<div class="list">' + buildRows(hidden) + '</div>' +
         '<div class="actions">' +
           '<div class="quick"><a id="wjp-bv-all">Select all</a><a id="wjp-bv-none">Hide all</a></div>' +
@@ -670,6 +676,57 @@
     document.getElementById('wjp-bv-none').onclick = function () {
       Array.prototype.forEach.call(m.querySelectorAll('input[type="checkbox"]'), function (cb) { cb.checked = false; });
     };
+    // v20 (2026-05-26): Rename action — opens prompt, writes override to
+    // localStorage, dispatches wjp-acct-renamed which wjp-acct-name-sync
+    // catches to propagate to WJP_AcctLookup + re-render.
+    Array.prototype.forEach.call(m.querySelectorAll('.bv-rename'), function (btn) {
+      btn.onclick = function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var acctId = btn.getAttribute('data-acct-id');
+        if (!acctId) return;
+        var row = btn.closest('.row');
+        var currentName = row && row.querySelector('.name') ? row.querySelector('.name').textContent.trim() : '';
+        var input = window.prompt('New name for this account (or leave blank to clear the rename):', currentName);
+        if (input === null) return; // user cancelled
+        var trimmed = String(input).trim().slice(0, 60);
+        try {
+          var uid = (window.__wjpUser && window.__wjpUser.uid) || null;
+          if (!uid) { alert('You must be signed in to rename an account.'); return; }
+          var key = 'wjp.account_overrides.uid_' + uid;
+          var raw = localStorage.getItem(key);
+          var map = {};
+          try { map = raw ? (JSON.parse(raw) || {}) : {}; } catch (_) { map = {}; }
+          if (trimmed) {
+            map[acctId] = { displayName: trimmed, updatedAt: Date.now() };
+          } else {
+            delete map[acctId]; // empty input -> clear the rename
+          }
+          localStorage.setItem(key, JSON.stringify(map));
+          // Dispatch the same event wjp-debts-overview-enhance fires from
+          // saveOverride — wjp-acct-name-sync handles WJP_AcctLookup update
+          // and re-render.
+          window.dispatchEvent(new CustomEvent('wjp-acct-renamed', { detail: { accountId: acctId, displayName: trimmed || null } }));
+          // Also update the label in this modal row immediately so user
+          // sees the change without re-opening.
+          if (row && row.querySelector('.name')) {
+            // Pull fresh label from WJP_AcctLookup if present, else use prompt input
+            var freshLabel = '';
+            try {
+              var l = window.WJP_AcctLookup && window.WJP_AcctLookup[acctId];
+              if (l && l.userRenamed && l.userDisplayName) {
+                var nm = String(l.userDisplayName);
+                if (nm.length > 24) nm = nm.slice(0, 24) + '…';
+                freshLabel = l.mask ? (nm + ' ··' + l.mask) : nm;
+              }
+            } catch (_) {}
+            row.querySelector('.name').textContent = freshLabel || trimmed || row.querySelector('.name').textContent;
+          }
+        } catch (e) {
+          alert('Could not save the rename: ' + (e && e.message ? e.message : 'unknown error'));
+        }
+      };
+    });
     document.getElementById('wjp-bv-save').onclick = function () {
       var checked = m.querySelectorAll('input[type="checkbox"]');
       var newHidden = [];
