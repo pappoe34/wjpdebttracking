@@ -262,18 +262,19 @@
     setTimeout(tick, 2500);
     window.addEventListener('wjp-debts-changed', refreshNudges);
     window.addEventListener('wjp-recurring-changed', refreshNudges);
-    // MutationObserver-light: re-inject when cards expand/collapse
-    try {
-      var grid = document.getElementById('wjp-rt-grid');
-      if (grid && window.MutationObserver) {
-        var mo = new MutationObserver(function () { refreshNudges(); });
-        mo.observe(grid, { childList: true, subtree: true });
-      } else {
-        setInterval(refreshNudges, 2500);
-      }
-    } catch (_) { setInterval(refreshNudges, 2500); }
-    // Late grid detection
-    var late = 0;
-    var iv = setInterval(function () {
-      late++;
-      if (late > 30) retu
+    // No MutationObserver — kept causing infinite loops because our own
+    // appendChild fires it. Slow polling tick (3s) catches card
+    // expand/collapse with no risk of feedback. The signature check
+    // inside doRefreshNudges makes this near-free when nothing changed.
+    setInterval(refreshNudges, 3000);
+    // Reminder check runs every hour
+    setInterval(runReminderCheck, 60 * 60 * 1000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  // Public API
