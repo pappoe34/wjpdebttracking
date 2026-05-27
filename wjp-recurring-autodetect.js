@@ -170,7 +170,10 @@
       if (medGap < 5) return; // sub-weekly — likely not a recurring bill/income
       // Regularity check: variance across gaps must be tight
       var maxDev = gaps.reduce(function (m, x) { return Math.max(m, Math.abs(x - medGap)); }, 0);
-      if (maxDev / Math.max(1, medGap) > 0.4) return; // too irregular
+      // v2 (Winston 2026-05-27): loosened from 0.4 → 0.55 so more
+      // real recurring merchants qualify even when one or two cycles
+      // had a delayed/early payment.
+      if (maxDev / Math.max(1, medGap) > 0.55) return;
 
       var cad = classifyCadence(medGap);
       if (!cad) return;
@@ -274,9 +277,10 @@
     boot();
   }
 
+  //
   // Public API
   window.WJP_RecurringAutodetect = {
-    version: 1,
+    version: 2,
     detect: detect,
     canonMerchant: canonMerchant,
     classifyCadence: classifyCadence
