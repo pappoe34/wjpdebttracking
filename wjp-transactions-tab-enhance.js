@@ -174,6 +174,15 @@
     var lookup = window.WJP_AcctLookup;
     if (lookup && t.plaidAccountId && lookup[t.plaidAccountId]) {
       var info = lookup[t.plaidAccountId];
+      // v19 (2026-05-26): if the user has renamed this account (override
+      // applied via wjp-acct-name-sync), show the rename verbatim — bypass
+      // shortInst()'s aggressive abbreviation (e.g. 'Bank of America' -> 'BoA').
+      if (info.userRenamed && info.userDisplayName) {
+        var nm = String(info.userDisplayName);
+        // Truncate at 24 chars + mask
+        if (nm.length > 24) nm = nm.slice(0, 24) + '…';
+        return info.mask ? (nm + ' ··' + info.mask) : nm;
+      }
       var inst = shortInst(info.institutionName);
       return info.mask ? (inst + ' ··' + info.mask) : inst;
     }

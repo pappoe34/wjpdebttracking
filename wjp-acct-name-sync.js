@@ -54,9 +54,9 @@
       if (!ov || !ov.displayName) return;
       var entry = lookup[accountId];
       if (!entry) return;
-      // Cache the original once so we can revert/show later if needed
-      if (!entry._originalInstitutionName) entry._originalInstitutionName = entry.institutionName;
-      entry.institutionName = String(ov.displayName).slice(0, 60);
+      // v2: keep institutionName intact for legacy callers; set userDisplayName
+      // + userRenamed flag for our v19 txnAccountKey hook to use directly.
+      entry.userDisplayName = String(ov.displayName).slice(0, 60);
       entry.userRenamed = true;
       applied++;
     });
@@ -97,15 +97,12 @@
     // Apply just this one rename for speed
     var lookup = window.WJP_AcctLookup;
     if (lookup && d.accountId && lookup[d.accountId]) {
-      if (!lookup[d.accountId]._originalInstitutionName) {
-        lookup[d.accountId]._originalInstitutionName = lookup[d.accountId].institutionName;
-      }
       if (d.displayName) {
-        lookup[d.accountId].institutionName = String(d.displayName).slice(0, 60);
+        lookup[d.accountId].userDisplayName = String(d.displayName).slice(0, 60);
         lookup[d.accountId].userRenamed = true;
       } else {
-        // displayName empty → revert to original
-        lookup[d.accountId].institutionName = lookup[d.accountId]._originalInstitutionName || lookup[d.accountId].institutionName;
+        // displayName empty → drop the override
+        lookup[d.accountId].userDisplayName = null;
         lookup[d.accountId].userRenamed = false;
       }
     }
