@@ -184,25 +184,22 @@
     };
   }
 
-  // ───────── build the enhancement block HTML ─────────
+  // ───────── build the enhancement block HTML (v4 — utilization-only) ─────────
+  // Winston 2026-05-26 (FIX 37): "credit utilization should show but
+  // everything else should exist in setting and work in the background."
+  // We now render only the utilization/paydown bar here. Linked payments,
+  // Mark as Paid, annual fee, reminders moved to Settings and operate
+  // automatically via the link engine + reminder runner.
   function buildEnhancementHtml(debt) {
     var rp = findDerivedRecurring(debt.id);
     var prog = computeProgress(debt, rp);
-    var linked = rp ? linkedTxnsFor(rp).slice(0, 6) : [];
-    var annualFee = Number(debt.annualFee) || 0;
-    var feeMonth = Number(debt.annualFeeMonth) || 0;
-    var remDays = Number(debt.reminderDays) || 3;
-    var remOn = debt.reminderEnabled === true;
 
-    // PROGRESS BAR — label/subtext computed inside computeProgress per debt type
     var progTitle = (Number(debt.creditLimit) || Number(debt.limit)) > 0 ? 'Credit utilization' : 'Payment progress';
-    // Color: utilization mode → red when high (worse), green when low.
-    // Paydown mode → green when high (more paid off = better).
     var barGradient;
     if (prog.mode === 'utilization') {
-      if (prog.pct >= 70) barGradient = 'linear-gradient(90deg, #c0594a, #b91c1c)';      // red
-      else if (prog.pct >= 30) barGradient = 'linear-gradient(90deg, #fbbf24, #d97706)'; // amber
-      else barGradient = 'linear-gradient(90deg, #1f7a4a, #15a065)';                     // green
+      if (prog.pct >= 70) barGradient = 'linear-gradient(90deg, #c0594a, #b91c1c)';
+      else if (prog.pct >= 30) barGradient = 'linear-gradient(90deg, #fbbf24, #d97706)';
+      else barGradient = 'linear-gradient(90deg, #1f7a4a, #15a065)';
     } else {
       barGradient = 'linear-gradient(90deg, #1f7a4a, #15a065)';
     }
@@ -215,126 +212,12 @@
       '</div>' +
     '</div>';
 
-    // LINKED PAYMENTS HISTORY
-    var linkedHtml;
-    if (!linked.length) {
-      linkedHtml = '<div class="wjp-debt-enh-empty">No payments linked yet. Click <strong>Mark as Paid</strong> to attach a transaction.</div>';
-    } else {
-      linkedHtml = '<div class="wjp-debt-enh-linked-list">' + linked.map(function (t) {
-        var amtStr = fmtUsd(Math.abs(Number(t.amount) || 0));
-        var status = t.linkStatus || 'pending';
-        return '<div class="wjp-debt-enh-linked-row" data-txn-id="' + htmlEscape(t.id) + '">' +
-          '<span class="m">' + htmlEscape(t.merchant || t.name || 'Payment') + '</span>' +
-          '<span class="d">' + htmlEscape(fmtDateShort(t.date)) + '</span>' +
-          statusPill(status) +
-          '<span class="a">' + amtStr + '</span>' +
-        '</div>';
-      }).join('') + '</div>';
-    }
-    var linkedSection = '<div class="wjp-debt-enh-section">' +
-      '<div class="wjp-debt-enh-label">Linked payments (' + (rp ? (rp.linkedTxnIds || []).length : 0) + ')</div>' +
-      linkedHtml +
-    '</div>';
-
-    // ANNUAL FEE FIELDS
-    var monthOpts = ['<option value="">— none —</option>']
-      .concat(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-        .map(function (m, i) { var v = i+1; return '<option value="' + v + '"' + (feeMonth === v ? ' selected' : '') + '>' + m + '</option>'; }))
-      .join('');
-    var feeSection = '<div class="wjp-debt-enh-section">' +
-      '<div class="wjp-debt-enh-label">Annual fee tracking</div>' +
-      '<div class="wjp-debt-enh-row">' +
-        '<label>Annual fee ($)</label>' +
-        '<input type="number" step="0.01" min="0" data-field="annualFee" value="' + (annualFee || '') + '" placeholder="0.00" />' +
-      '</div>' +
-      '<div class="wjp-debt-enh-row">' +
-        '<label>Fee charged in</label>' +
-        '<select data-field="annualFeeMonth">' + monthOpts + '</select>' +
-      '</div>' +
-    '</div>';
-
-    // REMINDERS
-    var reminderSection = '<div class="wjp-debt-enh-section">' +
-      '<div class="wjp-debt-enh-label">Reminders</div>' +
-      '<div class="wjp-debt-enh-row">' +
-        '<label class="wjp-debt-enh-toggle">' +
-          '<input type="checkbox" data-field="reminderEnabled"' + (remOn ? ' checked' : '') + '/>' +
-          ' Notify before due date / annual fee' +
-        '</label>' +
-      '</div>' +
-      '<div class="wjp-debt-enh-row">' +
-        '<label>Days before</label>' +
-        '<input type="number" min="0" max="30" data-field="reminderDays" value="' + remDays + '" />' +
-      '</div>' +
-    '</div>';
-
-    // ACTIONS
-    var actionsSection = '<div class="wjp-debt-enh-section wjp-debt-enh-actions">' +
-      '<button type="button" class="wjp-debt-enh-btn" data-action="mark-paid">' +
-        '<i class="ph ph-check-circle"></i> Mark as Paid' +
-      '</button>' +
-      '<button type="button" class="wjp-debt-enh-btn sec" data-action="save-fields">' +
-        '<i class="ph ph-floppy-disk"></i> Save fee & reminder' +
-      '</button>' +
-    '</div>';
-
-    return '<div class="wjp-debt-enh" data-debt-id="' + htmlEscape(debt.id) + '">' +
-      progBar + linkedSection + feeSection + reminderSection + actionsSection +
-    '</div>';
+    return '<div class="wjp-debt-enh" data-debt-id="' + htmlEscape(debt.id) + '">' + progBar + '</div>';
   }
 
-  // ───────── wire interactions on an injected block ─────────
-  function wireBlock(block, debt) {
-    if (!block || !debt) return;
-    var rp = findDerivedRecurring(debt.id);
-    // Save fee + reminder
-    var saveBtn = block.querySelector('[data-action="save-fields"]');
-    if (saveBtn) {
-      saveBtn.onclick = function () {
-        var fee = parseFloat(block.querySelector('[data-field="annualFee"]').value);
-        var month = parseInt(block.querySelector('[data-field="annualFeeMonth"]').value, 10);
-        var remOn = block.querySelector('[data-field="reminderEnabled"]').checked;
-        var remDays = parseInt(block.querySelector('[data-field="reminderDays"]').value, 10);
-        debt.annualFee = isFinite(fee) && fee > 0 ? fee : 0;
-        debt.annualFeeMonth = isFinite(month) && month >= 1 && month <= 12 ? month : 0;
-        debt.reminderEnabled = !!remOn;
-        debt.reminderDays = isFinite(remDays) && remDays >= 0 ? remDays : 3;
-        saveState();
-        try { window.dispatchEvent(new CustomEvent('wjp-debts-changed', { detail:{source:'debt-detail-enhance'} })); } catch (_) {}
-        // Visual confirmation
-        saveBtn.innerHTML = '<i class="ph ph-check"></i> Saved';
-        setTimeout(function () { saveBtn.innerHTML = '<i class="ph ph-floppy-disk"></i> Save fee & reminder'; }, 1800);
-      };
-    }
-    // Mark as Paid → open the existing link picker scoped to this debt's recurring
-    var markBtn = block.querySelector('[data-action="mark-paid"]');
-    if (markBtn) {
-      markBtn.onclick = function () {
-        var rp2 = findDerivedRecurring(debt.id);
-        if (!rp2) { alert('No recurring schedule exists for this debt yet.'); return; }
-        if (window.WJP_RecurringLinkUI && window.WJP_RecurringLinkUI.openLinkPicker) {
-          window.WJP_RecurringLinkUI.openLinkPicker(rp2.id);
-        } else {
-          alert('Link picker not ready.');
-        }
-      };
-    }
-    // Unlink action on linked rows (click row → confirm → unlink)
-    Array.prototype.forEach.call(block.querySelectorAll('.wjp-debt-enh-linked-row'), function (row) {
-      row.style.cursor = 'pointer';
-      row.title = 'Click to unlink this payment';
-      row.onclick = function (e) {
-        e.preventDefault();
-        var tid = row.getAttribute('data-txn-id');
-        if (!tid) return;
-        if (!confirm('Unlink this payment from ' + (debt.name || 'this debt') + '?')) return;
-        if (window.WJP_RecurringLink && window.WJP_RecurringLink.unlink) {
-          window.WJP_RecurringLink.unlink(tid);
-        }
-        setTimeout(refreshAll, 100);
-      };
-    });
-  }
+  // No-op kept so injectAll's call site remains valid. All editable
+  // controls moved to Settings (FIX 38 — wjp-debt-settings.js).
+  function wireBlock(block, debt) { /* intentionally empty */ }
 
   // ───────── inject into every expanded debt card ─────────
   // FIX 36B (2026-05-26 Winston): NEVER rebuild a block that already exists,
@@ -360,20 +243,20 @@
         return;
       }
       if (existing) {
-        // Already present — just refresh the dynamic bits (progress + linked list)
+        // Already present — just refresh the progress bar
         try { patchProgressAndLinked(existing, debt); } catch (_) {}
         return;
       }
       var wrapper = document.createElement('div');
       wrapper.innerHTML = buildEnhancementHtml(debt);
       var block = wrapper.firstElementChild;
+      // v4 (FIX 37, Winston 2026-05-26): block now contains ONLY the
+      // utilization/progress bar — always visible, no toggle.
       card.appendChild(block);
-      wireBlock(block, debt);
     });
   }
 
-  // Refresh only the progress bar + linked payments list (the rest are
-  // form inputs that must not be re-rendered while the user is editing).
+  // Refresh just the progress bar in place.
   function patchProgressAndLinked(block, debt) {
     var rp = findDerivedRecurring(debt.id);
     var prog = computeProgress(debt, rp);
@@ -392,51 +275,8 @@
     }
     var meta = block.querySelector('.wjp-debt-enh-progress-meta');
     if (meta) {
-      meta.innerHTML = '<span>' + prog.label + '</span>' +
-        '<span>' + (prog.subtext || '') + '</span>';
-    }
-    // Linked list — rebuild only that section, leave inputs alone
-    var sections = block.querySelectorAll('.wjp-debt-enh-section');
-    if (sections.length >= 2) {
-      var linked = rp ? linkedTxnsFor(rp).slice(0, 6) : [];
-      var html;
-      if (!linked.length) {
-        html = '<div class="wjp-debt-enh-empty">No payments linked yet. Click <strong>Mark as Paid</strong> to attach a transaction.</div>';
-      } else {
-        html = '<div class="wjp-debt-enh-linked-list">' + linked.map(function (t) {
-          var amtStr = fmtUsd(Math.abs(Number(t.amount) || 0));
-          var status = t.linkStatus || 'pending';
-          return '<div class="wjp-debt-enh-linked-row" data-txn-id="' + htmlEscape(t.id) + '">' +
-            '<span class="m">' + htmlEscape(t.merchant || t.name || 'Payment') + '</span>' +
-            '<span class="d">' + htmlEscape(fmtDateShort(t.date)) + '</span>' +
-            statusPill(status) +
-            '<span class="a">' + amtStr + '</span>' +
-          '</div>';
-        }).join('') + '</div>';
-      }
-      var linkedLabel = sections[1].querySelector('.wjp-debt-enh-label');
-      if (linkedLabel) linkedLabel.textContent = 'Linked payments (' + (rp ? (rp.linkedTxnIds || []).length : 0) + ')';
-      // Replace just the inner content after the label
-      var innerNodes = Array.prototype.slice.call(sections[1].children);
-      innerNodes.forEach(function (n, i) { if (i > 0) n.remove(); });
-      var tmp = document.createElement('div');
-      tmp.innerHTML = html;
-      sections[1].appendChild(tmp.firstElementChild);
-      // Re-wire click-to-unlink on each row
-      Array.prototype.forEach.call(sections[1].querySelectorAll('.wjp-debt-enh-linked-row'), function (row) {
-        row.style.cursor = 'pointer';
-        row.title = 'Click to unlink this payment';
-        row.onclick = function (e) {
-          e.preventDefault();
-          var tid = row.getAttribute('data-txn-id');
-          if (!tid) return;
-          if (!confirm('Unlink this payment from ' + (debt.name || 'this debt') + '?')) return;
-          if (window.WJP_RecurringLink && window.WJP_RecurringLink.unlink) {
-            window.WJP_RecurringLink.unlink(tid);
-          }
-          setTimeout(refreshAll, 100);
-        };
-      });
+      meta.innerHTML = '<span>' + htmlEscape(prog.label || '') + '</span>' +
+        '<span>' + htmlEscape(prog.subtext || '') + '</span>';
     }
   }
 
@@ -454,11 +294,53 @@
   function boot() {
     injectStyle();
     refreshAll();
+    // Suppress 'silent' debts-changed (our own auto-save) — only refresh on
+    // genuine state changes from elsewhere.
     window.addEventListener('wjp-recurring-link-changed', refreshAll);
     window.addEventListener('wjp-recurring-changed', refreshAll);
-    window.addEventListener('wjp-debts-changed', refreshAll);
-    // MutationObserver-light: re-inject when the grid changes
-    setInterval(refreshAll, 1500);
+    window.addEventListener('wjp-debts-changed', function (e) {
+      try { if (e && e.detail && e.detail.silent) return; } catch (_) {}
+      refreshAll();
+    });
+    // v2 (FIX 36-D): use MutationObserver instead of a polling interval so
+    // we only react when the host actually rebuilds cards. The interval was
+    // competing with user keystrokes and rebuilding the block underneath
+    // the cursor.
+    try {
+      var grid = document.getElementById('wjp-rt-grid');
+      if (grid && window.MutationObserver) {
+        var mo = new MutationObserver(function (mutations) {
+          // Only react if a card's children changed (host re-rendered it)
+          var relevant = false;
+          for (var i = 0; i < mutations.length; i++) {
+            var tgt = mutations[i].target;
+            if (tgt && tgt.closest && tgt.closest('[data-wjp-rt-key]') && !tgt.closest('.wjp-debt-enh')) {
+              relevant = true; break;
+            }
+          }
+          if (relevant) refreshAll();
+        });
+        mo.observe(grid, { childList: true, subtree: true });
+      } else {
+        // Fallback to slow safety tick (much less frequent than before)
+        setInterval(refreshAll, 8000);
+      }
+    } catch (_) { setInterval(refreshAll, 8000); }
+    // Also watch for late-arriving grid (Recurring tab not yet mounted on boot)
+    var lateAttempts = 0;
+    var lateIv = setInterval(function () {
+      lateAttempts++;
+      if (lateAttempts > 30) return clearInterval(lateIv);
+      var g = document.getElementById('wjp-rt-grid');
+      if (g && !g._wjpEnhObserved) {
+        g._wjpEnhObserved = true;
+        try {
+          var mo2 = new MutationObserver(function () { refreshAll(); });
+          mo2.observe(g, { childList: true, subtree: true });
+          refreshAll();
+        } catch (_) {}
+      }
+    }, 1500);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
@@ -473,3 +355,4 @@
     computeProgress: computeProgress
   };
 })();
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
