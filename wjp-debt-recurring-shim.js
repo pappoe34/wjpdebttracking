@@ -60,7 +60,12 @@
   }
 
   function computeMonthlyAmount(debt) {
+    // v2 (FIX 38): also read debt.minPayment (the actual field name used in
+    // this app's schema, populated from Plaid Liabilities minimum_payment_amount)
+    // and the snake_case variant for raw Plaid imports.
+    if (debt.minPayment != null && Number(debt.minPayment) > 0) return Number(debt.minPayment);
     if (debt.minimumPayment != null && Number(debt.minimumPayment) > 0) return Number(debt.minimumPayment);
+    if (debt.minimum_payment_amount != null && Number(debt.minimum_payment_amount) > 0) return Number(debt.minimum_payment_amount);
     if (debt.minimum != null && Number(debt.minimum) > 0) return Number(debt.minimum);
     if (debt.monthlyPayment != null && Number(debt.monthlyPayment) > 0) return Number(debt.monthlyPayment);
     if (debt.payment != null && Number(debt.payment) > 0) return Number(debt.payment);
@@ -69,22 +74,48 @@
     var apr = Number(debt.apr) || Number(debt.interestRate) || 0;
     if (bal <= 0) return 0;
     var twoPct = bal * 0.02;
-    var interest = bal * (apr / 12) / 100;
+    // APR can be stored as percent (27.49) or decimal (0.2749). Detect and normalize.
+    var aprPct = apr > 1 ? apr : apr * 100;
+    var interest = bal * (aprPct / 12) / 100;
     var est = Math.max(twoPct, interest + 25);
     return Math.round(est * 100) / 100;
   }
 
   function deriveNextDate(debt) {
-    var candidates = [debt.dueDate, debt.nextPaymentDate, debt.nextDueDate, debt.statementDueDate];
+    // v2 (FIX 38): handle day-of-month integers (Plaid sometimes returns
+    // dueDate as a day number 1-31 from statements). Also try Plaid's
+    // snake_case next_payment_due_date field.
+    var candidates = [
+      debt.next_payment_due_date,
+      debt.nextPaymentDate,
+      debt.nextDueDate,
+      debt.statementDueDate,
+      debt.dueDate
+    ];
     for (var i = 0; i < candidates.length; i++) {
       var c = candidates[i];
-      if (!c) continue;
+      if (c == null || c === '') continue;
+      // Day-of-month number (1-31) → compute next occurrence
+      if (typeof c === 'number' && c >= 1 && c <= 31) {
+        var today = new Date();
+        var target = new Date(today.getFullYear(), today.getMonth(), Math.min(c, lastDayOfMonth(today.getFullYear(), today.getMonth())));
+        if (target.getTime() <= today.getTime()) {
+          // Already passed this month → next month
+          target = new Date(today.getFullYear(), today.getMonth() + 1, Math.min(c, lastDayOfMonth(today.getFullYear(), today.getMonth() + 1)));
+        }
+        return target.toISOString().slice(0, 10);
+      }
+      // Date string
       try {
         var d = new Date(String(c).slice(0, 10) + 'T12:00:00');
         if (isFinite(d.getTime())) return d.toISOString().slice(0, 10);
       } catch (_) {}
     }
     return nextMonthEndIso();
+  }
+
+  function lastDayOfMonth(year, monthZero) {
+    return new Date(year, monthZero + 1, 0).getDate();
   }
 
   function sync() {
