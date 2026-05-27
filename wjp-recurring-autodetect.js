@@ -155,10 +155,56 @@
       groups[key].txns.push({ t: t, ms: ms });
     });
 
+    // FIX 32 v3 (Winston 2026-05-27): consumer categories are NOT bills.
+    // Walmart 4x/month is groceries, not a recurring bill. Skip groups
+    // whose dominant category is consumer/discretionary, and clean up
+    // existing auto-detected schedules in those categories.
+    var CONSUMER_CATS = ['groceries','dining','shopping','gas','transit','entertainment','personal','personal_care','healthcare','other'];
+
+    // Cleanup pass: drop existing auto-detected schedules in consumer cats
+    var dropped = 0;
+    s.recurringPayments = s.recurringPayments.filter(function (rp) {
+      if (!rp || !rp.isAutoDetected) return true;
+      var k = rp.autoDetectedFromMerchant;
+      if (!k) return true;
+      var matched = (s.transactions || []).filter(function (t) {
+        if (!t || isTransfer(t)) return false;
+        return canonMerchant(t.merchant || t.name || '') === k;
+      });
+      if (!matched.length) return true;
+      var ccCounts = {};
+      matched.forEach(function (t) { var c = t.userCategoryId || 'other'; ccCounts[c] = (ccCounts[c] || 0) + 1; });
+      var top = null, topN = 0;
+      Object.keys(ccCounts).forEach(function (c) { if (ccCounts[c] > topN) { topN = ccCounts[c]; top = c; } });
+      if (top && CONSUMER_CATS.indexOf(top) !== -1) {
+        try { console.log('[wjp-recurring-autodetect] dropping consumer schedule:', rp.name, '(' + top + ')'); } catch (_) {}
+        dropped++;
+        return false;
+      }
+      // FIX 32 v4: also drop auto-detected INCOME schedules
+      if (rp.type === 'income' || (top === 'income')) {
+        try { console.log('[wjp-recurring-autodetect] dropping income schedule:', rp.name); } catch (_) {}
+        dropped++;
+        return false;
+      }
+      return true;
+    });
+    if (dropped > 0) saveState();
+
     var added = 0;
     Object.keys(groups).forEach(function (key) {
       var g = groups[key];
       if (g.txns.length < 3) return; // need at least 3 occurrences
+
+      // Skip if dominant category of this group is consumer/discretionary
+      var catCounts = {};
+      g.txns.forEach(function (x) {
+        var c = (x.t && x.t.userCategoryId) || 'other';
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      });
+      var topCat = null, topCatN = 0;
+      Object.keys(catCounts).forEach(function (c) { if (catCounts[c] > topCatN) { topCatN = catCounts[c]; topCat = c; } });
+      if (topCat && CONSUMER_CATS.indexOf(topCat) !== -1) return;
 
       // Sort by date asc, compute gaps
       g.txns.sort(function (a, b) { return a.ms - b.ms; });
@@ -184,6 +230,9 @@
       var allNeg = amounts.every(function (a) { return a < 0; });
       if (!allPos && !allNeg) return; // mixed sign — skip
       var type = allPos ? 'income' : 'expense';
+      // FIX 32 v4 (Winston 2026-05-27): "and bills and insurance but not income".
+      // Skip income — too many false positives from transfer/refund/etc.
+      if (type === 'income') return;
 
       var existing = existingRecurringFor(key, g.sampleName, s.recurringPayments);
       if (existing) return; // already represented
@@ -233,42 +282,34 @@
       added++;
     });
 
-    if (added > 0) {
+    if (added > 0 || dropped > 0) {
       saveState();
       try {
         window.dispatchEvent(new CustomEvent('wjp-recurring-changed', {
-          detail: { added: added, source: 'autodetect' }
+          detail: { added: added, dropped: dropped, source: 'autodetect' }
         }));
       } catch (_) {}
-      try { console.log('[wjp-recurring-autodetect] created', added, 'schedules from merchant patterns'); } catch (_) {}
-      // Trigger the link engine to backfill links for these new schedules
+      try { console.log('[wjp-recurring-autodetect] created', added, 'dropped consumer', dropped); } catch (_) {}
       try {
         if (window.WJP_RecurringLink && window.WJP_RecurringLink.sweep) {
           setTimeout(function () { window.WJP_RecurringLink.sweep(); }, 300);
         }
       } catch (_) {}
     }
-    return { added: added };
+    return { added: added, dropped: dropped };
   }
 
-  // ───────── boot loop ─────────
   function boot() {
     var attempts = 0;
     function tick() {
       attempts++;
       var s = getState();
-      if (s && Array.isArray(s.transactions) && s.transactions.length > 0) {
-        detect();
-        return;
-      }
+      if (s && Array.isArray(s.transactions) && s.transactions.length > 0) { detect(); return; }
       if (attempts < 30) setTimeout(tick, 1500);
     }
-    // Wait a bit longer than other modules so smart-categorize has time to
-    // flag transfers first (we use isTransfer to filter them out).
     setTimeout(tick, 4500);
     window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(detect, 800); });
     window.addEventListener('wjp-transactions-changed', function () { setTimeout(detect, 800); });
-    // Safety re-detect every 5 min
     setInterval(detect, 5 * 60 * 1000);
   }
   if (document.readyState === 'loading') {
@@ -277,10 +318,8 @@
     boot();
   }
 
-  //
-  // Public API
   window.WJP_RecurringAutodetect = {
-    version: 2,
+    version: 4,
     detect: detect,
     canonMerchant: canonMerchant,
     classifyCadence: classifyCadence
