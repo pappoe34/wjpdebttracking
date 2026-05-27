@@ -100,6 +100,17 @@
       '#' + CARD_ID + ' .total-label{font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-dim, #6b7280);}',
       '#' + CARD_ID + ' .search{display:flex;gap:8px;margin:10px 0;align-items:center;}',
       '#' + CARD_ID + ' .search input{flex:1;padding:8px 12px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:8px;font-size:12px;font-family:inherit;background:var(--bg-1, #fff);color:var(--ink, #1f1a14);}',
+      // Dark-mode parity (body.dark) — search box was bright white in night mode.
+      'body.dark #' + CARD_ID + '{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.10);color:#e7e7ea;}',
+      'body.dark #' + CARD_ID + ' .title, body.dark #' + CARD_ID + ' .total{color:#f4f4f6;}',
+      'body.dark #' + CARD_ID + ' .sub, body.dark #' + CARD_ID + ' .total-label, body.dark #' + CARD_ID + ' .m-row .cnt{color:rgba(255,255,255,0.55);}',
+      'body.dark #' + CARD_ID + ' .search input{background:rgba(255,255,255,0.05) !important;color:#f4f4f6 !important;border-color:rgba(255,255,255,0.12) !important;}',
+      'body.dark #' + CARD_ID + ' .search input::placeholder{color:rgba(255,255,255,0.40);}',
+      'body.dark #' + CARD_ID + ' .m-row:hover{background:rgba(255,255,255,0.05);}',
+      'body.dark #' + CARD_ID + ' .m-row .amt, body.dark #' + CARD_ID + ' .m-row .nm{color:#f4f4f6;}',
+      'body.dark #' + CARD_ID + ' .toolbar button{background:rgba(255,255,255,0.06);color:#f4f4f6;border-color:rgba(255,255,255,0.10);}',
+      'body.dark #' + CARD_ID + ' .toolbar button.primary{background:#1f7a4a;color:#fff;border-color:#1f7a4a;}',
+      'body.dark #' + CARD_ID + ' .toolbar .sel-info{color:rgba(255,255,255,0.55);}',
       '#' + CARD_ID + ' .list{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow:auto;}',
       '#' + CARD_ID + ' .m-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;}',
       '#' + CARD_ID + ' .m-row:hover{background:var(--bg-3, rgba(0,0,0,0.04));}',
@@ -125,25 +136,6 @@
     var search = getSearch();
     var q = search.toLowerCase().trim();
 
-    // FIX (Winston 2026-05-27): Spend by Bill must only show ACTUAL bills.
-    // Walmart, Post Office, Ace Hardware, BKOFAMERICA WITHDRWL aren't bills.
-    // Allowlist: bills, utilities, insurance, debt-payment, subscriptions, rent, mortgage, medical, loan.
-    var BILL_CATS = {
-      'bills': 1, 'utilities': 1, 'utility': 1, 'insurance': 1,
-      'debt-payment': 1, 'debt_payment': 1, 'debt': 1,
-      'subscriptions': 1, 'subscription': 1,
-      'rent': 1, 'mortgage': 1, 'loan': 1,
-      'medical': 1, 'healthcare': 1
-    };
-    function isBillCat(c) {
-      if (!c) return false;
-      var k = String(c).toLowerCase().trim();
-      if (BILL_CATS[k]) return true;
-      // Also accept custom category IDs whose name CONTAINS a bill keyword
-      if (/(bill|insur|util|debt|subscript|rent|mortgage|loan|medic|health)/.test(k)) return true;
-      return false;
-    }
-
     var s = getState();
     var byMerchant = {};
     var total = 0;
@@ -157,31 +149,12 @@
         if (amt >= 0) return;
         var displayName = String(t.merchant || t.name || 'Unknown').slice(0, 60);
         var key = canonMerchant(displayName) || displayName.toLowerCase();
-        if (!byMerchant[key]) byMerchant[key] = { key: key, name: displayName, amount: 0, count: 0, catCounts: {} };
+        if (!byMerchant[key]) byMerchant[key] = { key: key, name: displayName, amount: 0, count: 0 };
         byMerchant[key].amount += Math.abs(amt);
         byMerchant[key].count++;
-        var c = t.userCategoryId || 'other';
-        byMerchant[key].catCounts[c] = (byMerchant[key].catCounts[c] || 0) + 1;
         total += Math.abs(amt);
       });
     }
-
-    // Filter to merchants whose DOMINANT category is bill-like
-    var filteredTotal = 0;
-    Object.keys(byMerchant).forEach(function (k) {
-      var m = byMerchant[k];
-      var topCat = null, topCnt = 0;
-      Object.keys(m.catCounts || {}).forEach(function (c) {
-        if (m.catCounts[c] > topCnt) { topCnt = m.catCounts[c]; topCat = c; }
-      });
-      m.dominantCat = topCat;
-      if (!isBillCat(topCat)) {
-        delete byMerchant[k];
-      } else {
-        filteredTotal += m.amount;
-      }
-    });
-    total = filteredTotal;
 
     var rows = Object.keys(byMerchant).map(function (k) { return byMerchant[k]; });
     if (q) {
@@ -200,7 +173,7 @@
             '<span class="amt">' + fmtUsd(r.amount) + '</span>' +
           '</div>';
         }).join('')
-      : '<div class="empty">' + (q ? 'No bills match "' + htmlEscape(q) + '".' : 'No bills in ' + period.label.toLowerCase() + '.') + '</div>';
+      : '<div class="empty">' + (q ? 'No merchants match "' + htmlEscape(q) + '".' : 'No merchants in ' + period.label.toLowerCase() + '.') + '</div>';
 
     var selCount = Object.keys(_selectedKeys).length;
     var periodPills = [['day','Today'],['week','This week'],['month','This month'],['year','This year'],['all','All time']]
@@ -209,8 +182,8 @@
     return '<div id="' + CARD_ID + '">' +
       '<div class="head">' +
         '<div>' +
-          '<div class="title">Spend by Bill</div>' +
-          '<div class="sub">Each merchant\'s total for ' + period.label + '. Transfers and income excluded.</div>' +
+          '<div class="title">Total spent by transaction</div>' +
+          '<div class="sub">Each merchant\'s total spend for ' + period.label + '. Transfers and income excluded.</div>' +
         '</div>' +
         '<div style="text-align:right;">' +
           '<div class="total-label">' + period.label + ' total</div>' +
@@ -219,7 +192,7 @@
       '</div>' +
       '<div class="toolbar"><div style="display:inline-flex;gap:4px;padding:3px;background:var(--bg-3, rgba(0,0,0,0.04));border-radius:999px;">' + periodPills.replace(/<button/g, '<button style="padding:4px 10px;border-radius:999px;border:none;background:transparent;color:var(--ink-dim, #6b7280);"').replace(/class="primary"/g, 'class="primary" style="padding:4px 10px;border-radius:999px;background:var(--bg-1, #fff);color:var(--ink, #1f1a14);border:none;box-shadow:0 1px 2px rgba(0,0,0,0.08);"') + '</div></div>' +
       '<div class="search">' +
-        '<input type="text" id="wjp-sbb-search" placeholder="Search bills…" value="' + htmlEscape(search) + '" />' +
+        '<input type="text" id="wjp-sbb-search" placeholder="Search merchants…" value="' + htmlEscape(search) + '" />' +
       '</div>' +
       '<div class="toolbar">' +
         '<span class="sel-info">' + selCount + ' selected</span>' +
@@ -454,7 +427,18 @@
       '#' + MODAL_ID + ' .tx-row .m{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       '#' + MODAL_ID + ' .tx-row .src{font-size:10px;color:var(--ink-dim,#6b7280);}',
       '#' + MODAL_ID + ' .tx-row .a{font-weight:700;min-width:90px;text-align:right;}',
-      '@media (max-width: 560px){#' + MODAL_ID + ' .stats{grid-template-columns:repeat(2,1fr);}}'
+      '@media (max-width: 560px){#' + MODAL_ID + ' .stats{grid-template-columns:repeat(2,1fr);}}',
+      // Dark-mode parity for detail modal
+      'body.dark #' + MODAL_ID + ' .panel{background:#16181d;color:#f4f4f6;}',
+      'body.dark #' + MODAL_ID + ' h3{color:#f4f4f6;}',
+      'body.dark #' + MODAL_ID + ' .sub, body.dark #' + MODAL_ID + ' .list-head, body.dark #' + MODAL_ID + ' .x{color:rgba(255,255,255,0.55);}',
+      'body.dark #' + MODAL_ID + ' .stat{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.10);}',
+      'body.dark #' + MODAL_ID + ' .stat .lbl, body.dark #' + MODAL_ID + ' .stat .cnt{color:rgba(255,255,255,0.55);}',
+      'body.dark #' + MODAL_ID + ' .stat .val{color:#f4f4f6;}',
+      'body.dark #' + MODAL_ID + ' .txns{border-color:rgba(255,255,255,0.10);}',
+      'body.dark #' + MODAL_ID + ' .tx-row{color:#e7e7ea;border-bottom-color:rgba(255,255,255,0.06);}',
+      'body.dark #' + MODAL_ID + ' .tx-row .d, body.dark #' + MODAL_ID + ' .tx-row .src{color:rgba(255,255,255,0.50);}',
+      'body.dark #' + MODAL_ID + ' .tx-row .m{color:#f4f4f6;}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -565,5 +549,5 @@
     boot();
   }
 
-  window.WJP_SpendByBill = { version: 1, refresh: refresh };
+  window.WJP_SpendByBill = { version: 4, refresh: refresh };
 })();
