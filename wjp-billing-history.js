@@ -190,10 +190,10 @@
     // the parent of the transactions table.
     var s = getState();
     if (!s || !Array.isArray(s.transactions)) return;
-    // Only mount on Transactions sub-tab
+    // Only mount on Transactions sub-tab. offsetParent isn't reliable here
+    // (parent uses transform/contain CSS) — use .active class instead.
     var sub = document.querySelector('.debts-subtab-content[data-subtab="transactions"]');
-    if (!sub || sub.offsetParent === null) {
-      // Not visible — remove if present
+    if (!sub || !sub.classList.contains('active')) {
       var stale = document.getElementById(CARD_ID);
       if (stale) stale.remove();
       return;
