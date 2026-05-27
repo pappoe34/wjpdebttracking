@@ -130,12 +130,15 @@
     var isCard = limit > 0 && (debt.type === 'credit' || debt.type === 'card' || debt.type === 'creditCard' || limit >= balance);
     if (isCard && limit > 0) {
       var used = Math.min(balance, limit);
-      var availPct = Math.max(0, Math.round(((limit - used) / limit) * 100));
-      var usedPct = 100 - availPct;
+      var usedPct = Math.min(100, Math.round((used / limit) * 100));
+      // v2 (Winston 2026-05-26): bar shows UTILIZATION directly — fuller bar
+      // means more of the limit is used (worse for credit score). Matches the
+      // existing '88% util' badge in the AI Breakdown summary.
       return {
         paid: used,
         target: limit,
-        pct: availPct, // bar shows available credit (more = better)
+        pct: usedPct,
+        mode: 'utilization',
         label: 'Used ' + fmtUsd(used) + ' of ' + fmtUsd(limit) + ' limit (' + usedPct + '% utilization)',
         subtext: (rp && rp.nextDate) ? ('Next due ' + fmtDateShort(rp.nextDate)) : ''
       };
@@ -193,9 +196,19 @@
 
     // PROGRESS BAR — label/subtext computed inside computeProgress per debt type
     var progTitle = (Number(debt.creditLimit) || Number(debt.limit)) > 0 ? 'Credit utilization' : 'Payment progress';
+    // Color: utilization mode → red when high (worse), green when low.
+    // Paydown mode → green when high (more paid off = better).
+    var barGradient;
+    if (prog.mode === 'utilization') {
+      if (prog.pct >= 70) barGradient = 'linear-gradient(90deg, #c0594a, #b91c1c)';      // red
+      else if (prog.pct >= 30) barGradient = 'linear-gradient(90deg, #fbbf24, #d97706)'; // amber
+      else barGradient = 'linear-gradient(90deg, #1f7a4a, #15a065)';                     // green
+    } else {
+      barGradient = 'linear-gradient(90deg, #1f7a4a, #15a065)';
+    }
     var progBar = '<div class="wjp-debt-enh-section">' +
       '<div class="wjp-debt-enh-label">' + progTitle + '</div>' +
-      '<div class="wjp-debt-enh-bar"><div style="width:' + prog.pct + '%;"></div></div>' +
+      '<div class="wjp-debt-enh-bar"><div style="width:' + prog.pct + '%;background:' + barGradient + ';"></div></div>' +
       '<div class="wjp-debt-enh-progress-meta">' +
         '<span>' + htmlEscape(prog.label || '') + '</span>' +
         '<span>' + htmlEscape(prog.subtext || '') + '</span>' +
@@ -365,7 +378,18 @@
     var rp = findDerivedRecurring(debt.id);
     var prog = computeProgress(debt, rp);
     var bar = block.querySelector('.wjp-debt-enh-bar > div');
-    if (bar) bar.style.width = prog.pct + '%';
+    if (bar) {
+      bar.style.width = prog.pct + '%';
+      var grad;
+      if (prog.mode === 'utilization') {
+        if (prog.pct >= 70) grad = 'linear-gradient(90deg, #c0594a, #b91c1c)';
+        else if (prog.pct >= 30) grad = 'linear-gradient(90deg, #fbbf24, #d97706)';
+        else grad = 'linear-gradient(90deg, #1f7a4a, #15a065)';
+      } else {
+        grad = 'linear-gradient(90deg, #1f7a4a, #15a065)';
+      }
+      bar.style.background = grad;
+    }
     var meta = block.querySelector('.wjp-debt-enh-progress-meta');
     if (meta) {
       meta.innerHTML = '<span>' + prog.label + '</span>' +
