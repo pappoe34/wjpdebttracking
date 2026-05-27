@@ -61,6 +61,14 @@
     return { since: since, label: label };
   }
   function getPeriod() { try { return localStorage.getItem(LS_KEY) || 'month'; } catch (_) { return 'month'; } }
+  // FIX 47 (Winston): Spend by Bill defaults to All Time so the full bill list
+  // shows (not just last week's 5 merchants). Billing History still respects
+  // the shared LS period from its own pills.
+  var SBB_PERIOD_LS = 'wjp.spend_by_bill.period.v1';
+  function getSbbPeriod() { try { return localStorage.getItem(SBB_PERIOD_LS) || 'all'; } catch (_) { return 'all'; } }
+  function setSbbPeriod(v) { try { localStorage.setItem(SBB_PERIOD_LS, v); } catch (_) {} }
+  // Track selected bills (set of canonical merchant keys) for the report.
+  var _selectedKeys = {};
   function getSearch() { try { return localStorage.getItem(LS_SEARCH) || ''; } catch (_) { return ''; } }
   function setSearch(v) { try { localStorage.setItem(LS_SEARCH, v); } catch (_) {} }
 
@@ -93,18 +101,26 @@
       '#' + CARD_ID + ' .search{display:flex;gap:8px;margin:10px 0;align-items:center;}',
       '#' + CARD_ID + ' .search input{flex:1;padding:8px 12px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:8px;font-size:12px;font-family:inherit;background:var(--bg-1, #fff);color:var(--ink, #1f1a14);}',
       '#' + CARD_ID + ' .list{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow:auto;}',
-      '#' + CARD_ID + ' .m-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:pointer;}',
+      '#' + CARD_ID + ' .m-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;}',
       '#' + CARD_ID + ' .m-row:hover{background:var(--bg-3, rgba(0,0,0,0.04));}',
+      '#' + CARD_ID + ' .m-row.is-selected{background:rgba(31,122,74,0.10);}',
+      '#' + CARD_ID + ' .m-row input[type="checkbox"]{margin:0;cursor:pointer;flex-shrink:0;}',
       '#' + CARD_ID + ' .m-row .nm{flex:1;font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       '#' + CARD_ID + ' .m-row .cnt{color:var(--ink-dim, #6b7280);font-size:11px;flex-shrink:0;}',
       '#' + CARD_ID + ' .m-row .amt{font-weight:700;font-size:13px;color:var(--ink, #1f1a14);min-width:90px;text-align:right;}',
-      '#' + CARD_ID + ' .empty{padding:16px;text-align:center;font-size:12px;color:var(--ink-dim, #6b7280);}'
+      '#' + CARD_ID + ' .empty{padding:16px;text-align:center;font-size:12px;color:var(--ink-dim, #6b7280);}',
+      '#' + CARD_ID + ' .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:11px;flex-wrap:wrap;}',
+      '#' + CARD_ID + ' .toolbar .sel-info{color:var(--ink-dim, #6b7280);font-weight:600;}',
+      '#' + CARD_ID + ' .toolbar button{background:var(--bg-3, rgba(0,0,0,0.05));color:var(--ink, #1f1a14);border:1px solid var(--border, rgba(0,0,0,0.10));border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}',
+      '#' + CARD_ID + ' .toolbar button:hover{filter:brightness(0.97);}',
+      '#' + CARD_ID + ' .toolbar button.primary{background:#1f7a4a;color:#fff;border-color:#1f7a4a;}',
+      '#' + CARD_ID + ' .toolbar button.primary:disabled{opacity:0.5;cursor:not-allowed;}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
 
   function buildCardHtml() {
-    var periodKey = getPeriod();
+    var periodKey = getSbbPeriod();
     var period = periodRange(periodKey);
     var search = getSearch();
     var q = search.toLowerCase().trim();
@@ -138,13 +154,19 @@
 
     var listHtml = rows.length
       ? rows.map(function (r) {
-          return '<div class="m-row" data-merchant-key="' + htmlEscape(r.key) + '" data-merchant-name="' + htmlEscape(r.name) + '" title="Click for details">' +
-            '<span class="nm">' + htmlEscape(r.name) + '</span>' +
+          var checked = !!_selectedKeys[r.key];
+          return '<div class="m-row' + (checked ? ' is-selected' : '') + '" data-merchant-key="' + htmlEscape(r.key) + '" data-merchant-name="' + htmlEscape(r.name) + '">' +
+            '<input type="checkbox" data-merchant-key="' + htmlEscape(r.key) + '"' + (checked ? ' checked' : '') + ' title="Select for report" />' +
+            '<span class="nm" title="Click for details">' + htmlEscape(r.name) + '</span>' +
             '<span class="cnt">' + r.count + (r.count === 1 ? ' txn' : ' txns') + '</span>' +
             '<span class="amt">' + fmtUsd(r.amount) + '</span>' +
           '</div>';
         }).join('')
       : '<div class="empty">' + (q ? 'No bills match "' + htmlEscape(q) + '".' : 'No bills in ' + period.label.toLowerCase() + '.') + '</div>';
+
+    var selCount = Object.keys(_selectedKeys).length;
+    var periodPills = [['day','Today'],['week','This week'],['month','This month'],['year','This year'],['all','All time']]
+      .map(function (p) { return '<button type="button" data-sbb-period="' + p[0] + '"' + (periodKey === p[0] ? ' class="primary"' : '') + '>' + p[1] + '</button>'; }).join('');
 
     return '<div id="' + CARD_ID + '">' +
       '<div class="head">' +
@@ -157,8 +179,15 @@
           '<div class="total">' + fmtUsd(total) + '</div>' +
         '</div>' +
       '</div>' +
+      '<div class="toolbar"><div style="display:inline-flex;gap:4px;padding:3px;background:var(--bg-3, rgba(0,0,0,0.04));border-radius:999px;">' + periodPills.replace(/<button/g, '<button style="padding:4px 10px;border-radius:999px;border:none;background:transparent;color:var(--ink-dim, #6b7280);"').replace(/class="primary"/g, 'class="primary" style="padding:4px 10px;border-radius:999px;background:var(--bg-1, #fff);color:var(--ink, #1f1a14);border:none;box-shadow:0 1px 2px rgba(0,0,0,0.08);"') + '</div></div>' +
       '<div class="search">' +
         '<input type="text" id="wjp-sbb-search" placeholder="Search bills…" value="' + htmlEscape(search) + '" />' +
+      '</div>' +
+      '<div class="toolbar">' +
+        '<span class="sel-info">' + selCount + ' selected</span>' +
+        '<button type="button" id="wjp-sbb-select-all">Select all visible</button>' +
+        '<button type="button" id="wjp-sbb-clear-sel">Clear</button>' +
+        '<button type="button" class="primary" id="wjp-sbb-report"' + (selCount === 0 ? ' disabled' : '') + '>Generate report (' + selCount + ')</button>' +
       '</div>' +
       '<div class="list">' + listHtml + '</div>' +
     '</div>';
@@ -220,15 +249,142 @@
       };
       inp.onblur = function () { setTimeout(refresh, 100); };
     }
-    // Wire row clicks → detail modal
-    Array.prototype.forEach.call(card.querySelectorAll('.m-row[data-merchant-key]'), function (row) {
-      row.style.cursor = 'pointer';
-      row.onclick = function () {
-        var key = row.getAttribute('data-merchant-key');
-        var name = row.getAttribute('data-merchant-name');
-        openMerchantDetail(key, name);
+    // Period pills (Spend by Bill's OWN period, not Billing History's)
+    Array.prototype.forEach.call(card.querySelectorAll('[data-sbb-period]'), function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        setSbbPeriod(btn.getAttribute('data-sbb-period'));
+        var c = document.getElementById(CARD_ID);
+        if (c) c.removeAttribute('data-sig');
+        refresh();
       };
     });
+    // Row name → detail modal (only on the name span, not the checkbox)
+    Array.prototype.forEach.call(card.querySelectorAll('.m-row[data-merchant-key] .nm'), function (nm) {
+      nm.style.cursor = 'pointer';
+      nm.onclick = function (e) {
+        e.stopPropagation();
+        var row = nm.closest('.m-row');
+        if (!row) return;
+        openMerchantDetail(row.getAttribute('data-merchant-key'), row.getAttribute('data-merchant-name'));
+      };
+    });
+    // Row click outside the checkbox/name also opens detail (count, amount areas)
+    Array.prototype.forEach.call(card.querySelectorAll('.m-row[data-merchant-key]'), function (row) {
+      row.onclick = function (e) {
+        if (e.target.tagName === 'INPUT') return; // checkbox handles itself
+        if (e.target.classList && e.target.classList.contains('nm')) return; // name handled above
+        openMerchantDetail(row.getAttribute('data-merchant-key'), row.getAttribute('data-merchant-name'));
+      };
+    });
+    // Checkboxes
+    Array.prototype.forEach.call(card.querySelectorAll('.m-row input[type="checkbox"][data-merchant-key]'), function (cb) {
+      cb.onclick = function (e) { e.stopPropagation(); };
+      cb.onchange = function () {
+        var k = cb.getAttribute('data-merchant-key');
+        if (cb.checked) _selectedKeys[k] = true;
+        else delete _selectedKeys[k];
+        // Update toolbar text without rebuilding everything
+        var info = card.querySelector('.toolbar .sel-info');
+        var rpt = card.querySelector('#wjp-sbb-report');
+        var n = Object.keys(_selectedKeys).length;
+        if (info) info.textContent = n + ' selected';
+        if (rpt) {
+          rpt.textContent = 'Generate report (' + n + ')';
+          rpt.disabled = (n === 0);
+        }
+        var row = cb.closest('.m-row');
+        if (row) row.classList.toggle('is-selected', cb.checked);
+      };
+    });
+    // Select all visible
+    var selAll = card.querySelector('#wjp-sbb-select-all');
+    if (selAll) selAll.onclick = function () {
+      Array.prototype.forEach.call(card.querySelectorAll('.m-row input[type="checkbox"][data-merchant-key]'), function (cb) {
+        if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+      });
+    };
+    var clr = card.querySelector('#wjp-sbb-clear-sel');
+    if (clr) clr.onclick = function () { _selectedKeys = {}; var c = document.getElementById(CARD_ID); if (c) c.removeAttribute('data-sig'); refresh(); };
+    var rpt = card.querySelector('#wjp-sbb-report');
+    if (rpt) rpt.onclick = function () { openReportModal(); };
+  }
+
+  // ───────── multi-bill report modal ─────────
+  var REPORT_MODAL_ID = 'wjp-sbb-report-modal';
+  function closeReportModal() { var m = document.getElementById(REPORT_MODAL_ID); if (m) m.remove(); }
+  function openReportModal() {
+    closeReportModal();
+    injectModalStyle();
+    var s = getState();
+    if (!s || !Array.isArray(s.transactions)) return;
+    var periodKey = getSbbPeriod();
+    var period = periodRange(periodKey);
+    var selectedKeys = Object.keys(_selectedKeys);
+    if (!selectedKeys.length) return;
+
+    var perBill = {}; var grandTotal = 0; var grandCount = 0;
+    selectedKeys.forEach(function (k) { perBill[k] = { name: '', amount: 0, count: 0, txns: [] }; });
+
+    s.transactions.forEach(function (t) {
+      if (!t) return;
+      if (isTransferLike(t)) return;
+      var amt = Number(t.amount) || 0;
+      if (amt >= 0) return;
+      var name = String(t.merchant || t.name || 'Unknown').slice(0, 60);
+      var key = canonMerchant(name) || name.toLowerCase();
+      if (!_selectedKeys[key]) return;
+      var ts = t.date ? new Date(String(t.date).slice(0,10) + 'T12:00:00').getTime() : 0;
+      if (ts < period.since) return;
+      perBill[key].name = perBill[key].name || name;
+      perBill[key].amount += Math.abs(amt);
+      perBill[key].count++;
+      perBill[key].txns.push(t);
+      grandTotal += Math.abs(amt);
+      grandCount++;
+    });
+
+    var rows = Object.keys(perBill).map(function (k) { return perBill[k]; })
+      .filter(function (r) { return r.count > 0; })
+      .sort(function (a, b) { return b.amount - a.amount; });
+
+    var rowsHtml = rows.length
+      ? rows.map(function (r) {
+          return '<div class="tx-row">' +
+            '<span class="d" style="width:auto;">' + r.count + (r.count === 1 ? ' txn' : ' txns') + '</span>' +
+            '<span class="m">' + htmlEscape(r.name) + '</span>' +
+            '<span class="a" style="color:#c0594a;">-' + fmtUsd(r.amount) + '</span>' +
+          '</div>';
+        }).join('')
+      : '<div class="tx-row" style="color:var(--ink-dim,#6b7280);">No transactions matched for the selected bills + period.</div>';
+
+    var modal = document.createElement('div');
+    modal.id = REPORT_MODAL_ID;
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99993;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML =
+      '<div style="background:var(--bg-1,#fff);color:var(--ink,#0a0a0a);border-radius:14px;padding:18px;max-width:600px;width:100%;max-height:84vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.30);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
+          '<div><h3 style="margin:0;font-size:16px;">Bill report</h3>' +
+            '<div style="color:var(--ink-dim,#6b7280);font-size:11px;margin-top:2px;">' + rows.length + ' bill' + (rows.length === 1 ? '' : 's') + ' · ' + period.label + ' · ' + grandCount + ' transaction' + (grandCount === 1 ? '' : 's') + '</div>' +
+          '</div>' +
+          '<button id="wjp-sbb-rpt-close" type="button" style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--ink-dim,#6b7280);">×</button>' +
+        '</div>' +
+        '<div style="padding:14px;background:var(--bg-2, rgba(0,0,0,0.02));border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;margin-bottom:12px;">' +
+          '<div style="font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-dim,#6b7280);">Total across selected bills</div>' +
+          '<div style="font-size:22px;font-weight:800;color:#c0594a;margin-top:2px;">' + fmtUsd(grandTotal) + '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow:auto;border:1px solid var(--border,rgba(0,0,0,0.10));border-radius:10px;">' + rowsHtml + '</div>' +
+        '<div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px;"><button id="wjp-sbb-rpt-copy" type="button" style="padding:8px 14px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--border,rgba(0,0,0,0.10));background:var(--bg-3,rgba(0,0,0,0.05));color:var(--ink,#0a0a0a);font-family:inherit;">Copy as text</button></div>' +
+      '</div>';
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeReportModal(); });
+    document.body.appendChild(modal);
+    document.getElementById('wjp-sbb-rpt-close').onclick = closeReportModal;
+    document.getElementById('wjp-sbb-rpt-copy').onclick = function () {
+      var lines = ['Bill report — ' + period.label, ''];
+      rows.forEach(function (r) { lines.push(r.name + '\t' + r.count + ' txns\t-' + fmtUsd(r.amount)); });
+      lines.push('', 'TOTAL: ' + fmtUsd(grandTotal) + ' across ' + grandCount + ' txns');
+      try { navigator.clipboard.writeText(lines.join('\n')); this.textContent = 'Copied ✓'; var btn = this; setTimeout(function(){btn.textContent = 'Copy as text';}, 2000); } catch (_) {}
+    };
   }
 
   // ───────── merchant detail modal ─────────
