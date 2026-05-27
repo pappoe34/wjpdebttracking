@@ -56,6 +56,19 @@
 
   function setSize(n) {
     try { localStorage.setItem(LS_KEY, String(n)); } catch (_) {}
+    // v3 fix: writing localStorage alone doesn't sync the host's in-memory
+    // page-size cache. Simulate a click on the corresponding hidden host
+    // button so the host runs its own onclick handler.
+    try {
+      var hostBtns = document.querySelectorAll('.txn-filters .wjp-pagesize-row button.ps-btn[data-ps]');
+      Array.prototype.forEach.call(hostBtns, function (b) {
+        if (parseInt(b.getAttribute('data-ps'), 10) === n) {
+          try { b.click(); } catch (_) {}
+        }
+      });
+    } catch (_) {}
+    // Reset page index to 0 so we're not stuck on page 5 of the old size
+    try { if (window._wjpTxnState) window._wjpTxnState.page = 0; } catch (_) {}
     // Force immediate re-render via every known path
     try { if (typeof window.txnRenderAll === 'function') window.txnRenderAll(); } catch (_) {}
     try { if (typeof window.WJP_CustomTxnRender === 'function') window.WJP_CustomTxnRender(); } catch (_) {}
@@ -142,7 +155,7 @@
   }
 
   window.WJP_PagesizeRelocate = {
-    version: 2,
+    version: 3,
     ensureInjected: ensureInjected,
     dedupe: dedupeAccidentalCopies,
     setSize: setSize
