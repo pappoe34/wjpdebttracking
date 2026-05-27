@@ -24089,7 +24089,7 @@ window.showPrivacyHint = function showPrivacyHint() {
         try {
             await ensureFirestore();
             var ref = _docFn(_db, 'users', _uid, 'state', 'main');
-            var realTxns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic; }).slice(-300);
+            var realTxns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic; }).slice(-5000); // FIX 41 (2026-05-26 Winston): raised cap from 300 → 5000 so user category assignments + link state on older txns survive cloud-pull. Firestore doc limit is 1MB; 5000 tx * ~250 bytes avg = ~1.25MB which may exceed for ultra-heavy users. If hit, switch to subcollection per-txn.
             var recentNotifs = (appState.notifications || []).slice(-100);
             var payload = {};
             STATE_KEYS.forEach(function(k){ if (appState[k] !== undefined) payload[k] = appState[k]; });
