@@ -140,15 +140,17 @@
     }
   }
 
-  // ────────── build the Smart Summary card ──────────
+  // ────────── build the Smart Summary card (debt + recurring focused) ──────────
   function buildSummaryHtml() {
     var s = getState();
     var rps = (s && Array.isArray(s.recurringPayments)) ? s.recurringPayments : [];
+    var debts = (s && Array.isArray(s.debts)) ? s.debts : [];
     var periodKey = lsGet(LS_PERIOD, 'month');
     var period = periodRange(periodKey);
     var mult = periodMultiplier(periodKey);
 
-    var income = 0, debt = 0, subs = 0, other = 0, count = 0;
+    // Totals across recurring payments by type
+    var debtPay = 0, subs = 0, utility = 0, insurance = 0, rent = 0, other = 0, count = 0;
     rps.forEach(function (rp) {
       if (!rp) return;
       var amt = Math.abs(Number(rp.amount) || 0);
@@ -156,16 +158,29 @@
       var monthly = amt * monthlyMult(rp.frequency);
       var periodAmt = monthly * mult;
       var type = inferType(rp);
+      if (type === 'income') return; // outflow-focused summary
       count++;
-      if (type === 'income') income += periodAmt;
-      else if (type === 'debt') debt += periodAmt;
+      if (type === 'debt') debtPay += periodAmt;
       else if (type === 'subscription') subs += periodAmt;
+      else if (type === 'utility') utility += periodAmt;
+      else if (type === 'insurance') insurance += periodAmt;
+      else if (type === 'rent') rent += periodAmt;
       else other += periodAmt;
     });
-    var totalOutflow = debt + subs + other;
-    var net = income - totalOutflow;
+    var totalRecurring = debtPay + subs + utility + insurance + rent + other;
 
-    // Find next-due payment
+    // Total debt balance + weighted APR
+    var debtBalance = 0, weightedAprNum = 0, weightedAprDen = 0;
+    debts.forEach(function (d) {
+      if (!d) return;
+      var bal = Math.abs(Number(d.balance) || 0);
+      debtBalance += bal;
+      var apr = Number(d.apr) || 0;
+      if (apr > 0 && bal > 0) { weightedAprNum += apr * bal; weightedAprDen += bal; }
+    });
+    var weightedApr = weightedAprDen > 0 ? (weightedAprNum / weightedAprDen) : 0;
+
+    // Find next-due recurring payment
     var nextDue = null;
     rps.forEach(function (rp) {
       if (!rp || !rp.nextDate) return;
@@ -182,6 +197,13 @@
       nextDueSub = name + ' · ' + fmtUsd(Math.abs(Number(nextDue.rp.amount) || 0));
     }
 
+    // Months-to-payoff (very rough — debtBalance / monthly debt payments)
+    var monthlyDebtPay = debtPay / (mult || 1); // back to monthly regardless of period
+    var monthsToPayoff = monthlyDebtPay > 0 ? Math.ceil(debtBalance / monthlyDebtPay) : null;
+    var payoffStr = monthsToPayoff == null
+      ? '—'
+      : (monthsToPayoff < 12 ? monthsToPayoff + ' months' : (Math.floor(monthsToPayoff/12) + 'y ' + (monthsToPayoff%12) + 'm'));
+
     var periodPills = [['day','Today'],['week','This week'],['month','This month'],['year','This year'],['all','All time']]
       .map(function (p) {
         return '<button type="button" data-rec-period="' + p[0] + '"' + (periodKey === p[0] ? ' class="active"' : '') + '>' + p[1] + '</button>';
@@ -191,25 +213,25 @@
       '<div class="head">' +
         '<div>' +
           '<div class="title">Smart Summary</div>' +
-          '<div class="sub">' + count + ' schedule' + (count === 1 ? '' : 's') + ' · ' + period.label.toLowerCase() + ' projection</div>' +
+          '<div class="sub">' + debts.length + ' debt' + (debts.length === 1 ? '' : 's') + ' · ' + count + ' recurring · ' + period.label.toLowerCase() + ' projection</div>' +
         '</div>' +
         '<div class="periods">' + periodPills + '</div>' +
       '</div>' +
       '<div class="stats">' +
-        '<div class="stat pos">' +
-          '<div class="lbl">Income</div>' +
-          '<div class="val">+' + fmtUsd(income) + '</div>' +
-          '<div class="sub2">across ' + period.label.toLowerCase() + '</div>' +
+        '<div class="stat neg">' +
+          '<div class="lbl">Total debt</div>' +
+          '<div class="val">' + fmtUsd(debtBalance) + '</div>' +
+          '<div class="sub2">' + (weightedApr > 0 ? 'avg APR ' + weightedApr.toFixed(2) + '%' : 'across ' + debts.length + ' account' + (debts.length === 1 ? '' : 's')) + '</div>' +
         '</div>' +
         '<div class="stat neg">' +
-          '<div class="lbl">Outflow</div>' +
-          '<div class="val">-' + fmtUsd(totalOutflow) + '</div>' +
-          '<div class="sub2">debt ' + fmtUsd(debt) + ' · subs ' + fmtUsd(subs) + ' · other ' + fmtUsd(other) + '</div>' +
+          '<div class="lbl">Debt payments</div>' +
+          '<div class="val">' + fmtUsd(debtPay) + '</div>' +
+          '<div class="sub2">' + period.label.toLowerCase() + ' · payoff in ' + payoffStr + '</div>' +
         '</div>' +
-        '<div class="stat ' + (net >= 0 ? 'pos' : 'neg') + '">' +
-          '<div class="lbl">Net cashflow</div>' +
-          '<div class="val">' + (net >= 0 ? '+' : '-') + fmtUsd(net) + '</div>' +
-          '<div class="sub2">' + (net >= 0 ? 'surplus' : 'shortfall') + '</div>' +
+        '<div class="stat neg">' +
+          '<div class="lbl">All recurring</div>' +
+          '<div class="val">' + fmtUsd(totalRecurring) + '</div>' +
+          '<div class="sub2">subs ' + fmtUsd(subs) + ' · util ' + fmtUsd(utility) + ' · ins ' + fmtUsd(insurance) + (rent > 0 ? ' · rent ' + fmtUsd(rent) : '') + '</div>' +
         '</div>' +
         '<div class="stat">' +
           '<div class="lbl">Next due</div>' +
@@ -292,18 +314,61 @@
   }
 
   // ────────── mount / refresh ──────────
+  function findBillsExplainedBlock(sub) {
+    // The host renders "Your bills explained" as a heading + cards above
+    // the recurring table. Find that section by looking for the heading text.
+    var all = sub.querySelectorAll('h2, h3, .section-title, .card-label, div');
+    for (var i = 0; i < all.length; i++) {
+      var t = (all[i].textContent || '').trim().toLowerCase();
+      if (t.indexOf('your bills explained') !== -1 && t.length < 80) {
+        // Walk up to the containing block
+        var node = all[i];
+        var p = node.parentElement;
+        while (p && p !== sub) {
+          if (p.children && p.children.length > 1) return p;
+          p = p.parentElement;
+        }
+        return node;
+      }
+    }
+    return null;
+  }
   function mount() {
     injectStyle();
     var sub = document.querySelector('.debts-subtab-content[data-subtab="recurring"]');
     if (!sub) return false;
 
-    // Find the existing #rec-table card so we anchor above it
-    var anchor = sub.querySelector('#rec-stats-bar') || sub.querySelector('#rec-table') || null;
-    if (anchor && anchor.tagName === 'TABLE') {
-      anchor = anchor.closest('.card') || anchor;
-    }
+    var billsBlock = findBillsExplainedBlock(sub);
+    var recCard = sub.querySelector('#rec-table');
+    if (recCard && recCard.tagName === 'TABLE') recCard = recCard.closest('.card') || recCard;
+    var recStats = sub.querySelector('#rec-stats-bar');
 
-    // Smart Summary
+    // 1. Search/filter bar — pin at the TOP of the recurring tab so it
+    //    visually owns both the debts list and the recurring table below.
+    var existingF = document.getElementById(FILTERS_ID);
+    var fhtml = buildFilterBarHtml();
+    var fnode;
+    if (existingF) {
+      var fwrap = document.createElement('div');
+      fwrap.innerHTML = fhtml;
+      fnode = fwrap.firstElementChild;
+      existingF.replaceWith(fnode);
+    } else {
+      var fwrap2 = document.createElement('div');
+      fwrap2.innerHTML = fhtml;
+      fnode = fwrap2.firstElementChild;
+      // Insert as the first meaningful child of the recurring sub-tab
+      sub.insertBefore(fnode, sub.firstChild);
+    }
+    wireFilterBar(fnode);
+
+    // 2. Smart Summary — place AFTER "Your bills explained" but BEFORE the
+    //    recurring table.
+    var anchorForSummary = null;
+    if (billsBlock && billsBlock.nextSibling) anchorForSummary = billsBlock.nextSibling;
+    else if (recStats) anchorForSummary = recStats;
+    else if (recCard) anchorForSummary = recCard;
+
     var existing = document.getElementById(SUMMARY_ID);
     var html = buildSummaryHtml();
     if (existing) {
@@ -313,8 +378,12 @@
     } else {
       var wrap2 = document.createElement('div');
       wrap2.innerHTML = html;
-      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap2.firstElementChild, anchor);
-      else sub.insertBefore(wrap2.firstElementChild, sub.firstChild);
+      var node = wrap2.firstElementChild;
+      if (anchorForSummary && anchorForSummary.parentNode) {
+        anchorForSummary.parentNode.insertBefore(node, anchorForSummary);
+      } else {
+        sub.appendChild(node);
+      }
     }
     // Wire period pills
     Array.prototype.forEach.call(document.querySelectorAll('#' + SUMMARY_ID + ' [data-rec-period]'), function (b) {
@@ -323,24 +392,6 @@
         mount();
       };
     });
-
-    // Filter bar
-    var existingF = document.getElementById(FILTERS_ID);
-    var fhtml = buildFilterBarHtml();
-    if (existingF) {
-      var fwrap = document.createElement('div');
-      fwrap.innerHTML = fhtml;
-      existingF.replaceWith(fwrap.firstElementChild);
-      wireFilterBar(document.getElementById(FILTERS_ID));
-    } else {
-      var fwrap2 = document.createElement('div');
-      fwrap2.innerHTML = fhtml;
-      var fnode = fwrap2.firstElementChild;
-      var afterSummary = document.getElementById(SUMMARY_ID);
-      if (afterSummary && afterSummary.parentNode) afterSummary.parentNode.insertBefore(fnode, afterSummary.nextSibling);
-      else if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(fnode, anchor);
-      wireFilterBar(fnode);
-    }
 
     applyDomFilter();
     return true;
@@ -366,5 +417,5 @@
     boot();
   }
 
-  window.WJP_RecurringTabEnhance = { version: 1, mount: mount, applyDomFilter: applyDomFilter };
+  window.WJP_RecurringTabEnhance = { version: 2, mount: mount, applyDomFilter: applyDomFilter };
 })();
