@@ -180,6 +180,24 @@
     });
     var weightedApr = weightedAprDen > 0 ? (weightedAprNum / weightedAprDen) : 0;
 
+    // FIX 58 v4 (Winston 2026-05-28): "interest paid" replaces "next due" in
+    // the 4th tile. Computed as sum of (balance_i * apr_i / 1200) per debt
+    // for a monthly figure, then scaled by the period multiplier.
+    var monthlyInterest = 0;
+    var apportionedDebts = 0;
+    debts.forEach(function (d) {
+      if (!d) return;
+      var bal = Math.abs(Number(d.balance) || 0);
+      var apr = Number(d.apr) || 0;
+      if (bal <= 0 || apr <= 0) return;
+      monthlyInterest += (bal * apr) / 1200; // apr already in %
+      apportionedDebts++;
+    });
+    var interestPeriod = monthlyInterest * (mult || 1);
+    var interestSub2 = monthlyInterest > 0
+      ? ('~' + fmtUsd(monthlyInterest) + '/mo · ' + fmtUsd(monthlyInterest * 12) + '/yr')
+      : (debts.length === 0 ? 'no debts' : 'add APR to your debts');
+
     // Find next-due recurring payment
     var nextDue = null;
     rps.forEach(function (rp) {
@@ -233,10 +251,10 @@
           '<div class="val">' + fmtUsd(totalRecurring) + '</div>' +
           '<div class="sub2">subs ' + fmtUsd(subs) + ' · util ' + fmtUsd(utility) + ' · ins ' + fmtUsd(insurance) + (rent > 0 ? ' · rent ' + fmtUsd(rent) : '') + '</div>' +
         '</div>' +
-        '<div class="stat">' +
-          '<div class="lbl">Next due</div>' +
-          '<div class="val">' + nextDueStr + '</div>' +
-          '<div class="sub2">' + (nextDueSub || '—') + '</div>' +
+        '<div class="stat neg">' +
+          '<div class="lbl">Interest paid</div>' +
+          '<div class="val">' + fmtUsd(interestPeriod) + '</div>' +
+          '<div class="sub2">' + interestSub2 + '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -490,5 +508,5 @@
     boot();
   }
 
-  window.WJP_RecurringTabEnhance = { version: 3, mount: mount, applyDomFilter: applyDomFilter };
+  window.WJP_RecurringTabEnhance = { version: 4, mount: mount, applyDomFilter: applyDomFilter };
 })();
