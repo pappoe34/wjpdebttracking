@@ -58,6 +58,41 @@
   function getState() { try { return appState; } catch (_) { return window.appState || null; } }
   function saveState() { try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {} }
 
+  // v2: localStorage backup — survives cloud-clobber races where one tab
+  // pushes a stale prefs.learnedCategories over a tab that had richer
+  // mappings. The backup is per-user-scoped to avoid cross-account leak.
+  function backupKey() {
+    var uid = '';
+    try { if (window.firebase && window.firebase.auth && window.firebase.auth().currentUser) uid = window.firebase.auth().currentUser.uid || ''; } catch (_) {}
+    try { if (!uid && window.WJP_Auth && window.WJP_Auth.uid) uid = window.WJP_Auth.uid; } catch (_) {}
+    try { if (!uid) uid = (localStorage.getItem('wjp_anon_id') || '').slice(0, 40); } catch (_) {}
+    return 'wjp.tx.learnedCategories.backup.v1' + (uid ? '.uid_' + uid : '');
+  }
+  function readBackup() {
+    try { var r = localStorage.getItem(backupKey()); return r ? JSON.parse(r) : null; } catch (_) { return null; }
+  }
+  function writeBackup(map) {
+    try { localStorage.setItem(backupKey(), JSON.stringify(map || {})); } catch (_) {}
+  }
+  function mergeIntoLearned(src) {
+    if (!src || typeof src !== 'object') return 0;
+    var s = getState(); if (!s) return 0;
+    if (!s.prefs) s.prefs = {};
+    if (!s.prefs.learnedCategories || typeof s.prefs.learnedCategories !== 'object') s.prefs.learnedCategories = {};
+    var learned = s.prefs.learnedCategories;
+    var added = 0;
+    Object.keys(src).forEach(function (k) {
+      var sv = src[k];
+      if (!sv || !sv.categoryId) return;
+      var ex = learned[k];
+      if (!ex) { learned[k] = sv; added++; }
+      else if (ex.categoryId !== sv.categoryId && (sv.count || 0) > (ex.count || 0)) {
+        learned[k] = sv; added++;
+      }
+    });
+    return added;
+  }
+
   function canonMerchant(name) {
     try {
       if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.canonMerchant) {
@@ -151,12 +186,19 @@
   function runOnce(reason) {
     var s = getState();
     if (!s || !Array.isArray(s.transactions) || s.transactions.length === 0) return null;
+    // v2: restore from localStorage backup FIRST so cloud-clobbered mappings come back
+    var bk = readBackup();
+    var restored = mergeIntoLearned(bk);
     var tally = tallyMerchantCategories();
     var keys = Object.keys(tally);
-    if (keys.length === 0) return { merchants: 0, seeded: 0, updated: 0, applied: 0 };
-    var seedRes = seedLearnedFromTally(tally);
+    var seedRes = { seeded: 0, updated: 0 };
+    if (keys.length > 0) seedRes = seedLearnedFromTally(tally);
     var applyRes = applyToUntagged();
-    if (seedRes.seeded > 0 || seedRes.updated > 0 || applyRes.total > 0) {
+    // v2: write backup AFTER seeding so next session has the freshest snapshot
+    try {
+      if (s.prefs && s.prefs.learnedCategories) writeBackup(s.prefs.learnedCategories);
+    } catch (_) {}
+    if (restored > 0 || seedRes.seeded > 0 || seedRes.updated > 0 || applyRes.total > 0) {
       saveState();
       try {
         window.dispatchEvent(new CustomEvent('wjp-categories-changed', {
@@ -195,7 +237,7 @@
   }
 
   window.WJP_TxLearnFromHistory = {
-    version: 1,
+    version: 2,
     runOnce: runOnce,
     tallyMerchantCategories: tallyMerchantCategories
   };
