@@ -770,7 +770,14 @@
     if (![10,20,30,50,100].includes(ps)) ps = 10;
     var s = getAppState();
     if (!s || !Array.isArray(s.transactions)) return;
-    var list = s.transactions.slice();
+    // FIX 55 (Winston 2026-05-28): Transactions tab should ONLY show real
+    // transactions (Plaid + manual). Synthetic recurring placeholder rows
+    // produced by materializeRecurringTransactions() pollute this list
+    // and confuse the user. Filter them out — they still drive the
+    // calendar / planner / smart-summary projections via appState.
+    var list = s.transactions.slice().filter(function (t) {
+      return t && !t.synthetic;
+    });
     // Apply bank filter ONLY when a specific bank is selected (not 'all').
     if (filter && filter !== 'all') {
       list = list.filter(function (t) { return txnAccountKey(t) === filter; });
@@ -842,10 +849,15 @@
     // Wire row clicks so detail panel still opens
     Array.prototype.forEach.call(tbody.querySelectorAll('.txn-row'), function (row) {
       row.onclick = function (e) {
+        // FIX 55 (Winston 2026-05-28): row click should open the Edit
+        // modal directly (where category + amount + link-to-debt etc.
+        // are editable). Earlier it opened the read-only Detail modal.
         if (e.target.closest('.btn-txn-del') || e.target.closest('.btn-txn-edit')) return;
         var id = row.getAttribute('data-txn-id');
         var t = (getAppState().transactions || []).find(function (x) { return x.id === id; });
-        if (t && typeof window.txnShowDetail === 'function') window.txnShowDetail(t);
+        if (!t) return;
+        if (typeof window.txnOpenEditModal === 'function') { window.txnOpenEditModal(t); return; }
+        if (typeof window.txnShowDetail === 'function') window.txnShowDetail(t);
       };
     });
     Array.prototype.forEach.call(tbody.querySelectorAll('.btn-txn-edit'), function (b) {

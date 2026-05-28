@@ -20696,6 +20696,20 @@ function initAllButtonHandlers() {
                 <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Category</label>
                   <select id="txn-edit-category" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
                     ${(() => {
+                      // FIX 55: Use real categories with IDs + resolve current from
+                      // userCategoryId (the field every other module reads) so the
+                      // dropdown reflects the actual category, not "Other".
+                      let list = null;
+                      try { list = (window.WJP_Categories && window.WJP_Categories.list) ? window.WJP_Categories.list() : null; } catch (_) {}
+                      if (list && list.length) {
+                        list = list.slice().sort((a,b) => (a.order||0)-(b.order||0) || (a.name||'').localeCompare(b.name||''));
+                        const curId = txn.userCategoryId || '';
+                        return list.map(c => {
+                          const sel = (c.id === curId) ? ' selected' : '';
+                          return `<option value="${c.id.replace(/"/g,'&quot;')}"${sel}>${(c.name||'').replace(/</g,'&lt;')}</option>`;
+                        }).join('');
+                      }
+                      // Legacy fallback if WJP_Categories isn't loaded yet
                       const cats = ['Income','Debt Payment','Housing','Rent','Utilities','Groceries','Food & Dining','Transportation','Auto','Insurance','Healthcare','Entertainment','Subscriptions','Membership','Shopping','Personal Care','Education','Travel','Gifts','Charity','Fees','Other'];
                       const cur = (txn.category || 'Other');
                       const exists = cats.some(c => c.toLowerCase() === cur.toLowerCase());
@@ -20786,7 +20800,32 @@ function initAllButtonHandlers() {
             target.amount = parseFloat(modal.querySelector('#txn-edit-amount').value) || 0;
             const newDate = modal.querySelector('#txn-edit-date').value;
             if (newDate) target.date = new Date(newDate + 'T12:00:00').toISOString();
-            target.category = modal.querySelector('#txn-edit-category').value.trim() || target.category;
+            // FIX 55: persist to userCategoryId (the real field) and resolve
+            // the display name into category for legacy readers.
+            try {
+              const _newCatVal = modal.querySelector('#txn-edit-category').value.trim();
+              if (_newCatVal) {
+                let _catId = _newCatVal;
+                if (window.WJP_Categories) {
+                  if (!window.WJP_Categories.get(_catId)) {
+                    const _byName = window.WJP_Categories.list().find(c => c && c.name && c.name.toLowerCase() === _catId.toLowerCase());
+                    if (_byName) _catId = _byName.id;
+                  }
+                  const _resolved = window.WJP_Categories.get(_catId);
+                  if (_resolved) {
+                    target.userCategoryId = _catId;
+                    target.userEdited = true;
+                    target.categoryEditedAt = Date.now();
+                    target.category = _resolved.name;
+                  } else {
+                    target.category = _newCatVal;
+                  }
+                } else {
+                  target.category = _newCatVal;
+                }
+                try { window.dispatchEvent(new CustomEvent('wjp-tx-category-changed', { detail: { txId: target.id, categoryId: target.userCategoryId, category: target.category } })); } catch (_) {}
+              }
+            } catch (_) {}
             target.method = modal.querySelector('#txn-edit-method').value.trim() || target.method;
             target.status = modal.querySelector('#txn-edit-status').value;
             target.notes = modal.querySelector('#txn-edit-notes').value.trim();
