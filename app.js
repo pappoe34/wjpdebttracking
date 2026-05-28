@@ -24038,7 +24038,15 @@ window.showPrivacyHint = function showPrivacyHint() {
             var cloudTs = cloud._cloudSyncTs || 0;
             if (cloudTs <= localTs) { console.log('[cloud-sync] local is newer or equal, skipping pull'); return; }
             console.log('[cloud-sync] cloud newer (', cloudTs, '>', localTs, '), pulling');
+            // FIX 53 v3: preserve local prefs.learnedCategories so it survives
+            // a wholesale prefs replace. Union with cloud after the loop below.
+            var _wjpLocalLearned = (appState && appState.prefs && appState.prefs.learnedCategories) ? appState.prefs.learnedCategories : null;
             STATE_KEYS.forEach(function(k){ if (cloud[k] !== undefined) appState[k] = cloud[k]; });
+            if (_wjpLocalLearned) {
+                if (!appState.prefs) appState.prefs = {};
+                var _cloudLearned = appState.prefs.learnedCategories || {};
+                appState.prefs.learnedCategories = _wjpMergeLearnedCategories(_wjpLocalLearned, _cloudLearned);
+            }
             // Transactions: cloud holds REAL ones, keep local synthetic
             if (Array.isArray(cloud.transactions)) {
                 var localSynth = (appState.transactions || []).filter(function(t){ return t && t.synthetic; });
@@ -24085,10 +24093,51 @@ window.showPrivacyHint = function showPrivacyHint() {
         return out;
     }
 
+    // FIX 53 v3 (Winston 2026-05-28): merge learnedCategories across devices.
+    // prefs.learnedCategories is "always grows, never shrinks" data — replacing
+    // it wholesale lets a stale tab/device wipe richer mappings from another.
+    // Union by higher count (ties broken by latest lastUpdated).
+    function _wjpMergeLearnedCategories(a, b) {
+        var out = {};
+        function take(map) {
+            if (!map || typeof map !== 'object') return;
+            Object.keys(map).forEach(function (k) {
+                var sv = map[k];
+                if (!sv || !sv.categoryId) return;
+                var ex = out[k];
+                if (!ex) { out[k] = sv; return; }
+                var svCount = sv.count || 0, exCount = ex.count || 0;
+                if (svCount > exCount) { out[k] = sv; return; }
+                if (svCount === exCount && (sv.lastUpdated || 0) > (ex.lastUpdated || 0)) { out[k] = sv; return; }
+            });
+        }
+        take(a); take(b);
+        return out;
+    }
+
     async function cloudPushNow() {
         try {
             await ensureFirestore();
             var ref = _docFn(_db, 'users', _uid, 'state', 'main');
+            // FIX 53 v3: read existing cloud prefs.learnedCategories before push
+            // so we union instead of clobber across devices/tabs.
+            var cloudLearned = null;
+            try {
+                var existingSnap = await _getDocFn(ref);
+                if (existingSnap && existingSnap.exists()) {
+                    var existingData = existingSnap.data() || {};
+                    if (existingData.prefs && existingData.prefs.learnedCategories) {
+                        cloudLearned = existingData.prefs.learnedCategories;
+                    }
+                }
+            } catch (_) {}
+            if (cloudLearned) {
+                if (!appState.prefs) appState.prefs = {};
+                appState.prefs.learnedCategories = _wjpMergeLearnedCategories(
+                    appState.prefs.learnedCategories || {},
+                    cloudLearned
+                );
+            }
             var realTxns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic; }).slice(-5000); // FIX 41 (2026-05-26 Winston): raised cap from 300 → 5000 so user category assignments + link state on older txns survive cloud-pull. Firestore doc limit is 1MB; 5000 tx * ~250 bytes avg = ~1.25MB which may exceed for ultra-heavy users. If hit, switch to subcollection per-txn.
             var recentNotifs = (appState.notifications || []).slice(-100);
             var payload = {};
