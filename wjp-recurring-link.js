@@ -178,6 +178,22 @@
     return { promoted: promoted };
   }
 
+  // FIX 59 (Winston 2026-05-28): canonical merchant key used for the
+  // sticky-link feature. Delegates to wjp-tx-smart-categorize when
+  // available so we use the same key everywhere.
+  function canonMerchantKey(name) {
+    try {
+      if (window.WJP_TxSmartCategorize && window.WJP_TxSmartCategorize.canonMerchant) {
+        return window.WJP_TxSmartCategorize.canonMerchant(name);
+      }
+    } catch (_) {}
+    return normalize(name || '');
+  }
+  function txnMerchantText(t) {
+    if (!t) return '';
+    return t.merchant || t.name || t.description || t.merchant_name || '';
+  }
+
   // ───────── find best matching recurring for a single Plaid txn ─────────
   function findBestRecurring(t, recurrings) {
     var best = null, bestScore = -1;
@@ -201,7 +217,7 @@
     if (!s.recurringPayments.length) return { linked: 0, promoted: promote().promoted };
 
     var now = Date.now();
-    var cutoff = now - (60 * 24 * 60 * 60 * 1000);
+    var cutoff = now - (365 * 24 * 60 * 60 * 1000); // FIX 59 (Winston 2026-05-28): widen sweep window 60d -> 365d so >=3 months always available
     var linked = 0;
 
     // Ensure each recurring has linkedTxnIds initialized
@@ -250,24 +266,47 @@
       t.linkStatus = null;
     });
 
+    // FIX 59 (Winston 2026-05-28): sticky merchant-fingerprint link.
+    // If a recurring has rp.linkedMerchantFingerprint (set by the manual
+    // link() call below), AUTO-link every matching Plaid txn — past and
+    // future — regardless of amount drift or new Plaid txn ids. This
+    // survives the case where Plaid reassigns an id and means the user
+    // only has to link the first occurrence.
+    var fpIndex = {};
+    s.recurringPayments.forEach(function (rp) {
+      if (!rp || !rp.linkedMerchantFingerprint) return;
+      fpIndex[rp.linkedMerchantFingerprint] = rp;
+    });
+
     s.transactions.forEach(function (t) {
       if (!t || t.linkedRecurringId || t._userUnlinked) return;
-      if (t.synthetic) return; // synthetic txns are placeholders, don't auto-link them to themselves
-      if (t.source !== 'plaid') return; // only auto-link real Plaid posts
-      if (t._supersededBy) return; // pending row replaced by a completed one — link the successor instead
-      if (isTransfer(t)) return;   // Winston rule: transfers between his own banks are not bills
+      if (t.synthetic) return;
+      if (t.source !== 'plaid') return;
+      if (t._supersededBy) return;
+      if (isTransfer(t)) return;
       var ms = txnDateMs(t);
       if (!ms || ms < cutoff) return;
-      var best = findBestRecurring(t, s.recurringPayments);
-      if (!best) return;
+
+      // ── 1. fingerprint match first (sticky link)
+      var rp = null;
+      var key = canonMerchantKey(txnMerchantText(t));
+      if (key && fpIndex[key]) rp = fpIndex[key];
+
+      // ── 2. fall back to score-based best-match for unstuck merchants
+      if (!rp) rp = findBestRecurring(t, s.recurringPayments);
+      if (!rp) return;
+
       // Link it
-      t.linkedRecurringId = best.id;
+      t.linkedRecurringId = rp.id;
       t.linkedAt = now;
       t.linkStatus = computeStatus(t, now);
       if (t.linkStatus === 'confirmed') t.linkConfirmedAt = now;
-      if (best.linkedTxnIds.indexOf(t.id) === -1) best.linkedTxnIds.push(t.id);
-      best.openTxnId = t.id;
-      best.lastLinkedAt = now;
+      if (!Array.isArray(rp.linkedTxnIds)) rp.linkedTxnIds = [];
+      if (rp.linkedTxnIds.indexOf(t.id) === -1) rp.linkedTxnIds.push(t.id);
+      // openTxnId points to the most recent linked txn (current cycle)
+      var openMs = rp.openTxnId ? txnDateMs(s.transactions.find(function (x) { return x && x.id === rp.openTxnId; })) : 0;
+      if (!openMs || ms > openMs) rp.openTxnId = t.id;
+      rp.lastLinkedAt = now;
       linked++;
     });
 
@@ -312,7 +351,14 @@
     if (rp.linkedTxnIds.indexOf(t.id) === -1) rp.linkedTxnIds.push(t.id);
     rp.openTxnId = t.id;
     rp.lastLinkedAt = now;
+    // FIX 59 (Winston 2026-05-28): record canonical merchant fingerprint
+    // so future Plaid txns from same merchant auto-link to this recurring,
+    // surviving Plaid txn id changes.
+    var _fp = canonMerchantKey(txnMerchantText(t));
+    if (_fp) rp.linkedMerchantFingerprint = _fp;
     saveState();
+    // Immediately sweep so any other existing matching txns get linked too
+    try { setTimeout(function () { sweep(); }, 50); } catch (_) {}
     try {
       window.dispatchEvent(new CustomEvent('wjp-recurring-link-changed', {
         detail: { linked: 1, manual: true, txnId: txnId, rpId: rpId }
