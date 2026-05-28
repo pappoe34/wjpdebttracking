@@ -20706,6 +20706,27 @@ function initAllButtonHandlers() {
                 <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Method</label>
                   <input id="txn-edit-method" type="text" value="${(txn.method||'').replace(/"/g,'&quot;')}" placeholder="e.g. Direct Deposit, ACH, Visa" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
               </div>
+              <!-- FIX 54 (Winston 2026-05-28): Link to debt — appears when category is Debt Payment. Pulls from appState.debts. -->
+              <div id="txn-edit-debt-row" style="${(() => { const c=(txn.category||'').toLowerCase(); return (c==='debt payment' || c==='debt' || c==='debt-payment') ? '' : 'display:none;'; })()}">
+                <label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Link to debt</label>
+                <select id="txn-edit-linked-debt" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                  ${(() => {
+                    const debts = Array.isArray(appState.debts) ? appState.debts : [];
+                    const cur = txn.linkedDebtId || '';
+                    const none = `<option value=""${cur===''?' selected':''}>— None —</option>`;
+                    const opts = debts.map(d => {
+                      const id = d && d.id ? String(d.id) : '';
+                      const nm = d && (d.name || d.creditorName || d.merchant) ? String(d.name || d.creditorName || d.merchant) : '(unnamed debt)';
+                      const bal = d && typeof d.balance === 'number' ? ` · $${Math.abs(d.balance).toFixed(2)}` : '';
+                      const safeNm = nm.replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                      const sel = id===cur ? ' selected' : '';
+                      return `<option value="${id}"${sel}>${safeNm}${bal}</option>`;
+                    }).join('');
+                    return none + opts;
+                  })()}
+                </select>
+                <div style="font-size:10px;color:var(--text-3);margin-top:4px;">Apply this payment to one of your tracked debts. Used by the debt-payment auto-link engine.</div>
+              </div>
               <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Status</label>
                 <select id="txn-edit-status" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
                   <option value="completed"${(txn.status||'completed')==='completed'?' selected':''}>Completed</option>
@@ -20750,6 +20771,17 @@ function initAllButtonHandlers() {
           </div>`;
         modal.querySelector('#txn-edit-close').onclick = () => modal.remove();
         modal.querySelector('#txn-edit-cancel').onclick = () => modal.remove();
+        // FIX 54: show/hide debt-link row based on the Category select value
+        try {
+          const _catSel = modal.querySelector('#txn-edit-category');
+          const _debtRow = modal.querySelector('#txn-edit-debt-row');
+          if (_catSel && _debtRow) {
+            _catSel.addEventListener('change', () => {
+              const v = (_catSel.value || '').toLowerCase();
+              _debtRow.style.display = (v === 'debt payment' || v === 'debt' || v === 'debt-payment') ? '' : 'none';
+            });
+          }
+        } catch (_) {}
         // Toggle the recurring sub-fields when the checkbox flips
         const makeRecChk = modal.querySelector('#txn-edit-makerec');
         const recFields = modal.querySelector('#txn-edit-rec-fields');
@@ -20769,6 +20801,20 @@ function initAllButtonHandlers() {
             target.method = modal.querySelector('#txn-edit-method').value.trim() || target.method;
             target.status = modal.querySelector('#txn-edit-status').value;
             target.notes = modal.querySelector('#txn-edit-notes').value.trim();
+            // FIX 54: persist linkedDebtId from the new dropdown
+            try {
+              const _ld = modal.querySelector('#txn-edit-linked-debt');
+              if (_ld) {
+                const _v = _ld.value || '';
+                if (_v) {
+                  target.linkedDebtId = _v;
+                  target.linkedDebtAt = Date.now();
+                } else if (target.linkedDebtId) {
+                  delete target.linkedDebtId;
+                  delete target.linkedDebtAt;
+                }
+              }
+            } catch (_) {}
 
             // Promote to recurring if the user checked the box
             const makeRecurring = makeRecChk && makeRecChk.checked;
@@ -20788,7 +20834,8 @@ function initAllButtonHandlers() {
                     amount: Math.abs(target.amount),
                     frequency: freq,
                     nextDate: anchorDate || null,
-                    linkedDebtId: null,
+                    // FIX 54: carry the linkedDebtId from the txn into the recurring schedule
+                    linkedDebtId: target.linkedDebtId || null,
                     linkedIncome: isIncome,
                     notes: target.notes || '',
                     createdAt: Date.now()
