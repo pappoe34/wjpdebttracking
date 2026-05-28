@@ -147,30 +147,66 @@
     return s.transactions.find(function (t) { return t.id === id; }) || null;
   }
 
-  function updateCategory(txId, newCat) {
+  function updateCategory(txId, newCatIdOrName) {
     var s = getAppState();
     if (!s || !Array.isArray(s.transactions)) return false;
     var idx = s.transactions.findIndex(function (t) { return t.id === txId; });
     if (idx === -1) return false;
-    s.transactions[idx].category = newCat;
-    s.transactions[idx].userEdited = true; // protect from auto-categorize overwriting
-    s.transactions[idx].categoryEditedAt = Date.now();
+
+    // FIX 53 v5 (Winston 2026-05-28): modal dropdown was setting the legacy
+    // `category` string field, NOT `userCategoryId`. The renderer + Smart
+    // Summary + Spend by Bill + learn-from-history ALL read from
+    // userCategoryId. Wrong field = silent no-op. Resolve to a real
+    // category ID and persist on userCategoryId so it sticks + propagates.
+    var catId = String(newCatIdOrName || '').trim();
+    if (window.WJP_Categories) {
+      // If we got an ID that exists, keep it. Else try to find a category
+      // whose NAME matches (the legacy dropdown sends display labels).
+      if (!window.WJP_Categories.get(catId)) {
+        var list = window.WJP_Categories.list();
+        var lc = catId.toLowerCase();
+        var byName = list.find(function (c) { return c && c.name && c.name.toLowerCase() === lc; });
+        if (byName) catId = byName.id;
+        else {
+          // Try a forgiving label match: "Food & Dining" -> "dining",
+          // "Transportation" -> "transit", "Personal Care" -> "personal" etc.
+          var fuzz = {
+            'food & dining': 'dining', 'food and dining': 'dining',
+            'transportation': 'transit',
+            'personal care': 'personal',
+            'auto': 'gas', 'gas': 'gas',
+            'utilities': 'bills',
+            'membership': 'subscriptions',
+            'gifts': 'shopping', 'charity': 'shopping',
+            'fees': 'other', 'education': 'other'
+          };
+          if (fuzz[lc] && window.WJP_Categories.get(fuzz[lc])) catId = fuzz[lc];
+        }
+      }
+    }
+    var t = s.transactions[idx];
+    t.userCategoryId = catId;
+    t.userEdited = true;
+    t.categoryEditedAt = Date.now();
+    // Keep legacy `category` field updated too for any code still reading it
+    try {
+      var resolved = window.WJP_Categories && window.WJP_Categories.get(catId);
+      t.category = resolved ? resolved.name : catId;
+    } catch (_) {}
     try {
       if (typeof window.saveState === 'function') window.saveState();
     } catch (_) {}
     try {
-      // v6 (2026-05-26): the transactions-tab-enhance render is exposed as
-      // WJP_CustomTxnRender. The legacy `renderTransactions`/`txnRenderAll`
-      // hooks don't exist in current build — that's why the list didn't
-      // refresh when category was changed from the detail modal. Call the
-      // real one + any others if they happen to exist.
       if (typeof window.WJP_CustomTxnRender === 'function') window.WJP_CustomTxnRender();
       if (window.WJP_TxTabEnhance && typeof window.WJP_TxTabEnhance.render === 'function') window.WJP_TxTabEnhance.render();
       if (typeof window.renderTransactions === 'function') window.renderTransactions();
       if (typeof window.txnRenderAll === 'function') window.txnRenderAll();
       if (typeof window.renderCalendar === 'function') window.renderCalendar();
       if (typeof window.drawCharts === 'function') window.drawCharts();
-      window.dispatchEvent(new CustomEvent('wjp-tx-category-changed', { detail: { txId: txId, category: newCat } }));
+      // FIX 53 v5: dispatch with BOTH categoryId + category so smart-categorize
+      // listener (which prefers categoryId) records the learned mapping AND
+      // bulk-applies to other same-merchant txns.
+      window.dispatchEvent(new CustomEvent('wjp-tx-category-changed', { detail: { txId: txId, categoryId: catId, category: t.category } }));
     } catch (_) {}
     return true;
   }
@@ -179,15 +215,38 @@
     if (!content || content.querySelector('.wjp-detail-cat-select')) return;
     var tx = findTxById(txId);
     if (!tx) return;
-    var current = tx.category || 'Other';
-    // Build options — include current as first if not in standard list
-    var opts = CATEGORIES.slice();
-    if (opts.indexOf(current) === -1) opts.unshift(current);
-    var html = '<select class="wjp-detail-cat-select" data-txn-id="' + txId + '">' +
-      opts.map(function (c) {
-        return '<option value="' + c.replace(/"/g, '&quot;') + '"' + (c.toLowerCase() === current.toLowerCase() ? ' selected' : '') + '>' + c + '</option>';
-      }).join('') +
-      '</select>';
+
+    // FIX 53 v5: use the REAL dynamic category list with IDs as values so
+    // selection propagates to t.userCategoryId (the field the renderer
+    // actually reads). Fallback to legacy CATEGORIES if WJP_Categories
+    // isn't loaded yet.
+    var currentId = tx.userCategoryId || '';
+    var list = (window.WJP_Categories && window.WJP_Categories.list)
+      ? window.WJP_Categories.list() : null;
+    var html;
+    if (list && list.length) {
+      // Sort by order/name for a stable list
+      list = list.slice().sort(function (a, b) {
+        if ((a.order || 0) !== (b.order || 0)) return (a.order || 0) - (b.order || 0);
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      html = '<select class="wjp-detail-cat-select" data-txn-id="' + txId + '">' +
+        list.map(function (c) {
+          var sel = (c.id === currentId) ? ' selected' : '';
+          return '<option value="' + c.id.replace(/"/g, '&quot;') + '"' + sel + '>' + c.name.replace(/</g,'&lt;') + '</option>';
+        }).join('') +
+        '</select>';
+    } else {
+      var current = tx.category || 'Other';
+      var opts = CATEGORIES.slice();
+      if (opts.indexOf(current) === -1) opts.unshift(current);
+      html = '<select class="wjp-detail-cat-select" data-txn-id="' + txId + '">' +
+        opts.map(function (c) {
+          return '<option value="' + c.replace(/"/g, '&quot;') + '"' + (c.toLowerCase() === current.toLowerCase() ? ' selected' : '') + '>' + c + '</option>';
+        }).join('') +
+        '</select>';
+    }
+    var current = (list && list.length) ? currentId : (tx.category || 'Other');
 
     // v5: tolerant match + fallback append
     var badges = content.querySelectorAll('.badge, [data-cat-badge]');
