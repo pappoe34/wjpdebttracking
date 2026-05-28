@@ -21851,6 +21851,28 @@ function initAllButtonHandlers() {
                         <option value="other">Other</option>
                       </select></div>
                   </div>
+                  <!-- FIX 57 (Winston 2026-05-28): debt-specific fields, shown only when category=debt -->
+                  <div id="rec-edit-debt-block" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Debt details</div>
+                    <div style="margin-bottom:10px;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Linked debt</label>
+                      <select id="rec-edit-linked-debt" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+                        <option value="">— None —</option>
+                      </select>
+                      <div style="font-size:10px;color:var(--text-3);margin-top:4px;">Picking a debt auto-fills the fields below from your tracked balance.</div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-bottom:10px;">
+                      <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Minimum payment ($)</label>
+                        <input id="rec-edit-min-payment" type="number" step="0.01" min="0" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                      <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Amount left ($)</label>
+                        <input id="rec-edit-balance" type="number" step="0.01" min="0" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                      <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Due day of month</label>
+                        <input id="rec-edit-due-day" type="number" min="1" max="31" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                      <div style="flex:1;"><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">APR (%)</label>
+                        <input id="rec-edit-apr" type="number" step="0.01" min="0" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
+                    </div>
+                  </div>
                   <div><label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Notes</label>
                     <textarea id="rec-edit-notes" rows="2" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);resize:vertical;"></textarea></div>
                 </div>
@@ -21889,6 +21911,61 @@ function initAllButtonHandlers() {
         modal.querySelector('#rec-edit-category').value = (rp.category || rp.cat || 'other').toLowerCase();
         modal.querySelector('#rec-edit-notes').value = rp.notes || '';
 
+        // FIX 57: populate Linked Debt dropdown + auto-fill on select + show/hide on category
+        try {
+          const _debtSel  = modal.querySelector('#rec-edit-linked-debt');
+          const _minInp   = modal.querySelector('#rec-edit-min-payment');
+          const _balInp   = modal.querySelector('#rec-edit-balance');
+          const _dueInp   = modal.querySelector('#rec-edit-due-day');
+          const _aprInp   = modal.querySelector('#rec-edit-apr');
+          const _block    = modal.querySelector('#rec-edit-debt-block');
+          const _catSel   = modal.querySelector('#rec-edit-category');
+
+          if (_debtSel) {
+            const _debts = Array.isArray(appState.debts) ? appState.debts : [];
+            _debtSel.innerHTML = '<option value="">— None —</option>' + _debts.map(function (d) {
+              const id = d && d.id ? String(d.id) : '';
+              const nm = d && (d.name || d.creditorName) ? String(d.name || d.creditorName) : '(unnamed debt)';
+              const bal = d && typeof d.balance === 'number' ? ' · $' + Math.abs(d.balance).toFixed(2) : '';
+              const safeNm = nm.replace(/</g,'&lt;').replace(/"/g,'&quot;');
+              return '<option value="' + id + '">' + safeNm + bal + '</option>';
+            }).join('');
+            _debtSel.value = rp.linkedDebtId || '';
+          }
+          if (_minInp) _minInp.value = (rp.minPayment != null ? rp.minPayment : (rp.minimumPayment != null ? rp.minimumPayment : '')) ;
+          if (_balInp) _balInp.value = (rp.balance != null ? rp.balance : (rp.amountLeft != null ? rp.amountLeft : ''));
+          if (_dueInp) _dueInp.value = (rp.dueDay != null ? rp.dueDay : (rp.dayOfMonth != null ? rp.dayOfMonth : ''));
+          if (_aprInp) _aprInp.value = (rp.apr != null ? rp.apr : (rp.interestRate != null ? rp.interestRate : ''));
+
+          function _toggleDebtBlock() {
+            if (!_block || !_catSel) return;
+            _block.style.display = (_catSel.value || '').toLowerCase() === 'debt' ? '' : 'none';
+          }
+          _toggleDebtBlock();
+          if (_catSel && !_catSel._wjpDebtTogglerWired) {
+            _catSel.addEventListener('change', _toggleDebtBlock);
+            _catSel._wjpDebtTogglerWired = true;
+          }
+          // When a debt is picked, auto-fill from the debt object
+          if (_debtSel && !_debtSel._wjpAutoFillWired) {
+            _debtSel.addEventListener('change', function () {
+              const id = _debtSel.value || '';
+              if (!id) return;
+              const d = (appState.debts || []).find(function (x) { return x && String(x.id) === id; });
+              if (!d) return;
+              if (_minInp && (d.minPayment != null || d.minimumPayment != null)) _minInp.value = d.minPayment != null ? d.minPayment : d.minimumPayment;
+              if (_balInp && d.balance != null) _balInp.value = Math.abs(d.balance);
+              if (_dueInp) {
+                const dd = d.dueDay != null ? d.dueDay : (d.nextDueDate ? new Date(d.nextDueDate).getDate() : (d.dueDate ? new Date(d.dueDate).getDate() : null));
+                if (dd != null) _dueInp.value = dd;
+              }
+              if (_aprInp && d.apr != null) _aprInp.value = d.apr;
+              else if (_aprInp && d.interestRate != null) _aprInp.value = d.interestRate;
+            });
+            _debtSel._wjpAutoFillWired = true;
+          }
+        } catch (_) {}
+
         // Wire save (overwrites previous handler since arrow-fn)
         modal.querySelector('#rec-edit-save').onclick = () => {
             const id = modal.dataset.editingId;
@@ -21914,6 +21991,39 @@ function initAllButtonHandlers() {
             target.cat = newCat; // legacy field — keep in sync
             target.notes = newNotes;
             target.linkedIncome = newCat === 'income';
+            // FIX 57: persist debt fields and propagate to the linked debt
+            try {
+              const _ld = modal.querySelector('#rec-edit-linked-debt');
+              const _mp = modal.querySelector('#rec-edit-min-payment');
+              const _bl = modal.querySelector('#rec-edit-balance');
+              const _du = modal.querySelector('#rec-edit-due-day');
+              const _ap = modal.querySelector('#rec-edit-apr');
+              if (_ld) {
+                const v = _ld.value || '';
+                if (v) target.linkedDebtId = v;
+                else delete target.linkedDebtId;
+              }
+              const _mpV = _mp && _mp.value !== '' ? parseFloat(_mp.value) : null;
+              const _blV = _bl && _bl.value !== '' ? parseFloat(_bl.value) : null;
+              const _duV = _du && _du.value !== '' ? parseInt(_du.value, 10) : null;
+              const _apV = _ap && _ap.value !== '' ? parseFloat(_ap.value) : null;
+              if (_mpV != null && !isNaN(_mpV)) target.minPayment = _mpV;
+              if (_blV != null && !isNaN(_blV)) target.balance = _blV;
+              if (_duV != null && !isNaN(_duV) && _duV >= 1 && _duV <= 31) target.dueDay = _duV;
+              if (_apV != null && !isNaN(_apV)) target.apr = _apV;
+              // Propagate edits back to the linked debt so the Debts tab,
+              // Bank Health, and credit utilization stay consistent.
+              if (target.linkedDebtId && Array.isArray(appState.debts)) {
+                const _d = appState.debts.find(function (x) { return x && String(x.id) === String(target.linkedDebtId); });
+                if (_d) {
+                  if (_mpV != null && !isNaN(_mpV)) _d.minPayment = _mpV;
+                  if (_blV != null && !isNaN(_blV)) _d.balance = _blV;
+                  if (_duV != null && !isNaN(_duV)) _d.dueDay = _duV;
+                  if (_apV != null && !isNaN(_apV)) _d.apr = _apV;
+                  _d.lastEditedAt = Date.now();
+                }
+              }
+            } catch (_) {}
             // Drop existing synthetic txns for this entry so they re-materialize
             // with the corrected schedule. Calendar/dashboard/transactions all
             // pull from transactions[] so this gets them in lockstep.
