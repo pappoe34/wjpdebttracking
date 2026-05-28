@@ -343,8 +343,9 @@
     if (recCard && recCard.tagName === 'TABLE') recCard = recCard.closest('.card') || recCard;
     var recStats = sub.querySelector('#rec-stats-bar');
 
-    // 1. Search/filter bar — pin at the TOP of the recurring tab so it
-    //    visually owns both the debts list and the recurring table below.
+    // FIX 58 v3 (Winston 2026-05-28): the search bar belongs right above
+    // the Recurring table (where rows are actually searched), NOT at the
+    // page top. Anchor immediately before the recurring table card.
     var existingF = document.getElementById(FILTERS_ID);
     var fhtml = buildFilterBarHtml();
     var fnode;
@@ -357,8 +358,13 @@
       var fwrap2 = document.createElement('div');
       fwrap2.innerHTML = fhtml;
       fnode = fwrap2.firstElementChild;
-      // Insert as the first meaningful child of the recurring sub-tab
-      sub.insertBefore(fnode, sub.firstChild);
+      if (recCard && recCard.parentNode) {
+        recCard.parentNode.insertBefore(fnode, recCard);
+      } else if (recStats && recStats.parentNode) {
+        recStats.parentNode.insertBefore(fnode, recStats.nextSibling);
+      } else {
+        sub.appendChild(fnode);
+      }
     }
     wireFilterBar(fnode);
 
@@ -393,8 +399,75 @@
       };
     });
 
+    // FIX 58 v3: page-size selector BELOW recurring table (Show 10/20/30/50/100)
+    try { ensurePagesizeSelector(recCard); } catch (_) {}
     applyDomFilter();
     return true;
+  }
+
+  // ────────── page-size selector (mirrors Transactions tab) ──────────
+  var REC_PAGESIZE_ID = 'wjp-rec-pagesize-bar';
+  var REC_PAGESIZE_LS = 'wjp.rec.pagesize.v1';
+  var REC_PAGESIZES = [10, 20, 30, 50, 100];
+
+  function getRecPagesize() {
+    try {
+      var v = parseInt(localStorage.getItem(REC_PAGESIZE_LS), 10);
+      return REC_PAGESIZES.indexOf(v) !== -1 ? v : 10;
+    } catch (_) { return 10; }
+  }
+  function setRecPagesize(n) {
+    try { localStorage.setItem(REC_PAGESIZE_LS, String(n)); } catch (_) {}
+    try { window.REC_PAGE_SIZE = n; } catch (_) {}
+    // Re-render hooks the host exposes
+    try { if (typeof window.recRenderTable === 'function') window.recRenderTable(); } catch (_) {}
+    try { if (typeof window.recRenderStats === 'function') window.recRenderStats(); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent('wjp-recurring-changed', { detail: { reason: 'pagesize' } })); } catch (_) {}
+    setTimeout(applyDomFilter, 200);
+  }
+  function ensurePagesizeSelector(recCard) {
+    if (!recCard) return;
+    var existing = document.getElementById(REC_PAGESIZE_ID);
+    var cur = getRecPagesize();
+    if (existing) {
+      Array.prototype.forEach.call(existing.querySelectorAll('button[data-size]'), function (btn) {
+        var n = parseInt(btn.getAttribute('data-size'), 10);
+        btn.classList.toggle('active', n === cur);
+      });
+      // Re-attach if it drifted away
+      if (existing.parentNode !== recCard.parentNode) {
+        recCard.parentNode.insertBefore(existing, recCard.nextSibling);
+      }
+      return;
+    }
+    var el = document.createElement('div');
+    el.id = REC_PAGESIZE_ID;
+    el.setAttribute('role', 'group');
+    el.setAttribute('aria-label', 'Recurring rows per page');
+    el.style.cssText = 'display:flex;gap:6px;align-items:center;justify-content:flex-end;margin:12px 0 18px 0;font-size:11px;flex-wrap:wrap;';
+    el.innerHTML = '<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-dim, #6b7280);margin-right:4px;">Show</span>' +
+      REC_PAGESIZES.map(function (n) {
+        var active = (n === cur);
+        var style = 'padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid var(--border, rgba(0,0,0,0.10));' +
+          (active ? 'background:#1f7a4a;color:#fff;border-color:#1f7a4a;' : 'background:var(--bg-3, rgba(0,0,0,0.05));color:var(--ink, var(--text-1, #1f1a14));');
+        return '<button type="button" data-size="' + n + '"' + (active ? ' class="active"' : '') + ' style="' + style + '">' + n + '</button>';
+      }).join('');
+    el.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button[data-size]') : null;
+      if (!btn) return;
+      var n = parseInt(btn.getAttribute('data-size'), 10);
+      if (!n || REC_PAGESIZES.indexOf(n) === -1) return;
+      setRecPagesize(n);
+      Array.prototype.forEach.call(el.querySelectorAll('button[data-size]'), function (b) {
+        var bn = parseInt(b.getAttribute('data-size'), 10);
+        var on = (bn === n);
+        b.classList.toggle('active', on);
+        b.style.background = on ? '#1f7a4a' : 'var(--bg-3, rgba(0,0,0,0.05))';
+        b.style.color = on ? '#fff' : 'var(--ink, var(--text-1, #1f1a14))';
+        b.style.borderColor = on ? '#1f7a4a' : 'var(--border, rgba(0,0,0,0.10))';
+      });
+    });
+    if (recCard.parentNode) recCard.parentNode.insertBefore(el, recCard.nextSibling);
   }
 
   function boot() {
@@ -417,5 +490,5 @@
     boot();
   }
 
-  window.WJP_RecurringTabEnhance = { version: 2, mount: mount, applyDomFilter: applyDomFilter };
+  window.WJP_RecurringTabEnhance = { version: 3, mount: mount, applyDomFilter: applyDomFilter };
 })();
