@@ -285,7 +285,7 @@
     modal.id = 'wjp-link-picker-modal';
     // Build candidates: unlinked Plaid txns from last 60d, sorted by amount proximity
     var target = Math.abs(Number(rp.amount) || 0);
-    var cutoff = Date.now() - (60 * 24 * 60 * 60 * 1000);
+    var cutoff = Date.now() - (365 * 24 * 60 * 60 * 1000); // FIX 56: widen window 60d -> 365d
     // v1 (2026-05-26, FIX 31): exclude transfers from picker candidates so
     // the user can't accidentally link a bank-to-bank move as a bill payment.
     function isTransferLocal(t) {
@@ -314,7 +314,7 @@
       // Highest amount-similarity first, then most recent
       if (b.ratio !== a.ratio) return b.ratio - a.ratio;
       return new Date(b.t.date) - new Date(a.t.date);
-    }).slice(0, 50);
+    }).slice(0, 500); // FIX 56 (Winston 2026-05-28): raised 50 -> 500
 
     // FIX 35 (Winston): build per-bank groups so the user can filter by
     // account before picking. Uses WJP_AcctLookup (populated by
