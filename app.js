@@ -20707,7 +20707,7 @@ function initAllButtonHandlers() {
                   <input id="txn-edit-method" type="text" value="${(txn.method||'').replace(/"/g,'&quot;')}" placeholder="e.g. Direct Deposit, ACH, Visa" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></div>
               </div>
               <!-- FIX 54 (Winston 2026-05-28): Link to debt — appears when category is Debt Payment. Pulls from appState.debts. -->
-              <div id="txn-edit-debt-row" style="${(() => { const c=(txn.category||'').toLowerCase(); return (c==='debt payment' || c==='debt' || c==='debt-payment') ? '' : 'display:none;'; })()}">
+              <div id="txn-edit-debt-row">
                 <label style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;">Link to debt</label>
                 <select id="txn-edit-linked-debt" style="width:100%;padding:8px 10px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
                   ${(() => {
@@ -20771,17 +20771,6 @@ function initAllButtonHandlers() {
           </div>`;
         modal.querySelector('#txn-edit-close').onclick = () => modal.remove();
         modal.querySelector('#txn-edit-cancel').onclick = () => modal.remove();
-        // FIX 54: show/hide debt-link row based on the Category select value
-        try {
-          const _catSel = modal.querySelector('#txn-edit-category');
-          const _debtRow = modal.querySelector('#txn-edit-debt-row');
-          if (_catSel && _debtRow) {
-            _catSel.addEventListener('change', () => {
-              const v = (_catSel.value || '').toLowerCase();
-              _debtRow.style.display = (v === 'debt payment' || v === 'debt' || v === 'debt-payment') ? '' : 'none';
-            });
-          }
-        } catch (_) {}
         // Toggle the recurring sub-fields when the checkbox flips
         const makeRecChk = modal.querySelector('#txn-edit-makerec');
         const recFields = modal.querySelector('#txn-edit-rec-fields');
