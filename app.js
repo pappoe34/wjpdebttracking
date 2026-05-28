@@ -4738,22 +4738,62 @@ function updateUI() {
     if (dfdDate && dfdMeta && dfdEyebrow) {
         const strategy = appState.settings.strategy || 'avalanche';
         const hasDebts = appState.debts && appState.debts.length > 0;
-        // FIX 61 (Winston 2026-05-28): the debt-free date hero showed
-        // 'Add a minimum payment to each debt...' even when debts had a
-        // minimum stored under an alternate Plaid field name. Accept
-        // minimumPayment, minPaymentAmount, minimum_payment too, and
-        // mirror back to d.minPayment so downstream sim engines see it.
+        // FIX 61 v2 (Winston 2026-05-28): normalize alt min-payment fields,
+        // then also derive from linked recurring schedules. Most users
+        // (Winston included) have minPayment unset on Plaid debt accounts
+        // but DO have a recurring SoFi/Visa/etc payment that IS the min.
+        var _rps = Array.isArray(appState.recurringPayments) ? appState.recurringPayments : [];
         appState.debts.forEach(function (d) {
             if (!d) return;
             if ((Number(d.minPayment) || 0) > 0) return;
+            // 1) alternate field names
             var alt = Number(d.minimumPayment || d.minPaymentAmount || d.minimum_payment || d.min_payment || d.minPay || 0) || 0;
             if (alt > 0) d.minPayment = alt;
-            // Plaid liabilities exposes `lastStatement.minimumPaymentAmount` for credit cards
+            // 2) Plaid lastStatement.minimumPaymentAmount
             try {
                 if ((!d.minPayment || d.minPayment <= 0) && d.lastStatement && d.lastStatement.minimumPaymentAmount) {
                     d.minPayment = Number(d.lastStatement.minimumPaymentAmount) || d.minPayment;
                 }
             } catch (_) {}
+            // 3) derive from linked recurring schedule (FIX 54 stamps linkedDebtId)
+            if ((!d.minPayment || d.minPayment <= 0)) {
+                var linkedRp = _rps.find(function (rp) {
+                    return rp && (
+                        rp.linkedDebtId === d.id ||
+                        rp.linkedDebtId === String(d.id) ||
+                        (rp.name && d.name && rp.name.toLowerCase() === d.name.toLowerCase())
+                    );
+                });
+                if (linkedRp) {
+                    var rpAmt = Math.abs(Number(linkedRp.amount) || 0);
+                    if (rpAmt > 0) {
+                        var freq = String(linkedRp.frequency || 'monthly').toLowerCase();
+                        var monthly = rpAmt;
+                        if (freq === 'weekly')     monthly = rpAmt * 52 / 12;
+                        else if (freq === 'biweekly')   monthly = rpAmt * 26 / 12;
+                        else if (freq === 'semimonthly') monthly = rpAmt * 2;
+                        else if (freq === 'quarterly')  monthly = rpAmt / 3;
+                        else if (freq === 'annually' || freq === 'yearly') monthly = rpAmt / 12;
+                        d.minPayment = Math.round(monthly * 100) / 100;
+                    }
+                }
+            }
+            // 4) last-resort fuzzy name match (no exact match, no link)
+            if ((!d.minPayment || d.minPayment <= 0) && d.name) {
+                var dnm = d.name.toLowerCase();
+                var fuzzy = _rps.find(function (rp) {
+                    if (!rp || !rp.name) return false;
+                    var rnm = rp.name.toLowerCase();
+                    if (rnm === dnm) return true;
+                    // Substring either way (e.g. "SoFi Personal Loan" recurring matches "SoFi Personal Loan" debt)
+                    if (rnm.indexOf(dnm) !== -1 || dnm.indexOf(rnm) !== -1) return true;
+                    return false;
+                });
+                if (fuzzy) {
+                    var fAmt = Math.abs(Number(fuzzy.amount) || 0);
+                    if (fAmt > 0) d.minPayment = Math.round(fAmt * 100) / 100;
+                }
+            }
         });
         const hasMins  = hasDebts && appState.debts.some(d => (Number(d.minPayment) || 0) > 0);
 
