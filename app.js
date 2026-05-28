@@ -24174,10 +24174,32 @@ window.showPrivacyHint = function showPrivacyHint() {
         }
         if (_pushTimer) clearTimeout(_pushTimer);
         setIndicator('syncing');
-        _pushTimer = setTimeout(function(){ _pushTimer = null; cloudPushNow(); }, 2000);
+        _pushTimer = setTimeout(function(){ _pushTimer = null; cloudPushNow(); }, 400); // FIX 53 v4 (Winston 2026-05-28): users paid for real-time sync. 2s window dropped to 400ms.
     }
     window.cloudPushNow = cloudPushNow;
     window.cloudPull = cloudPull;
+
+    // FIX 53 v4 (Winston 2026-05-28): tab-close + tab-hidden flush. Major
+    // finance apps never lose a single keystroke. If a push is pending,
+    // fire it synchronously when the user leaves so we don't drop changes.
+    function _wjpFlushPendingPush(reason) {
+        try {
+            if (_pushTimer) { clearTimeout(_pushTimer); _pushTimer = null; }
+            if (!_ready) return;
+            if (!appState || !appState.prefs || appState.prefs.cloudMode === false) return;
+            if (!_pullDone) return; // pull still in flight, don't risk clobber
+            // Fire-and-forget; Firestore SDK queues offline writes on next load too
+            try { cloudPushNow(); } catch (_) {}
+        } catch (_) {}
+    }
+    try {
+        window.addEventListener('beforeunload', function () { _wjpFlushPendingPush('beforeunload'); });
+        window.addEventListener('pagehide',     function () { _wjpFlushPendingPush('pagehide'); });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') _wjpFlushPendingPush('visibility-hidden');
+        });
+    } catch (_) {}
+    window.wjpFlushPendingPush = _wjpFlushPendingPush;
     window.cloudPushDebounced = cloudPushDebounced;
 
     // Hook saveState
