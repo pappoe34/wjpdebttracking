@@ -436,10 +436,13 @@
   }
   function setRecPagesize(n) {
     try { localStorage.setItem(REC_PAGESIZE_LS, String(n)); } catch (_) {}
-    try { window.REC_PAGE_SIZE = n; } catch (_) {}
-    // Re-render hooks the host exposes
-    try { if (typeof window.recRenderTable === 'function') window.recRenderTable(); } catch (_) {}
-    try { if (typeof window.recRenderStats === 'function') window.recRenderStats(); } catch (_) {}
+    // FIX 58 v5 (Winston 2026-05-28): app.js exposes window.recSetPageSize
+    // which writes to the IIFE-scoped recState.pageSize and triggers a
+    // fresh render. The earlier custom REC_PAGE_SIZE global was unused.
+    try {
+      if (typeof window.recSetPageSize === 'function') window.recSetPageSize(n);
+      else if (typeof window.recRenderTable === 'function') window.recRenderTable();
+    } catch (_) {}
     try { window.dispatchEvent(new CustomEvent('wjp-recurring-changed', { detail: { reason: 'pagesize' } })); } catch (_) {}
     setTimeout(applyDomFilter, 200);
   }
@@ -508,5 +511,5 @@
     boot();
   }
 
-  window.WJP_RecurringTabEnhance = { version: 4, mount: mount, applyDomFilter: applyDomFilter };
+  window.WJP_RecurringTabEnhance = { version: 5, mount: mount, applyDomFilter: applyDomFilter };
 })();

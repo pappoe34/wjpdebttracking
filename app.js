@@ -21459,6 +21459,27 @@ function initAllButtonHandlers() {
         calDate: new Date()  // anchor date for navigation
     };
 
+    // FIX 58 v5 (Winston 2026-05-28): expose page-size + render hooks so the
+    // wjp-recurring-tab-enhance.js page-size selector can drive this scope.
+    // Restoring a saved value at boot keeps the user's Show choice across
+    // navigations.
+    try {
+        const _wjpRecPSraw = parseInt(localStorage.getItem('wjp.rec.pagesize.v1'), 10);
+        if ([10,20,30,50,100].indexOf(_wjpRecPSraw) !== -1) recState.pageSize = _wjpRecPSraw;
+    } catch (_) {}
+    window.recSetPageSize = function (n) {
+        n = parseInt(n, 10);
+        if (!n || n < 1) return false;
+        recState.pageSize = n;
+        recState.page = 0;
+        try { localStorage.setItem('wjp.rec.pagesize.v1', String(n)); } catch (_) {}
+        try { recRenderTable(); } catch (_) {}
+        try { recRenderStats(); } catch (_) {}
+        return true;
+    };
+    window.recGetPageSize = function () { return recState.pageSize; };
+    window.recRenderTable = function () { try { recRenderTable(); } catch (_) {} };
+
     const recFmt  = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
     const recFmtS = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);
 
