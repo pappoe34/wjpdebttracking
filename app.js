@@ -4738,7 +4738,24 @@ function updateUI() {
     if (dfdDate && dfdMeta && dfdEyebrow) {
         const strategy = appState.settings.strategy || 'avalanche';
         const hasDebts = appState.debts && appState.debts.length > 0;
-        const hasMins  = hasDebts && appState.debts.some(d => (d.minPayment || 0) > 0);
+        // FIX 61 (Winston 2026-05-28): the debt-free date hero showed
+        // 'Add a minimum payment to each debt...' even when debts had a
+        // minimum stored under an alternate Plaid field name. Accept
+        // minimumPayment, minPaymentAmount, minimum_payment too, and
+        // mirror back to d.minPayment so downstream sim engines see it.
+        appState.debts.forEach(function (d) {
+            if (!d) return;
+            if ((Number(d.minPayment) || 0) > 0) return;
+            var alt = Number(d.minimumPayment || d.minPaymentAmount || d.minimum_payment || d.min_payment || d.minPay || 0) || 0;
+            if (alt > 0) d.minPayment = alt;
+            // Plaid liabilities exposes `lastStatement.minimumPaymentAmount` for credit cards
+            try {
+                if ((!d.minPayment || d.minPayment <= 0) && d.lastStatement && d.lastStatement.minimumPaymentAmount) {
+                    d.minPayment = Number(d.lastStatement.minimumPaymentAmount) || d.minPayment;
+                }
+            } catch (_) {}
+        });
+        const hasMins  = hasDebts && appState.debts.some(d => (Number(d.minPayment) || 0) > 0);
 
         // Effective extra contribution — manual setting OR auto-derived from
         // (income − expenses − minimums − non-debt recurring). This is what was
@@ -5577,6 +5594,20 @@ function updateCreditProfile() {
         card.querySelectorAll('.cp-expand-btn, .cp-connect-btn').forEach(b => {
             b.addEventListener('click', goToCreditScoreTab);
         });
+        // FIX 61 (Winston 2026-05-28): make the whole 'Credit Profile Not
+        // Linked' card a click-through to the Credit Health tab so users
+        // don't have to hunt for the small button.
+        try {
+            if (!card._wjpClickwired) {
+                card.style.cursor = 'pointer';
+                card.title = 'Open Credit Health';
+                card.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, select, textarea')) return;
+                    try { goToCreditScoreTab(); } catch (_) { try { location.hash = '#credit-health'; } catch (_) {} }
+                });
+                card._wjpClickwired = true;
+            }
+        } catch (_) {}
         return;
     }
 
