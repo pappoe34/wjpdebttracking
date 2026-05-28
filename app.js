@@ -20552,6 +20552,11 @@ function initAllButtonHandlers() {
         const tbody = document.getElementById('txn-tbody');
         const label = document.getElementById('txn-page-label');
         if (!tbody) return;
+        // FIX 55 v2 (Winston 2026-05-28): app.js's legacy txnRenderTable was
+        // the second renderer that bypassed the synthetic filter, so
+        // recurring placeholder rows kept reappearing whenever filters
+        // re-rendered. Strip them here too.
+        filtered = (filtered || []).filter(function (t) { return t && !t.synthetic; });
         const total = filtered.length;
         var __PS = window.TXN_PAGE_SIZE || 10;
         if (txnState.page * __PS >= total && total > 0) txnState.page = 0;
