@@ -433,4 +433,24 @@
     var iv = setInterval(function () {
       if (tryPopulate()) clearInterval(iv);
     }, 350);
-    window.addEventListener('wjp-data-
+    window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
+    window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(tryPopulate, 200); });
+
+    // Hard timeout — auto-dismiss
+    setTimeout(function () { maybeDismiss('hard-timeout'); }, HARD_TIMEOUT_MS);
+  }
+
+  // Mount as early as possible
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  window.WJP_DailyWelcome = {
+    version: 9,
+    show: function () { localStorage.removeItem(lsKey()); boot(); },
+    dismiss: function () { dismiss('manual'); },
+    shouldShow: shouldShow
+  };
+})();
