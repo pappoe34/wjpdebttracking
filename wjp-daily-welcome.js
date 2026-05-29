@@ -95,7 +95,9 @@
   function getFirstName() {
     try {
       var s = getState();
-      var nm = (s && s.profile && (s.profile.firstName || s.profile.name)) || '';
+      // FIX 63 v9 (Winston 2026-05-29): preferred name (user choice) wins
+      // over firstName, then falls back through normal chain.
+      var nm = (s && s.profile && (s.profile.preferredName || s.profile.preferredFirstName || s.profile.firstName || s.profile.name)) || '';
       if (!nm) {
         var ls = localStorage.getItem('wjp_user_name') || '';
         if (ls) nm = ls;
@@ -159,7 +161,29 @@
       'body.dark #' + OVERLAY_ID + ' .stat .val{color:#f4f4f6;}',
       '#' + OVERLAY_ID + ' .stat .sub2{font-size:11px;color:#6b7280;margin-top:2px;}',
       'body.dark #' + OVERLAY_ID + ' .stat .sub2{color:rgba(255,255,255,0.55);}',
-      '#' + OVERLAY_ID + ' .footer{display:flex;justify-content:space-between;align-items:center;gap:12px;}',
+      // FIX 63 v9 — design polish: branded mark, motivational line, icon tiles, fade-in
+      '#' + OVERLAY_ID + ' .brand{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#1f7a4a;margin-bottom:18px;}',
+      '#' + OVERLAY_ID + ' .brand .dot{width:8px;height:8px;border-radius:50%;background:#1f7a4a;box-shadow:0 0 0 4px rgba(31,122,74,0.18);}',
+      '#' + OVERLAY_ID + ' .name-edit-btn{background:none;border:0;color:#1f7a4a;font-size:14px;margin-left:8px;cursor:pointer;opacity:0.55;transition:opacity .15s, transform .15s;padding:4px;border-radius:6px;}',
+      '#' + OVERLAY_ID + ' .name-edit-btn:hover{opacity:1;transform:translateY(-1px);background:rgba(31,122,74,0.08);}',
+      '#' + OVERLAY_ID + ' .name-input{font-size:30px;font-weight:900;color:#1f1a14;line-height:1.15;border:0;background:transparent;outline:0;border-bottom:2px solid #1f7a4a;font-family:inherit;width:60%;}',
+      'body.dark #' + OVERLAY_ID + ' .name-input{color:#f4f4f6;}',
+      '#' + OVERLAY_ID + ' .hero-line{padding:12px 14px;border-radius:10px;background:linear-gradient(135deg,rgba(31,122,74,0.10),rgba(31,122,74,0.04));border:1px solid rgba(31,122,74,0.18);font-size:13px;font-weight:600;color:#1f1a14;margin-bottom:20px;display:flex;align-items:center;gap:10px;}',
+      'body.dark #' + OVERLAY_ID + ' .hero-line{background:linear-gradient(135deg,rgba(31,122,74,0.18),rgba(31,122,74,0.06));border-color:rgba(31,122,74,0.30);color:#f4f4f6;}',
+      '#' + OVERLAY_ID + ' .hero-line .ic{font-size:16px;color:#1f7a4a;}',
+      '#' + OVERLAY_ID + ' .stat{position:relative;opacity:0;transform:translateY(8px);animation:wjpdwfade .55s ease-out forwards;}',
+      '#' + OVERLAY_ID + ' .stat:nth-child(1){animation-delay:.05s;}',
+      '#' + OVERLAY_ID + ' .stat:nth-child(2){animation-delay:.15s;}',
+      '#' + OVERLAY_ID + ' .stat:nth-child(3){animation-delay:.25s;}',
+      '#' + OVERLAY_ID + ' .stat:nth-child(4){animation-delay:.35s;}',
+      '@keyframes wjpdwfade{to{opacity:1;transform:translateY(0);}}',
+      '#' + OVERLAY_ID + ' .stat .top{display:flex;justify-content:space-between;align-items:flex-start;}',
+      '#' + OVERLAY_ID + ' .stat .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(31,122,74,0.10);color:#1f7a4a;}',
+      'body.dark #' + OVERLAY_ID + ' .stat .ic{background:rgba(31,122,74,0.20);}',
+      '#' + OVERLAY_ID + ' .panel{position:relative;overflow:hidden;}',
+      '#' + OVERLAY_ID + ' .panel::before{content:"";position:absolute;top:-80px;right:-80px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(31,122,74,0.20),transparent 70%);pointer-events:none;}',
+      '#' + OVERLAY_ID + ' .panel::after{content:"";position:absolute;bottom:-100px;left:-100px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(192,89,74,0.10),transparent 70%);pointer-events:none;}',
+      '#' + OVERLAY_ID + ' .footer{display:flex;justify-content:space-between;align-items:center;gap:12px;position:relative;}',
       '#' + OVERLAY_ID + ' .loading{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#6b7280;}',
       'body.dark #' + OVERLAY_ID + ' .loading{color:rgba(255,255,255,0.55);}',
       '#' + OVERLAY_ID + ' .spinner{width:14px;height:14px;border:2px solid rgba(31,122,74,0.20);border-top-color:#1f7a4a;border-radius:50%;animation:wjpdwspin .9s linear infinite;}',
@@ -284,8 +308,21 @@
       fillStat('debtFree', dc + (dc === 1 ? ' debt' : ' debts'), dc ? 'tracking' : 'add debts to begin');
     }
 
-    var subEl = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-sub]');
-    if (subEl) subEl.textContent = 'Here\'s where you stand today.';
+    // FIX 63 v9: motivational hero line based on debt-free + cashflow
+    try {
+      var heroEl = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-hero-text]');
+      if (heroEl) {
+        var msg = '';
+        if (dfdText && dfdText !== '\u2014') {
+          msg = 'Debt-free on ' + dfdText + '. Every payment moves the date forward.';
+        } else if ((s.debts || []).length === 0) {
+          msg = 'No debts tracked yet. Let\'s build your map.';
+        } else {
+          msg = 'You\'re tracking ' + (s.debts || []).length + ' debt' + ((s.debts || []).length === 1 ? '' : 's') + '. Keep going.';
+        }
+        heroEl.textContent = msg;
+      }
+    } catch (_) {}
     return true;
   }
 
@@ -307,6 +344,47 @@
     try { console.log('[wjp-daily-welcome] mounted, overlay in DOM:', !!document.getElementById(OVERLAY_ID)); } catch (_) {}
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
+
+    // FIX 63 v9: inline name rename pencil
+    try {
+      var editBtn = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-edit]');
+      if (editBtn) editBtn.addEventListener('click', function () {
+        var nameSpan = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-name]');
+        if (!nameSpan) return;
+        var current = nameSpan.textContent.trim();
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.value = current;
+        input.maxLength = 40;
+        input.className = 'name-input';
+        nameSpan.replaceWith(input);
+        editBtn.style.display = 'none';
+        input.focus();
+        input.select();
+        function commit() {
+          var v = input.value.trim().slice(0, 40);
+          if (!v) v = current;
+          try {
+            var s = getState();
+            if (s) {
+              if (!s.profile) s.profile = {};
+              s.profile.preferredName = v;
+              try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+            }
+          } catch (_) {}
+          var newSpan = document.createElement('span');
+          newSpan.setAttribute('data-wjpdw-name', '');
+          newSpan.textContent = v;
+          input.replaceWith(newSpan);
+          editBtn.style.display = '';
+        }
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+          if (e.key === 'Escape') { input.value = current; input.blur(); }
+        });
+      });
+    } catch (_) {}
 
     // FIX 63 v7: ?welcome=hold disables auto-dismiss so the splash sits
     // there until Skip is clicked. Useful for inspecting the design.
