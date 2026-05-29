@@ -491,4 +491,26 @@
     // FIX 63 v8: fill stats progressively but do NOT auto-dismiss on
     // data-ready. Splash waits for Skip click OR 8s hard timeout.
     var iv = setInterval(function () {
-      if (tryPopulate()) clea
+      if (tryPopulate()) clearInterval(iv);
+    }, 350);
+    window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
+    window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(tryPopulate, 200); });
+
+    // FIX 63 v10 (Winston 2026-05-29): no auto-dismiss. User must click
+    // 'Enter dashboard' to proceed. Removes the 8s safety timeout.
+  }
+
+  // Mount as early as possible
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  window.WJP_DailyWelcome = {
+    version: 10,
+    show: function () { localStorage.removeItem(lsKey()); boot(); },
+    dismiss: function () { dismiss('manual'); },
+    shouldShow: shouldShow
+  };
+})();
