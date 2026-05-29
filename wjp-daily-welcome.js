@@ -137,7 +137,7 @@
     var st = document.createElement('style');
     st.id = 'wjp-daily-welcome-style';
     st.textContent = [
-      '#' + OVERLAY_ID + '{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#fef7e6 0%,#f3ead0 50%,#dde7d0 100%);font-family:system-ui,-apple-system,Inter,sans-serif;opacity:1;transition:opacity .35s ease-out;}',
+      '#' + OVERLAY_ID + '{position:fixed;top:0;left:0;right:0;bottom:0;inset:0;width:100vw;height:100vh;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#fef7e6 0%,#f3ead0 50%,#dde7d0 100%);font-family:system-ui,-apple-system,Inter,sans-serif;opacity:1;transition:opacity .35s ease-out;box-sizing:border-box;}',
       '#' + OVERLAY_ID + '.is-hiding{opacity:0;pointer-events:none;}',
       'body.dark #' + OVERLAY_ID + '{background:linear-gradient(135deg,#0d1620 0%,#101e2c 50%,#0e2421 100%);}',
       '#' + OVERLAY_ID + ' .panel{max-width:520px;width:100%;background:rgba(255,255,255,0.78);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.6);border-radius:20px;padding:34px 34px 26px;box-shadow:0 30px 80px rgba(0,0,0,0.10);}',
@@ -193,7 +193,12 @@
       + '</div>';
     var holder = document.createElement('div');
     holder.innerHTML = html;
-    document.body.appendChild(holder.firstElementChild);
+    // FIX 63 v5 (Winston 2026-05-29): body is a flex container in this
+    // app — appending to body collapses position:fixed children into a
+    // flex column. Append to documentElement (<html>) so the overlay
+    // anchors purely to the viewport.
+    var target = document.documentElement || document.body;
+    if (target) target.appendChild(holder.firstElementChild);
   }
 
   function fillStat(name, val, sub2) {
@@ -292,9 +297,11 @@
 
   // ────────── boot ──────────
   function boot() {
+    try { console.log('[wjp-daily-welcome] boot, shouldShow:', shouldShow(), 'isReload:', isReload(), 'readyState:', document.readyState); } catch (_) {}
     if (!shouldShow()) return; // skip if user was here within 24h
     injectStyle();
     buildShell();
+    try { console.log('[wjp-daily-welcome] mounted, overlay in DOM:', !!document.getElementById(OVERLAY_ID)); } catch (_) {}
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
 
