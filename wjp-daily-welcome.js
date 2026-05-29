@@ -59,6 +59,13 @@
     try { localStorage.setItem(lsKey(), String(Date.now())); } catch (_) {}
   }
   function shouldShow() {
+    // FIX 63 v3 (Winston 2026-05-29): allow ?welcome=force in the URL
+    // to bypass the 24h gate. Easier than typing WJP_DailyWelcome.show()
+    // in the console when testing the splash UX.
+    try {
+      var q = (location.search || '').toLowerCase();
+      if (q.indexOf('welcome=force') !== -1) return true;
+    } catch (_) {}
     var last = getLastSeen();
     if (!last) return true;
     return (Date.now() - last) > WINDOW_MS;
