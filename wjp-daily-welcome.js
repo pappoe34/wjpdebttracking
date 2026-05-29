@@ -161,6 +161,22 @@
       'body.dark #' + OVERLAY_ID + ' .stat .val{color:#f4f4f6;}',
       '#' + OVERLAY_ID + ' .stat .sub2{font-size:11px;color:#6b7280;margin-top:2px;}',
       'body.dark #' + OVERLAY_ID + ' .stat .sub2{color:rgba(255,255,255,0.55);}',
+      // FIX 63 v10 — daily brief polish
+      '#' + OVERLAY_ID + ' .stat .lbl{display:flex;align-items:center;gap:5px;}',
+      '#' + OVERLAY_ID + ' .help{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:rgba(0,0,0,0.06);color:#6b7280;font-size:9px;font-weight:900;cursor:help;position:relative;}',
+      'body.dark #' + OVERLAY_ID + ' .help{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.55);}',
+      '#' + OVERLAY_ID + ' .help:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1f1a14;color:#fff;font-size:10px;font-weight:600;padding:6px 9px;border-radius:6px;white-space:nowrap;letter-spacing:0;text-transform:none;z-index:10;max-width:220px;white-space:normal;width:max-content;text-align:left;line-height:1.4;box-shadow:0 6px 16px rgba(0,0,0,0.25);}',
+      'body.dark #' + OVERLAY_ID + ' .help:hover::after{background:#f4f4f6;color:#1f1a14;}',
+      '#' + OVERLAY_ID + ' .focus-section{padding:14px 16px;background:linear-gradient(135deg,rgba(192,89,74,0.07),rgba(192,89,74,0.02));border:1px solid rgba(192,89,74,0.18);border-radius:10px;margin-bottom:22px;}',
+      'body.dark #' + OVERLAY_ID + ' .focus-section{background:linear-gradient(135deg,rgba(192,89,74,0.16),rgba(192,89,74,0.04));border-color:rgba(192,89,74,0.30);}',
+      '#' + OVERLAY_ID + ' .focus-title{font-size:10px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#c0594a;margin-bottom:8px;display:flex;align-items:center;gap:6px;}',
+      '#' + OVERLAY_ID + ' .focus-list{display:flex;flex-direction:column;gap:6px;}',
+      '#' + OVERLAY_ID + ' .focus-item{font-size:12px;color:#1f1a14;display:flex;align-items:flex-start;gap:8px;line-height:1.4;}',
+      'body.dark #' + OVERLAY_ID + ' .focus-item{color:#f4f4f6;}',
+      '#' + OVERLAY_ID + ' .focus-item::before{content:"";flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#c0594a;margin-top:5px;}',
+      '#' + OVERLAY_ID + ' .skip-btn{font-size:14px;padding:12px 28px;background:linear-gradient(135deg,#1f7a4a,#2b9b72);box-shadow:0 8px 24px rgba(31,122,74,0.35);}',
+      '#' + OVERLAY_ID + ' .skip-btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(31,122,74,0.45);}',
+      '#' + OVERLAY_ID + ' .skip-btn::after{content:" \u2192";margin-left:2px;}',
       // FIX 63 v9 — design polish: branded mark, motivational line, icon tiles, fade-in
       '#' + OVERLAY_ID + ' .brand{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#1f7a4a;margin-bottom:18px;}',
       '#' + OVERLAY_ID + ' .brand .dot{width:8px;height:8px;border-radius:50%;background:#1f7a4a;box-shadow:0 0 0 4px rgba(31,122,74,0.18);}',
@@ -211,11 +227,15 @@
       +     '</div>'
       +     '<div class="sub" data-wjpdw-sub>Here\'s your daily snapshot.</div>'
       +     '<div class="hero-line"><span class="ic">⚡</span><span data-wjpdw-hero-text>Loading your debt-free trajectory…</span></div>'
+      +     '<div class="focus-section" data-wjpdw-focus style="display:none;">'
+      +       '<div class="focus-title"><span>◆</span><span>Today\'s focus</span></div>'
+      +       '<div class="focus-list" data-wjpdw-focus-list></div>'
+      +     '</div>'
       +     '<div class="stats">'
-      +       '<div class="stat skeleton" data-wjpdw-stat="ydaySpend"><div class="top"><div><div class="lbl">Yesterday spending</div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">💸</div></div></div>'
-      +       '<div class="stat skeleton" data-wjpdw-stat="nextDue"><div class="top"><div><div class="lbl">Next bill due</div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">📅</div></div></div>'
-      +       '<div class="stat skeleton" data-wjpdw-stat="netCash"><div class="top"><div><div class="lbl">Net cash (7d)</div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">📈</div></div></div>'
-      +       '<div class="stat skeleton" data-wjpdw-stat="debtFree"><div class="top"><div><div class="lbl">Debt-free target</div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">🎯</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="ydaySpend"><div class="top"><div><div class="lbl">Yesterday spending <span class="help" data-tip="Total non-transfer spending posted yesterday across all linked accounts.">?</span></div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">💸</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="nextDue"><div class="top"><div><div class="lbl">Next bill due <span class="help" data-tip="The recurring schedule with the earliest upcoming date. Pay early to dodge fees.">?</span></div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">📅</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="netCash"><div class="top"><div><div class="lbl">Net cash (7d) <span class="help" data-tip="Income minus spending over the last 7 days. Transfers excluded.">?</span></div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">📈</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="debtFree"><div class="top"><div><div class="lbl">Debt-free target <span class="help" data-tip="Estimated payoff date assuming your current strategy (Avalanche / Snowball) + minimums + extras.">?</span></div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">🎯</div></div></div>'
       +     '</div>'
       +     '<div class="footer">'
       +       '<span class="loading"><span class="spinner"></span><span>Loading your data…</span></span>'
@@ -328,6 +348,46 @@
         heroEl.textContent = msg;
       }
     } catch (_) {}
+
+    // FIX 63 v10 (Winston 2026-05-29): Today's focus actionable bullets.
+    try {
+      var focusEl = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-focus]');
+      var listEl  = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-focus-list]');
+      if (focusEl && listEl) {
+        var bullets = [];
+        // Bullet 1: bill due today/tomorrow
+        if (nextDue) {
+          var daysUntil = Math.max(0, Math.round((nextDue.ms - Date.now()) / 86400000));
+          if (daysUntil <= 1) {
+            var nm = String(nextDue.rp.name || '').slice(0, 30);
+            var amt = Math.abs(Number(nextDue.rp.amount) || 0);
+            bullets.push('Pay <strong>' + nm + '</strong> ' + (daysUntil === 0 ? 'today' : 'tomorrow') + ' \u2014 ' + fmtUsd(amt) + ' to avoid late fees.');
+          }
+        }
+        // Bullet 2: cashflow alert
+        if (net < 0) {
+          bullets.push('You\'re <strong>' + fmtUsd(Math.abs(net)) + ' negative</strong> this week. Trim a category or pause a subscription.');
+        }
+        // Bullet 3: high-APR debt nudge
+        try {
+          var debts = (s.debts || []).filter(function (d) { return d && (Number(d.apr) || 0) > 0; });
+          if (debts.length) {
+            var top = debts.reduce(function (a, b) { return (Number(a.apr) || 0) > (Number(b.apr) || 0) ? a : b; });
+            if (top && Number(top.apr) >= 15) {
+              bullets.push('Highest APR: <strong>' + String(top.name || '').slice(0, 30) + ' (' + Number(top.apr).toFixed(2) + '%)</strong>. Extra payments here save the most interest.');
+            }
+          }
+        } catch (_) {}
+        // Bullet 4 fallback / encouragement
+        if (bullets.length === 0) {
+          bullets.push('No urgent action today. Stay the course \u2014 every payment compounds.');
+        }
+        listEl.innerHTML = bullets.map(function (b) {
+          return '<div class="focus-item"><span>' + b + '</span></div>';
+        }).join('');
+        focusEl.style.display = '';
+      }
+    } catch (_) {}
     return true;
   }
 
@@ -431,26 +491,4 @@
     // FIX 63 v8: fill stats progressively but do NOT auto-dismiss on
     // data-ready. Splash waits for Skip click OR 8s hard timeout.
     var iv = setInterval(function () {
-      if (tryPopulate()) clearInterval(iv);
-    }, 350);
-    window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
-    window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(tryPopulate, 200); });
-
-    // Hard timeout — auto-dismiss
-    setTimeout(function () { maybeDismiss('hard-timeout'); }, HARD_TIMEOUT_MS);
-  }
-
-  // Mount as early as possible
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-
-  window.WJP_DailyWelcome = {
-    version: 9,
-    show: function () { localStorage.removeItem(lsKey()); boot(); },
-    dismiss: function () { dismiss('manual'); },
-    shouldShow: shouldShow
-  };
-})();
+      if (tryPopulate()) clea
