@@ -203,18 +203,23 @@
     var html = ''
       + '<div id="' + OVERLAY_ID + '">'
       +   '<div class="panel">'
+      +     '<div class="brand"><span class="dot"></span><span>WJP Debt Tracking</span></div>'
       +     '<div class="greeting">' + hello + '</div>'
-      +     '<div class="title">' + first + '.</div>'
-      +     '<div class="sub" data-wjpdw-sub>Here\'s where you stand today.</div>'
+      +     '<div class="title">'
+      +       '<span data-wjpdw-name>' + first + '</span>.'
+      +       '<button type="button" class="name-edit-btn" data-wjpdw-edit title="Rename">✎</button>'
+      +     '</div>'
+      +     '<div class="sub" data-wjpdw-sub>Here\'s your daily snapshot.</div>'
+      +     '<div class="hero-line"><span class="ic">⚡</span><span data-wjpdw-hero-text>Loading your debt-free trajectory…</span></div>'
       +     '<div class="stats">'
-      +       '<div class="stat skeleton" data-wjpdw-stat="ydaySpend"><div class="lbl">Yesterday spending</div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div>'
-      +       '<div class="stat skeleton" data-wjpdw-stat="nextDue"><div class="lbl">Next bill due</div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div>'
-      +       '<div class="stat skeleton" data-wjpdw-stat="netCash"><div class="lbl">Net cash (7d)</div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div>'
-      +       '<div class="stat skeleton" data-wjpdw-stat="debtFree"><div class="lbl">Debt-free target</div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="ydaySpend"><div class="top"><div><div class="lbl">Yesterday spending</div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">💸</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="nextDue"><div class="top"><div><div class="lbl">Next bill due</div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">📅</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="netCash"><div class="top"><div><div class="lbl">Net cash (7d)</div><div class="val">$—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">📈</div></div></div>'
+      +       '<div class="stat skeleton" data-wjpdw-stat="debtFree"><div class="top"><div><div class="lbl">Debt-free target</div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">🎯</div></div></div>'
       +     '</div>'
       +     '<div class="footer">'
       +       '<span class="loading"><span class="spinner"></span><span>Loading your data…</span></span>'
-      +       '<button type="button" class="skip-btn">Skip</button>'
+      +       '<button type="button" class="skip-btn">Enter dashboard</button>'
       +     '</div>'
       +   '</div>'
       + '</div>';
@@ -428,24 +433,4 @@
     var iv = setInterval(function () {
       if (tryPopulate()) clearInterval(iv);
     }, 350);
-    window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
-    window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(tryPopulate, 200); });
-
-    // Hard timeout — never block the app
-    setTimeout(function () { maybeDismiss('hard-timeout'); }, HARD_TIMEOUT_MS);
-  }
-
-  // Mount as early as possible
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-
-  window.WJP_DailyWelcome = {
-    version: 1,
-    show: function () { localStorage.removeItem(lsKey()); boot(); },
-    dismiss: function () { dismiss('manual'); },
-    shouldShow: shouldShow
-  };
-})();
+    window.addEventListener('wjp-data-
