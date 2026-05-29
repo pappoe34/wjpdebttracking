@@ -328,6 +328,9 @@
     form.style.cssText = 'background:rgba(31,122,74,0.05);border:1px solid rgba(31,122,74,0.20);border-radius:10px;padding:12px;margin:0 14px 12px;font-family:var(--sans,Inter,system-ui,sans-serif);';
     form.innerHTML = ''
       + '<div style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#1f7a4a;font-weight:800;margin-bottom:8px;">Edit data</div>'
+      // FIX 62 (Winston 2026-05-29): full-width Name input so user can
+      // rename Plaid-imported debts ("credit Account 2407" -> "CapOne Visa").
+      + '<label style="font-size:11px;color:var(--ink-dim, #6b7280);display:block;margin-bottom:10px;">Name<input type="text" value="' + String(d.name || '').replace(/"/g, '&quot;') + '" data-field="name" placeholder="Account name" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
       +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Balance<input type="number" step="0.01" value="' + (d.balance || '') + '" data-field="balance" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
       +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">APR (%)<input type="number" step="0.01" value="' + (d.apr || '') + '" data-field="apr" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
@@ -346,7 +349,14 @@
       var updates = {};
       form.querySelectorAll('input').forEach(function (inp) {
         var f = inp.dataset.field;
+        if (!f) return;
         var raw = inp.value;
+        // FIX 62: name is a string field, every other field stays numeric
+        if (f === 'name') {
+          var t = (raw == null ? '' : String(raw)).trim();
+          if (t) updates.name = t.slice(0, 80);
+          return;
+        }
         if (raw === '' || raw == null) return;
         var v = parseFloat(raw);
         if (isFinite(v)) updates[f] = v;
@@ -354,6 +364,13 @@
       // Update the cache so the tile re-renders with new values
       Object.keys(updates).forEach(function (k) { d[k] = updates[k]; });
       debtDataCache[d.debtId] = d;
+      // FIX 62: also flip the tile's visible header text immediately
+      try {
+        if ('name' in updates) {
+          var hdr = tileEl.querySelector('.wjp-rt-name, [data-field-display="name"], h3, h4');
+          if (hdr) hdr.textContent = updates.name;
+        }
+      } catch (_) {}
       // v7: ALSO persist to appState.debts (source of truth for the whole app)
       try {
         var as = (typeof appState !== 'undefined') ? appState : null;
@@ -363,6 +380,7 @@
               || (x.name && d.name && x.name.toLowerCase() === d.name.toLowerCase());
           });
           if (debt) {
+            if ('name' in updates) debt.name = updates.name; // FIX 62: rename
             if ('balance' in updates) debt.balance = updates.balance;
             if ('apr' in updates) debt.apr = updates.apr;
             if ('minPayment' in updates) debt.minPayment = updates.minPayment;
