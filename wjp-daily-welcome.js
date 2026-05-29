@@ -37,10 +37,12 @@
 
   var OVERLAY_ID = 'wjp-daily-welcome';
   var WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
-  // FIX 63 v6 (Winston 2026-05-29): user said it dismissed too fast to
-  // judge. Bumped from 1.8s -> 3.5s min display + 6s -> 8s hard timeout.
-  var MIN_DISPLAY_MS = 3500;
-  var HARD_TIMEOUT_MS = 8000;
+  // FIX 63 v7 (Winston 2026-05-29): "it defeats the purpose, the site
+  // should be already loaded in the background". Reverted to short min
+  // display — the splash is a CURTAIN over the load, not a delay.
+  // If user wants to inspect the splash design, use ?welcome=hold.
+  var MIN_DISPLAY_MS = 300;
+  var HARD_TIMEOUT_MS = 6000;
 
   // ────────── helpers ──────────
   function getUid() {
@@ -307,6 +309,24 @@
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
 
+    // FIX 63 v7: ?welcome=hold disables auto-dismiss so the splash sits
+    // there until Skip is clicked. Useful for inspecting the design.
+    var holdMode = false;
+    try {
+      var q2 = (location.search || '').toLowerCase();
+      holdMode = q2.indexOf('welcome=hold') !== -1;
+    } catch (_) {}
+    if (holdMode) {
+      try { console.log('[wjp-daily-welcome] hold mode — auto-dismiss disabled. Click Skip to close.'); } catch (_) {}
+      tryPopulateOnceWhenReady();
+      return; // skip the timed-dismiss path entirely
+    }
+    function tryPopulateOnceWhenReady() {
+      var iv = setInterval(function () {
+        if (populate()) clearInterval(iv);
+      }, 350);
+    }
+
     var shownAt = Date.now();
     var done = false;
     function maybeDismiss(reason) {
@@ -330,7 +350,7 @@
       if (tryPopulate()) {
         clearInterval(iv);
         // Give the user a beat to see the populated stats
-        setTimeout(function () { maybeDismiss('data-ready'); }, 1500); // FIX 63 v6: give user more time to absorb the stats
+        setTimeout(function () { maybeDismiss('data-ready'); }, 250); // FIX 63 v7: dismiss as soon as data lands — no extra wait
       }
     }, 350);
     window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
