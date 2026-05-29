@@ -37,12 +37,11 @@
 
   var OVERLAY_ID = 'wjp-daily-welcome';
   var WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
-  // FIX 63 v7 (Winston 2026-05-29): "it defeats the purpose, the site
-  // should be already loaded in the background". Reverted to short min
-  // display — the splash is a CURTAIN over the load, not a delay.
-  // If user wants to inspect the splash design, use ?welcome=hold.
+  // FIX 63 v8 (Winston 2026-05-29): "should stay till user dismisses
+  // or after 8 seconds it loads the site". Splash sits put until user
+  // clicks Skip, or hard 8s timeout. No data-ready auto-dismiss.
   var MIN_DISPLAY_MS = 300;
-  var HARD_TIMEOUT_MS = 6000;
+  var HARD_TIMEOUT_MS = 8000;
 
   // ────────── helpers ──────────
   function getUid() {
@@ -346,12 +345,10 @@
       var ok = populate();
       return ok;
     }
+    // FIX 63 v8: fill stats progressively but do NOT auto-dismiss on
+    // data-ready. Splash waits for Skip click OR 8s hard timeout.
     var iv = setInterval(function () {
-      if (tryPopulate()) {
-        clearInterval(iv);
-        // Give the user a beat to see the populated stats
-        setTimeout(function () { maybeDismiss('data-ready'); }, 250); // FIX 63 v7: dismiss as soon as data lands — no extra wait
-      }
+      if (tryPopulate()) clearInterval(iv);
     }, 350);
     window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
     window.addEventListener('wjp-plaid-sync-done', function () { setTimeout(tryPopulate, 200); });
