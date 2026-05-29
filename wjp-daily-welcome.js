@@ -37,8 +37,10 @@
 
   var OVERLAY_ID = 'wjp-daily-welcome';
   var WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
-  var MIN_DISPLAY_MS = 1800;
-  var HARD_TIMEOUT_MS = 6000;
+  // FIX 63 v6 (Winston 2026-05-29): user said it dismissed too fast to
+  // judge. Bumped from 1.8s -> 3.5s min display + 6s -> 8s hard timeout.
+  var MIN_DISPLAY_MS = 3500;
+  var HARD_TIMEOUT_MS = 8000;
 
   // ────────── helpers ──────────
   function getUid() {
@@ -328,7 +330,7 @@
       if (tryPopulate()) {
         clearInterval(iv);
         // Give the user a beat to see the populated stats
-        setTimeout(function () { maybeDismiss('data-ready'); }, 700);
+        setTimeout(function () { maybeDismiss('data-ready'); }, 1500); // FIX 63 v6: give user more time to absorb the stats
       }
     }, 350);
     window.addEventListener('wjp-data-restored', function () { setTimeout(tryPopulate, 200); });
