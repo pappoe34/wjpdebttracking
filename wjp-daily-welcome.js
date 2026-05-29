@@ -80,7 +80,14 @@
         var email = localStorage.getItem('wjp_last_email') || '';
         if (email && email.indexOf('@') !== -1) nm = email.split('@')[0];
       }
-      return String(nm || 'there').split(/\s+/)[0];
+      // FIX 63 v2 (Winston 2026-05-29): polish — strip trailing digits
+      // ("pappoe34" -> "pappoe") + capitalize first letter so the splash
+      // never greets someone with a raw email handle.
+      var first = String(nm || 'there').split(/[\s.@_]+/)[0];
+      first = first.replace(/[0-9]+$/, '').trim();
+      if (!first) first = 'there';
+      first = first.charAt(0).toUpperCase() + first.slice(1);
+      return first;
     } catch (_) { return 'there'; }
   }
   function timeOfDayGreeting() {
