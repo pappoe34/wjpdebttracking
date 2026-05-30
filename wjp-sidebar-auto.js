@@ -150,11 +150,11 @@
       'body.sidebar-collapsed .sidebar-logo, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-logo { padding:20px 0 16px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:8px; }',
       'body.dark.sidebar-collapsed .sidebar-logo, body.dark.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-logo { border-bottom-color:rgba(255,255,255,0.06); }',
       /* ===== v6: kill bare-text-node labels (Credit Health was a text node with no span) ===== */
-      'body.sidebar-collapsed .sidebar-nav .nav-item, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item, body.sidebar-collapsed .sidebar-bottom .nav-item, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item { font-size:0 !important; line-height:0 !important; color:transparent !important; }',
+      'body.sidebar-collapsed .sidebar-nav .nav-item, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item, body.sidebar-collapsed .sidebar-bottom .nav-item, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item { font-size:0 !important; line-height:1 !important; }',
       /* Restore size for the icon container + icon itself */
-      'body.sidebar-collapsed .sidebar-nav .nav-item .nav-icon, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item .nav-icon, body.sidebar-collapsed .sidebar-bottom .nav-item .nav-icon, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item .nav-icon { font-size:20px !important; line-height:1 !important; color:inherit !important; }',
+      'body.sidebar-collapsed .sidebar-nav .nav-item .nav-icon, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item .nav-icon, body.sidebar-collapsed .sidebar-bottom .nav-item .nav-icon, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item .nav-icon { font-size:20px !important; line-height:1 !important; }',
       /* Restore size for bare <i> phosphor icons (Credit Health uses <i class="ph ph-shield-star"> direct child) */
-      'body.sidebar-collapsed .sidebar-nav .nav-item > i, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item > i, body.sidebar-collapsed .sidebar-bottom .nav-item > i, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item > i { font-size:20px !important; line-height:1 !important; color:inherit !important; margin-right:0 !important; }',
+      'body.sidebar-collapsed .sidebar-nav .nav-item > i, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item > i, body.sidebar-collapsed .sidebar-bottom .nav-item > i, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item > i, body.sidebar-collapsed .sidebar-nav .nav-item [class*="ph-"], body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item [class*="ph-"], body.sidebar-collapsed .sidebar-bottom .nav-item [class*="ph-"], body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-bottom .nav-item [class*="ph-"] { font-size:20px !important; line-height:1 !important; margin-right:0 !important; }',
       /* Also restore for icons sitting inside .nav-icon */
       'body.sidebar-collapsed .sidebar-nav .nav-item .nav-icon i, body.sidebar-auto .sidebar:not(:hover):not(.wjp-sb-hovered) .sidebar-nav .nav-item .nav-icon i { font-size:20px !important; line-height:1 !important; }',
       /* ===== v3: proportional + strict icon column ===== */
@@ -292,7 +292,7 @@
   }
 
   window.WJP_SidebarAuto = {
-    version: 6,
+    version: 7,
     getMode: getMode,
     setMode: setMode,
     applyMode: applyMode
