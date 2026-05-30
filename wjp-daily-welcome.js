@@ -154,11 +154,19 @@
       'body.dark #' + OVERLAY_ID + ' .panel{background:rgba(20,28,38,0.82);border-color:rgba(255,255,255,0.10);box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 40px 100px rgba(0,0,0,0.55);color:#f4f4f6;}',
       '@keyframes wjpdwpop{from{opacity:0;transform:translateY(12px) scale(.985);}to{opacity:1;transform:none;}}',
 
-      // Brand pill (top left mark)
-      '#' + OVERLAY_ID + ' .brand{display:flex;justify-content:center;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#1f7a4a;margin:0 auto 22px;padding:0;background:none;border:0;}',
-      'body.dark #' + OVERLAY_ID + ' .brand{background:none;border:0;color:#7fd1a4;}',
-      '#' + OVERLAY_ID + ' .brand .dot{width:8px;height:8px;border-radius:50%;background:#1f7a4a;box-shadow:0 0 0 4px rgba(31,122,74,0.18);}',
-      'body.dark #' + OVERLAY_ID + ' .brand .dot{background:#7fd1a4;box-shadow:0 0 0 4px rgba(127,209,164,0.20);}',
+      // FIX 63 v13: real sidebar emblem
+      '#' + OVERLAY_ID + ' .wjpdw-emblem{display:flex;justify-content:center;align-items:center;gap:12px;margin:0 auto 22px;}',
+      '#' + OVERLAY_ID + ' .emblem-icon{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1f7a4a 0%,#2b9b72 100%);box-shadow:0 6px 16px rgba(31,122,74,0.28), inset 0 1px 0 rgba(255,255,255,0.15);flex-shrink:0;}',
+      '#' + OVERLAY_ID + ' .emblem-icon svg{display:block;}',
+      '#' + OVERLAY_ID + ' .emblem-text{display:flex;flex-direction:column;line-height:1.1;text-align:left;}',
+      '#' + OVERLAY_ID + ' .emblem-title{font-size:17px;font-weight:400;letter-spacing:-0.005em;color:#1f1a14;-webkit-text-fill-color:#1f1a14;}',
+      '#' + OVERLAY_ID + ' .emblem-title b{font-weight:900;color:#1f7a4a;letter-spacing:0.005em;-webkit-text-fill-color:#1f7a4a;}',
+      '#' + OVERLAY_ID + ' .emblem-title i{font-style:italic;color:#2b9b72;font-weight:600;-webkit-text-fill-color:#2b9b72;}',
+      '#' + OVERLAY_ID + ' .emblem-sub{font-size:9px;font-weight:800;letter-spacing:0.20em;text-transform:uppercase;color:#c99a2a;margin-top:3px;-webkit-text-fill-color:#c99a2a;}',
+      'body.dark #' + OVERLAY_ID + ' .emblem-title{color:#f4f4f6;-webkit-text-fill-color:#f4f4f6;}',
+      'body.dark #' + OVERLAY_ID + ' .emblem-title b{color:#7fd1a4;-webkit-text-fill-color:#7fd1a4;}',
+      'body.dark #' + OVERLAY_ID + ' .emblem-title i{color:#a8e0c2;-webkit-text-fill-color:#a8e0c2;}',
+      'body.dark #' + OVERLAY_ID + ' .emblem-sub{color:#e8c968;-webkit-text-fill-color:#e8c968;}',
 
       '#' + OVERLAY_ID + ' .greeting{text-align:center;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#1f7a4a;margin-bottom:8px;}',
       'body.dark #' + OVERLAY_ID + ' .greeting{color:#7fd1a4;}',
@@ -252,7 +260,13 @@
     var html = ''
       + '<div id="' + OVERLAY_ID + '">'
       +   '<div class="panel">'
-      +     '<div class="brand"><span class="dot"></span><span>WJP Debt Tracking</span></div>'
+      +     '<div class="wjpdw-emblem">'
+      +       '<span class="emblem-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="#c99a2a" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5 C 9 2.5, 8 3.5, 7.5 4.5 C 5 4.5, 3 6.5, 3.5 9 C 2 10, 2 12.5, 4 13.5 C 3.5 15, 5 17, 7 16.5 L 10 16.5 L 10 21 L 14 21 L 14 16.5 L 17 16.5 C 19 17, 20.5 15, 20 13.5 C 22 12.5, 22 10, 20.5 9 C 21 6.5, 19 4.5, 16.5 4.5 C 16 3.5, 15 2.5, 12 2.5 Z"/><g stroke="none" fill="#e8c968"><circle cx="12" cy="1.8" r="0.9"/><circle cx="1.5" cy="7.5" r="0.8"/><circle cx="1.5" cy="12" r="1.0"/><circle cx="1.5" cy="16.5" r="0.8"/><circle cx="22.5" cy="7.5" r="0.8"/><circle cx="22.5" cy="12" r="1.0"/><circle cx="22.5" cy="16.5" r="0.8"/><path d="M4 20.6 L4.42 21.8 L5.6 22.2 L4.42 22.6 L4 23.8 L3.58 22.6 L2.4 22.2 L3.58 21.8 Z"/><path d="M20 20.6 L20.42 21.8 L21.6 22.2 L20.42 22.6 L20 23.8 L19.58 22.6 L18.4 22.2 L19.58 21.8 Z"/><circle cx="8" cy="22.8" r="0.7"/><circle cx="16" cy="22.8" r="0.7"/><circle cx="12" cy="22.5" r="0.85"/></g></svg></span>'
+      +       '<div class="emblem-text">'
+      +         '<div class="emblem-title"><b>WJP</b><i> Debt Tracking</i></div>'
+      +         '<div class="emblem-sub">Debt Tracker</div>'
+      +       '</div>'
+      +     '</div>'
       +     '<div class="greeting">' + hello + '</div>'
       +     '<div class="title">'
       +       '<span data-wjpdw-name>' + first + '</span>.'
@@ -541,7 +555,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 12,
+    version: 13,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
