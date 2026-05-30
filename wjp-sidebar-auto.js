@@ -198,15 +198,41 @@
   }
 
   // ────────── JS-driven hover (resilient to CSS :hover edge cases) ──────────
+  // v5: cancel any stuck Web-Animations transitions on the sidebar before
+  // toggling the hover class. Some other module (probably the customizer /
+  // motion shim) leaves zero-duration width transitions in 'running' state,
+  // which pins the rendered width at the from-value even though the new CSS
+  // rule has higher specificity. Cancelling lets the new class apply cleanly.
+  function killStuckAnimations(el) {
+    try {
+      if (!el || !el.getAnimations) return;
+      el.getAnimations().forEach(function (a) {
+        try {
+          // Only cancel width/min-width transitions — leave other animations alone
+          var props = (a.effect && a.effect.getKeyframes && a.effect.getKeyframes().map(function (k) {
+            return Object.keys(k).join(',');
+          }).join(',')) || '';
+          if (/(^|,)(width|minWidth|min-width)(,|$)/.test(props) || a.playState === 'running') {
+            a.cancel();
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
   function wireHover(sb) {
     if (!sb || sb.dataset.wjpSbHoverWired === '1') return;
     sb.dataset.wjpSbHoverWired = '1';
     sb.addEventListener('mouseenter', function () {
-      if (document.body.classList.contains('sidebar-auto')) sb.classList.add('wjp-sb-hovered');
+      if (!document.body.classList.contains('sidebar-auto')) return;
+      killStuckAnimations(sb);
+      sb.classList.add('wjp-sb-hovered');
     });
     sb.addEventListener('mouseleave', function () {
+      killStuckAnimations(sb);
       sb.classList.remove('wjp-sb-hovered');
     });
+    // Clear stuck animations once on initial wire so the first hover is clean
+    killStuckAnimations(sb);
   }
   function findSidebarAndWire() {
     var sb = document.querySelector('.sidebar');
@@ -258,7 +284,7 @@
   }
 
   window.WJP_SidebarAuto = {
-    version: 4,
+    version: 5,
     getMode: getMode,
     setMode: setMode,
     applyMode: applyMode
