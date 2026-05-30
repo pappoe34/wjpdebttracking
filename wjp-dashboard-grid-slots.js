@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v4 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v5 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -124,12 +124,20 @@
 
   // ───── slot heuristic ─────
   function inferSlotFromCard(card) {
-    if (!card) return 2;
+    // FIX 84 v5: bias default toward slot 3 (third-width) so grid mode produces
+    // visibly denser, more obviously gridded layouts. Slot 2 (half) used to win
+    // by default which looked identical to the old flex-wrap at 50%.
+    if (!card) return 3;
     var sz = (card.getAttribute('data-size') || '').toLowerCase();
     if (sz === 'full' || sz === 'l' || sz === 'large') return 1;
-    if (sz === 'm' || sz === 'medium' || sz === '') return 2;
+    if (sz === 'm' || sz === 'medium') return 2;
     if (sz === 's' || sz === 'small') return 3;
-    return 2;
+    // Wider hint: heroes/strategy/spending-style ids → slot 1
+    var id = (card.id || '').toLowerCase();
+    if (/hero|strategy|spending|breakdown|exec/.test(id)) return 1;
+    // Compact widgets (credit, scoreboard, ai-bites, debt-fact, last-week)
+    if (/credit|score|fact|bites|widget|tip|streak|last-?week/.test(id)) return 3;
+    return 3;
   }
 
   function computeSlot(card) {
@@ -164,7 +172,7 @@
     st.id = STYLE_ID;
     st.textContent = [
       // Grid container
-      'html body.' + BODY_CLASS + ' #page-dashboard.active { display: grid !important; grid-template-columns: repeat(12, 1fr) !important; grid-auto-flow: dense !important; gap: 12px !important; align-items: start !important; }',
+      'html body.' + BODY_CLASS + ' #page-dashboard.active { display: grid !important; grid-template-columns: repeat(12, 1fr) !important; grid-auto-flow: dense !important; gap: 16px !important; align-items: start !important; }',
       // Non-card direct children (compact header, hidden originals, customize bar) span full row
       'html body.' + BODY_CLASS + ' #page-dashboard.active > #wjp-compact-header { grid-column: 1 / -1 !important; }',
       'html body.' + BODY_CLASS + ' #page-dashboard.active > #dash-customize-bar { grid-column: 1 / -1 !important; }',
@@ -360,7 +368,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 4,
+    version: 5,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
