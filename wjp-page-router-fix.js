@@ -171,11 +171,33 @@
   }
 
   function boot() {
-    // Sync nav highlight with the URL hash on initial load — otherwise the
-    // sidebar default (Dashboard) sticks even when the URL says otherwise.
+    // FIX 73 (Winston 2026-05-29): "what page first opens, should always
+    // start from dashboard". On a fresh navigation (not reload/back/forward),
+    // clear stale hash so the user always lands on the dashboard.
+    var isFreshNavigation = false;
+    try {
+      var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')) || [];
+      if (nav[0]) {
+        // 'navigate' = typed URL / link / bookmark. 'reload' / 'back_forward' should preserve hash.
+        isFreshNavigation = nav[0].type === 'navigate';
+      } else if (performance.navigation && performance.navigation.type === 0) {
+        isFreshNavigation = true;
+      }
+    } catch (_) {}
+    try {
+      if (isFreshNavigation) {
+        var h0 = (location.hash || '').replace(/^#/, '').toLowerCase();
+        if (h0 && h0 !== 'dashboard') {
+          try { history.replaceState(null, '', location.pathname + location.search + '#dashboard'); }
+          catch (_) { location.hash = '#dashboard'; }
+        }
+      }
+    } catch (_) {}
+    // Sync nav highlight with the URL hash on initial load.
     try {
       var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
       if (h && document.getElementById('page-' + h)) syncNavActive(h);
+      else syncNavActive('dashboard');
     } catch (_) {}
     enforce('initial');
     attachStyleObserver();
@@ -190,7 +212,7 @@
   }
 
   window.WJP_PageRouterFix = {
-    version: 4,
+    version: 5,
     enforce: enforce,
     resolveActivePageId: resolveActivePageId
   };
