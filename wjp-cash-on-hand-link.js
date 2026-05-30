@@ -41,22 +41,55 @@
   }
 
   // ────────── data ──────────
-  // What counts as a "liquid" account for Cash on Hand? Checking, savings,
-  // money market, cash management. We intentionally exclude investment,
-  // 401k, IRA, loan, credit card.
+  // What counts as "liquid" — checking, savings, money market, cash management.
+  // Intentionally excludes investment, 401k, IRA, loan, credit card.
   var LIQUID_TYPES = { 'checking': 1, 'savings': 1, 'cash management': 1, 'money market': 1 };
   function isLiquid(a) {
     if (!a) return false;
     var sub = String(a.subtype || a.type || '').toLowerCase();
     if (LIQUID_TYPES[sub]) return true;
-    // some accounts only carry a generic 'depository' type
     if (sub === 'depository' && (Number(a.balance) || 0) >= 0) return true;
     return false;
   }
+  // Normalize an account row to { id, name, mask, subtype, balance } regardless of source
+  function normAcct(a) {
+    if (!a) return null;
+    var id = a.id || a.account_id || a.plaidAccountId || a.plaid_id || '';
+    var balance = a.balance;
+    if (balance == null && a.balances) balance = (a.balances.available != null ? a.balances.available : a.balances.current);
+    return {
+      id: String(id || ''),
+      name: a.name || a.official_name || 'Account',
+      mask: a.mask || '',
+      subtype: a.subtype || a.type || '',
+      balance: Number(balance) || 0
+    };
+  }
+  // Liquid accounts cached for synchronous reads (the source API is async).
+  // We refresh on the standard data-restored / sync-done events.
+  var _liquidCache = [];
+  function refreshLiquid() {
+    try {
+      if (window.WJP_DebtsEnhance && typeof window.WJP_DebtsEnhance.getDebitAccounts === 'function') {
+        Promise.resolve(window.WJP_DebtsEnhance.getDebitAccounts()).then(function (arr) {
+          if (!Array.isArray(arr)) return;
+          var s = getState();
+          var hidden = (s && Array.isArray(s.hiddenPlaidAccounts)) ? s.hiddenPlaidAccounts : [];
+          _liquidCache = arr
+            .map(normAcct)
+            .filter(function (a) { return a && isLiquid(a) && hidden.indexOf(a.id) === -1; });
+          paint();
+        }, function () {});
+      }
+    } catch (_) {}
+  }
   function getLiquidAccounts() {
+    if (_liquidCache.length) return _liquidCache;
+    // Fallback to appState.linkedAssets when DebtsEnhance hasn't populated yet
     var s = getState();
     var arr = (s && Array.isArray(s.linkedAssets)) ? s.linkedAssets : [];
-    return arr.filter(isLiquid);
+    var hidden = (s && Array.isArray(s.hiddenPlaidAccounts)) ? s.hiddenPlaidAccounts : [];
+    return arr.map(normAcct).filter(function (a) { return a && isLiquid(a) && hidden.indexOf(a.id) === -1; });
   }
   function getSelectedAccountId() {
     var s = getState();
@@ -255,17 +288,21 @@
   // ────────── boot ──────────
   function boot() {
     injectStyle();
+    refreshLiquid();
     var attempts = 0;
     var iv = setInterval(function () {
       attempts++;
       if (paint() || attempts > 60) clearInterval(iv);
     }, 600);
-    // Re-paint on relevant data events
-    function repaintSoon() { setTimeout(paint, 300); }
+    function repaintSoon() { refreshLiquid(); setTimeout(paint, 300); }
     window.addEventListener('wjp-data-restored', repaintSoon);
     window.addEventListener('wjp-plaid-sync-done', repaintSoon);
     window.addEventListener('wjp-allocation-changed', repaintSoon);
     window.addEventListener('wjp-balances-changed', repaintSoon);
+    window.addEventListener('wjp-bank-hidden-changed', repaintSoon);
+    // First refresh after DebtsEnhance has likely populated
+    setTimeout(refreshLiquid, 2000);
+    setTimeout(refreshLiquid, 6000);
     // Safety re-paint every 30s in case other modules clobber the tile
     setInterval(paint, 30000);
     // Also watch the hero for re-mounts
@@ -285,7 +322,7 @@
   }
 
   window.WJP_CashOnHandLink = {
-    version: 1,
+    version: 2,
     paint: paint,
     computeCash: computeCash,
     getSelectedAccountId: getSelectedAccountId,
