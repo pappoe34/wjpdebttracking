@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v3 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v4 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -52,6 +52,19 @@
   var MENU_ID = 'wjp-compact-header-menu';
   var TOOLBAR_CLASS = 'wjp-card-slot-toolbar';
 
+
+  // FIX 84 v4: URL flags ?grid=1/?grid=0 override the saved pref, which breaks
+  // the menu toggle once a URL flag has been used. After an explicit user
+  // action, strip the flag so the saved pref drives behavior.
+  function stripUrlFlag(name) {
+    try {
+      var q = location.search || '';
+      var re = new RegExp('([?&])' + name + '=[01]&?', 'i');
+      var clean = q.replace(re, function (m, p) { return p === '?' ? '?' : ''; }).replace(/[?&]$/, '');
+      if (clean !== q) history.replaceState(null, '', location.pathname + clean + location.hash);
+    } catch (_) {}
+  }
+
   function getState() { try { return appState; } catch (_) { return window.appState || null; } }
   function saveState() { try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {} }
 
@@ -66,6 +79,7 @@
     return !!(s && s.prefs && s.prefs.gridSlots);
   }
   function setGridEnabled(v) {
+    stripUrlFlag('grid');
     var s = getState();
     if (s) {
       if (!s.prefs) s.prefs = {};
@@ -249,12 +263,19 @@
   }
 
   // ───── menu patcher ─────
+
+  function closeCompactMenu() {
+    var m = document.getElementById(MENU_ID);
+    if (m) try { m.remove(); } catch (_) {}
+  }
+
   function patchMenu(menu) {
     if (!menu || menu.dataset.wjpGridPatched === '1') return;
     menu.dataset.wjpGridPatched = '1';
     var rowGrid = document.createElement('div');
     rowGrid.className = 'wjp-ch-item';
     rowGrid.setAttribute('role', 'menuitem');
+    rowGrid.setAttribute('data-action', 'grid-toggle');
     rowGrid.innerHTML =
       '<i class="ph ph-grid-four"></i>' +
       '<span class="wjp-ch-label">Layout grid</span>' +
@@ -262,11 +283,14 @@
     rowGrid.addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation();
       setGridEnabled(!isGridEnabled());
+      // Close menu so the dashboard relayout is unambiguous to the user
+      setTimeout(closeCompactMenu, 60);
     });
 
     var rowAuto = document.createElement('div');
     rowAuto.className = 'wjp-ch-item';
     rowAuto.setAttribute('role', 'menuitem');
+    rowAuto.setAttribute('data-action', 'grid-autofit');
     rowAuto.innerHTML =
       '<i class="ph ph-magic-wand"></i>' +
       '<span class="wjp-ch-label">Auto-fit slots</span>' +
@@ -336,7 +360,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 3,
+    version: 4,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
