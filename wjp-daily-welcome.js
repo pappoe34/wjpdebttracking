@@ -179,7 +179,7 @@
       'body.dark #' + OVERLAY_ID + ' .sub{color:rgba(255,255,255,0.62);}',
 
       // Hero line — debt-free trajectory
-      '#' + OVERLAY_ID + ' .hero-line{padding:14px 16px;border-radius:12px;background:linear-gradient(135deg,rgba(31,122,74,0.10),rgba(31,122,74,0.03));border:1px solid rgba(31,122,74,0.20);font-size:13px;font-weight:600;color:#0e3a25;margin-bottom:22px;display:flex;align-items:center;gap:11px;}',
+      '#' + OVERLAY_ID + ' .hero-line{padding:14px 16px;border-radius:12px;background:linear-gradient(135deg,rgba(31,122,74,0.10),rgba(31,122,74,0.03));border:1px solid rgba(31,122,74,0.20);font-size:13px;font-weight:600;color:#0e3a25;margin-bottom:22px;display:flex;justify-content:center;align-items:center;gap:11px;text-align:center;}',
       'body.dark #' + OVERLAY_ID + ' .hero-line{background:linear-gradient(135deg,rgba(31,122,74,0.20),rgba(31,122,74,0.06));border-color:rgba(31,122,74,0.32);color:#e7f5ed;}',
       '#' + OVERLAY_ID + ' .hero-line .ic{font-size:18px;color:#1f7a4a;flex-shrink:0;}',
       'body.dark #' + OVERLAY_ID + ' .hero-line .ic{color:#7fd1a4;}',
@@ -187,10 +187,10 @@
       // Focus section — coral accent
       '#' + OVERLAY_ID + ' .focus-section{padding:16px 18px;background:linear-gradient(135deg,rgba(192,89,74,0.09),rgba(192,89,74,0.02));border:1px solid rgba(192,89,74,0.22);border-radius:12px;margin-bottom:24px;}',
       'body.dark #' + OVERLAY_ID + ' .focus-section{background:linear-gradient(135deg,rgba(192,89,74,0.18),rgba(192,89,74,0.05));border-color:rgba(192,89,74,0.32);}',
-      '#' + OVERLAY_ID + ' .focus-title{font-size:10.5px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:#a8472f;margin-bottom:10px;display:flex;align-items:center;gap:6px;}',
+      '#' + OVERLAY_ID + ' .focus-title{font-size:10.5px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:#a8472f;margin-bottom:10px;display:flex;justify-content:center;align-items:center;gap:6px;}',
       'body.dark #' + OVERLAY_ID + ' .focus-title{color:#e3a097;}',
       '#' + OVERLAY_ID + ' .focus-list{display:flex;flex-direction:column;gap:8px;}',
-      '#' + OVERLAY_ID + ' .focus-item{font-size:12.5px;color:#2a1f1a;display:flex;align-items:flex-start;gap:9px;line-height:1.5;}',
+      '#' + OVERLAY_ID + ' .focus-item{font-size:12.5px;color:#2a1f1a;display:flex;justify-content:center;align-items:flex-start;gap:9px;line-height:1.5;text-align:center;}',
       'body.dark #' + OVERLAY_ID + ' .focus-item{color:#f4ecea;}',
       '#' + OVERLAY_ID + ' .focus-item::before{content:"";flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#c0594a;margin-top:6px;box-shadow:0 0 0 3px rgba(192,89,74,0.18);}',
 
@@ -228,7 +228,7 @@
       'body.dark #' + OVERLAY_ID + ' .name-input{color:#f4f4f6;-webkit-text-fill-color:#f4f4f6;border-color:#7fd1a4;}',
 
       // Footer + CTA
-      '#' + OVERLAY_ID + ' .footer{display:flex;justify-content:space-between;align-items:center;gap:12px;position:relative;}',
+      '#' + OVERLAY_ID + ' .footer{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;position:relative;}',
       '#' + OVERLAY_ID + ' .loading{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#6b7280;}',
       'body.dark #' + OVERLAY_ID + ' .loading{color:rgba(255,255,255,0.55);}',
       '#' + OVERLAY_ID + ' .spinner{width:14px;height:14px;border:2px solid rgba(31,122,74,0.20);border-top-color:#1f7a4a;border-radius:50%;animation:wjpdwspin .9s linear infinite;}',
@@ -555,7 +555,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 14,
+    version: 15,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
