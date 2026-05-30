@@ -145,4 +145,19 @@
     function tryWire() {
       attempts++;
       if (wireBoostObserver()) return;
-     
+      if (attempts < 40) setTimeout(tryWire, 250);
+    }
+    tryWire();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  window.WJP_ExecSummaryPolish = {
+    version: 2,
+    boostFill: boostFill
+  };
+})();
