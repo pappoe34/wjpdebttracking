@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v8 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v9 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -123,18 +123,19 @@
 
   // ───── slot heuristic ─────
   function inferSlotFromCard(card) {
-    // FIX 84 v5: bias default toward slot 3 (third-width) so grid mode produces
-    // visibly denser, more obviously gridded layouts. Slot 2 (half) used to win
-    // by default which looked identical to the old flex-wrap at 50%.
     if (!card) return 3;
     var sz = (card.getAttribute('data-size') || '').toLowerCase();
     if (sz === 'full' || sz === 'l' || sz === 'large') return 1;
     if (sz === 'm' || sz === 'medium') return 2;
     if (sz === 's' || sz === 'small') return 3;
-    // Wider hint: heroes/strategy/spending-style ids → slot 1
+    // FIX 84 v9: pre-existing card-id overrides for cards that have natural
+    // content sizes. Resilience renders as a stat panel — slot 2 (half) gives
+    // it room for runway / DTI / liquid / monthly income side-by-side.
+    var dataId = (card.getAttribute('data-card-id') || '').toLowerCase();
+    if (dataId === 'resilience') return 2;
+    if (dataId === 'wjp-edu-tip') return 3;
     var id = (card.id || '').toLowerCase();
     if (/hero|strategy|spending|breakdown|exec/.test(id)) return 1;
-    // Compact widgets (credit, scoreboard, ai-bites, debt-fact, last-week)
     if (/credit|score|fact|bites|widget|tip|streak|last-?week/.test(id)) return 3;
     return 3;
   }
@@ -339,7 +340,6 @@
 
   function boot() {
     injectStyle();
-    // Apply when appState lands
     apply();
     var attempts = 0;
     var iv = setInterval(function () {
@@ -351,6 +351,54 @@
     attachMenuObserver();
     watchCustomizeMode();
     attachReapplyHooks();
+    attachControlsHealer();
+  }
+
+  // FIX 84 v9: certain cards (Bank Balances, Active Target, Last 7 Days, AI
+  // Insight, Resilience) re-render their innerHTML during customize mode,
+  // wiping the .card-reorder-controls strip app.js appends. Watch for that
+  // and re-inject controls + chips. Debounced so render loops don't thrash.
+  var _healTimer = 0;
+  function scheduleHeal() {
+    if (_healTimer) return;
+    _healTimer = setTimeout(function () {
+      _healTimer = 0;
+      if (!document.body.classList.contains('dash-customizing')) return;
+      try { if (typeof window.injectCardControls === 'function') window.injectCardControls(); } catch (_) {}
+      try { injectToolbars(); } catch (_) {}
+    }, 250);
+  }
+  function attachControlsHealer() {
+    try {
+      var page = document.getElementById('page-dashboard');
+      if (!page) return;
+      var mo = new MutationObserver(function (mutations) {
+        if (!document.body.classList.contains('dash-customizing')) return;
+        var needsHeal = false;
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          if (m.type !== 'childList') continue;
+          // Check direct cards: did any of them lose their controls strip?
+          var card = m.target && m.target.classList && m.target.classList.contains('reorderable')
+            ? m.target
+            : (m.target && m.target.closest ? m.target.closest('#page-dashboard > .reorderable') : null);
+          if (card && card.parentElement === page) {
+            if (!card.querySelector(':scope > .card-reorder-controls')) {
+              needsHeal = true;
+              break;
+            }
+          }
+        }
+        if (needsHeal) scheduleHeal();
+      });
+      mo.observe(page, { childList: true, subtree: true });
+      // Also re-heal whenever the user enters customize mode (catches the
+      // initial paint race where some cards render after our first inject).
+      var bodyMo = new MutationObserver(function () {
+        if (document.body.classList.contains('dash-customizing')) scheduleHeal();
+      });
+      bodyMo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    } catch (_) {}
   }
 
   if (document.readyState === 'loading') {
@@ -360,7 +408,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 8,
+    version: 9,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
