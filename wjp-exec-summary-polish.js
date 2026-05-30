@@ -39,7 +39,8 @@
       /* Center exec summary card content */
       '.dfd-hero { text-align: center !important; }',
       '.dfd-hero .section-label, .dfd-hero .dfd-eyebrow, .dfd-hero .dfd-date, .dfd-hero .dfd-meta { text-align: center; }',
-      '.dfd-hero .dfd-meta { justify-content: center; }',
+      '.dfd-hero .dfd-meta { justify-content: center; margin-left: auto !important; margin-right: auto !important; }',
+      '.dfd-hero .section-label, .dfd-hero .dfd-eyebrow, .dfd-hero .dfd-date { margin-left: auto !important; margin-right: auto !important; }',
       '.dfd-hero .dfd-meta span, .dfd-hero .dfd-meta b, .dfd-hero .dfd-meta strong { display: inline; }',
 
       /* Progress labels — keep paid on left, strategy in middle, target on right */
@@ -157,7 +158,7 @@
   }
 
   window.WJP_ExecSummaryPolish = {
-    version: 2,
+    version: 3,
     boostFill: boostFill
   };
 })();
