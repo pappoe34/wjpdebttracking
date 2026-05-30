@@ -225,10 +225,14 @@
 
       // Footer + CTA
       '#' + OVERLAY_ID + ' .footer{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;position:relative;}',
-      '#' + OVERLAY_ID + ' .loading{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#6b7280;}',
-      'body.dark #' + OVERLAY_ID + ' .loading{color:rgba(255,255,255,0.55);}',
-      '#' + OVERLAY_ID + ' .spinner{width:14px;height:14px;border:2px solid rgba(31,122,74,0.20);border-top-color:#1f7a4a;border-radius:50%;animation:wjpdwspin .9s linear infinite;}',
-      '@keyframes wjpdwspin{to{transform:rotate(360deg);}}',
+      // FIX 63 v17: 8s determinate progress bar replaces spinner+text
+      '#' + OVERLAY_ID + ' .wjpdw-loadwrap{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:240px;}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadlbl{font-size:11px;font-weight:600;letter-spacing:0.02em;color:#6b7280;}',
+      'body.dark #' + OVERLAY_ID + ' .wjpdw-loadlbl{color:rgba(255,255,255,0.55);}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadbar{width:100%;height:6px;border-radius:999px;background:rgba(31,122,74,0.10);overflow:hidden;position:relative;}',
+      'body.dark #' + OVERLAY_ID + ' .wjpdw-loadbar{background:rgba(255,255,255,0.08);}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadbar-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#1f7a4a 0%,#2b9b72 100%);box-shadow:0 0 8px rgba(43,155,114,0.45);animation:wjpdwloadfill 8s linear forwards;}',
+      '@keyframes wjpdwloadfill{from{width:0%;}to{width:100%;}}',
       '#' + OVERLAY_ID + ' .skip-btn{font-size:14px;font-weight:800;padding:13px 26px;color:#fff;border:0;border-radius:999px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1f7a4a 0%,#2b9b72 100%);box-shadow:0 10px 28px rgba(31,122,74,0.40), inset 0 1px 0 rgba(255,255,255,0.20);transition:transform .15s, box-shadow .15s, filter .15s;letter-spacing:0.01em;}',
       '#' + OVERLAY_ID + ' .skip-btn:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(31,122,74,0.50), inset 0 1px 0 rgba(255,255,255,0.25);filter:brightness(1.05);}',
       '#' + OVERLAY_ID + ' .skip-btn:active{transform:translateY(0);}',
@@ -280,7 +284,7 @@
       +       '<div class="stat skeleton" data-wjpdw-stat="debtFree"><div class="top"><div><div class="lbl">Debt-free target <span class="help" data-tip="Estimated payoff date assuming your current strategy (Avalanche / Snowball) + minimums + extras.">?</span></div><div class="val">—</div><div class="sub2" data-wjpdw-sub2>—</div></div><div class="ic">🎯</div></div></div>'
       +     '</div>'
       +     '<div class="footer">'
-      +       '<span class="loading"><span class="spinner"></span><span>Loading your data…</span></span>'
+      +       '<div class="wjpdw-loadwrap"><div class="wjpdw-loadlbl">Loading your data…</div><div class="wjpdw-loadbar"><div class="wjpdw-loadbar-fill"></div></div></div>'
       +       '<button type="button" class="skip-btn">Enter dashboard</button>'
       +     '</div>'
       +   '</div>'
@@ -511,7 +515,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 16,
+    version: 17,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
