@@ -152,5 +152,5 @@
     boot();
   }
 
-  window.WJP_PagePrewarm = { version: 2, prewarm: prewarm };
+  window.WJP_PagePrewarm = { version: 3, prewarm: prewarm };
 })();
