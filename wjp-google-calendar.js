@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v2 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v3 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -270,7 +270,7 @@
     var st = document.createElement('style');
     st.id = STYLE_ID;
     st.textContent = [
-      '#' + CARD_ID + ' { background: linear-gradient(135deg, rgba(66,133,244,0.06), rgba(52,168,83,0.06)); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; }',
+      '#page-recurring #' + CARD_ID + ', #' + CARD_ID + ' { display: block !important; background: linear-gradient(135deg, rgba(66,133,244,0.06), rgba(52,168,83,0.06)); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; }',
       'body.dark #' + CARD_ID + ' { background: linear-gradient(135deg, rgba(66,133,244,0.12), rgba(52,168,83,0.10)); }',
       '#' + CARD_ID + ' .wjp-gcal-head { display:flex; align-items:center; gap:12px; margin-bottom: 14px; }',
       '#' + CARD_ID + ' .wjp-gcal-logo { width:36px; height:36px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }',
@@ -379,20 +379,25 @@
   function inject() {
     var page = document.getElementById('page-recurring');
     if (!page) return false;
+    // FIX 87 v3: index.html has a flicker-guard rule
+    //   #page-recurring > *:not(#wjp-cal-root) { display:none !important; }
+    // so we MUST inject inside #wjp-cal-root, not as a direct child of
+    // #page-recurring. wjp-cal-root is the visible container that owns the
+    // calendar grid; placing our card as its first child puts it at the top
+    // of the visible Calendar page.
+    var calRoot = document.getElementById('wjp-cal-root');
+    var host = calRoot || page; // fall back to page if calRoot not built yet
     if (document.getElementById(CARD_ID)) {
-      // Card already exists — update its row contents in case data changed
       try {
         var fresh = buildCard();
-        page.replaceChild(fresh, document.getElementById(CARD_ID));
+        var existing = document.getElementById(CARD_ID);
+        existing.parentNode.replaceChild(fresh, existing);
       } catch (_) {}
       return true;
     }
     var card = buildCard();
-    // Insert after the page header (.section-label container) but before the
-    // main calendar grid. The header div is page.children[0]; insert at index 1.
-    var anchor = page.children[1] || null;
-    if (anchor) page.insertBefore(card, anchor);
-    else page.appendChild(card);
+    if (host.firstChild) host.insertBefore(card, host.firstChild);
+    else host.appendChild(card);
     return true;
   }
 
@@ -411,11 +416,16 @@
     // Watch for the page-recurring element appearing late (pre-warm or SPA delay)
     try {
       var mo = new MutationObserver(function () {
-        if (!document.getElementById(CARD_ID) && document.getElementById('page-recurring')) {
+        var have = document.getElementById(CARD_ID);
+        var calRoot = document.getElementById('wjp-cal-root');
+        // Re-inject if missing OR if it's outside #wjp-cal-root (lazy-built
+        // calRoot may have appeared after our first inject placed us on
+        // #page-recurring, which the flicker guard hides).
+        if (!have || (calRoot && have.parentNode !== calRoot)) {
           inject();
         }
       });
-      mo.observe(document.body, { childList: true, subtree: false });
+      mo.observe(document.body, { childList: true, subtree: true });
     } catch (_) {}
   }
 
@@ -426,7 +436,7 @@
   }
 
   window.WJP_GoogleCalendar = {
-    version: 1,
+    version: 3,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
