@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v7 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v8 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -70,13 +70,9 @@
 
   // ───── prefs ─────
   function isGridEnabled() {
-    try {
-      var q = (location.search || '').toLowerCase();
-      if (q.indexOf('grid=1') !== -1) return true;
-      if (q.indexOf('grid=0') !== -1) return false;
-    } catch (_) {}
-    var s = getState();
-    return !!(s && s.prefs && s.prefs.gridSlots);
+    // FIX 84 v8: Winston wants grid mode always on, no toggle. The function is
+    // kept (other modules may call it) but it now unconditionally returns true.
+    return true;
   }
   function setGridEnabled(v) {
     stripUrlFlag('grid');
@@ -102,6 +98,9 @@
       saveState();
     }
     applyAllSlots();
+    // Refresh menu pill so user sees the state change immediately.
+    var af = document.querySelector('#' + MENU_ID + ' [data-grid-autofit-state]');
+    if (af) af.textContent = isAutoFit() ? 'On' : 'Off';
   }
   function getSavedSlot(cardId) {
     if (!cardId) return null;
@@ -286,21 +285,10 @@
   function patchMenu(menu) {
     if (!menu || menu.dataset.wjpGridPatched === '1') return;
     menu.dataset.wjpGridPatched = '1';
-    var rowGrid = document.createElement('div');
-    rowGrid.className = 'wjp-ch-item';
-    rowGrid.setAttribute('role', 'menuitem');
-    rowGrid.setAttribute('data-action', 'grid-toggle');
-    rowGrid.innerHTML =
-      '<i class="ph ph-grid-four"></i>' +
-      '<span class="wjp-ch-label">Layout grid</span>' +
-      '<span class="wjp-ch-state" data-grid-state>' + (isGridEnabled() ? 'On' : 'Off') + '</span>';
-    rowGrid.addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      setGridEnabled(!isGridEnabled());
-      // Close menu so the dashboard relayout is unambiguous to the user
-      setTimeout(closeCompactMenu, 60);
-    });
 
+    // FIX 84 v8: Layout grid is now always on — no menu toggle. Only Auto-fit
+    // slots remains, so the user can flip between heuristic auto-assignment
+    // and the manual chip overrides they set in customize mode.
     var rowAuto = document.createElement('div');
     rowAuto.className = 'wjp-ch-item';
     rowAuto.setAttribute('role', 'menuitem');
@@ -314,9 +302,7 @@
       setAutoFit(!isAutoFit());
     });
 
-    // Insert at the top of the menu
     menu.insertBefore(rowAuto, menu.firstChild);
-    menu.insertBefore(rowGrid, menu.firstChild);
   }
 
   function attachMenuObserver() {
@@ -374,7 +360,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 7,
+    version: 8,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
