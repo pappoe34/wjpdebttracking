@@ -1,4 +1,4 @@
-/* wjp-sidebar-auto.js v2 — Sidebar Auto mode (hover-to-expand) + cleaner
+/* wjp-sidebar-auto.js v3 — Sidebar Auto mode (hover-to-expand) + cleaner
  * collapsed appearance.
  *
  * Winston 2026-05-29: "this feature on setting for the side bar is useful.
@@ -96,6 +96,8 @@
       /* ===== Auto mode: collapsed at rest, expand on hover ===== */
       'body.sidebar-auto { --sidebar-width: 64px; }',
       'body.sidebar-auto .sidebar { width:64px; min-width:64px; transition: width .32s cubic-bezier(.22,.61,.36,1), min-width .32s cubic-bezier(.22,.61,.36,1), box-shadow .32s ease; overflow:hidden; position:relative; z-index:50; }',
+      // FIX 85 v3: style.css has `@media (prefers-reduced-motion: reduce) { *, ::before, ::after { transition-duration: 0.01ms !important; } }` which clobbers the sidebar transition when the user\'s OS has reduced motion on. We respect the user pref globally but make the sidebar an exception — it\'s a UX-critical hover interaction that feels broken without easing. Higher specificity (body.sidebar-auto .sidebar = 0,0,2,1) plus !important wins over the * selector.
+      '@media (prefers-reduced-motion: reduce) { body.sidebar-auto .sidebar { transition-duration: .32s !important; } body.sidebar-auto .sidebar .logo-text, body.sidebar-auto .sidebar .nav-item span, body.sidebar-auto .sidebar .user-info, body.sidebar-auto .sidebar .nav-badge { transition-duration: .18s !important; } }',
       'body.sidebar-auto .sidebar.wjp-sb-hovered { width:240px; min-width:240px; box-shadow: 10px 0 30px rgba(20,30,25,0.12); }',
       'body.dark.sidebar-auto .sidebar.wjp-sb-hovered { box-shadow: 10px 0 30px rgba(0,0,0,0.45); }',
       /* At-rest auto = same as collapsed visually */
