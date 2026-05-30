@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v6 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v7 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -158,7 +158,7 @@
   function applyAllSlots() {
     var page = document.getElementById('page-dashboard');
     if (!page) return;
-    Array.from(page.querySelectorAll('.reorderable')).forEach(applyCardSlot);
+    Array.from(page.querySelectorAll(':scope > .reorderable')).forEach(applyCardSlot);
     // For customize-mode toolbars
     if (document.body.classList.contains('dash-customizing')) {
       injectToolbars();
@@ -204,9 +204,10 @@
     if (!isGridEnabled()) return;
     var page = document.getElementById('page-dashboard');
     if (!page) return;
-    Array.from(page.querySelectorAll('.reorderable')).forEach(function (card) {
+    Array.from(page.querySelectorAll(':scope > .reorderable')).forEach(function (card) {
       if (card.querySelector(':scope > .card-reorder-controls .' + TOOLBAR_CLASS)) return;
       var host = card.querySelector(':scope > .card-reorder-controls');
+      if (!host) return; // no controls strip on this card — skip rather than pollute body
       var cur = parseInt(card.getAttribute('data-card-slot'), 10) || 3;
       var bar = document.createElement('div');
       bar.className = TOOLBAR_CLASS + ' card-rc-group';
@@ -228,8 +229,7 @@
           else x.removeAttribute('aria-pressed');
         });
       });
-      if (host) host.appendChild(bar);
-      else card.appendChild(bar); // fallback for cards without the controls strip
+      host.appendChild(bar);
     });
   }
   function stripToolbars() {
@@ -342,7 +342,7 @@
         if (!isGridEnabled()) return;
         var any = mutations.some(function (m) {
           return m.type === 'childList' && Array.from(m.addedNodes).some(function (n) {
-            return n && n.nodeType === 1 && n.classList && n.classList.contains('reorderable');
+            return n && n.nodeType === 1 && n.classList && n.classList.contains('reorderable') && n.parentElement === page;
           });
         });
         if (any) applyAllSlots();
@@ -374,7 +374,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 6,
+    version: 7,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
