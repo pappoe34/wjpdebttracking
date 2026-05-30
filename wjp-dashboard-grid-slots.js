@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v10 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v11 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -66,7 +66,14 @@
   }
 
   function getState() { try { return appState; } catch (_) { return window.appState || null; } }
-  function saveState() { try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {} }
+  // FIX 84 v11: saveState() persists to localStorage, AND its cloud-sync hook
+  // pushes to Firestore via cloudPushDebounced (400ms). We also call
+  // cloudPushNow when available so customizations sync to the user's other
+  // devices without waiting for the debounce window.
+  function saveState() {
+    try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+    try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
+  }
 
   // ───── prefs ─────
   function isGridEnabled() {
@@ -320,7 +327,11 @@
 
   // ───── re-apply on relevant events ─────
   function attachReapplyHooks() {
+    // After local restore OR a cloud pull lands, re-apply so slot assignments
+    // from other devices show without a refresh.
     window.addEventListener('wjp-data-restored', function () { setTimeout(apply, 300); });
+    window.addEventListener('wjp-state-pulled', function () { setTimeout(apply, 200); });
+    window.addEventListener('wjp-cloud-pulled', function () { setTimeout(apply, 200); });
     // When new cards are added to the dashboard (audit-fix etc), tag them
     var page = document.getElementById('page-dashboard');
     if (!page) return;
@@ -430,7 +441,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 10,
+    version: 11,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
