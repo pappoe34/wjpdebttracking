@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v9 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v10 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -368,6 +368,28 @@
       try { injectToolbars(); } catch (_) {}
     }, 250);
   }
+  // FIX 84 v10: belt-and-suspenders polling. Some cards (AI Insight paycheck)
+  // render *after* our MO callbacks fire, so we miss them. Poll every 1.5s
+  // while customize mode is active to catch late renders.
+  var _healPoll = 0;
+  function startHealPoll() {
+    if (_healPoll) return;
+    _healPoll = setInterval(function () {
+      if (!document.body.classList.contains('dash-customizing')) {
+        clearInterval(_healPoll); _healPoll = 0; return;
+      }
+      var page = document.getElementById('page-dashboard');
+      if (!page) return;
+      var anyMissing = Array.from(page.querySelectorAll(':scope > .reorderable')).some(function (c) {
+        return !c.querySelector(':scope > .card-reorder-controls');
+      });
+      if (anyMissing) {
+        try { if (typeof window.injectCardControls === 'function') window.injectCardControls(); } catch (_) {}
+      }
+      try { injectToolbars(); } catch (_) {}
+    }, 1500);
+  }
+
   function attachControlsHealer() {
     try {
       var page = document.getElementById('page-dashboard');
@@ -395,7 +417,7 @@
       // Also re-heal whenever the user enters customize mode (catches the
       // initial paint race where some cards render after our first inject).
       var bodyMo = new MutationObserver(function () {
-        if (document.body.classList.contains('dash-customizing')) scheduleHeal();
+        if (document.body.classList.contains('dash-customizing')) { scheduleHeal(); startHealPoll(); }
       });
       bodyMo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     } catch (_) {}
@@ -408,7 +430,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 9,
+    version: 10,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
