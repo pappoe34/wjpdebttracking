@@ -270,7 +270,7 @@
       if (hero) paintAll();
       // Sustain forever (cheap) — every 1.5s — so if the hero re-mounts we
       // re-paint. The paint functions are idempotent and cheap.
-      setTimeout(tick, 1500);
+      setTimeout(tick, 5000);
     }
     setTimeout(tick, 400);
     function repaintSoon() { setTimeout(paintAll, 200); setTimeout(paintAll, 800); setTimeout(paintAll, 2000); }

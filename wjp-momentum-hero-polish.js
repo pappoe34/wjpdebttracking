@@ -110,7 +110,7 @@
     function tick() {
       attempts++;
       tagTiles();
-      setTimeout(tick, 1500);
+      setTimeout(tick, 5000);
     }
     setTimeout(tick, 400);
     window.addEventListener('wjp-data-restored', function () { setTimeout(tagTiles, 500); });

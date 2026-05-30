@@ -310,7 +310,7 @@
     function tick() {
       paint();
       refreshLiquid();
-      setTimeout(tick, 1500);
+      setTimeout(tick, 5000);
     }
     setTimeout(tick, 400);
     function repaintSoon() { refreshLiquid(); setTimeout(paint, 200); setTimeout(paint, 800); setTimeout(paint, 2000); }

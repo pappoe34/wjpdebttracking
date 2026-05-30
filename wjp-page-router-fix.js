@@ -98,11 +98,13 @@
       try {
         var mo = new MutationObserver(function (mutations) {
           if (_enforcing) return;
-          // If a script just set inline display, re-enforce
-          var inlineChanged = mutations.some(function (m) {
-            return m.attributeName === 'style';
+          // FIX 72: only react when display actually changed — other style
+          // tweaks (height, opacity, transforms from animations) don't need
+          // to trigger a full page-visibility re-enforcement.
+          var displayChanged = mutations.some(function (m) {
+            return m.attributeName === 'style' && pg.style && pg.style.display;
           });
-          if (inlineChanged) enforce('inline-style-mutation:' + pg.id);
+          if (displayChanged) enforce('display-set:' + pg.id);
         });
         mo.observe(pg, { attributes: true, attributeFilter: ['style'] });
       } catch (_) {}
@@ -188,7 +190,7 @@
   }
 
   window.WJP_PageRouterFix = {
-    version: 3,
+    version: 4,
     enforce: enforce,
     resolveActivePageId: resolveActivePageId
   };
