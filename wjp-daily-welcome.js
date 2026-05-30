@@ -231,8 +231,7 @@
       'body.dark #' + OVERLAY_ID + ' .wjpdw-loadlbl{color:rgba(255,255,255,0.55);}',
       '#' + OVERLAY_ID + ' .wjpdw-loadbar{width:100%;height:6px;border-radius:999px;background:rgba(31,122,74,0.10);overflow:hidden;position:relative;}',
       'body.dark #' + OVERLAY_ID + ' .wjpdw-loadbar{background:rgba(255,255,255,0.08);}',
-      '#' + OVERLAY_ID + ' .wjpdw-loadbar-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#1f7a4a 0%,#2b9b72 100%);box-shadow:0 0 8px rgba(43,155,114,0.45);animation:wjpdwloadfill 8s linear forwards;}',
-      '@keyframes wjpdwloadfill{from{width:0%;}to{width:100%;}}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadbar-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#1f7a4a 0%,#2b9b72 100%);box-shadow:0 0 8px rgba(43,155,114,0.45);}',
       '#' + OVERLAY_ID + ' .skip-btn{font-size:14px;font-weight:800;padding:13px 26px;color:#fff;border:0;border-radius:999px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1f7a4a 0%,#2b9b72 100%);box-shadow:0 10px 28px rgba(31,122,74,0.40), inset 0 1px 0 rgba(255,255,255,0.20);transition:transform .15s, box-shadow .15s, filter .15s;letter-spacing:0.01em;}',
       '#' + OVERLAY_ID + ' .skip-btn:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(31,122,74,0.50), inset 0 1px 0 rgba(255,255,255,0.25);filter:brightness(1.05);}',
       '#' + OVERLAY_ID + ' .skip-btn:active{transform:translateY(0);}',
@@ -455,6 +454,22 @@
     try { console.log('[wjp-daily-welcome] mounted, overlay in DOM:', !!document.getElementById(OVERLAY_ID)); } catch (_) {}
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
+
+    // FIX 63 v17: drive 8s progress bar via JS so prefers-reduced-motion doesn't kill it
+    try {
+      var fillEl = document.querySelector('#' + OVERLAY_ID + ' .wjpdw-loadbar-fill');
+      if (fillEl) {
+        fillEl.style.width = '0%';
+        var startTs = Date.now();
+        var DUR_MS = 8000;
+        var step = function () {
+          var p = Math.min(1, (Date.now() - startTs) / DUR_MS);
+          fillEl.style.width = (p * 100).toFixed(1) + '%';
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+    } catch (_) {}
 
     // FIX 63 v16: inline rename removed — name comes from Settings > Profile > Display name
 
