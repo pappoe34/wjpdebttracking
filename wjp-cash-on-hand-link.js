@@ -183,31 +183,49 @@
   }
 
   // ────────── render ──────────
+  // Track whether we've ever successfully painted real (non-zero) data.
+  // Once we have, we never revert to "$0 no accounts" — we wait for real data
+  // (no flashing).
+  var _haveRealData = false;
   function paint() {
     var found = findTile();
     if (!found) return false;
     var tile = found.tile;
-    var labelEl = found.labelEl;
     var info = computeCash();
+
+    // Stability rule: if we've never shown real data yet AND there are no
+    // accounts to show, DON'T paint — leave the existing tile content alone
+    // (the original "$0 · tap to set" or "—") until real data arrives.
+    if (!_haveRealData && info.count === 0) {
+      // Still wire the click handler so the user can open the picker
+      if (!tile.dataset.wjpCohWired) {
+        tile.dataset.wjpCohWired = '1';
+        tile.style.cursor = 'pointer';
+        tile.title = 'Cash on Hand source — click to pick an account';
+        tile.addEventListener('click', function (e) {
+          if (e.target.closest('button, input, select, a')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          openPicker(tile);
+        });
+      }
+      return false;
+    }
     var refs = findValueSubElements(tile);
     var valEl = refs.valEl;
     var subEl = refs.subEl;
     if (valEl) {
-      // Don't refight a non-zero value the user manually set elsewhere if no accounts found.
-      if (info.count > 0 || valEl.dataset.wjpCohOwned === '1') {
-        valEl.textContent = '$' + Math.round(info.amount).toLocaleString();
-        valEl.dataset.wjpCohOwned = '1';
-      }
+      valEl.textContent = '$' + Math.round(info.amount).toLocaleString();
+      valEl.dataset.wjpCohOwned = '1';
     }
     if (subEl) {
-      // Replace "$0 · tap to set" with a meaningful sub
       var labelTxt = info.mode === 'one'
         ? info.label + ' · click to change'
         : info.label + ' · click to focus one';
       subEl.textContent = labelTxt;
       subEl.dataset.wjpCohOwned = '1';
     }
-    // Make tile clickable
+    if (info.count > 0) _haveRealData = true;
     if (!tile.dataset.wjpCohWired) {
       tile.dataset.wjpCohWired = '1';
       tile.style.cursor = 'pointer';
@@ -322,7 +340,7 @@
   }
 
   window.WJP_CashOnHandLink = {
-    version: 2,
+    version: 3,
     paint: paint,
     computeCash: computeCash,
     getSelectedAccountId: getSelectedAccountId,

@@ -159,29 +159,42 @@
   }
 
   // ────────── paint Debt this week ──────────
+  var _haveRealDebt = false;
   function paintDebt() {
     var found = findTileByLabel('debt this week');
     if (!found) return false;
+    var info = debtPaidLast7d();
+    var est = (info.amount === 0) ? debtEstFromRecurring() : 0;
+    // Stability: don't paint $0 / No payments when we have neither actuals
+    // nor a meaningful estimate yet and we've never shown real data.
+    if (!_haveRealDebt && info.amount === 0 && est === 0) {
+      if (!found.tile.dataset.wjpDebtWired) {
+        found.tile.dataset.wjpDebtWired = '1';
+        found.tile.style.cursor = 'pointer';
+        found.tile.title = 'Open Debts';
+        found.tile.addEventListener('click', function (e) {
+          if (e.target.closest('button, input, select, a')) return;
+          try { location.hash = '#debts'; } catch (_) {}
+        });
+      }
+      return false;
+    }
     var refs = findValueSubElements(found.tile);
     var valEl = refs.valEl, subEl = refs.subEl;
-    var info = debtPaidLast7d();
     var valTxt, subTxt;
     if (info.mode === 'actual' && info.amount > 0) {
       valTxt = '-$' + Math.round(info.amount).toLocaleString();
       subTxt = info.count + (info.count === 1 ? ' payment' : ' payments') + ' · paid down';
+    } else if (est > 0) {
+      valTxt = '~$' + Math.round(est).toLocaleString();
+      subTxt = 'est/wk · from minimums';
     } else {
-      var est = debtEstFromRecurring();
-      if (est > 0) {
-        valTxt = '~$' + Math.round(est).toLocaleString();
-        subTxt = 'est/wk · from minimums';
-      } else {
-        valTxt = '$0';
-        subTxt = 'No payments this week';
-      }
+      valTxt = '$0';
+      subTxt = 'No payments this week';
     }
     if (valEl) { valEl.textContent = valTxt; valEl.dataset.wjpOwned = '1'; }
     if (subEl) { subEl.textContent = subTxt; subEl.dataset.wjpOwned = '1'; }
-    // Make tile clickable → navigate to Debts page
+    if (info.amount > 0 || est > 0) _haveRealDebt = true;
     if (!found.tile.dataset.wjpDebtWired) {
       found.tile.dataset.wjpDebtWired = '1';
       found.tile.style.cursor = 'pointer';
@@ -195,13 +208,26 @@
   }
 
   // ────────── paint Scores ──────────
+  var _haveRealScore = false;
   function paintScore() {
     var found = findTileByLabel('scores');
     if (!found) return false;
+    var sc = getCreditScore();
+    if (!_haveRealScore && sc == null) {
+      if (!found.tile.dataset.wjpScoreWired) {
+        found.tile.dataset.wjpScoreWired = '1';
+        found.tile.style.cursor = 'pointer';
+        found.tile.title = 'Open Credit Health';
+        found.tile.addEventListener('click', function (e) {
+          if (e.target.closest('button, input, select, a')) return;
+          try { location.hash = '#credit-health'; } catch (_) {}
+        });
+      }
+      return false;
+    }
+    var trend = getCreditTrend();
     var refs = findValueSubElements(found.tile);
     var valEl = refs.valEl, subEl = refs.subEl;
-    var sc = getCreditScore();
-    var trend = getCreditTrend();
     var valTxt, subTxt;
     if (sc != null) {
       valTxt = String(sc);
@@ -211,6 +237,7 @@
       } else {
         subTxt = 'credit · no prior';
       }
+      _haveRealScore = true;
     } else {
       valTxt = '—';
       subTxt = 'no credit data';
@@ -274,7 +301,7 @@
   }
 
   window.WJP_MomentumTilesLink = {
-    version: 1,
+    version: 2,
     paintAll: paintAll,
     debtPaidLast7d: debtPaidLast7d,
     debtEstFromRecurring: debtEstFromRecurring,
