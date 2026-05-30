@@ -69,6 +69,9 @@
   var _enforcing = false;
   function enforce(reason) {
     if (_enforcing) return;
+    // FIX 74: honor a global pause flag so background page-pre-warmer can
+    // temporarily flip pages active without us undoing it.
+    if (window._wjpRouterFixPaused) return;
     _enforcing = true;
     try {
       var wantId = resolveActivePageId();
@@ -212,7 +215,7 @@
   }
 
   window.WJP_PageRouterFix = {
-    version: 5,
+    version: 6,
     enforce: enforce,
     resolveActivePageId: resolveActivePageId
   };
