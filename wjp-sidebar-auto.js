@@ -86,7 +86,7 @@
       'body.sidebar-auto .sidebar:hover { width:240px; min-width:240px; box-shadow: 10px 0 30px rgba(20,30,25,0.12); }',
       'body.dark.sidebar-auto .sidebar:hover { box-shadow: 10px 0 30px rgba(0,0,0,0.45); }',
       /* At-rest auto = same as collapsed visually */
-      'body.sidebar-auto .sidebar:not(:hover) .logo-text, body.sidebar-auto .sidebar:not(:hover) .nav-item span, body.sidebar-auto .sidebar:not(:hover) .user-info, body.sidebar-auto .sidebar:not(:hover) .nav-badge { display:none; }',
+      'body.sidebar-auto .sidebar:not(:hover) .logo-text, body.sidebar-auto .sidebar:not(:hover) .nav-item span, body.sidebar-auto .sidebar:not(:hover) .user-info, body.sidebar-auto .sidebar:not(:hover) .nav-badge, body.sidebar-collapsed .nav-badge, body.sidebar-collapsed .logo-text, body.sidebar-collapsed .nav-item span, body.sidebar-collapsed .user-info { display:none !important; }',
       'body.sidebar-auto .sidebar:not(:hover) .nav-item { justify-content:center; padding:10px; }',
       'body.sidebar-auto .sidebar:not(:hover) .sidebar-user { justify-content:center; }',
 
@@ -135,7 +135,24 @@
 
       /* ===== v2: logo padding cleanup ===== */
       'body.sidebar-collapsed .sidebar-logo, body.sidebar-auto .sidebar:not(:hover) .sidebar-logo { padding:20px 0 16px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:8px; }',
-      'body.dark.sidebar-collapsed .sidebar-logo, body.dark.sidebar-auto .sidebar:not(:hover) .sidebar-logo { border-bottom-color:rgba(255,255,255,0.06); }'
+      'body.dark.sidebar-collapsed .sidebar-logo, body.dark.sidebar-auto .sidebar:not(:hover) .sidebar-logo { border-bottom-color:rgba(255,255,255,0.06); }',
+      /* ===== v3: proportional + strict icon column ===== */
+      /* Kill ALL leftover text/badges that may inline-style themselves visible */
+      'body.sidebar-collapsed .nav-badge, body.sidebar-auto .sidebar:not(:hover) .nav-badge, body.sidebar-collapsed #inbox-badge, body.sidebar-auto .sidebar:not(:hover) #inbox-badge { display:none !important; }',
+      'body.sidebar-collapsed .nav-item span:not(.nav-icon span), body.sidebar-auto .sidebar:not(:hover) .nav-item span:not(.nav-icon span) { display:none !important; }',
+      'body.sidebar-collapsed .wats-label, body.sidebar-auto .sidebar:not(:hover) .wats-label, body.sidebar-collapsed .wats-current-pill, body.sidebar-auto .sidebar:not(:hover) .wats-current-pill { display:none !important; }',
+      'body.sidebar-collapsed .user-info, body.sidebar-auto .sidebar:not(:hover) .user-info { display:none !important; }',
+      /* Lock icon sizing to a consistent visual column */
+      'body.sidebar-collapsed .sidebar, body.sidebar-auto .sidebar:not(:hover) { padding:0; }',
+      'body.sidebar-collapsed .nav-item, body.sidebar-auto .sidebar:not(:hover) .nav-item, body.sidebar-collapsed .wats-toggle, body.sidebar-auto .sidebar:not(:hover) .wats-toggle, body.sidebar-collapsed .sidebar-user, body.sidebar-auto .sidebar:not(:hover) .sidebar-user { width:48px; height:48px; min-height:48px; padding:0; margin:2px auto; display:flex; align-items:center; justify-content:center; border-radius:12px; }',
+      'body.sidebar-collapsed .nav-icon i, body.sidebar-auto .sidebar:not(:hover) .nav-icon i, body.sidebar-collapsed .wats-icon, body.sidebar-auto .sidebar:not(:hover) .wats-icon { font-size:20px; line-height:1; }',
+      'body.sidebar-collapsed .nav-icon, body.sidebar-auto .sidebar:not(:hover) .nav-icon { width:auto; height:auto; margin:0; }',
+      'body.sidebar-collapsed .user-avatar, body.sidebar-auto .sidebar:not(:hover) .user-avatar { width:32px; height:32px; font-size:13px; font-weight:800; margin:0; }',
+      /* Make sure sidebar-bottom items use the same 48px container */
+      'body.sidebar-collapsed .sidebar-bottom .nav-item, body.sidebar-auto .sidebar:not(:hover) .sidebar-bottom .nav-item { width:48px; height:48px; min-height:48px; }',
+      /* Center the logo emblem cleanly */
+      'body.sidebar-collapsed .logo-icon, body.sidebar-auto .sidebar:not(:hover) .logo-icon { width:36px; height:36px; }',
+      'body.sidebar-collapsed .logo-icon svg, body.sidebar-auto .sidebar:not(:hover) .logo-icon svg { width:28px !important; height:28px !important; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -201,7 +218,7 @@
   }
 
   window.WJP_SidebarAuto = {
-    version: 2,
+    version: 3,
     getMode: getMode,
     setMode: setMode,
     applyMode: applyMode
