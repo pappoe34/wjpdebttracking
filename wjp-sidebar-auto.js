@@ -105,7 +105,37 @@
       'body.sidebar-collapsed .nav-item, body.sidebar-auto .sidebar:not(:hover) .nav-item { position:relative; }',
 
       /* Smooth opacity for labels appearing on hover (auto mode only) */
-      'body.sidebar-auto .sidebar .logo-text, body.sidebar-auto .sidebar .nav-item span, body.sidebar-auto .sidebar .user-info, body.sidebar-auto .sidebar .nav-badge { transition: opacity .18s ease; }'
+      'body.sidebar-auto .sidebar .logo-text, body.sidebar-auto .sidebar .nav-item span, body.sidebar-auto .sidebar .user-info, body.sidebar-auto .sidebar .nav-badge { transition: opacity .18s ease; }',
+
+      /* ===== v2: nav-item hover + active polish in collapsed/auto-rest ===== */
+      'body.sidebar-collapsed .nav-item:hover, body.sidebar-auto .sidebar:not(:hover) .nav-item:hover { background:rgba(31,122,74,0.08); }',
+      'body.dark.sidebar-collapsed .nav-item:hover, body.dark.sidebar-auto .sidebar:not(:hover) .nav-item:hover { background:rgba(127,209,164,0.12); }',
+      'body.sidebar-collapsed .nav-item.active, body.sidebar-auto .sidebar:not(:hover) .nav-item.active { background:rgba(31,122,74,0.14); color:#1f7a4a; }',
+      'body.dark.sidebar-collapsed .nav-item.active, body.dark.sidebar-auto .sidebar:not(:hover) .nav-item.active { background:rgba(127,209,164,0.18); color:#7fd1a4; }',
+      'body.sidebar-collapsed .nav-item.active .nav-icon, body.sidebar-auto .sidebar:not(:hover) .nav-item.active .nav-icon { color:inherit; }',
+      'body.sidebar-collapsed .nav-item.active::before, body.sidebar-auto .sidebar:not(:hover) .nav-item.active::before { display:none; }',
+
+      /* ===== v2: admin-tier widget (.wats) collapsed handling ===== */
+      'body.sidebar-collapsed #wjp-admin-tier-widget .wats-label, body.sidebar-auto .sidebar:not(:hover) #wjp-admin-tier-widget .wats-label { display:none; }',
+      'body.sidebar-collapsed #wjp-admin-tier-widget .wats-current-pill, body.sidebar-auto .sidebar:not(:hover) #wjp-admin-tier-widget .wats-current-pill { display:none; }',
+      'body.sidebar-collapsed #wjp-admin-tier-widget .wats-toggle, body.sidebar-auto .sidebar:not(:hover) #wjp-admin-tier-widget .wats-toggle { padding:10px 0; justify-content:center; gap:0; width:auto; margin:3px 4px; border-radius:10px; min-width:0; }',
+      'body.sidebar-collapsed #wjp-admin-tier-widget .wats-icon, body.sidebar-auto .sidebar:not(:hover) #wjp-admin-tier-widget .wats-icon { font-size:20px; margin:0; }',
+      'body.sidebar-collapsed #wjp-admin-tier-widget, body.sidebar-auto .sidebar:not(:hover) #wjp-admin-tier-widget { margin:0; padding:0; }',
+      'body.sidebar-collapsed #wjp-admin-tier-widget .wats-toggle:hover, body.sidebar-auto .sidebar:not(:hover) #wjp-admin-tier-widget .wats-toggle:hover { background:rgba(192,89,74,0.10); }',
+
+      /* ===== v2: more breathing room between nav items at rest ===== */
+      'body.sidebar-collapsed .sidebar-nav, body.sidebar-auto .sidebar:not(:hover) .sidebar-nav { gap:4px; }',
+      'body.sidebar-collapsed .nav-item, body.sidebar-auto .sidebar:not(:hover) .nav-item { padding:12px 0; margin:2px 8px; height:44px; }',
+      'body.sidebar-collapsed .nav-icon, body.sidebar-auto .sidebar:not(:hover) .nav-icon { width:24px; height:24px; }',
+
+      /* ===== v2: user avatar — slightly larger ring for presence ===== */
+      'body.sidebar-collapsed .sidebar-user, body.sidebar-auto .sidebar:not(:hover) .sidebar-user { padding:12px 0; margin:6px 4px; border-radius:10px; }',
+      'body.sidebar-collapsed .sidebar-user:hover, body.sidebar-auto .sidebar:not(:hover) .sidebar-user:hover { background:rgba(31,122,74,0.08); }',
+      'body.sidebar-collapsed .user-avatar, body.sidebar-auto .sidebar:not(:hover) .user-avatar { width:34px; height:34px; }',
+
+      /* ===== v2: logo padding cleanup ===== */
+      'body.sidebar-collapsed .sidebar-logo, body.sidebar-auto .sidebar:not(:hover) .sidebar-logo { padding:20px 0 16px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:8px; }',
+      'body.dark.sidebar-collapsed .sidebar-logo, body.dark.sidebar-auto .sidebar:not(:hover) .sidebar-logo { border-bottom-color:rgba(255,255,255,0.06); }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -114,7 +144,6 @@
   function patchSelect(sel) {
     if (!sel || sel.dataset.wjpSidebarAutoPatched === '1') return;
     sel.dataset.wjpSidebarAutoPatched = '1';
-    // Add the Auto option if not already present
     var hasAuto = false;
     Array.from(sel.options).forEach(function (o) { if (o.value === 'auto') hasAuto = true; });
     if (!hasAuto) {
@@ -123,10 +152,8 @@
       opt.textContent = 'Auto (hover to expand)';
       sel.appendChild(opt);
     }
-    // Reflect current mode
     var mode = getMode();
     sel.value = mode;
-    // Add our change listener — runs after the existing onchange
     sel.addEventListener('change', function () {
       var v = sel.value;
       if (v !== 'expanded' && v !== 'collapsed' && v !== 'auto') return;
@@ -143,7 +170,6 @@
   // ────────── boot ──────────
   function boot() {
     injectStyle();
-    // Apply saved mode as soon as appState is ready
     var attempts = 0;
     function tryApply() {
       attempts++;
@@ -155,19 +181,14 @@
       if (attempts < 50) setTimeout(tryApply, 200);
     }
     tryApply();
-
-    // Re-apply after cloud restore (in case prefs change cross-device)
     window.addEventListener('wjp-data-restored', function () {
       setTimeout(function () { applyMode(getMode()); }, 300);
     });
-
-    // Watch for the Settings > Appearance select to appear and patch it
     findAndPatch();
     try {
       var mo = new MutationObserver(function () { findAndPatch(); });
       mo.observe(document.body, { childList: true, subtree: true });
     } catch (_) {
-      // Fallback: poll
       var iv = setInterval(findAndPatch, 1000);
       setTimeout(function () { clearInterval(iv); }, 60000);
     }
@@ -180,7 +201,7 @@
   }
 
   window.WJP_SidebarAuto = {
-    version: 1,
+    version: 2,
     getMode: getMode,
     setMode: setMode,
     applyMode: applyMode
