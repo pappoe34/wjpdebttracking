@@ -50,9 +50,12 @@
     var style = document.createElement('style');
     style.id = 'wjp-cp-stable-css';
     style.textContent =
-      // Prevent the entire-card flash. Use will-change to hint the compositor.
-      '#credit-profile-card { contain: layout paint; will-change: contents; }'
-    + '#credit-profile-card > * { transition: opacity 0.20s ease; }'
+      // FIX 86: Drop `contain: layout paint` + `will-change: contents`. They
+      // promoted the card to its own compositor layer, which made it render
+      // half a frame behind sibling cards during ancestor reveal animations
+      // (sidebar slide), so it looked like it moved separately. Keep only the
+      // opacity transition for render-flash stability.
+      '#credit-profile-card > * { transition: opacity 0.20s ease; }'
     + '#credit-profile-card.wjp-cp-fading > * { opacity: 0.85; }';
     document.head.appendChild(style);
   }
