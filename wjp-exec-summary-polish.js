@@ -67,26 +67,35 @@
   // underlying math (totalPaid / targetGoal) stays accurate.
   var MIN_VISIBLE_PCT = 12;
 
+  // Some other module leaves stuck CSS width transitions in 'running'
+  // state on the dashboard. Like the sidebar, this pins the rendered
+  // width at the from-value regardless of cascade. Cancel them before
+  // toggling so the new width takes effect.
+  function killStuckAnimations(el) {
+    try {
+      if (!el || !el.getAnimations) return;
+      el.getAnimations().forEach(function (a) { try { a.cancel(); } catch (_) {} });
+    } catch (_) {}
+  }
+
   function boostFill() {
     try {
       var fill = document.getElementById('freedom-progress-fill');
       if (!fill) return;
-      // Read what app.js wrote (width %)
       var widthStr = fill.style.width || '';
       var m = /^(\d+(?:\.\d+)?)%/.exec(widthStr);
       if (!m) return;
       var pct = parseFloat(m[1]);
-      // Also read the paid amount to know if there's ANY real progress
       var paidEl = document.getElementById('freedom-paid-amt');
       var paidTxt = paidEl ? (paidEl.textContent || '') : '';
       var paidNum = parseFloat(paidTxt.replace(/[^0-9.]/g, '')) || 0;
 
+      // ALWAYS clear stuck animations first — they otherwise pin the rendered
+      // width regardless of CSS specificity (same root cause as FIX 64 v5).
+      killStuckAnimations(fill);
+
       if (paidNum > 0 && pct < MIN_VISIBLE_PCT) {
-        // Boost up to MIN_VISIBLE_PCT while preserving the underlying value
-        // for any other module that reads it.
         fill.dataset.wjpRealPct = String(pct);
-        // Use a CSS property assignment that survives app.js re-renders
-        // by re-applying after the next mutation.
         fill.style.setProperty('width', MIN_VISIBLE_PCT + '%', 'important');
         fill.classList.add('wjp-has-progress');
       } else if (paidNum > 0) {
@@ -136,19 +145,4 @@
     function tryWire() {
       attempts++;
       if (wireBoostObserver()) return;
-      if (attempts < 40) setTimeout(tryWire, 250);
-    }
-    tryWire();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-
-  window.WJP_ExecSummaryPolish = {
-    version: 1,
-    boostFill: boostFill
-  };
-})();
+     
