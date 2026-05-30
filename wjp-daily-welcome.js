@@ -455,19 +455,18 @@
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
 
-    // FIX 63 v17: drive 8s progress bar via JS so prefers-reduced-motion doesn't kill it
+    // FIX 63 v17: drive 8s progress bar via JS (setInterval — works even when tab throttled)
     try {
       var fillEl = document.querySelector('#' + OVERLAY_ID + ' .wjpdw-loadbar-fill');
       if (fillEl) {
         fillEl.style.width = '0%';
         var startTs = Date.now();
         var DUR_MS = 8000;
-        var step = function () {
+        var loadIv = setInterval(function () {
           var p = Math.min(1, (Date.now() - startTs) / DUR_MS);
           fillEl.style.width = (p * 100).toFixed(1) + '%';
-          if (p < 1) requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
+          if (p >= 1) clearInterval(loadIv);
+        }, 100);
       }
     } catch (_) {}
 
