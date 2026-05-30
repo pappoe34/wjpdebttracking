@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v1 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v2 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -187,6 +187,61 @@
     setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   }
 
+
+  // ────────── Phase 2: fetch the personal auto-sync URL ──────────
+  // Calls /.netlify/functions/calendar-sync-url with the user's Firebase ID
+  // token, gets back a stable URL that Google Calendar can poll. The URL
+  // contains an HMAC of the user's uid so the calendar endpoint can verify
+  // polling requests without needing auth headers (Google can't send them).
+  async function getIdTokenSafe() {
+    try {
+      if (window.firebase && firebase.auth) {
+        var u = firebase.auth().currentUser;
+        if (u && typeof u.getIdToken === 'function') return await u.getIdToken();
+      }
+    } catch (_) {}
+    try {
+      if (window.__wjpUser && typeof window.__wjpUser.getIdToken === 'function') {
+        return await window.__wjpUser.getIdToken();
+      }
+    } catch (_) {}
+    return null;
+  }
+  function setStatus(msg, isError) {
+    var el = document.getElementById('wjp-gcal-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = isError ? '#c0594a' : 'var(--text-3)';
+  }
+  async function fetchSyncUrl() {
+    setStatus('Generating your sync URL…');
+    try {
+      var token = await getIdTokenSafe();
+      if (!token) { setStatus('Sign in first so we can link your calendar.', true); return; }
+      var resp = await fetch('/.netlify/functions/calendar-sync-url', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      if (!resp.ok) {
+        var errBody = await resp.text();
+        setStatus('Could not generate URL (HTTP ' + resp.status + '). ' + (errBody || '').slice(0, 120), true);
+        return;
+      }
+      var data = await resp.json();
+      if (!data || !data.url) { setStatus('Bad response from server.', true); return; }
+      var url = data.url;
+      try {
+        await navigator.clipboard.writeText(url);
+        setStatus('Copied! Paste it in Google Calendar → Settings → Add calendar → From URL.');
+      } catch (_) {
+        // Fallback: prompt the user
+        try { window.prompt('Copy this URL into Google Calendar → Settings → Add calendar → From URL:', url); } catch (_) {}
+        setStatus('URL ready in the prompt above.');
+      }
+    } catch (err) {
+      setStatus('Error: ' + (err && err.message ? err.message : 'unknown'), true);
+    }
+  }
   // ────────── Google "Add Event" template URL ──────────
   // https://calendar.google.com/calendar/render?action=TEMPLATE
   //   &text=<encoded title>
@@ -287,19 +342,20 @@
         '</div>' +
       '</div>' +
       '<div class="wjp-gcal-actions">' +
-        '<button type="button" class="wjp-gcal-btn primary" data-action="download"><i class="ph ph-download-simple"></i> Download Calendar (.ics)</button>' +
+        '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-link-simple"></i> Copy auto-sync URL</button>' +
+        '<button type="button" class="wjp-gcal-btn ghost" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
       '</div>' +
+      '<div class="wjp-gcal-status" id="wjp-gcal-status" style="font-size:11.5px; color:var(--text-3); margin: -4px 0 12px; min-height:16px;"></div>' +
       listHtml +
       '<details>' +
         '<summary>How to import into Google Calendar</summary>' +
         '<ol class="wjp-gcal-steps">' +
-          '<li>Click <b>Download Calendar (.ics)</b> above.</li>' +
-          '<li>Open <a href="https://calendar.google.com/calendar/u/0/r/settings/export" target="_blank" rel="noopener">Google Calendar → Settings → Import & export</a>.</li>' +
-          '<li>Choose the downloaded <code>wjpdebttracking-calendar.ics</code> file and pick which calendar to add it to.</li>' +
-          '<li>Google sets a reminder 1 day before each due date automatically.</li>' +
-          '<li>Re-import any time you add new bills — duplicates are skipped by Google (event UIDs match).</li>' +
+          '<li><b>Auto-sync (recommended):</b> click <b>Copy auto-sync URL</b>, then in <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Settings → Add calendar → From URL</a>, paste the URL and Add. Google polls every few hours and picks up your edits automatically.</li>' +
+          '<li><b>One-time import:</b> click <b>Download .ics file</b>, then in <a href="https://calendar.google.com/calendar/u/0/r/settings/export" target="_blank" rel="noopener">Settings → Import & export</a>, upload the file. No auto-updates — re-import when you add bills.</li>' +
+          '<li><b>Per-event:</b> click any <b>+ Google</b> link in the grid above to save a single bill instantly.</li>' +
+          '<li>Google sets a reminder 1 day before each due date automatically (VALARM in the feed).</li>' +
         '</ol>' +
-        '<p style="font-size:11.5px; color:var(--text-3); margin:10px 0 0;">For auto-updating sync (no re-import), a Netlify Function endpoint is in the works — ask Claude to enable Phase 2 when you’re ready.</p>' +
+        '<p style="font-size:11px; color:var(--text-3); margin:10px 0 0;"><b>Privacy:</b> your auto-sync URL contains a signed token. Anyone with the URL can read your bill data — treat it like a password and don\'t share it publicly.</p>' +
       '</details>';
 
     card.addEventListener('click', function (e) {
@@ -307,6 +363,7 @@
       if (!btn) return;
       var act = btn.getAttribute('data-action');
       if (act === 'download') downloadIcs();
+      else if (act === 'sync-url') fetchSyncUrl();
     });
 
     return card;
