@@ -153,9 +153,9 @@
     menu.id = MENU_ID;
     var autofitState = readAutofitState();
     menu.innerHTML =
-      '<div class="wjp-ch-item" data-action="customize" role="menuitem">' +
+      '<div class="wjp-ch-item" data-action="reorder" role="menuitem">' +
         '<i class="ph ph-arrows-out-cardinal"></i>' +
-        '<span class="wjp-ch-label">Customize layout</span>' +
+        '<span class="wjp-ch-label">Re-order</span>' +
       '</div>' +
       '<div class="wjp-ch-item" data-action="autofit" role="menuitem">' +
         '<i class="ph ph-frame-corners"></i>' +
@@ -165,11 +165,6 @@
       '<div class="wjp-ch-item" data-action="reset" role="menuitem">' +
         '<i class="ph ph-arrow-counter-clockwise"></i>' +
         '<span class="wjp-ch-label">Reset layout</span>' +
-      '</div>' +
-      '<div class="wjp-ch-divider"></div>' +
-      '<div class="wjp-ch-item" data-action="settings" role="menuitem">' +
-        '<i class="ph ph-gear"></i>' +
-        '<span class="wjp-ch-label">Settings</span>' +
       '</div>';
     document.body.appendChild(menu);
     // Position under gear, right-aligned
@@ -183,10 +178,9 @@
     menu.querySelectorAll('.wjp-ch-item').forEach(function (item) {
       item.addEventListener('click', function () {
         var act = item.getAttribute('data-action');
-        if (act === 'customize') { clickOriginal('dash-customize-btn'); }
+        if (act === 'reorder') { clickOriginal('dash-customize-btn'); }
         else if (act === 'autofit') { clickOriginal('dash-autofit-toggle'); setTimeout(refreshAutofitState, 50); }
         else if (act === 'reset') { clickOriginal('dash-customize-reset'); }
-        else if (act === 'settings') { try { location.hash = '#settings'; } catch (_) {} }
         if (act !== 'autofit') closeMenu();
       });
     });
@@ -232,7 +226,7 @@
   }
 
   window.WJP_DashboardHeaderCompact = {
-    version: 5,
+    version: 6,
     rebuild: function () { try { var h = document.getElementById(HEADER_ID); if (h) h.remove(); } catch (_) {}; buildHeader(); }
   };
 })();
