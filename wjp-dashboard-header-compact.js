@@ -45,6 +45,10 @@
       '#page-dashboard > #' + HEADER_ID + ' { margin-top: 0 !important; }',
       '#page-dashboard #dash-greeting { display: none !important; }',
       '#page-dashboard #dash-customize-bar { display: none !important; }',
+      // FIX 79: when the user enters customize mode (body gets dash-customizing),
+      // surface the original customize bar so the reorder list / reset / hidden-card chips
+      // are usable. We just hide it again the moment they exit customize mode.
+      'body.dash-customizing #page-dashboard #dash-customize-bar { display: flex !important; align-items: center; gap: 10px; padding: 10px 4px; margin: 8px 0 12px; flex-wrap: wrap; }',
 
       // Compact header bar
       '#' + HEADER_ID + ' { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 4px; margin: 0; min-height: 0; font-family: inherit; flex: 0 0 100%; width: 100%; box-sizing: border-box; line-height: 1.2; }',
@@ -228,7 +232,7 @@
   }
 
   window.WJP_DashboardHeaderCompact = {
-    version: 4,
+    version: 5,
     rebuild: function () { try { var h = document.getElementById(HEADER_ID); if (h) h.remove(); } catch (_) {}; buildHeader(); }
   };
 })();
