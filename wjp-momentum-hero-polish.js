@@ -1,25 +1,18 @@
-/* wjp-momentum-hero-polish.js v1 — Add vibrant color + life to the
- * Last 7 Days hero (#wjp-momentum-hero) stat tiles.
+/* wjp-momentum-hero-polish.js v2 — JS-tagged class polish for Last 7 Days
+ * hero tiles. Adds vibrant color, gradient backgrounds, accent borders,
+ * and a subtle hover lift to each of the three stat tiles.
  *
  * Winston 2026-05-29: "put some color in those boxes, looks too plain"
  *
- * The hero has three stat tiles (Debt this week, Cash on hand, Scores) with
- * no class names, so we color them via :nth-child + the embedded Phosphor
- * icons (ph-trending-down, ph-wallet, ph-shield-check / ph-shield-star).
+ * Why JS-tagged classes instead of pure CSS :has():
+ *   The tile structure has zero class names and the icon depth varies, so
+ *   the :has() approach didn't reliably match. Instead, on every render we
+ *   walk #wjp-momentum-hero, locate each tile by its embedded Phosphor icon
+ *   (ph-trending-down / ph-wallet / ph-shield-*), and add a known class to
+ *   the tile container so CSS can paint it reliably.
  *
- * Each tile gets:
- *   - A pastel gradient background
- *   - A colored accent border on the left
- *   - A bright icon halo
- *   - Subtle hover lift
- *
- * Themes:
- *   - Debt this week (red/coral)
- *   - Cash on hand (green/teal)
- *   - Scores (purple)
- *
- * Safe: IIFE, idempotent, pure CSS (no DOM rewriting). Plays well with the
- * wjp-cash-on-hand-link / wjp-momentum-tiles-link paint modules.
+ * Safe: IIFE, idempotent, MutationObserver-driven so newly-rendered tiles
+ * pick up the polish without a page reload.
  */
 (function () {
   'use strict';
@@ -31,50 +24,109 @@
     if (p.indexOf('/index') === -1 && p !== '/' && p !== '') return;
   } catch (_) {}
 
+  // Phosphor icon → tile theme class. We pick the FIRST matching icon
+  // descendant; rough heuristic but unambiguous for these three tiles.
+  var ICON_TO_CLASS = [
+    { rx: /ph-trending-down|ph-trending-up|ph-arrow-down|ph-arrow-up/, cls: 'wjp-mh-tile-debt' },
+    { rx: /ph-currency-dollar|ph-wallet|ph-piggy-bank|ph-money|ph-coins/, cls: 'wjp-mh-tile-cash' },
+    { rx: /ph-shield-check|ph-shield-star|ph-shield|ph-medal|ph-target|ph-gauge/, cls: 'wjp-mh-tile-score' }
+  ];
+
   function injectStyle() {
     if (document.getElementById('wjp-momentum-hero-polish-style')) return;
     var st = document.createElement('style');
     st.id = 'wjp-momentum-hero-polish-style';
-    // The tile-row inside #wjp-momentum-hero is the FIRST grid/row container
-    // with exactly 3 children. We target that via a structural selector and
-    // then color each child via its embedded icon.
     st.textContent = [
-      // Each tile is a flex/grid cell with one of three icons. We target via :has()
-      // (supported in all evergreen browsers). The icon classes are distinct.
-      '#wjp-momentum-hero { padding-top: 4px; padding-bottom: 4px; }',
+      '#wjp-momentum-hero .wjp-mh-tile-debt, #wjp-momentum-hero .wjp-mh-tile-cash, #wjp-momentum-hero .wjp-mh-tile-score { border-radius: 14px !important; transition: transform .18s ease, box-shadow .18s ease !important; position: relative; overflow: hidden; }',
+      '#wjp-momentum-hero .wjp-mh-tile-debt:hover, #wjp-momentum-hero .wjp-mh-tile-cash:hover, #wjp-momentum-hero .wjp-mh-tile-score:hover { transform: translateY(-2px) !important; box-shadow: 0 12px 28px rgba(20,30,25,0.12) !important; }',
 
-      // Tile baseline — applies to every direct stat tile inside the hero stats row.
-      // Detect tiles by looking for divs that contain one of the three icons.
-      '#wjp-momentum-hero div:has(> div > i.ph-trending-down), #wjp-momentum-hero div:has(> div > i.ph-trending-up), #wjp-momentum-hero div:has(> div > i.ph-currency-dollar), #wjp-momentum-hero div:has(> div > i.ph-wallet), #wjp-momentum-hero div:has(> div > i.ph-shield-check), #wjp-momentum-hero div:has(> div > i.ph-shield-star), #wjp-momentum-hero div:has(> div > i[class*="ph-"]) { border-radius: 14px !important; transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important; }',
-      '#wjp-momentum-hero div:has(> div > i.ph-trending-down):hover, #wjp-momentum-hero div:has(> div > i.ph-trending-up):hover, #wjp-momentum-hero div:has(> div > i.ph-wallet):hover, #wjp-momentum-hero div:has(> div > i.ph-shield-check):hover, #wjp-momentum-hero div:has(> div > i.ph-shield-star):hover { transform: translateY(-2px) !important; box-shadow: 0 10px 24px rgba(20,30,25,0.10) !important; }',
+      // Debt — coral
+      '#wjp-momentum-hero .wjp-mh-tile-debt { background: linear-gradient(135deg, rgba(255,231,224,0.95) 0%, rgba(255,245,242,0.65) 100%) !important; border: 1px solid rgba(192,89,74,0.32) !important; box-shadow: inset 4px 0 0 #c0594a, 0 4px 14px rgba(192,89,74,0.10) !important; }',
+      '#wjp-momentum-hero .wjp-mh-tile-debt i[class*="ph-"] { color: #c0594a !important; font-size: 22px !important; }',
 
-      // Debt this week — coral tone
-      '#wjp-momentum-hero div:has(> div > i.ph-trending-down), #wjp-momentum-hero div:has(> div > i.ph-trending-up), #wjp-momentum-hero div:has(> div > i.ph-arrow-down) { background: linear-gradient(135deg, rgba(255,231,224,0.95), rgba(255,242,238,0.65)) !important; border: 1px solid rgba(192,89,74,0.30) !important; box-shadow: inset 4px 0 0 #c0594a, 0 4px 14px rgba(192,89,74,0.10) !important; }',
-      '#wjp-momentum-hero div:has(> div > i.ph-trending-down) i, #wjp-momentum-hero div:has(> div > i.ph-trending-up) i { color: #c0594a !important; font-size: 22px !important; }',
+      // Cash — green
+      '#wjp-momentum-hero .wjp-mh-tile-cash { background: linear-gradient(135deg, rgba(220,243,232,0.95) 0%, rgba(238,250,244,0.65) 100%) !important; border: 1px solid rgba(31,122,74,0.32) !important; box-shadow: inset 4px 0 0 #1f7a4a, 0 4px 14px rgba(31,122,74,0.10) !important; }',
+      '#wjp-momentum-hero .wjp-mh-tile-cash i[class*="ph-"] { color: #1f7a4a !important; font-size: 22px !important; }',
 
-      // Cash on hand — green tone (currency-dollar or wallet)
-      '#wjp-momentum-hero div:has(> div > i.ph-currency-dollar), #wjp-momentum-hero div:has(> div > i.ph-wallet), #wjp-momentum-hero div:has(> div > i.ph-piggy-bank), #wjp-momentum-hero div:has(> div > i.ph-money) { background: linear-gradient(135deg, rgba(220,243,232,0.95), rgba(238,250,244,0.65)) !important; border: 1px solid rgba(31,122,74,0.30) !important; box-shadow: inset 4px 0 0 #1f7a4a, 0 4px 14px rgba(31,122,74,0.10) !important; }',
-      '#wjp-momentum-hero div:has(> div > i.ph-currency-dollar) i, #wjp-momentum-hero div:has(> div > i.ph-wallet) i, #wjp-momentum-hero div:has(> div > i.ph-piggy-bank) i, #wjp-momentum-hero div:has(> div > i.ph-money) i { color: #1f7a4a !important; font-size: 22px !important; }',
+      // Score — purple
+      '#wjp-momentum-hero .wjp-mh-tile-score { background: linear-gradient(135deg, rgba(234,225,250,0.95) 0%, rgba(245,238,255,0.65) 100%) !important; border: 1px solid rgba(124,77,196,0.32) !important; box-shadow: inset 4px 0 0 #7c4dc4, 0 4px 14px rgba(124,77,196,0.10) !important; }',
+      '#wjp-momentum-hero .wjp-mh-tile-score i[class*="ph-"] { color: #7c4dc4 !important; font-size: 22px !important; }',
 
-      // Scores — purple tone
-      '#wjp-momentum-hero div:has(> div > i.ph-shield-check), #wjp-momentum-hero div:has(> div > i.ph-shield-star), #wjp-momentum-hero div:has(> div > i.ph-shield), #wjp-momentum-hero div:has(> div > i.ph-medal), #wjp-momentum-hero div:has(> div > i.ph-target) { background: linear-gradient(135deg, rgba(234,225,250,0.95), rgba(245,238,255,0.65)) !important; border: 1px solid rgba(124,77,196,0.30) !important; box-shadow: inset 4px 0 0 #7c4dc4, 0 4px 14px rgba(124,77,196,0.10) !important; }',
-      '#wjp-momentum-hero div:has(> div > i.ph-shield-check) i, #wjp-momentum-hero div:has(> div > i.ph-shield-star) i, #wjp-momentum-hero div:has(> div > i.ph-shield) i, #wjp-momentum-hero div:has(> div > i.ph-medal) i, #wjp-momentum-hero div:has(> div > i.ph-target) i { color: #7c4dc4 !important; font-size: 22px !important; }',
-
-      // Make the value text bigger and the label more distinct
-      '#wjp-momentum-hero div:has(> div > i[class*="ph-"]) > div + div { display: flex; flex-direction: column; gap: 2px; }',
-
-      // ──── Dark mode ────
-      'body.dark #wjp-momentum-hero div:has(> div > i.ph-trending-down), body.dark #wjp-momentum-hero div:has(> div > i.ph-trending-up) { background: linear-gradient(135deg, rgba(192,89,74,0.20), rgba(192,89,74,0.06)) !important; border-color: rgba(192,89,74,0.35) !important; }',
-      'body.dark #wjp-momentum-hero div:has(> div > i.ph-currency-dollar), body.dark #wjp-momentum-hero div:has(> div > i.ph-wallet), body.dark #wjp-momentum-hero div:has(> div > i.ph-piggy-bank), body.dark #wjp-momentum-hero div:has(> div > i.ph-money) { background: linear-gradient(135deg, rgba(31,122,74,0.20), rgba(31,122,74,0.06)) !important; border-color: rgba(127,209,164,0.35) !important; }',
-      'body.dark #wjp-momentum-hero div:has(> div > i.ph-shield-check), body.dark #wjp-momentum-hero div:has(> div > i.ph-shield-star), body.dark #wjp-momentum-hero div:has(> div > i.ph-shield), body.dark #wjp-momentum-hero div:has(> div > i.ph-medal), body.dark #wjp-momentum-hero div:has(> div > i.ph-target) { background: linear-gradient(135deg, rgba(124,77,196,0.25), rgba(124,77,196,0.08)) !important; border-color: rgba(186,160,236,0.35) !important; }'
+      // Dark mode
+      'body.dark #wjp-momentum-hero .wjp-mh-tile-debt { background: linear-gradient(135deg, rgba(192,89,74,0.22) 0%, rgba(192,89,74,0.06) 100%) !important; border-color: rgba(192,89,74,0.38) !important; box-shadow: inset 4px 0 0 #c0594a, 0 4px 14px rgba(0,0,0,0.30) !important; }',
+      'body.dark #wjp-momentum-hero .wjp-mh-tile-cash { background: linear-gradient(135deg, rgba(31,122,74,0.22) 0%, rgba(31,122,74,0.06) 100%) !important; border-color: rgba(127,209,164,0.38) !important; box-shadow: inset 4px 0 0 #7fd1a4, 0 4px 14px rgba(0,0,0,0.30) !important; }',
+      'body.dark #wjp-momentum-hero .wjp-mh-tile-score { background: linear-gradient(135deg, rgba(124,77,196,0.25) 0%, rgba(124,77,196,0.08) 100%) !important; border-color: rgba(186,160,236,0.38) !important; box-shadow: inset 4px 0 0 #baa0ec, 0 4px 14px rgba(0,0,0,0.30) !important; }',
+      'body.dark #wjp-momentum-hero .wjp-mh-tile-debt i[class*="ph-"] { color: #f0a99c !important; }',
+      'body.dark #wjp-momentum-hero .wjp-mh-tile-cash i[class*="ph-"] { color: #7fd1a4 !important; }',
+      'body.dark #wjp-momentum-hero .wjp-mh-tile-score i[class*="ph-"] { color: #c5b0f0 !important; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
 
+  // Walk every icon in the hero and bubble up to the first ancestor that
+  // looks like a tile (a row of 3 sibling divs is the tile row). We tag
+  // that ancestor with the class.
+  function tagTiles() {
+    var hero = document.getElementById('wjp-momentum-hero');
+    if (!hero) return false;
+    var icons = hero.querySelectorAll('i[class*="ph-"]');
+    if (!icons.length) return false;
+    var tagged = 0;
+    icons.forEach(function (icon) {
+      // Find the matching theme
+      var iconClass = icon.className || '';
+      var theme = null;
+      for (var i = 0; i < ICON_TO_CLASS.length; i++) {
+        if (ICON_TO_CLASS[i].rx.test(iconClass)) { theme = ICON_TO_CLASS[i]; break; }
+      }
+      if (!theme) return;
+      // Walk up: the tile is the ancestor whose parent has at least 2 sibling
+      // divs (typical 3-tile row). Limit to 6 ancestors to avoid runaway.
+      var el = icon.parentElement;
+      var found = null;
+      for (var d = 0; d < 6 && el && el !== hero; d++) {
+        var siblings = el.parentElement ? Array.from(el.parentElement.children) : [];
+        // Heuristic: a tile container's parent contains 2-4 similar sibling DIVs
+        if (siblings.length >= 2 && siblings.length <= 4 && siblings.every(function (s) { return s.tagName === 'DIV'; })) {
+          found = el;
+          break;
+        }
+        el = el.parentElement;
+      }
+      var target = found || icon.parentElement.parentElement || icon.parentElement;
+      if (target && !target.classList.contains(theme.cls)) {
+        // Remove any other theme classes first (idempotency)
+        target.classList.remove('wjp-mh-tile-debt', 'wjp-mh-tile-cash', 'wjp-mh-tile-score');
+        target.classList.add(theme.cls);
+        tagged++;
+      }
+    });
+    return tagged > 0;
+  }
+
   function boot() {
     injectStyle();
-    // Re-inject on data restore in case style elements were wiped
-    window.addEventListener('wjp-data-restored', injectStyle);
+    var attempts = 0;
+    function tick() {
+      attempts++;
+      tagTiles();
+      setTimeout(tick, 1500);
+    }
+    setTimeout(tick, 400);
+    window.addEventListener('wjp-data-restored', function () { setTimeout(tagTiles, 500); });
+    try {
+      var observe = function () {
+        var hero = document.getElementById('wjp-momentum-hero');
+        if (!hero) return false;
+        var mo = new MutationObserver(function () { setTimeout(tagTiles, 100); });
+        mo.observe(hero, { childList: true, subtree: true });
+        return true;
+      };
+      if (!observe()) {
+        var iv = setInterval(function () { if (observe()) clearInterval(iv); }, 800);
+        setTimeout(function () { clearInterval(iv); }, 30000);
+      }
+    } catch (_) {}
   }
 
   if (document.readyState === 'loading') {
@@ -83,5 +135,5 @@
     boot();
   }
 
-  window.WJP_MomentumHeroPolish = { version: 1, inject: injectStyle };
+  window.WJP_MomentumHeroPolish = { version: 2, tagTiles: tagTiles, inject: injectStyle };
 })();
