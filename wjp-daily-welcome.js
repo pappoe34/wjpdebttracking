@@ -227,7 +227,10 @@
       '#' + OVERLAY_ID + ' .footer{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;position:relative;}',
       // FIX 63 v17: 8s determinate progress bar replaces spinner+text
       '#' + OVERLAY_ID + ' .wjpdw-loadwrap{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:240px;}',
-      '#' + OVERLAY_ID + ' .wjpdw-loadlbl{font-size:11px;font-weight:600;letter-spacing:0.02em;color:#6b7280;}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadlbl{font-size:11px;font-weight:600;letter-spacing:0.02em;color:#6b7280;transition:color .3s ease;}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadlbl.is-done{color:#1f7a4a;font-weight:800;}',
+      '#' + OVERLAY_ID + ' .wjpdw-loadlbl.is-done::before{content:"\u2713 ";margin-right:2px;}',
+      'body.dark #' + OVERLAY_ID + ' .wjpdw-loadlbl.is-done{color:#7fd1a4;}',
       'body.dark #' + OVERLAY_ID + ' .wjpdw-loadlbl{color:rgba(255,255,255,0.55);}',
       '#' + OVERLAY_ID + ' .wjpdw-loadbar{width:100%;height:6px;border-radius:999px;background:rgba(31,122,74,0.10);overflow:hidden;position:relative;}',
       'body.dark #' + OVERLAY_ID + ' .wjpdw-loadbar{background:rgba(255,255,255,0.08);}',
@@ -455,17 +458,24 @@
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
 
-    // FIX 63 v17: drive 8s progress bar via JS (setInterval — works even when tab throttled)
+    // FIX 63 v18: 10s progress bar + "Complete" label flip on finish
     try {
       var fillEl = document.querySelector('#' + OVERLAY_ID + ' .wjpdw-loadbar-fill');
+      var lblEl  = document.querySelector('#' + OVERLAY_ID + ' .wjpdw-loadlbl');
       if (fillEl) {
         fillEl.style.width = '0%';
         var startTs = Date.now();
-        var DUR_MS = 8000;
+        var DUR_MS = 10000;
         var loadIv = setInterval(function () {
           var p = Math.min(1, (Date.now() - startTs) / DUR_MS);
           fillEl.style.width = (p * 100).toFixed(1) + '%';
-          if (p >= 1) clearInterval(loadIv);
+          if (p >= 1) {
+            clearInterval(loadIv);
+            if (lblEl) {
+              lblEl.textContent = 'Complete';
+              lblEl.classList.add('is-done');
+            }
+          }
         }, 100);
       }
     } catch (_) {}
@@ -529,7 +539,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 17,
+    version: 18,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
