@@ -269,7 +269,7 @@
       +     '</div>'
       +     '<div class="greeting">' + hello + '</div>'
       +     '<div class="title">'
-      +       '<span data-wjpdw-name>' + first + '</span>.'
+      +       '<span data-wjpdw-name>' + first + '</span>'
       +       '<button type="button" class="name-edit-btn" data-wjpdw-edit title="Rename">✎</button>'
       +     '</div>'
       +     '<div class="sub" data-wjpdw-sub>Here\'s your daily snapshot.</div>'
@@ -555,7 +555,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 13,
+    version: 14,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
