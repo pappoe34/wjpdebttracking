@@ -1,0 +1,962 @@
+{
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/app.js": {
+    "mtime": 1780009347.2008784,
+    "ast_hash": "a6b4411e2b67dfef281fa195f531bfe1",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/qa-smoke-test.sh": {
+    "mtime": 1778119805.8784072,
+    "ast_hash": "cddb73cee45d8a74d8c72c20bcdd799d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-acct-name-sync.js": {
+    "mtime": 1779840069.3713634,
+    "ast_hash": "5bc720bbd6e1e0b81e2a28280f018946",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-annual-fee-reminder.js": {
+    "mtime": 1779847240.5251253,
+    "ast_hash": "81be0411641e05998a8904b3df4e714a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-assets.js": {
+    "mtime": 1779759194.9258876,
+    "ast_hash": "fea809edf175c8f7bbbdb133b16232d5",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-bank-balances-edit.js": {
+    "mtime": 1779760296.3714392,
+    "ast_hash": "84f409a90032061a1c59b536f61fc28b",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-billing-history.js": {
+    "mtime": 1779858259.519209,
+    "ast_hash": "5fae0a9df75bd0d79cbafc854a193603",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-cash-on-hand-link.js": {
+    "mtime": 1780122911.2751575,
+    "ast_hash": "0d7e4a90c13fb9d4c27f16c58858e1c0",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-categories-recovery.js": {
+    "mtime": 1779852093.882853,
+    "ast_hash": "89b80abcb37566cb9d64302d68cd9755",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-categories.js": {
+    "mtime": 1779836137.4280121,
+    "ast_hash": "188d48a87d891665016991b9bae86223",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-cloud-cap-warn.js": {
+    "mtime": 1779852093.5500631,
+    "ast_hash": "daae72e389139dfd5106f84d61a7a2c2",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-actions.js": {
+    "mtime": 1779754270.1760552,
+    "ast_hash": "8507e8ee2ad62a3cccfa9444e6052158",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-bridge.js": {
+    "mtime": 1779753764.187249,
+    "ast_hash": "9d05a10b340bbff1bd612b7d455e5040",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-hero-premium.js": {
+    "mtime": 1779576599.9978158,
+    "ast_hash": "09776dbe505a0e32a3213f6ad5e220d5",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-history-chart.js": {
+    "mtime": 1779576240.022874,
+    "ast_hash": "3cdbca491bebeae59cc80261873a56d4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-info-modal.js": {
+    "mtime": 1779575264.882178,
+    "ast_hash": "b950d360db8933ba387152eed6012b8f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-loading-indicator.js": {
+    "mtime": 1780123325.1943667,
+    "ast_hash": "925dd729e3540b0b70bf703131eee41d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-mock-data.js": {
+    "mtime": 1779569753.1641455,
+    "ast_hash": "751af41220550100af2d32d92057847f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-profile-stable.js": {
+    "mtime": 1780140006.0920997,
+    "ast_hash": "fc725f24afc3f213a311158e1fe2ae7e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-pull.js": {
+    "mtime": 1779566624.2823668,
+    "ast_hash": "de11c0751e0bf5e5bc9ac63a56d214df",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-score-ocr.js": {
+    "mtime": 1779564924.8681743,
+    "ast_hash": "d10eae40ddc5a6924ec3504a8c1a4621",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-score-overhaul.js": {
+    "mtime": 1779566624.327363,
+    "ast_hash": "3e6ea91d631317008a7448b4a2c458fc",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-simulator.js": {
+    "mtime": 1779571190.040721,
+    "ast_hash": "cd389fc2859c09f90bc79296b5df5367",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-strategy-banner.js": {
+    "mtime": 1779576391.4431493,
+    "ast_hash": "87af5a3a657478e24c31c9e41c6037ad",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-credit-tier-gate.js": {
+    "mtime": 1779569804.4629576,
+    "ast_hash": "67619c59fe2027a2ccd6a8c851d7c086",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-daily-welcome.js": {
+    "mtime": 1780102263.1721725,
+    "ast_hash": "6c393c7e77398389b0244cc2771f2d4d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-dashboard-audit-fix.js": {
+    "mtime": 1780008139.666084,
+    "ast_hash": "ecf197b390bb41c7809d8253a68c577f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-dashboard-dense-mode.js": {
+    "mtime": 1780127438.8007424,
+    "ast_hash": "c6e5419f05431861b072526bcf28d82e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-dashboard-grid-slots.js": {
+    "mtime": 1780139682.1254315,
+    "ast_hash": "60f32b47f70361c67146b9ab43bab9cd",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-dashboard-header-compact.js": {
+    "mtime": 1780126990.0528893,
+    "ast_hash": "328fc0368043b91fc031d88abfb59f2f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-dashboard-order-sticky.js": {
+    "mtime": 1780107274.707845,
+    "ast_hash": "872d0efcef5edce8b6c56af4be5f55ac",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-data-loss-guard-v3.js": {
+    "mtime": 1779789263.827646,
+    "ast_hash": "a71a904ff2e31b82003d26d73cccc82f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-data-loss-guard.js": {
+    "mtime": 1779789762.8824742,
+    "ast_hash": "12f68b490ff26308f3ef0555e310a801",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-debt-detail-enhance.js": {
+    "mtime": 1779845641.742762,
+    "ast_hash": "5a881c7af4f98533331fb7c733eeff5d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-debt-recurring-shim.js": {
+    "mtime": 1779846198.5253763,
+    "ast_hash": "d442c6fb46d99739fd0b55414e89fc99",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-debts-overview-enhance.js": {
+    "mtime": 1779844816.2620502,
+    "ast_hash": "942c07f28e962d07073a6625431a4775",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-exec-summary-polish.js": {
+    "mtime": 1780106477.1564507,
+    "ast_hash": "5ff9893dd6e817e6dd9ddef165a86381",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-momentum-hero-polish.js": {
+    "mtime": 1780122911.2908213,
+    "ast_hash": "e41c5693d21f7fae1da6915e2c3d918c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-momentum-tiles-link.js": {
+    "mtime": 1780122911.256092,
+    "ast_hash": "3ae5e2b4bd30b044daa080f5f91f57a6",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-page-prewarm.js": {
+    "mtime": 1780124405.1692386,
+    "ast_hash": "06e18d8d8233335d6239b93efd0296e8",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-page-router-fix.js": {
+    "mtime": 1780123933.5210848,
+    "ast_hash": "85242fc214437a414c7b9737e5f95603",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-pagesize-relocate.js": {
+    "mtime": 1779854409.8667653,
+    "ast_hash": "09096484463b313453b9d47a11f25298",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-recurring-autodetect.js": {
+    "mtime": 1779857286.6255739,
+    "ast_hash": "45c0d387f0c6e1cfe0581dc8eaec2af4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-recurring-link-ui.js": {
+    "mtime": 1780004142.7611697,
+    "ast_hash": "ad40f739880532fd1ef40608ea43e60c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-recurring-link.js": {
+    "mtime": 1780007435.0875468,
+    "ast_hash": "80791d5a6637387e407c35238a79c81e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-recurring-tab-enhance.js": {
+    "mtime": 1780006679.426012,
+    "ast_hash": "35bca0188b3b0674b06d80f19c1bc8c4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-recurring-tiles.js": {
+    "mtime": 1780095957.0940385,
+    "ast_hash": "c63ed668e08464ae8894d739e6f351a3",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-sidebar-auto.js": {
+    "mtime": 1780139831.77573,
+    "ast_hash": "429ee66bbff986d7f0733c96a8b9b894",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-smart-categorize-boost.js": {
+    "mtime": 1779854879.8655198,
+    "ast_hash": "9ec9910ba12a14998d69bd47e92ae644",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-source-badge-enhance.js": {
+    "mtime": 1779840529.0598671,
+    "ast_hash": "4cc092c8bb70e28b0e742b9ad5fa1be5",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-spend-by-bill.js": {
+    "mtime": 1779857947.4211555,
+    "ast_hash": "532c184160050f220f76f49203dc2954",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-transactions-tab-enhance.js": {
+    "mtime": 1780002532.9751024,
+    "ast_hash": "e84235d05091d26b202d8af5e6582920",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-transfer-filter.js": {
+    "mtime": 1779837055.3521245,
+    "ast_hash": "5ba7b3d615eeaf105ad7d86d4de38d9e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-tx-analysis-relocate.js": {
+    "mtime": 1779857979.9174519,
+    "ast_hash": "9f596cc1418df286d87ac888b72e5b04",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-tx-category-picker.js": {
+    "mtime": 1779847531.2674575,
+    "ast_hash": "d22e357d1b034249791245b38b08920d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-tx-learn-from-history.js": {
+    "mtime": 1779996692.0174935,
+    "ast_hash": "0a42e0e9844fa7be7dfd472cf39fd24b",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-tx-smart-categorize.js": {
+    "mtime": 1779842961.6451716,
+    "ast_hash": "63b2d416d1650038fae446ce5e6c7498",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-txn-detail-modal.js": {
+    "mtime": 1779998002.4778862,
+    "ast_hash": "676c15c4c91798da4270dc62bb7a8fdf",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-txn-row-direct-edit.js": {
+    "mtime": 1779838501.2007742,
+    "ast_hash": "608cd4b080ba3665c381da4589d6462c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-txn-stats-bankfilter.js": {
+    "mtime": 1779853967.9931407,
+    "ast_hash": "dc2c1382f990def4d2ab5887fafb6dfc",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/app.js": {
+    "mtime": 1776649376.0073605,
+    "ast_hash": "0b944a019795cc666cee0fc10a7fe20a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/manifest.json": {
+    "mtime": 1775442016.0860786,
+    "ast_hash": "893b19c1eeddd87d893b390ff944ed0c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/server.ps1": {
+    "mtime": 1775442192.8673873,
+    "ast_hash": "9d0e027ce4672aef8327f58c20c7c70c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/sw.js": {
+    "mtime": 1775616337.5584848,
+    "ast_hash": "e63f64f493960292efa868e9f8aab019",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/.claude/launch.json": {
+    "mtime": 1775692672.0939467,
+    "ast_hash": "d85da47345b7147e2949039615f3a731",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/netlify/functions/admin-data-health.js": {
+    "mtime": 1779756864.9094088,
+    "ast_hash": "d16124408b0e133c11548c741a181419",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/netlify/functions/array-credit-pull.js": {
+    "mtime": 1779566773.8564854,
+    "ast_hash": "a8410ec3f43c2decf0d71f026f3c6857",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/netlify/functions/log-admin-alert.js": {
+    "mtime": 1779789207.0045998,
+    "ast_hash": "0cc27c7c47aaa859b0f5e88b6618bdb4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/netlify/functions/state-backup-cron.js": {
+    "mtime": 1779756338.6469026,
+    "ast_hash": "c13809694f6a5538463b11546622aa85",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/scripts/verify-index-html.js": {
+    "mtime": 1779756889.8067465,
+    "ast_hash": "dfcb4a33baa14b59c9703b7b98e7d6d9",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-fix-pending/wjp-data-loss-guard.js": {
+    "mtime": 1779486593.1370802,
+    "ast_hash": "2d120bcf20eb076ba17a1985c5fbf0ef",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_1/proposed/app.js": {
+    "mtime": 1777658780.388801,
+    "ast_hash": "cb2e3cf3eba390b76ecb2dde4a41d72d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_1/proposed/manifest.json": {
+    "mtime": 1777658780.415757,
+    "ast_hash": "1f14984f2eae5c107223ca1f0494bbcf",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_2/proposed/app.js": {
+    "mtime": 1777674322.5873754,
+    "ast_hash": "3c014f1bcad75efcc6b1d89f8ca94eef",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3/proposed/app.js": {
+    "mtime": 1777677169.4365969,
+    "ast_hash": "ce30b0e06e12fadb83f7e69cd74584ad",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p11_2.py": {
+    "mtime": 1777702074.4466379,
+    "ast_hash": "c5e32f448dab1e7fe2745a4a3667941e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p11_3.py": {
+    "mtime": 1777702340.5214367,
+    "ast_hash": "013c3a1da067a99b134d0d05498ccf2c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p11_3b.py": {
+    "mtime": 1777702365.4654915,
+    "ast_hash": "953c81ba26aefcbb8ca28beb3e74e6e4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p12.py": {
+    "mtime": 1777761342.7774048,
+    "ast_hash": "021cd05a5cba052e615c8a4b75ba5cf1",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p12_1.py": {
+    "mtime": 1777761979.7341897,
+    "ast_hash": "99d6ca54efe636a5dea79ed7b5ed02d3",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p13.py": {
+    "mtime": 1777762415.6526828,
+    "ast_hash": "1a3e05d8736b02b5cf4e73da1c340285",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/p13_hashfix.py": {
+    "mtime": 1777762529.7386074,
+    "ast_hash": "188638f468ec496461d7085941b1550e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/CALENDAR_DESIGN_NOTES.md": {
+    "mtime": 1778280392.3332837,
+    "ast_hash": "4cbca24f7f4695b85bf4974f2514c1a9",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/DEMO_VIDEO_SCRIPT.md": {
+    "mtime": 1778195840.815777,
+    "ast_hash": "20a9f82032d9c47b516a559d19c98e38",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/DRESS_REHEARSAL_MAY_22.md": {
+    "mtime": 1778196942.4928772,
+    "ast_hash": "a8678d6339c4cd823a2928aaf615ff05",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/index.html": {
+    "mtime": 1780140006.2874064,
+    "ast_hash": "3f9ce3de4465f600b7d47bf864cd40d1",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/PLAID_ATTESTATION_CHEAT_SHEET.md": {
+    "mtime": 1778109586.074692,
+    "ast_hash": "3df528b6b4e85d46639c8bc503c20680",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/PLAID_P14d_ATTESTATIONS_FILLED.md": {
+    "mtime": 1778195760.8855784,
+    "ast_hash": "de78aee21a87716d0e69ad59b54f3b31",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/PRE_LAUNCH_CHECKLIST.md": {
+    "mtime": 1778111363.198922,
+    "ast_hash": "2dd136f9e642fe76a0cdc51786a48447",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/PRODUCT_HUNT_LAUNCH_PACK.md": {
+    "mtime": 1778111312.8634746,
+    "ast_hash": "2d726b228ecc6af59fbc8cc64e39f29f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/SITE_AUDIT_MAY_9.md": {
+    "mtime": 1778275216.3840778,
+    "ast_hash": "b18a7af4d6fd77fa79d08fb6f9dc7602",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/test_marker.txt": {
+    "mtime": 1777865828.9240212,
+    "ast_hash": "098f6bcd4621d373cade4e832627b4f6",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/UAT_RECRUIT_TEMPLATES.md": {
+    "mtime": 1778109620.4368308,
+    "ast_hash": "a2149089ecf7e186b532a255a3fdbb3c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/USER_WEEKEND_MAY_9_10.md": {
+    "mtime": 1778195800.914175,
+    "ast_hash": "5be0815a069a32f91f4c98d244a8d54a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/index.html": {
+    "mtime": 1775709966.2666082,
+    "ast_hash": "e1e44dc1a7725939349bd58f7b97a090",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/docs/credit-array-setup.md": {
+    "mtime": 1778634722.602938,
+    "ast_hash": "17610894e2ab4ac6cb090d0e1b41917e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/graphify-out/converted/Privacy_Policy_879f1ca1.md": {
+    "mtime": 1780181254.0,
+    "ast_hash": "ec41c473b82e708eed73470b11b1f958",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/graphify-out/converted/Terms_of_Service_a4eb0504.md": {
+    "mtime": 1780181254.0,
+    "ast_hash": "a79c36253cba6012f9f8ca9aaae71ad8",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/graphify-out/converted/Privacy_Policy_v1_2026-05-12_c8ca07ca.md": {
+    "mtime": 1780181254.0,
+    "ast_hash": "3ed4effa222a7ac04870b8a0c27ac4b0",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/graphify-out/converted/Terms_of_Service_v1_2026-05-12_3abd8866.md": {
+    "mtime": 1780181254.0,
+    "ast_hash": "08faf79c972554a5dc13606568fc1280",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/evergreen_capital/DESIGN.md": {
+    "mtime": 1774729661.2557347,
+    "ast_hash": "0eebda6e1701dcc0cad8d1f38e8274de",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/evergreen_heritage/DESIGN.md": {
+    "mtime": 1774729661.3185816,
+    "ast_hash": "92bdfc774044e4422caf319f47e4740c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_analysis_daytime/code.html": {
+    "mtime": 1774729661.039821,
+    "ast_hash": "2843c711bf469cdb94689ab72b97b175",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_budget_breakdown_daytime/code.html": {
+    "mtime": 1774729660.4014232,
+    "ast_hash": "962d4d0f4bf98a1ea195f34b46ba410a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_calendar_daytime/code.html": {
+    "mtime": 1774729660.5041518,
+    "ast_hash": "e6603af0a7d627e30ea0bd8869ede7a5",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_dashboard_ai_chart_controls_fixed/code.html": {
+    "mtime": 1774729658.635893,
+    "ast_hash": "d8d677ade172058df4fd052ead060ea6",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_dashboard_daytime/code.html": {
+    "mtime": 1774729660.195392,
+    "ast_hash": "69c55728e7e4d6881a69ddd2354c53b8",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_dashboard_overview_dark_mode_balanced/code.html": {
+    "mtime": 1774729658.9841444,
+    "ast_hash": "dbe1ac51fb027d7e9613ff160dd7d25e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_ai_advisor_consistent_theme/code.html": {
+    "mtime": 1774729660.0899491,
+    "ast_hash": "f1aa693053374db12750320fe698c320",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_analysis_in_depth_ai/code.html": {
+    "mtime": 1774729659.6181605,
+    "ast_hash": "25b3a0ba3ec6025c99fc98809f16846b",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_budget_breakdown_updated_nav/code.html": {
+    "mtime": 1774729659.0931685,
+    "ast_hash": "03b9fd144ed262bb4a855f896c5c2f73",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_budget_breakdown_with_ai_insights/code.html": {
+    "mtime": 1774729658.7570188,
+    "ast_hash": "25d72d53048dd59adfb539a26c082a07",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_documents_perfect_alignment/code.html": {
+    "mtime": 1774729659.8330314,
+    "ast_hash": "ca26cf7ea6b8f87ff48172620958915c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_fixed_strategy_tabs/code.html": {
+    "mtime": 1774729658.877,
+    "ast_hash": "875bb2c3892b7a68fd7380ffbefc0459",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_recurring_payments_enhanced/code.html": {
+    "mtime": 1774729659.4250715,
+    "ast_hash": "b147d035f2afceb7777bbdc85d52dafa",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_settings_consistent_dark_theme/code.html": {
+    "mtime": 1774729659.9958937,
+    "ast_hash": "061d8bebdccc150d444b687c61317340",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_simulation_chart_controls/code.html": {
+    "mtime": 1774729659.719931,
+    "ast_hash": "ff8080c571dbd7d1049a1a2044545634",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_strategy_with_top_level_nav/code.html": {
+    "mtime": 1774729659.1963737,
+    "ast_hash": "20673513e4c03bb9b80cdd7ef90a7a2d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_transactions_fixed_consistency/code.html": {
+    "mtime": 1774729659.299273,
+    "ast_hash": "555136c18991803a046bc4484e33efe2",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_yearly_payment_calendar/code.html": {
+    "mtime": 1774729659.91836,
+    "ast_hash": "57fc04c3f1530096c26b827631b88f95",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_recurring_payments_daytime/code.html": {
+    "mtime": 1774729660.9357975,
+    "ast_hash": "4177823452c5f86cb99817f07c2aedce",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_settings_daytime/code.html": {
+    "mtime": 1774729660.7113903,
+    "ast_hash": "b918563eaddc3abda248469d2a720e81",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_simulations_daytime/code.html": {
+    "mtime": 1774729661.1469698,
+    "ast_hash": "f73f75f217425d9545bf5fec6aef2320",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_strategy_daytime/code.html": {
+    "mtime": 1774729660.3002744,
+    "ast_hash": "0a89b4dcf18267dfab8b13c8ba58f455",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_strategy_fixed_tabs_daytime/code.html": {
+    "mtime": 1774729660.6097097,
+    "ast_hash": "f751868c296682fbb8c0b5f326edda73",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_transactions_daytime/code.html": {
+    "mtime": 1774729660.8244336,
+    "ast_hash": "6328332b6f250bebdd8afc7a554e85ff",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-fix-pending/CREDIT_HEALTH_OVERHAUL_SPEC.md": {
+    "mtime": 1779569675.1451063,
+    "ast_hash": "5196ac2e2682f69a31ae98781cd6622d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-fix-pending/RECOVERY_PLAN.md": {
+    "mtime": 1779484996.6542377,
+    "ast_hash": "1c959b056927f322082345087300a30b",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/wjp-fix-pending/STATUS_REPORT_2026-05-22.md": {
+    "mtime": 1779487078.7558825,
+    "ast_hash": "adfcccbae398bec49b843040c0d3739c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/AUDIT_2026-05-01.md": {
+    "mtime": 1777653824.0441978,
+    "ast_hash": "ade6fddc10b9b2cf331e252d99415299",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/EXECUTIVE_SUMMARY_FOR_CLIENT.md": {
+    "mtime": 1776648648.0080807,
+    "ast_hash": "00ddfb883a7869b64f665faea265a3e7",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/FIXES_COMPLETED.md": {
+    "mtime": 1776649399.8677163,
+    "ast_hash": "8e5ac0d62af3e1d0f6e7ab62a68a25f8",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/FIX_PLAN_5_PHASES.md": {
+    "mtime": 1777676323.9820032,
+    "ast_hash": "61a0fbe1c338df4c386aa17d742e8f7e",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/INDEX.md": {
+    "mtime": 1776649923.2950122,
+    "ast_hash": "892dc19f98971906c8e2e91e4d218c6d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/LIVE_AUDIT_2026-05-01.md": {
+    "mtime": 1777656604.8145142,
+    "ast_hash": "c78cdbc5471c926803ef17e68a0321b3",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/ORIGIN_AUDIT_AND_WJP_IMPROVEMENTS.md": {
+    "mtime": 1776647939.18924,
+    "ast_hash": "5498a9ed594a3078ff72e86192c83dd7",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PROFESSIONAL_AUDIT_FIRM_BRIEFING.md": {
+    "mtime": 1776648622.9176588,
+    "ast_hash": "c951deb521f0b544ec24abcb31144d61",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/QUICK_START.md": {
+    "mtime": 1776649838.1331666,
+    "ast_hash": "4fdf6e6b5e9e5a9ee79f50403f31737f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/README.md": {
+    "mtime": 1776649820.2088315,
+    "ast_hash": "b4586d1ea1319bd99c7c17d0a491dc5a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/WJP_COMPREHENSIVE_AUDIT_REPORT.md": {
+    "mtime": 1776648588.4703445,
+    "ast_hash": "cf26b4d89cc6771345f902eab9ed8df2",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/00_AUDIT_FINDINGS/ORIGIN_COMPETITIVE_ANALYSIS.md": {
+    "mtime": 1776649844.7818792,
+    "ast_hash": "5498a9ed594a3078ff72e86192c83dd7",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/00_AUDIT_FINDINGS/PROFESSIONAL_AUDIT_FIRM_BRIEFING.md": {
+    "mtime": 1776649844.7428844,
+    "ast_hash": "c951deb521f0b544ec24abcb31144d61",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/00_AUDIT_FINDINGS/WJP_COMPREHENSIVE_AUDIT_REPORT.md": {
+    "mtime": 1776649844.702037,
+    "ast_hash": "cf26b4d89cc6771345f902eab9ed8df2",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/01_FIXES_IMPLEMENTED/FIXES_COMPLETED.md": {
+    "mtime": 1776649844.8038878,
+    "ast_hash": "8e5ac0d62af3e1d0f6e7ab62a68a25f8",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/01_FIXES_IMPLEMENTED/PRIORITY_1_CHECKLIST.md": {
+    "mtime": 1776649895.6640663,
+    "ast_hash": "7535ad0263ba3869927b0c4b24bd94c5",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/02_ROADMAP/IMPLEMENTATION_TIMELINE.md": {
+    "mtime": 1776649872.0132823,
+    "ast_hash": "86c14324d164397f7461d3f0c6872ee3",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/04_EXECUTIVE_SUMMARIES/EXECUTIVE_SUMMARY_FOR_CLIENT.md": {
+    "mtime": 1776649844.8496556,
+    "ast_hash": "00ddfb883a7869b64f665faea265a3e7",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_1/PHASE_1_AUDIT_REPORT.md": {
+    "mtime": 1777663390.8277318,
+    "ast_hash": "3c2babda6b6a26211a498772d6626e7d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_1/PHASE_1_DIFFS.md": {
+    "mtime": 1777657843.5566876,
+    "ast_hash": "9c8af36cdc6b77b634744b108f49e955",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_1/proposed/index.html": {
+    "mtime": 1777658779.325242,
+    "ast_hash": "eab06ada8718e624aa9748920afd3996",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_2/PHASE_2_AUDIT_REPORT.md": {
+    "mtime": 1777675777.5018303,
+    "ast_hash": "5a0bd2865fe14b830941b1292d19065a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_2/PHASE_2_DESIGN.md": {
+    "mtime": 1777673969.9067874,
+    "ast_hash": "ebfd6673cc7d5b41a471e7dcbb39aad9",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_2/PHASE_2_DIFFS.md": {
+    "mtime": 1777674375.1361828,
+    "ast_hash": "a89e58539837ca2e7425089730964147",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3/PHASE_3_AUDIT_REPORT.md": {
+    "mtime": 1777677641.7450328,
+    "ast_hash": "c539fe47f16034bf96ad3c0426cbc375",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3/PHASE_3_DESIGN.md": {
+    "mtime": 1777677043.207402,
+    "ast_hash": "5d088228e2aeb53efbf2aac79fa4ca9d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/PHASE_3_5_AUDIT_REPORT.md": {
+    "mtime": 1777679573.1590335,
+    "ast_hash": "4356ab3b9b92495caad1f919ea33dcbd",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_3_5/PHASE_3_5_DESIGN.md": {
+    "mtime": 1777679139.8276405,
+    "ast_hash": "e0e9dde5d302f7cfde00197628d3afe8",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_4/PHASE_4_AUDIT_REPORT.md": {
+    "mtime": 1777680462.4440742,
+    "ast_hash": "64a8e7dd23852e7e0dba083e2aa7be20",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_PROJECT/PHASE_4/PHASE_4_DESIGN.md": {
+    "mtime": 1777680419.3575034,
+    "ast_hash": "4aa7bba7ccf3ed6770476f438f73e830",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/Array_Tuesday_May19_Negotiation_Prep.pdf": {
+    "mtime": 1778984988.848735,
+    "ast_hash": "3c16fb01eaa5bbbe5e901c4d84cd1353",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/PAPPOE_VENTURE_Session_Recap_2026-05-15.pdf": {
+    "mtime": 1778975223.646073,
+    "ast_hash": "cfc8a55883b212acfb105e98be00e438",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/WJP_Launch_Tracker.pdf": {
+    "mtime": 1777865691.2952802,
+    "ast_hash": "4b8e32f1c671140b974240ed9bc90f5a",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/docs/array/Array_Thursday_Prep_Pack.pdf": {
+    "mtime": 1778637918.7747266,
+    "ast_hash": "2ec9c14d639aa4706d1611f384cb85e3",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/docs/array/Array_Tuesday_Prep.pdf": {
+    "mtime": 1778793673.7368555,
+    "ast_hash": "16934a6e61c7572c683d8f477be29f9b",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/docs/planning/WJP_Launch_Roadmap.pdf": {
+    "mtime": 1778796258.2167509,
+    "ast_hash": "236d061fc064404a723f0f99778239ae",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/icon-1024.png": {
+    "mtime": 1777763740.9451525,
+    "ast_hash": "57cbd41977481de17ca3f39faa3f1bdb",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/icon-192.png": {
+    "mtime": 1775442427.9855661,
+    "ast_hash": "df22176a511eb66c66aab2f5e3e61151",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/AI Financial Dashboard/icon-512.png": {
+    "mtime": 1775442428.6851685,
+    "ast_hash": "da1dbfcaf4f62f2a404e04061781452d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_analysis_daytime/screen.png": {
+    "mtime": 1774729661.0885367,
+    "ast_hash": "3e564223ae75f1d61e92df6da0be883d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_budget_breakdown_daytime/screen.png": {
+    "mtime": 1774729660.4498909,
+    "ast_hash": "924ae3a5e80ace44b5413aa02af547af",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_calendar_daytime/screen.png": {
+    "mtime": 1774729660.5523896,
+    "ast_hash": "78bfee2be72f19e727bdc82aac71a2d7",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_dashboard_ai_chart_controls_fixed/screen.png": {
+    "mtime": 1774729658.6999407,
+    "ast_hash": "7eae131f67b69e394e9270ab1f6cd9c6",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_dashboard_daytime/screen.png": {
+    "mtime": 1774729660.2404785,
+    "ast_hash": "f44bba31f418996540c6d8d6aafe37a4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_dashboard_overview_dark_mode_balanced/screen.png": {
+    "mtime": 1774729659.032845,
+    "ast_hash": "daae9dc984d6e30bf5ebe4780fa1fefc",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_ai_advisor_consistent_theme/screen.png": {
+    "mtime": 1774729660.141806,
+    "ast_hash": "2cce15c28d7f5287a6802974c25a736f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_analysis_in_depth_ai/screen.png": {
+    "mtime": 1774729659.665218,
+    "ast_hash": "07e8106e8fd21b01e38913d5f06465e4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_budget_breakdown_updated_nav/screen.png": {
+    "mtime": 1774729659.1384723,
+    "ast_hash": "ba6acb79b5de8444d1ab87125043d2e0",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_budget_breakdown_with_ai_insights/screen.png": {
+    "mtime": 1774729658.8123715,
+    "ast_hash": "1382db230448d98c998222aaa5860901",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_documents_perfect_alignment/screen.png": {
+    "mtime": 1774729659.87412,
+    "ast_hash": "5a407951627ed62486359af689cc7864",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_fixed_strategy_tabs/screen.png": {
+    "mtime": 1774729658.9253447,
+    "ast_hash": "ece2e83829c6e8adc9668d1062c0df11",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_recurring_payments_enhanced/screen.png": {
+    "mtime": 1774729659.5516655,
+    "ast_hash": "3a1021dadac022d96ea990d3977e756f",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_settings_consistent_dark_theme/screen.png": {
+    "mtime": 1774729660.035129,
+    "ast_hash": "5857a226c4f0823b0c9adc3aa21fdc1c",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_simulation_chart_controls/screen.png": {
+    "mtime": 1774729659.7697737,
+    "ast_hash": "f07fab24ab88aba033c47358ef84b2c4",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_strategy_with_top_level_nav/screen.png": {
+    "mtime": 1774729659.2382658,
+    "ast_hash": "53360b8f83c54a97453e72a60a797c50",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_transactions_fixed_consistency/screen.png": {
+    "mtime": 1774729659.3551888,
+    "ast_hash": "21aae6be46557079f0cff1c5a30af2df",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_debts_yearly_payment_calendar/screen.png": {
+    "mtime": 1774729659.9536512,
+    "ast_hash": "e0d97ad8c5f48f8491b923269b8f8f17",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_recurring_payments_daytime/screen.png": {
+    "mtime": 1774729660.9844718,
+    "ast_hash": "7531f9ddca7ba57357bb877c6549d319",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_settings_daytime/screen.png": {
+    "mtime": 1774729660.7655883,
+    "ast_hash": "7190118e319433a4c22bba0ea0b4573d",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_simulations_daytime/screen.png": {
+    "mtime": 1774729661.2047415,
+    "ast_hash": "4fa586d19059298b9282357144718030",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_strategy_daytime/screen.png": {
+    "mtime": 1774729660.3454463,
+    "ast_hash": "4a1c1e1fcf64a0d50ad8b00fafb5f6a0",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_strategy_fixed_tabs_daytime/screen.png": {
+    "mtime": 1774729660.6554513,
+    "ast_hash": "385d0c565203682d60e717b2b2d678f6",
+    "semantic_hash": ""
+  },
+  "/sessions/awesome-optimistic-newton/mnt/Business Website/stitch/wjp_transactions_daytime/screen.png": {
+    "mtime": 1774729660.8819575,
+    "ast_hash": "1a154c096176f138c0394373012bbc84",
+    "semantic_hash": ""
+  }
+}

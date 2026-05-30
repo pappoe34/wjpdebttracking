@@ -1,0 +1,6 @@
+WJP_PROJECT/
+AI Financial Dashboard/
+.idea/
+graphify-out/
+node_modules/
+*.min.js
