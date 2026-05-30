@@ -51,7 +51,7 @@
       'body.dash-customizing #page-dashboard #dash-customize-bar { display: flex !important; align-items: center; gap: 10px; padding: 10px 4px; margin: 8px 0 12px; flex-wrap: wrap; }',
 
       // Compact header bar
-      '#' + HEADER_ID + ' { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 4px; margin: 0; min-height: 0; font-family: inherit; flex: 0 0 100%; width: 100%; box-sizing: border-box; line-height: 1.2; }',
+      '#' + HEADER_ID + ' { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 4px 0; margin: 0; min-height: 0; font-family: inherit; flex: 0 0 100%; width: 100%; box-sizing: border-box; line-height: 1.2; }',
       '#' + HEADER_ID + ' .wjp-ch-greeting { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.2; font-weight: 600; color: var(--ink, var(--text-1, #1f1a14)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
       '#' + HEADER_ID + ' .wjp-ch-greeting .wjp-ch-wave { font-size: 13px; line-height: 1; }',
       'body.dark #' + HEADER_ID + ' .wjp-ch-greeting { color: #f4f4f6; }',
@@ -263,7 +263,7 @@
   }
 
   window.WJP_DashboardHeaderCompact = {
-    version: 7,
+    version: 8,
     rebuild: function () { try { var h = document.getElementById(HEADER_ID); if (h) h.remove(); } catch (_) {}; buildHeader(); }
   };
 })();
