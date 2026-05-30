@@ -105,10 +105,35 @@
     } catch (_) {}
   }
 
+  function warmActivity() {
+    try {
+      var pg = document.getElementById('page-activity');
+      if (!pg) return;
+      var savedClass = pg.className;
+      var savedStyle = pg.getAttribute('style') || '';
+      pg.className = 'page active';
+      pg.style.cssText = hiddenActiveStyle();
+      try {
+        if (typeof window.renderActivityPage === 'function') window.renderActivityPage();
+      } catch (_) {}
+      try {
+        if (window.WJP_Education && typeof window.WJP_Education.refresh === 'function') {
+          window.WJP_Education.refresh();
+        }
+      } catch (_) {}
+      setTimeout(function () {
+        pg.className = savedClass.replace(/\bactive\b/g, '').trim() || 'page';
+        pg.setAttribute('style', savedStyle);
+      }, RENDER_HOLD_MS);
+      try { console.log('[wjp-page-prewarm] warmed Financial Education (#page-activity)'); } catch (_) {}
+    } catch (_) {}
+  }
+
   function prewarm() {
     // Pause router-fix during the warming window
     window._wjpRouterFixPaused = true;
     warmCalendar();
+    setTimeout(warmActivity, 100);
     // small stagger
     setTimeout(warmCredit, 200);
     // Un-pause after the longest hold + safety margin
