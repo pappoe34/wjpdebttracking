@@ -46,20 +46,22 @@
     return 'page-' + String(dp).toLowerCase();
   }
 
-  // Resolve the page that SHOULD be visible right now
+  // Resolve the page that SHOULD be visible right now.
+  // FIX 70 v2: nav-item.active wins over hash — because hash may be stale
+  // from a previous session, while .active reflects the most recent click.
   function resolveActivePageId() {
-    // 1. hash wins if it points to a known page
-    try {
-      var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
-      if (h && document.getElementById('page-' + h)) return 'page-' + h;
-    } catch (_) {}
-    // 2. fall back to whichever sidebar .nav-item has .active
+    // 1. sidebar nav-item with .active wins (most direct user signal)
     var active = document.querySelector('.sidebar .nav-item.active[data-page]');
     if (active) {
       var id = dataPageToPageId(active.getAttribute('data-page'));
       if (id && document.getElementById(id)) return id;
     }
-    // 3. fall back to dashboard
+    // 2. hash fallback
+    try {
+      var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
+      if (h && document.getElementById('page-' + h)) return 'page-' + h;
+    } catch (_) {}
+    // 3. default to dashboard
     return 'page-dashboard';
   }
 
@@ -146,8 +148,8 @@
     attachStyleObserver();
     attachBodyObserver();
     wireRouteEvents();
-    // Safety re-enforce every few seconds in case a script slips past the observer
-    setInterval(function () { enforce('safety-tick'); }, 4000);
+    // NOTE: dropped the 4s safety-tick — it was forcing stale state. Style
+    // mutations + nav clicks + hashchange give us enough coverage.
   }
 
   if (document.readyState === 'loading') {
@@ -157,7 +159,7 @@
   }
 
   window.WJP_PageRouterFix = {
-    version: 1,
+    version: 2,
     enforce: enforce,
     resolveActivePageId: resolveActivePageId
   };
