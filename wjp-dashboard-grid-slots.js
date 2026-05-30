@@ -150,17 +150,17 @@
     st.id = STYLE_ID;
     st.textContent = [
       // Grid container
-      'body.' + BODY_CLASS + ' #page-dashboard { display: grid !important; grid-template-columns: repeat(12, 1fr) !important; grid-auto-flow: dense !important; gap: 12px !important; align-items: start !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active { display: grid !important; grid-template-columns: repeat(12, 1fr) !important; grid-auto-flow: dense !important; gap: 12px !important; align-items: start !important; }',
       // Non-card direct children (compact header, hidden originals, customize bar) span full row
-      'body.' + BODY_CLASS + ' #page-dashboard > #wjp-compact-header { grid-column: 1 / -1 !important; }',
-      'body.' + BODY_CLASS + ' #page-dashboard > #dash-customize-bar { grid-column: 1 / -1 !important; }',
-      'body.' + BODY_CLASS + ' #page-dashboard > div:not(.reorderable):not(.card) { grid-column: 1 / -1 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active > #wjp-compact-header { grid-column: 1 / -1 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active > #dash-customize-bar { grid-column: 1 / -1 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active > div:not(.reorderable):not(.card) { grid-column: 1 / -1 !important; }',
       // Card slots
-      'body.' + BODY_CLASS + ' #page-dashboard .reorderable[data-card-slot="1"] { grid-column: span 12 !important; }',
-      'body.' + BODY_CLASS + ' #page-dashboard .reorderable[data-card-slot="2"] { grid-column: span 6 !important; }',
-      'body.' + BODY_CLASS + ' #page-dashboard .reorderable[data-card-slot="3"] { grid-column: span 4 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active .reorderable[data-card-slot="1"] { grid-column: span 12 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active .reorderable[data-card-slot="2"] { grid-column: span 6 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active .reorderable[data-card-slot="3"] { grid-column: span 4 !important; }',
       // Cards without explicit slot (safety fallback) span half
-      'body.' + BODY_CLASS + ' #page-dashboard .reorderable:not([data-card-slot]) { grid-column: span 6 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard.active .reorderable:not([data-card-slot]) { grid-column: span 6 !important; }',
 
       // Slot toolbar (only shown in customize mode)
       '.' + TOOLBAR_CLASS + ' { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; padding: 4px; background: rgba(255,255,255,0.94); border: 1px solid var(--border, rgba(0,0,0,0.10)); border-radius: 8px; z-index: 30; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }',
@@ -170,7 +170,7 @@
       '.' + TOOLBAR_CLASS + ' button.is-active { background: #1f7a4a; color: #fff; }',
       'body.dark .' + TOOLBAR_CLASS + ' button.is-active { background: #7fd1a4; color: #0a0a0a; }',
       // Make reorderable cards positioning context for the toolbar
-      'body.' + BODY_CLASS + ' #page-dashboard .reorderable { position: relative; }'
+      'body.' + BODY_CLASS + ' #page-dashboard.active .reorderable { position: relative; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -319,7 +319,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 1,
+    version: 2,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
