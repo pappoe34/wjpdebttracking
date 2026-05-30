@@ -204,6 +204,32 @@
     });
   }
 
+  // FIX 81: keep the header pinned to the very top. Other modules (e.g.
+  // wjp-dashboard-audit-fix's Executive Summary inserter) call
+  // `grid.insertBefore(card, grid.firstChild)` which can push our header
+  // down to position 1+. Re-anchor whenever that happens.
+  var _anchoring = false;
+  function reanchorTop() {
+    if (_anchoring) return;
+    var page = document.getElementById('page-dashboard');
+    var header = document.getElementById(HEADER_ID);
+    if (!page || !header) return;
+    if (page.firstElementChild === header) return;
+    _anchoring = true;
+    try { page.insertBefore(header, page.firstElementChild); } catch (_) {}
+    setTimeout(function () { _anchoring = false; }, 50);
+  }
+
+  function attachAnchorObserver() {
+    var page = document.getElementById('page-dashboard');
+    if (!page || page.dataset.wjpAnchorObs === '1') return;
+    page.dataset.wjpAnchorObs = '1';
+    try {
+      var mo = new MutationObserver(function () { reanchorTop(); });
+      mo.observe(page, { childList: true });
+    } catch (_) {}
+  }
+
   // Build header once #page-dashboard exists. The dashboard is part of the
   // initial HTML so it should be there by DOMContentLoaded, but we retry
   // briefly just to be safe.
@@ -213,10 +239,21 @@
     var iv = setInterval(function () {
       attempts++;
       buildHeader();
-      if (document.getElementById(HEADER_ID) || attempts > 40) clearInterval(iv);
+      if (document.getElementById(HEADER_ID)) {
+        attachAnchorObserver();
+        reanchorTop();
+        clearInterval(iv);
+      } else if (attempts > 40) {
+        clearInterval(iv);
+      }
     }, 200);
     // Re-sync greeting periodically (in case modules late-update it)
     setInterval(syncGreetingText, 5000);
+    // Safety re-anchor on common re-render events
+    window.addEventListener('wjp-data-restored', function () { setTimeout(reanchorTop, 400); });
+    window.addEventListener('wjp-transactions-changed', function () { setTimeout(reanchorTop, 200); });
+    // Light safety tick — cheap (single child compare)
+    setInterval(reanchorTop, 3000);
   }
 
   if (document.readyState === 'loading') {
@@ -226,7 +263,7 @@
   }
 
   window.WJP_DashboardHeaderCompact = {
-    version: 6,
+    version: 7,
     rebuild: function () { try { var h = document.getElementById(HEADER_ID); if (h) h.remove(); } catch (_) {}; buildHeader(); }
   };
 })();
