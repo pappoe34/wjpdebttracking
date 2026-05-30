@@ -97,7 +97,8 @@
       var s = getState();
       // FIX 63 v9 (Winston 2026-05-29): preferred name (user choice) wins
       // over firstName, then falls back through normal chain.
-      var nm = (s && s.profile && (s.profile.preferredName || s.profile.preferredFirstName || s.profile.firstName || s.profile.name)) || '';
+      // FIX 63 v16: read Settings > Profile > Display name (profile.displayName/fullName)
+      var nm = (s && s.profile && (s.profile.displayName || s.profile.fullName || s.profile.preferredName || s.profile.preferredFirstName || s.profile.firstName || s.profile.name)) || '';
       if (!nm) {
         var ls = localStorage.getItem('wjp_user_name') || '';
         if (ls) nm = ls;
@@ -220,12 +221,7 @@
       '#' + OVERLAY_ID + ' .help:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1f1a14;color:#fff;font-size:10.5px;font-weight:600;padding:7px 10px;border-radius:7px;letter-spacing:0;text-transform:none;z-index:10;width:max-content;max-width:220px;text-align:left;line-height:1.45;box-shadow:0 8px 20px rgba(0,0,0,0.30);}',
       'body.dark #' + OVERLAY_ID + ' .help:hover::after{background:#f4f4f6;color:#1f1a14;}',
 
-      // Inline rename pencil
-      '#' + OVERLAY_ID + ' .name-edit-btn{background:none;border:0;color:#1f7a4a;font-size:14px;margin-left:10px;cursor:pointer;opacity:0.55;transition:opacity .15s, transform .15s, background .15s;padding:4px 6px;border-radius:6px;-webkit-text-fill-color:#1f7a4a;}',
-      '#' + OVERLAY_ID + ' .name-edit-btn:hover{opacity:1;transform:translateY(-1px);background:rgba(31,122,74,0.10);}',
-      'body.dark #' + OVERLAY_ID + ' .name-edit-btn{color:#7fd1a4;-webkit-text-fill-color:#7fd1a4;}',
-      '#' + OVERLAY_ID + ' .name-input{font-size:34px;font-weight:900;color:#1f1a14;line-height:1.1;border:0;background:transparent;outline:0;border-bottom:2px solid #1f7a4a;font-family:inherit;width:60%;letter-spacing:-0.01em;-webkit-text-fill-color:#1f1a14;}',
-      'body.dark #' + OVERLAY_ID + ' .name-input{color:#f4f4f6;-webkit-text-fill-color:#f4f4f6;border-color:#7fd1a4;}',
+      // FIX 63 v16: inline rename styles dropped
 
       // Footer + CTA
       '#' + OVERLAY_ID + ' .footer{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;position:relative;}',
@@ -270,7 +266,6 @@
       +     '<div class="greeting">' + hello + '</div>'
       +     '<div class="title">'
       +       '<span data-wjpdw-name>' + first + '</span>'
-      +       '<button type="button" class="name-edit-btn" data-wjpdw-edit title="Rename">✎</button>'
       +     '</div>'
       +     '<div class="sub" data-wjpdw-sub>Here\'s your daily snapshot.</div>'
       +     '<div class="hero-line"><span class="ic">⚡</span><span data-wjpdw-hero-text>Loading your debt-free trajectory…</span></div>'
@@ -457,46 +452,7 @@
     var skipBtn = document.querySelector('#' + OVERLAY_ID + ' .skip-btn');
     if (skipBtn) skipBtn.addEventListener('click', function () { dismiss('skip-click'); });
 
-    // FIX 63 v9: inline name rename pencil
-    try {
-      var editBtn = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-edit]');
-      if (editBtn) editBtn.addEventListener('click', function () {
-        var nameSpan = document.querySelector('#' + OVERLAY_ID + ' [data-wjpdw-name]');
-        if (!nameSpan) return;
-        var current = nameSpan.textContent.trim();
-        var input = document.createElement('input');
-        input.type = 'text';
-        input.value = current;
-        input.maxLength = 40;
-        input.className = 'name-input';
-        nameSpan.replaceWith(input);
-        editBtn.style.display = 'none';
-        input.focus();
-        input.select();
-        function commit() {
-          var v = input.value.trim().slice(0, 40);
-          if (!v) v = current;
-          try {
-            var s = getState();
-            if (s) {
-              if (!s.profile) s.profile = {};
-              s.profile.preferredName = v;
-              try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
-            }
-          } catch (_) {}
-          var newSpan = document.createElement('span');
-          newSpan.setAttribute('data-wjpdw-name', '');
-          newSpan.textContent = v;
-          input.replaceWith(newSpan);
-          editBtn.style.display = '';
-        }
-        input.addEventListener('blur', commit);
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-          if (e.key === 'Escape') { input.value = current; input.blur(); }
-        });
-      });
-    } catch (_) {}
+    // FIX 63 v16: inline rename removed — name comes from Settings > Profile > Display name
 
     // FIX 63 v7: ?welcome=hold disables auto-dismiss so the splash sits
     // there until Skip is clicked. Useful for inspecting the design.
@@ -555,7 +511,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 15,
+    version: 16,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
