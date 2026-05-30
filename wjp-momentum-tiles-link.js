@@ -264,32 +264,32 @@
   // ────────── boot ──────────
   function boot() {
     var attempts = 0;
-    var iv = setInterval(function () {
+    function tick() {
       attempts++;
       var hero = document.getElementById('wjp-momentum-hero');
-      if (hero) { paintAll(); }
-      if (attempts > 60) clearInterval(iv);
-    }, 600);
-    function repaintSoon() { setTimeout(paintAll, 300); }
+      if (hero) paintAll();
+      // Sustain forever (cheap) — every 1.5s — so if the hero re-mounts we
+      // re-paint. The paint functions are idempotent and cheap.
+      setTimeout(tick, 1500);
+    }
+    setTimeout(tick, 400);
+    function repaintSoon() { setTimeout(paintAll, 200); setTimeout(paintAll, 800); setTimeout(paintAll, 2000); }
     window.addEventListener('wjp-data-restored', repaintSoon);
     window.addEventListener('wjp-plaid-sync-done', repaintSoon);
     window.addEventListener('wjp-transactions-changed', repaintSoon);
     window.addEventListener('wjp-debts-changed', repaintSoon);
     window.addEventListener('wjp-credit-changed', repaintSoon);
-    setInterval(paintAll, 30000);
     try {
-      var hero = document.getElementById('wjp-momentum-hero');
-      if (hero) {
+      var observe = function () {
+        var hero = document.getElementById('wjp-momentum-hero');
+        if (!hero) return false;
         var mo = new MutationObserver(function () { setTimeout(paintAll, 100); });
         mo.observe(hero, { childList: true, subtree: true, characterData: true });
-      } else {
-        setTimeout(function () {
-          var h = document.getElementById('wjp-momentum-hero');
-          if (h) {
-            var mo2 = new MutationObserver(function () { setTimeout(paintAll, 100); });
-            mo2.observe(h, { childList: true, subtree: true, characterData: true });
-          }
-        }, 3000);
+        return true;
+      };
+      if (!observe()) {
+        var iv = setInterval(function(){ if (observe()) clearInterval(iv); }, 800);
+        setTimeout(function(){ clearInterval(iv); }, 30000);
       }
     } catch (_) {}
   }
@@ -301,7 +301,7 @@
   }
 
   window.WJP_MomentumTilesLink = {
-    version: 2,
+    version: 3,
     paintAll: paintAll,
     debtPaidLast7d: debtPaidLast7d,
     debtEstFromRecurring: debtEstFromRecurring,

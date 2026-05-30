@@ -307,28 +307,31 @@
   function boot() {
     injectStyle();
     refreshLiquid();
-    var attempts = 0;
-    var iv = setInterval(function () {
-      attempts++;
-      if (paint() || attempts > 60) clearInterval(iv);
-    }, 600);
-    function repaintSoon() { refreshLiquid(); setTimeout(paint, 300); }
+    function tick() {
+      paint();
+      refreshLiquid();
+      setTimeout(tick, 1500);
+    }
+    setTimeout(tick, 400);
+    function repaintSoon() { refreshLiquid(); setTimeout(paint, 200); setTimeout(paint, 800); setTimeout(paint, 2000); }
     window.addEventListener('wjp-data-restored', repaintSoon);
     window.addEventListener('wjp-plaid-sync-done', repaintSoon);
     window.addEventListener('wjp-allocation-changed', repaintSoon);
     window.addEventListener('wjp-balances-changed', repaintSoon);
     window.addEventListener('wjp-bank-hidden-changed', repaintSoon);
-    // First refresh after DebtsEnhance has likely populated
     setTimeout(refreshLiquid, 2000);
     setTimeout(refreshLiquid, 6000);
-    // Safety re-paint every 30s in case other modules clobber the tile
-    setInterval(paint, 30000);
-    // Also watch the hero for re-mounts
     try {
-      var hero = document.getElementById('wjp-momentum-hero');
-      if (hero) {
+      var observe = function () {
+        var hero = document.getElementById('wjp-momentum-hero');
+        if (!hero) return false;
         var mo = new MutationObserver(function () { setTimeout(paint, 100); });
-        mo.observe(hero, { childList: true, subtree: true, characterData: true });
+        mo.observe(hero, { childList: true, subtree: true });
+        return true;
+      };
+      if (!observe()) {
+        var iv = setInterval(function(){ if (observe()) clearInterval(iv); }, 800);
+        setTimeout(function(){ clearInterval(iv); }, 30000);
       }
     } catch (_) {}
   }
@@ -340,7 +343,7 @@
   }
 
   window.WJP_CashOnHandLink = {
-    version: 3,
+    version: 4,
     paint: paint,
     computeCash: computeCash,
     getSelectedAccountId: getSelectedAccountId,
