@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v5 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v6 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -172,7 +172,7 @@
     st.id = STYLE_ID;
     st.textContent = [
       // Grid container
-      'html body.' + BODY_CLASS + ' #page-dashboard.active { display: grid !important; grid-template-columns: repeat(12, 1fr) !important; grid-auto-flow: dense !important; gap: 16px !important; align-items: start !important; }',
+      'html body.' + BODY_CLASS + ' #page-dashboard.active { display: grid !important; grid-template-columns: repeat(12, 1fr) !important; grid-auto-flow: dense !important; gap: 16px !important; align-items: stretch !important; }',
       // Non-card direct children (compact header, hidden originals, customize bar) span full row
       'html body.' + BODY_CLASS + ' #page-dashboard.active > #wjp-compact-header { grid-column: 1 / -1 !important; }',
       'html body.' + BODY_CLASS + ' #page-dashboard.active > #dash-customize-bar { grid-column: 1 / -1 !important; }',
@@ -185,12 +185,14 @@
       'html body.' + BODY_CLASS + ' #page-dashboard.active .reorderable:not([data-card-slot]) { grid-column: span 6 !important; }',
 
       // Slot toolbar (only shown in customize mode)
-      '.' + TOOLBAR_CLASS + ' { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; padding: 4px; background: rgba(255,255,255,0.94); border: 1px solid var(--border, rgba(0,0,0,0.10)); border-radius: 8px; z-index: 30; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }',
-      'body.dark .' + TOOLBAR_CLASS + ' { background: rgba(20,30,40,0.92); border-color: rgba(255,255,255,0.10); }',
-      '.' + TOOLBAR_CLASS + ' button { background: transparent; border: 0; padding: 4px 9px; font-size: 11px; font-weight: 800; font-family: inherit; color: var(--ink-dim, #6b7280); border-radius: 5px; cursor: pointer; min-width: 24px; }',
-      '.' + TOOLBAR_CLASS + ' button:hover { background: rgba(31,122,74,0.10); color: #1f7a4a; }',
-      '.' + TOOLBAR_CLASS + ' button.is-active { background: #1f7a4a; color: #fff; }',
-      'body.dark .' + TOOLBAR_CLASS + ' button.is-active { background: #7fd1a4; color: #0a0a0a; }',
+      '.' + TOOLBAR_CLASS + ' { display: inline-flex; gap: 4px; margin-left: 6px; }',
+      '.' + TOOLBAR_CLASS + ' .card-rc-btn[aria-pressed="true"] { background: #1f7a4a; color: #fff; border-color: transparent; }',
+      'body.dark .' + TOOLBAR_CLASS + ' .card-rc-btn[aria-pressed="true"] { background: #7fd1a4; color: #0a0a0a; }',
+      // FIX 84 v6: When grid mode is on, the slot system supersedes S/M/L.
+      // Hide the existing size buttons so our 1/2/3 chips don\'t overlap.
+      'body.' + BODY_CLASS + ' .card-rc-size-group { display: none !important; }',
+      // Equal-height: when one row has mixed-height content, stretch cards to fill.
+      'body.' + BODY_CLASS + ' #page-dashboard.active .reorderable { height: 100% !important; }',
       // Make reorderable cards positioning context for the toolbar
       'html body.' + BODY_CLASS + ' #page-dashboard.active .reorderable { position: relative; }'
     ].join('\n');
@@ -203,14 +205,15 @@
     var page = document.getElementById('page-dashboard');
     if (!page) return;
     Array.from(page.querySelectorAll('.reorderable')).forEach(function (card) {
-      if (card.querySelector(':scope > .' + TOOLBAR_CLASS)) return;
-      var cur = parseInt(card.getAttribute('data-card-slot'), 10) || 2;
+      if (card.querySelector(':scope > .card-reorder-controls .' + TOOLBAR_CLASS)) return;
+      var host = card.querySelector(':scope > .card-reorder-controls');
+      var cur = parseInt(card.getAttribute('data-card-slot'), 10) || 3;
       var bar = document.createElement('div');
-      bar.className = TOOLBAR_CLASS;
+      bar.className = TOOLBAR_CLASS + ' card-rc-group';
       bar.innerHTML =
-        '<button type="button" data-slot="1" title="Full width (1-fit)"' + (cur === 1 ? ' class="is-active"' : '') + '>1</button>' +
-        '<button type="button" data-slot="2" title="Half width (2-fit)"' + (cur === 2 ? ' class="is-active"' : '') + '>2</button>' +
-        '<button type="button" data-slot="3" title="Third width (3-fit)"' + (cur === 3 ? ' class="is-active"' : '') + '>3</button>';
+        '<button type="button" class="card-rc-btn" data-slot="1" title="Full width (1-fit)"' + (cur === 1 ? ' aria-pressed="true"' : '') + '>1</button>' +
+        '<button type="button" class="card-rc-btn" data-slot="2" title="Half width (2-fit)"' + (cur === 2 ? ' aria-pressed="true"' : '') + '>2</button>' +
+        '<button type="button" class="card-rc-btn" data-slot="3" title="Third width (3-fit)"' + (cur === 3 ? ' aria-pressed="true"' : '') + '>3</button>';
       bar.addEventListener('click', function (e) {
         var b = e.target.closest('button[data-slot]');
         if (!b) return;
@@ -218,12 +221,15 @@
         var slot = parseInt(b.getAttribute('data-slot'), 10);
         var id = card.getAttribute('data-card-id') || card.id || '';
         setSavedSlot(id, slot);
-        // If auto-fit is on, the user clicking means they want manual control
         if (isAutoFit()) setAutoFit(false);
         card.setAttribute('data-card-slot', String(slot));
-        bar.querySelectorAll('button').forEach(function (x) { x.classList.toggle('is-active', x === b); });
+        bar.querySelectorAll('button').forEach(function (x) {
+          if (x === b) x.setAttribute('aria-pressed','true');
+          else x.removeAttribute('aria-pressed');
+        });
       });
-      card.appendChild(bar);
+      if (host) host.appendChild(bar);
+      else card.appendChild(bar); // fallback for cards without the controls strip
     });
   }
   function stripToolbars() {
@@ -368,7 +374,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 5,
+    version: 6,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
