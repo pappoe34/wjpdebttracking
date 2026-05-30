@@ -155,18 +155,19 @@
       '@keyframes wjpdwpop{from{opacity:0;transform:translateY(12px) scale(.985);}to{opacity:1;transform:none;}}',
 
       // Brand pill (top left mark)
-      '#' + OVERLAY_ID + ' .brand{display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#1f7a4a;margin-bottom:22px;padding:6px 12px 6px 10px;background:rgba(31,122,74,0.08);border:1px solid rgba(31,122,74,0.18);border-radius:999px;}',
-      'body.dark #' + OVERLAY_ID + ' .brand{background:rgba(31,122,74,0.16);border-color:rgba(31,122,74,0.28);color:#7fd1a4;}',
-      '#' + OVERLAY_ID + ' .brand .dot{width:7px;height:7px;border-radius:50%;background:#1f7a4a;box-shadow:0 0 0 4px rgba(31,122,74,0.18);}',
+      '#' + OVERLAY_ID + ' .brand{display:flex;justify-content:center;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#1f7a4a;margin:0 auto 22px;padding:0;background:none;border:0;}',
+      'body.dark #' + OVERLAY_ID + ' .brand{background:none;border:0;color:#7fd1a4;}',
+      '#' + OVERLAY_ID + ' .brand .dot{width:8px;height:8px;border-radius:50%;background:#1f7a4a;box-shadow:0 0 0 4px rgba(31,122,74,0.18);}',
       'body.dark #' + OVERLAY_ID + ' .brand .dot{background:#7fd1a4;box-shadow:0 0 0 4px rgba(127,209,164,0.20);}',
 
-      '#' + OVERLAY_ID + ' .greeting{font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#1f7a4a;margin-bottom:8px;}',
+      '#' + OVERLAY_ID + ' .greeting{text-align:center;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#1f7a4a;margin-bottom:8px;}',
       'body.dark #' + OVERLAY_ID + ' .greeting{color:#7fd1a4;}',
 
       // Title — gradient text in light mode, solid in dark
-      '#' + OVERLAY_ID + ' .title{font-size:34px;font-weight:900;line-height:1.1;margin-bottom:14px;letter-spacing:-0.01em;background:linear-gradient(135deg,#0e3a25 0%,#1f1a14 60%);-webkit-background-clip:text;background-clip:text;color:transparent;display:flex;align-items:center;}',
-      'body.dark #' + OVERLAY_ID + ' .title{background:none;-webkit-background-clip:initial;background-clip:initial;color:#f4f4f6;}',
-      '#' + OVERLAY_ID + ' .sub{font-size:13.5px;color:#5f6b75;margin-bottom:22px;line-height:1.5;}',
+      '#' + OVERLAY_ID + ' .title{font-size:34px;font-weight:900;line-height:1.1;margin-bottom:14px;letter-spacing:-0.01em;display:flex;justify-content:center;align-items:center;text-align:center;}',
+      '#' + OVERLAY_ID + ' .title [data-wjpdw-name]{background:linear-gradient(135deg,#0e3a25 0%,#1f1a14 60%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;}',
+      'body.dark #' + OVERLAY_ID + ' .title [data-wjpdw-name]{background:none;-webkit-background-clip:initial;background-clip:initial;color:#f4f4f6;-webkit-text-fill-color:#f4f4f6;}',
+      '#' + OVERLAY_ID + ' .sub{text-align:center;font-size:13.5px;color:#5f6b75;margin-bottom:22px;line-height:1.5;}',
       'body.dark #' + OVERLAY_ID + ' .sub{color:rgba(255,255,255,0.62);}',
 
       // Hero line — debt-free trajectory
@@ -540,7 +541,7 @@
   }
 
   window.WJP_DailyWelcome = {
-    version: 11,
+    version: 12,
     show: function () { localStorage.removeItem(lsKey()); boot(); },
     dismiss: function () { dismiss('manual'); },
     shouldShow: shouldShow
