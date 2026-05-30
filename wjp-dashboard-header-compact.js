@@ -45,7 +45,7 @@
       '#page-dashboard #dash-customize-bar { display: none !important; }',
 
       // Compact header bar
-      '#' + HEADER_ID + ' { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 4px 10px; margin: 0; font-family: inherit; }',
+      '#' + HEADER_ID + ' { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 6px 6px 14px; margin: 0; font-family: inherit; flex: 0 0 100%; width: 100%; box-sizing: border-box; }',
       '#' + HEADER_ID + ' .wjp-ch-greeting { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink, var(--text-1, #1f1a14)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
       '#' + HEADER_ID + ' .wjp-ch-greeting .wjp-ch-wave { font-size: 16px; }',
       'body.dark #' + HEADER_ID + ' .wjp-ch-greeting { color: #f4f4f6; }',
@@ -226,7 +226,7 @@
   }
 
   window.WJP_DashboardHeaderCompact = {
-    version: 1,
+    version: 2,
     rebuild: function () { try { var h = document.getElementById(HEADER_ID); if (h) h.remove(); } catch (_) {}; buildHeader(); }
   };
 })();
