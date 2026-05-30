@@ -46,21 +46,20 @@
     return 'page-' + String(dp).toLowerCase();
   }
 
-  // Resolve the page that SHOULD be visible right now.
-  // FIX 70 v2: nav-item.active wins over hash — because hash may be stale
-  // from a previous session, while .active reflects the most recent click.
+  // FIX 70 v3: hash is the authoritative source of truth. On every nav
+  // click we sync the hash so the two stay aligned (see wireRouteEvents).
   function resolveActivePageId() {
-    // 1. sidebar nav-item with .active wins (most direct user signal)
+    // 1. hash wins
+    try {
+      var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
+      if (h && document.getElementById('page-' + h)) return 'page-' + h;
+    } catch (_) {}
+    // 2. fall back to nav-item.active
     var active = document.querySelector('.sidebar .nav-item.active[data-page]');
     if (active) {
       var id = dataPageToPageId(active.getAttribute('data-page'));
       if (id && document.getElementById(id)) return id;
     }
-    // 2. hash fallback
-    try {
-      var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
-      if (h && document.getElementById('page-' + h)) return 'page-' + h;
-    } catch (_) {}
     // 3. default to dashboard
     return 'page-dashboard';
   }
@@ -130,26 +129,56 @@
     } catch (_) {}
   }
 
+  // Sync sidebar nav-item.active to match a given data-page. Some nav modules
+  // forget to update this, which leaves stale highlights.
+  function syncNavActive(dataPage) {
+    if (!dataPage) return;
+    try {
+      Array.from(document.querySelectorAll('.sidebar .nav-item[data-page]')).forEach(function (n) {
+        if (n.getAttribute('data-page') === dataPage) n.classList.add('active');
+        else n.classList.remove('active');
+      });
+    } catch (_) {}
+  }
+
   // Run enforce on nav-item clicks and hashchange
   function wireRouteEvents() {
-    window.addEventListener('hashchange', function () { enforce('hashchange'); });
+    window.addEventListener('hashchange', function () {
+      // Sync sidebar highlight to match the new hash
+      try {
+        var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
+        if (h) syncNavActive(h);
+      } catch (_) {}
+      enforce('hashchange');
+    });
     // Capture phase so we run BEFORE the app's own click handlers
     document.addEventListener('click', function (e) {
       var target = e.target && e.target.closest && e.target.closest('.nav-item[data-page]');
       if (!target) return;
-      // Let the existing handler run, then enforce
+      var dp = target.getAttribute('data-page');
+      // Set hash so resolveActivePageId picks up the click — this is what
+      // keeps the user from being snapped back to whatever was previously
+      // marked .active.
+      if (dp) {
+        try { if (('#' + dp) !== location.hash) location.hash = '#' + dp; } catch (_) {}
+        syncNavActive(dp);
+      }
       setTimeout(function () { enforce('nav-click'); }, 50);
       setTimeout(function () { enforce('nav-click-late'); }, 250);
     }, true);
   }
 
   function boot() {
+    // Sync nav highlight with the URL hash on initial load — otherwise the
+    // sidebar default (Dashboard) sticks even when the URL says otherwise.
+    try {
+      var h = (location.hash || '').replace(/^#/, '').toLowerCase().split('?')[0].split('/')[0];
+      if (h && document.getElementById('page-' + h)) syncNavActive(h);
+    } catch (_) {}
     enforce('initial');
     attachStyleObserver();
     attachBodyObserver();
     wireRouteEvents();
-    // NOTE: dropped the 4s safety-tick — it was forcing stale state. Style
-    // mutations + nav clicks + hashchange give us enough coverage.
   }
 
   if (document.readyState === 'loading') {
@@ -159,7 +188,7 @@
   }
 
   window.WJP_PageRouterFix = {
-    version: 2,
+    version: 3,
     enforce: enforce,
     resolveActivePageId: resolveActivePageId
   };
