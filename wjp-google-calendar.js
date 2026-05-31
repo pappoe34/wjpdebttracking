@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v12 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v13 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -675,7 +675,23 @@
       '#wjp-gcal-card .wjp-gcal-btn.link { background: transparent !important; color: #5c6873 !important; padding: 11px 4px !important; font-weight: 600 !important; font-size: 12px !important; text-decoration: underline; text-decoration-color: rgba(0,0,0,0.15); text-underline-offset: 3px; box-shadow: none !important; border: 0 !important; }',
       '#wjp-gcal-card .wjp-gcal-btn.link:hover { color: #c0594a !important; text-decoration-color: #c0594a !important; transform: none !important; }',
       'body.dark #wjp-gcal-card .wjp-gcal-btn.link { color: #8b95a1 !important; text-decoration-color: rgba(255,255,255,0.20); }',
-      'body.dark #wjp-gcal-card .wjp-gcal-btn.link:hover { color: #e08070 !important; text-decoration-color: #e08070 !important; }'
+      'body.dark #wjp-gcal-card .wjp-gcal-btn.link:hover { color: #e08070 !important; text-decoration-color: #e08070 !important; }',
+      '#wjp-gcal-card .wjp-gcal-connbar { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 auto 24px; position: relative; }',
+      '#wjp-gcal-card .wjp-gcal-managebtn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: transparent; border: 1px solid rgba(0,0,0,0.12); color: #5c6873; font-size: 11.5px; font-weight: 700; border-radius: 999px; cursor: pointer; font-family: inherit; transition: all .12s ease; }',
+      '#wjp-gcal-card .wjp-gcal-managebtn:hover { border-color: rgba(31,122,74,0.4); color: #1f7a4a; background: rgba(31,122,74,0.04); }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managebtn { border-color: rgba(255,255,255,0.15); color: #8b95a1; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managebtn:hover { border-color: rgba(127,209,164,0.4); color: #7fd1a4; background: rgba(127,209,164,0.06); }',
+      '#wjp-gcal-card .wjp-gcal-managepop { position: absolute; top: 100%; right: 50%; transform: translateX(50%); margin-top: 8px; background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 12px; padding: 6px; min-width: 220px; box-shadow: 0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06); z-index: 100; display: flex; flex-direction: column; gap: 2px; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managepop { background: #1c2129; border-color: rgba(255,255,255,0.12); box-shadow: 0 8px 28px rgba(0,0,0,0.5); }',
+      '#wjp-gcal-card .wjp-gcal-managelink { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: transparent; border: 0; border-radius: 8px; color: #0f1419; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; text-align: left; transition: background .12s ease; }',
+      '#wjp-gcal-card .wjp-gcal-managelink:hover { background: rgba(31,122,74,0.08); color: #1f7a4a; }',
+      '#wjp-gcal-card .wjp-gcal-managelink.danger { color: #c0594a; }',
+      '#wjp-gcal-card .wjp-gcal-managelink.danger:hover { background: rgba(192,89,74,0.10); color: #c0594a; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managelink { color: #f0f3f5; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managelink:hover { background: rgba(127,209,164,0.12); color: #7fd1a4; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managelink.danger { color: #e08070; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-managelink.danger:hover { background: rgba(224,128,112,0.12); color: #e08070; }',
+      '#wjp-gcal-card .wjp-gcal-managelink i { font-size: 14px; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -704,30 +720,32 @@
 
     card.innerHTML =
       '<div class="wjp-gcal-title">Payments Calendar</div>' +
-      '<div class="wjp-gcal-subtitle">Bills + debt due dates — synced to Google Calendar with reminders 1 day before each.</div>' +
-      '<div class="wjp-gcal-head">' +
-        '<div class="wjp-gcal-logo">' + gcalLogoHtml() + '</div>' +
-        '<div style="flex:1;">' +
-          '<h2>' + (isGoogleConnected() ? 'Synced to Google Calendar' : 'Sync to Google Calendar') + '</h2>' +
-          '<p class="wjp-gcal-sub">' + events.length + ' event' + (events.length === 1 ? '' : 's') + ' ready</p>' +
-        '</div>' +
-        (isGoogleConnected()
-          ? '<div class="wjp-gcal-conn-badge"><span class="wjp-gcal-conn-dot"></span>Connected</div>'
-          : '') +
-      '</div>' +
-      '<div class="wjp-gcal-actions">' +
-        (isGoogleConnected()
-          ? '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-copy-simple"></i> Re-copy sync URL</button>'
-          : '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-link-simple"></i> Copy auto-sync URL</button>') +
-        '<button type="button" class="wjp-gcal-btn ghost" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
-        (isGoogleConnected()
-          ? '<button type="button" class="wjp-gcal-btn link" data-action="disconnect" title="Mark as disconnected (does not remove from Google)">Mark as disconnected</button>'
-          : '') +
-      '</div>' +
-      '<div class="wjp-gcal-status" id="wjp-gcal-status" style="font-size:11.5px; color:var(--text-3); margin: -4px 0 12px; min-height:16px;"></div>' +
+      (isGoogleConnected()
+        ? '<div class="wjp-gcal-connbar">' +
+            '<span class="wjp-gcal-conn-badge"><span class="wjp-gcal-conn-dot"></span>Connected to Google Calendar</span>' +
+            '<button type="button" class="wjp-gcal-managebtn" data-action="toggle-manage" aria-label="Manage sync">Manage <i class="ph ph-caret-down"></i></button>' +
+            '<div class="wjp-gcal-managepop" id="wjp-gcal-managepop" style="display:none;">' +
+              '<button type="button" class="wjp-gcal-managelink" data-action="sync-url"><i class="ph ph-copy-simple"></i> Re-copy sync URL</button>' +
+              '<button type="button" class="wjp-gcal-managelink" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
+              '<button type="button" class="wjp-gcal-managelink danger" data-action="disconnect"><i class="ph ph-link-break"></i> Mark as disconnected</button>' +
+            '</div>' +
+          '</div>'
+        : '<div class="wjp-gcal-subtitle">Bills + debt due dates — synced to Google Calendar with reminders 1 day before each.</div>' +
+          '<div class="wjp-gcal-head">' +
+            '<div class="wjp-gcal-logo">' + gcalLogoHtml() + '</div>' +
+            '<div style="flex:1;">' +
+              '<h2>Sync to Google Calendar</h2>' +
+              '<p class="wjp-gcal-sub">' + events.length + ' event' + (events.length === 1 ? '' : 's') + ' ready</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="wjp-gcal-actions">' +
+            '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-link-simple"></i> Copy auto-sync URL</button>' +
+            '<button type="button" class="wjp-gcal-btn ghost" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
+          '</div>' +
+          '<div class="wjp-gcal-status" id="wjp-gcal-status" style="font-size:11.5px; color:var(--text-3); margin: -4px 0 12px; min-height:16px;"></div>') +
       buildMonthGrid() +
       listHtml +
-      '<details>' +
+      (isGoogleConnected() ? '' : '<details>' +
         '<summary>How to import into Google Calendar</summary>' +
         '<ol class="wjp-gcal-steps">' +
           '<li><b>Auto-sync (recommended):</b> click <b>Copy auto-sync URL</b>, then in <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Settings → Add calendar → From URL</a>, paste the URL and Add. Google polls every few hours and picks up your edits automatically.</li>' +
@@ -736,7 +754,7 @@
           '<li>Google sets a reminder 1 day before each due date automatically (VALARM in the feed).</li>' +
         '</ol>' +
         '<p style="font-size:11px; color:var(--text-3); margin:10px 0 0;"><b>Privacy:</b> your auto-sync URL contains a signed token. Anyone with the URL can read your bill data — treat it like a password and don\'t share it publicly.</p>' +
-      '</details>';
+      '</details>');
 
     card.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-action]');
@@ -759,6 +777,11 @@
         showDayDetail(dk2);
       }
       else if (act === 'close-detail') { _closeDetailPopover(); }
+      else if (act === 'toggle-manage') {
+        var pop = document.getElementById('wjp-gcal-managepop');
+        if (pop) pop.style.display = (pop.style.display === 'block' ? 'none' : 'block');
+        e.stopPropagation();
+      }
       else if (act === 'disconnect') {
         if (!confirm('Mark Google Calendar as disconnected? This only removes the badge — to actually stop the sync you must delete the calendar in Google Calendar itself.')) return;
         var s = getState();
@@ -921,8 +944,17 @@
     if (h === 'recurring') startPolling(30000);
   });
 
+  // FIX 87 v13: close the Manage popup when clicking outside it
+  document.addEventListener('click', function (e) {
+    var pop = document.getElementById('wjp-gcal-managepop');
+    if (!pop || pop.style.display !== 'block') return;
+    var btn = document.querySelector('[data-action="toggle-manage"]');
+    if (pop.contains(e.target) || (btn && btn.contains(e.target))) return;
+    pop.style.display = 'none';
+  });
+
   window.WJP_GoogleCalendar = {
-    version: 12,
+    version: 13,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
