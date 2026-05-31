@@ -3809,6 +3809,13 @@ function initModal() {
 
                 saveState();
                 updateUI();
+                // FIX 105: also refresh Bills Explained so the new debt shows
+                // up immediately. Previously it only appeared after the user
+                // navigated away from + back to the Recurring tab.
+                try { if (typeof window.renderRecurringTab === 'function') window.renderRecurringTab(); } catch (_) {}
+                // Force-flush cloud push so the sync indicator flips to
+                // "Synced" within ~1s instead of waiting on the 30s heartbeat.
+                try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
                 if (typeof logActivity === 'function') {
                     logActivity({
                         title: 'Debt added',
