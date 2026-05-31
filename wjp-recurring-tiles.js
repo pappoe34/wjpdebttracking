@@ -550,13 +550,24 @@
       'overflow:hidden'
     ].join(';');
 
-    // FIX 102: look up linked debt's type for sub-classification
+    // FIX 102 + 111: resolve linked debt subcategory.
+    //   1. Use d.debtType if explicitly set (new entries from FIX 102 onwards).
+    //   2. Look up linked debt by id and use its `type`.
+    //   3. FALLBACK — pattern-match the recurring payment's OWN name. This
+    //      handles existing data created before FIX 102 that has no debtType
+    //      field and may not have a working linkedDebtId.
     var _linkedDebtType = d.debtType || '';
     if (!_linkedDebtType && d.linkedDebtId && typeof appState !== 'undefined' && Array.isArray(appState.debts)) {
       try {
         var _ld = appState.debts.find(function(x){ return x && x.id === d.linkedDebtId; });
         if (_ld && _ld.type) _linkedDebtType = _ld.type;
       } catch(_){}
+    }
+    if (!_linkedDebtType) {
+      // Last-resort: regex the payment's own name.
+      var _nameStr = (d.name || '').toLowerCase();
+      if (/credit\s*card|mastercard|visa|amex|discover|cc\b/.test(_nameStr)) _linkedDebtType = 'credit card';
+      else if (/loan|mortgage|auto/.test(_nameStr)) _linkedDebtType = 'loan';
     }
     var b = badgeForType(d.type, _linkedDebtType);
     var amount = d.minPayment != null ? fmtUSD(d.minPayment) : (d.balance != null ? fmtUSD(d.balance) : '-');
