@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v13 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v14 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -125,6 +125,14 @@
     if (slot === 1 || slot === 2 || slot === 3) s.prefs.cardSlots[cardId] = slot;
     else delete s.prefs.cardSlots[cardId];
     saveState();
+  }
+  // FIX 91: wipe ALL manual pins so the heuristic takes over for every card.
+  function clearAllPinning() {
+    var s = getState();
+    if (!s) return;
+    if (s.prefs) delete s.prefs.cardSlots;
+    saveState();
+    applyAllSlots();
   }
 
   // ───── slot heuristic ─────
@@ -314,12 +322,28 @@
   }
 
   function patchMenu(menu) {
-    // FIX 90: Auto-fit toggle removed. Heuristic runs by default; manual
-    // [1][2][3] chips in customize mode pin specific cards. No menu items
-    // needed from this module anymore — keep the function for backward
-    // compatibility with the menu-observer wiring.
+    // FIX 90: Auto-fit toggle removed.
+    // FIX 91: add a "Reset card sizing" row so users can wipe stale manual
+    // pinning and let the heuristic take over for every card.
     if (!menu || menu.dataset.wjpGridPatched === '1') return;
     menu.dataset.wjpGridPatched = '1';
+    var row = document.createElement('div');
+    row.className = 'wjp-ch-item';
+    row.setAttribute('role', 'menuitem');
+    row.setAttribute('data-action', 'grid-clear-pins');
+    row.innerHTML =
+      '<i class="ph ph-broom"></i>' +
+      '<span class="wjp-ch-label">Reset card sizing</span>';
+    row.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (!confirm('Clear all your manual card-size choices? Cards will fall back to the auto-layout heuristic. Drag-and-drop ORDER is not affected.')) return;
+      clearAllPinning();
+      try {
+        var menu2 = document.getElementById(MENU_ID);
+        if (menu2) menu2.remove();
+      } catch (_) {}
+    });
+    menu.insertBefore(row, menu.firstChild);
   }
 
   function attachMenuObserver() {
@@ -450,12 +474,13 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 13,
+    version: 14,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
     setAutoFit: setAutoFit,
     applyAll: applyAllSlots,
+    clearAllPinning: clearAllPinning,
     apply: apply
   };
 })();
