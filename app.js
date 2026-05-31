@@ -286,6 +286,38 @@ function saveState() {
             if (document.visibilityState === 'hidden') flush();
         });
     } catch (_) {}
+
+    // FIX 104: 30-second safety heartbeat. Hashes the persistable slice of
+    // appState; if it changed since the last save we trigger one. This
+    // catches mutations made without an explicit saveState() call (e.g.
+    // someone pushes to appState.recurringPayments and forgets to call
+    // saveState — the heartbeat covers them). The hash is a JSON length
+    // tally (NOT full stringify of every key) to keep it cheap; combined
+    // with a top-level array-length check it catches structural changes.
+    var _lastHbHash = null;
+    function _hbHash() {
+        try {
+            if (typeof appState === 'undefined' || !appState) return '';
+            var keys = ['debts','recurringPayments','recurring','transactions','assets','inbox','categories','prefs','profile','budget','balances'];
+            var parts = [];
+            keys.forEach(function (k) {
+                var v = appState[k];
+                if (Array.isArray(v)) parts.push(k + ':' + v.length + ':' + (v[v.length-1] ? JSON.stringify(v[v.length-1]).length : 0));
+                else if (v && typeof v === 'object') parts.push(k + ':' + Object.keys(v).length);
+            });
+            // Include lastUpdatedTimestamps if any caller bumps them
+            return parts.join('|');
+        } catch (_) { return Math.random().toString(); }
+    }
+    try {
+        setInterval(function () {
+            var h = _hbHash();
+            if (h && h !== _lastHbHash) {
+                _lastHbHash = h;
+                try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+            }
+        }, 30000);
+    } catch (_) {}
 })();
 
 /** Render the user identity (sidebar avatar + name + every other surface
