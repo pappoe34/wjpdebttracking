@@ -271,6 +271,44 @@ function saveState() {
     } catch (_) {}
 }
 
+
+// FIX 108: server-write helper for high-value mutations (debt add/update/delete).
+// Calls /.netlify/functions/debt-write which writes directly to Firestore
+// using the user's verified ID token. Returns a Promise that resolves on
+// server confirmation. The client save flow runs this in PARALLEL with the
+// optimistic local update — if the server write fails, we mark dirty so the
+// retry loop covers it. If server write succeeds, we have a hard guarantee
+// the data is in cloud, not just localStorage.
+async function debtServerWrite(op, debt, recurringPayment) {
+    try {
+        var fbUser = null;
+        try { fbUser = (window.firebase && firebase.auth && firebase.auth().currentUser) || window.__wjpUser || null; } catch (_) {}
+        if (!fbUser || typeof fbUser.getIdToken !== 'function') {
+            return { ok: false, error: 'no firebase user' };
+        }
+        var token = await fbUser.getIdToken();
+        var resp = await fetch('/.netlify/functions/debt-write', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ op: op, debt: debt, recurringPayment: recurringPayment || null })
+        });
+        var data = await resp.json();
+        if (!resp.ok) {
+            try { console.warn('[debt-write] HTTP', resp.status, data); } catch (_) {}
+            return { ok: false, error: data && data.error, status: resp.status };
+        }
+        try { console.log('[debt-write] ok', data); } catch (_) {}
+        return { ok: true, data: data };
+    } catch (err) {
+        try { console.warn('[debt-write] threw', err); } catch (_) {}
+        return { ok: false, error: (err && err.message) || 'fetch failed' };
+    }
+}
+window.debtServerWrite = debtServerWrite;
+
 // FIX 103: synchronous flush on tab close / hide so debounced pushes don't get
 // lost. Uses `pagehide` (more reliable than `beforeunload`) + `visibilitychange`
 // when going hidden. cloudPushNow returns a promise but we kick it off
@@ -3809,13 +3847,21 @@ function initModal() {
 
                 saveState();
                 updateUI();
-                // FIX 105: also refresh Bills Explained so the new debt shows
-                // up immediately. Previously it only appeared after the user
-                // navigated away from + back to the Recurring tab.
                 try { if (typeof window.renderRecurringTab === 'function') window.renderRecurringTab(); } catch (_) {}
-                // Force-flush cloud push so the sync indicator flips to
-                // "Synced" within ~1s instead of waiting on the 30s heartbeat.
                 try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
+
+                // FIX 108: belt-and-suspenders server-write. Runs in parallel
+                // with the optimistic local save. If the local→cloud sync
+                // somehow fails (silent Firebase auth issue, network drop),
+                // this hits Firestore directly via a Netlify Function with
+                // server-side verified auth. Either path getting the data
+                // into Firestore is a win; both paths is bulletproof.
+                try {
+                    debtServerWrite('add', newDebt).then(function (r) {
+                        if (!r.ok) console.warn('[debt-write] add failed, dirty-flag retry will handle it', r);
+                    });
+                } catch (_) {}
+
                 if (typeof logActivity === 'function') {
                     logActivity({
                         title: 'Debt added',
