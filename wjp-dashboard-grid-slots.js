@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v12 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v13 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -106,8 +106,7 @@
     }
     applyAllSlots();
     // Refresh menu pill so user sees the state change immediately.
-    var af = document.querySelector('#' + MENU_ID + ' [data-grid-autofit-state]');
-    if (af) af.textContent = isAutoFit() ? 'On' : 'Off';
+
   }
   function getSavedSlot(cardId) {
     if (!cardId) return null;
@@ -174,11 +173,11 @@
   }
 
   function computeSlot(card) {
+    // FIX 90: simpler model — manual chip wins per-card, heuristic fills
+    // any card the user hasn\'t pinned. No more on/off Auto-fit toggle.
     var id = card.getAttribute('data-card-id') || card.id || '';
-    if (!isAutoFit()) {
-      var saved = getSavedSlot(id);
-      if (saved) return saved;
-    }
+    var saved = getSavedSlot(id);
+    if (saved) return saved;
     return inferSlotFromCard(card);
   }
 
@@ -255,7 +254,6 @@
         var slot = parseInt(b.getAttribute('data-slot'), 10);
         var id = card.getAttribute('data-card-id') || card.id || '';
         setSavedSlot(id, slot);
-        if (isAutoFit()) setAutoFit(false);
         card.setAttribute('data-card-slot', String(slot));
         bar.querySelectorAll('button').forEach(function (x) {
           if (x === b) x.setAttribute('aria-pressed','true');
@@ -305,8 +303,7 @@
     // Reflect in menu pills
     var gp = document.querySelector('#' + MENU_ID + ' [data-grid-state]');
     if (gp) gp.textContent = on ? 'On' : 'Off';
-    var af = document.querySelector('#' + MENU_ID + ' [data-grid-autofit-state]');
-    if (af) af.textContent = isAutoFit() ? 'On' : 'Off';
+
   }
 
   // ───── menu patcher ─────
@@ -317,26 +314,12 @@
   }
 
   function patchMenu(menu) {
+    // FIX 90: Auto-fit toggle removed. Heuristic runs by default; manual
+    // [1][2][3] chips in customize mode pin specific cards. No menu items
+    // needed from this module anymore — keep the function for backward
+    // compatibility with the menu-observer wiring.
     if (!menu || menu.dataset.wjpGridPatched === '1') return;
     menu.dataset.wjpGridPatched = '1';
-
-    // FIX 84 v8: Layout grid is now always on — no menu toggle. Only Auto-fit
-    // slots remains, so the user can flip between heuristic auto-assignment
-    // and the manual chip overrides they set in customize mode.
-    var rowAuto = document.createElement('div');
-    rowAuto.className = 'wjp-ch-item';
-    rowAuto.setAttribute('role', 'menuitem');
-    rowAuto.setAttribute('data-action', 'grid-autofit');
-    rowAuto.innerHTML =
-      '<i class="ph ph-magic-wand"></i>' +
-      '<span class="wjp-ch-label">Auto-fit slots</span>' +
-      '<span class="wjp-ch-state" data-grid-autofit-state>' + (isAutoFit() ? 'On' : 'Off') + '</span>';
-    rowAuto.addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      setAutoFit(!isAutoFit());
-    });
-
-    menu.insertBefore(rowAuto, menu.firstChild);
   }
 
   function attachMenuObserver() {
@@ -467,7 +450,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 12,
+    version: 13,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
