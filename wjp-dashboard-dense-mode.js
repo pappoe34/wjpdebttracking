@@ -1,4 +1,4 @@
-/* wjp-dashboard-dense-mode.js v2 — Optional Dense mode for the dashboard:
+/* wjp-dashboard-dense-mode.js v3 — Optional Dense mode for the dashboard:
  * tighter card padding, smaller Exec Summary date font, smaller row gaps.
  * Goal: fit more cards above the fold on first open.
  *
@@ -60,9 +60,99 @@
   function apply() {
     var on = isDenseEnabled();
     document.body.classList.toggle(BODY_CLASS, on);
-    // Reflect in the menu pill if open
     var pill = document.querySelector('#' + MENU_ID + ' [data-dense-state]');
     if (pill) pill.textContent = on ? 'On' : 'Off';
+    // FIX 93: also force inline styles on every card so we win over the
+    // JS-set inline padding the dashboard renderer applies.
+    applyInline(on);
+  }
+
+  // FIX 93: walk every reorderable card and set inline styles directly.
+  // CSS !important loses to inline styles set after page load, so we go nuclear.
+  function applyInline(on) {
+    var page = document.getElementById('page-dashboard');
+    if (!page) return;
+    var cards = page.querySelectorAll(':scope > .reorderable');
+    cards.forEach(function (card) {
+      if (on) {
+        // Remember original padding so we can restore on off
+        if (!card.dataset.wjpDenseOrigPad) {
+          card.dataset.wjpDenseOrigPad = card.style.padding || '';
+        }
+        card.style.setProperty('padding', '12px 14px', 'important');
+        // Shrink h1, h2, h3, .card-title, .section-label
+        card.querySelectorAll('h1, h2, h3, .card-title, [class*="title"]').forEach(function (h) {
+          if (!h.dataset.wjpDenseOrig) {
+            h.dataset.wjpDenseOrig = h.style.cssText || '';
+          }
+          var tag = h.tagName.toLowerCase();
+          var size = tag === 'h1' ? '18px' : tag === 'h2' ? '16px' : '14px';
+          h.style.setProperty('font-size', size, 'important');
+          h.style.setProperty('line-height', '1.2', 'important');
+          h.style.setProperty('margin', '0 0 6px', 'important');
+        });
+        // Big stat numbers (anything > 28px font in inline style)
+        card.querySelectorAll('[style*="font-size"]').forEach(function (e) {
+          var m = (e.getAttribute('style') || '').match(/font-size:\s*(\d+)px/);
+          if (!m) return;
+          var px = parseInt(m[1], 10);
+          if (px >= 28) {
+            if (!e.dataset.wjpDenseOrigInlineSize) e.dataset.wjpDenseOrigInlineSize = String(px);
+            var newPx = Math.max(20, Math.round(px * 0.65));
+            e.style.setProperty('font-size', newPx + 'px', 'important');
+          }
+        });
+        // Section labels / eyebrows
+        card.querySelectorAll('.section-label, [class*="eyebrow"]').forEach(function (e) {
+          e.style.setProperty('font-size', '9.5px', 'important');
+          e.style.setProperty('margin-bottom', '3px', 'important');
+        });
+        // Subtitles / sub text
+        card.querySelectorAll('.card-sub, [class*="sub"]').forEach(function (e) {
+          // Skip elements that don't look like text/subtitles (avoid grid cells)
+          if (e.children && e.children.length > 4) return;
+          e.style.setProperty('font-size', '11px', 'important');
+          e.style.setProperty('margin-bottom', '6px', 'important');
+        });
+        // List rows / row items
+        card.querySelectorAll('.bank-row, .row-item, [class*="row-"]').forEach(function (e) {
+          if (e.children && e.children.length > 6) return;
+          e.style.setProperty('padding', '6px 10px', 'important');
+          e.style.setProperty('min-height', '0', 'important');
+        });
+      } else {
+        // Restore original padding
+        if (card.dataset.wjpDenseOrigPad !== undefined) {
+          if (card.dataset.wjpDenseOrigPad) {
+            card.style.padding = card.dataset.wjpDenseOrigPad;
+          } else {
+            card.style.removeProperty('padding');
+          }
+          delete card.dataset.wjpDenseOrigPad;
+        }
+        // Restore titles
+        card.querySelectorAll('h1, h2, h3, .card-title').forEach(function (h) {
+          if (h.dataset.wjpDenseOrig !== undefined) {
+            if (h.dataset.wjpDenseOrig) h.style.cssText = h.dataset.wjpDenseOrig;
+            else h.removeAttribute('style');
+            delete h.dataset.wjpDenseOrig;
+          }
+        });
+        // Restore inline stat sizes
+        card.querySelectorAll('[data-wjp-dense-orig-inline-size]').forEach(function (e) {
+          e.style.setProperty('font-size', e.dataset.wjpDenseOrigInlineSize + 'px');
+          delete e.dataset.wjpDenseOrigInlineSize;
+        });
+        // Clear forced section labels / subs / rows (let CSS take back over)
+        card.querySelectorAll('.section-label, [class*="eyebrow"], .card-sub, [class*="sub"], .bank-row, .row-item, [class*="row-"]').forEach(function (e) {
+          e.style.removeProperty('font-size');
+          e.style.removeProperty('margin-bottom');
+          e.style.removeProperty('padding');
+          e.style.removeProperty('min-height');
+          e.style.removeProperty('line-height');
+        });
+      }
+    });
   }
 
   function injectStyle() {
@@ -174,7 +264,7 @@
     var attempts = 0;
     var iv = setInterval(function () {
       attempts++;
-      if (getState() && getState().prefs) { apply(); clearInterval(iv); }
+      if (getState() && getState().prefs) { apply(); setTimeout(apply, 1500); clearInterval(iv); }
       if (attempts > 40) clearInterval(iv);
     }, 250);
     window.addEventListener('wjp-data-restored', function () { setTimeout(apply, 300); });
@@ -188,7 +278,7 @@
   }
 
   window.WJP_DashboardDense = {
-    version: 2,
+    version: 3,
     isEnabled: isDenseEnabled,
     setEnabled: setDenseEnabled,
     apply: apply

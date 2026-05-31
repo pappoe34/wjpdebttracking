@@ -1,4 +1,4 @@
-/* wjp-dashboard-header-compact.js v1 — Compact the dashboard header so
+/* wjp-dashboard-header-compact.js v2 — Compact the dashboard header so
  * more information fits above the fold on first open.
  *
  * Winston 2026-05-29: "on the dashboard screen, i dont think we are using
@@ -156,11 +156,6 @@
       '<div class="wjp-ch-item" data-action="reorder" role="menuitem">' +
         '<i class="ph ph-arrows-out-cardinal"></i>' +
         '<span class="wjp-ch-label">Re-order</span>' +
-      '</div>' +
-      '<div class="wjp-ch-item" data-action="autofit" role="menuitem">' +
-        '<i class="ph ph-frame-corners"></i>' +
-        '<span class="wjp-ch-label">Auto-fit</span>' +
-        '<span class="wjp-ch-state" data-autofit-state>' + autofitState + '</span>' +
       '</div>' +
       '<div class="wjp-ch-item" data-action="reset" role="menuitem">' +
         '<i class="ph ph-arrow-counter-clockwise"></i>' +
