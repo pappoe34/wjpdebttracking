@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v5 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v6 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -451,9 +451,23 @@
         _recObserver.observe(page, { childList: true, subtree: false });
       }
       watchPageRecurring();
-      // Re-check in case page-recurring builds late
       setTimeout(watchPageRecurring, 2000);
       setTimeout(watchPageRecurring, 6000);
+
+      // FIX 87 v6: #wjp-cal-root's render wipes its innerHTML each time, so
+      // our card gets nuked alongside the calendar grid. Watch calRoot for
+      // direct-children changes and re-inject.
+      var _calRootObserver = null;
+      function watchCalRoot() {
+        var calRoot = document.getElementById('wjp-cal-root');
+        if (!calRoot || _calRootObserver) return;
+        _calRootObserver = new MutationObserver(scheduleInject);
+        _calRootObserver.observe(calRoot, { childList: true, subtree: false });
+      }
+      watchCalRoot();
+      setTimeout(watchCalRoot, 1500);
+      setTimeout(watchCalRoot, 4000);
+      setTimeout(watchCalRoot, 9000);
     } catch (_) {}
   }
 
@@ -464,7 +478,7 @@
   }
 
   window.WJP_GoogleCalendar = {
-    version: 5,
+    version: 6,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
