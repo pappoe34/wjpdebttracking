@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v10 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v11 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -555,6 +555,101 @@
     );
   }
 
+
+  // ────────── FIX 87 v11: design polish + label visibility override ──────────
+  // Injected as a separate stylesheet element AFTER the base styles so it
+  // wins cascade ties at equal specificity. Also raises specificity where
+  // needed to beat the flicker-guard CSS.
+  function injectStyleV11Polish() {
+    if (document.getElementById('wjp-gcal-style-v11')) return;
+    var st = document.createElement('style');
+    st.id = 'wjp-gcal-style-v11';
+    st.textContent = [
+      // Force the Transactions Calendar label visible (flicker guard hides
+      // all #page-recurring direct children except #wjp-cal-root).
+      'html body #page-recurring > #wjp-gcal-tx-title, html body #wjp-gcal-tx-title { display: block !important; visibility: visible !important; }',
+
+      // Premium card shell — softer, lighter, more whitespace
+      'html body #page-recurring > #wjp-gcal-card { background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%) !important; border: 1px solid rgba(0,0,0,0.06) !important; border-radius: 20px !important; padding: 32px 36px !important; margin: 0 0 0 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06) !important; }',
+      'body.dark #page-recurring > #wjp-gcal-card { background: linear-gradient(180deg, #1c2129 0%, #161b22 100%) !important; border-color: rgba(255,255,255,0.08) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.5) !important; }',
+
+      // Titles
+      '#wjp-gcal-card .wjp-gcal-title { font-size: 28px !important; font-weight: 800 !important; letter-spacing: -0.7px !important; line-height: 1.15 !important; margin: 0 0 6px !important; color: #0f1419 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-title { color: #f0f3f5 !important; }',
+      '#wjp-gcal-card .wjp-gcal-subtitle { font-size: 13px !important; color: #5c6873 !important; margin: 0 auto 28px !important; max-width: 480px !important; line-height: 1.5 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-subtitle { color: #8b95a1 !important; }',
+
+      // Sync header strip
+      '#wjp-gcal-card .wjp-gcal-head { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: rgba(248,250,252,0.6); border: 1px solid rgba(0,0,0,0.04); border-radius: 14px; margin-bottom: 14px; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-head { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); }',
+      '#wjp-gcal-card .wjp-gcal-head h2 { font-size: 14px; font-weight: 700; margin: 0; color: #0f1419; letter-spacing: -0.1px; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-head h2 { color: #f0f3f5; }',
+      '#wjp-gcal-card .wjp-gcal-sub { font-size: 11.5px; color: #5c6873; margin: 1px 0 0; font-weight: 500; }',
+
+      // Buttons — premium gradient + lift
+      '#wjp-gcal-card .wjp-gcal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }',
+      '#wjp-gcal-card .wjp-gcal-btn { padding: 11px 18px !important; border-radius: 12px !important; font-size: 13px !important; font-weight: 700 !important; transition: all .15s ease !important; letter-spacing: -0.1px !important; }',
+      '#wjp-gcal-card .wjp-gcal-btn.primary { background: linear-gradient(180deg, #2a8a5a 0%, #1f7a4a 100%) !important; box-shadow: 0 1px 2px rgba(31,122,74,0.3), 0 4px 12px rgba(31,122,74,0.18) !important; }',
+      '#wjp-gcal-card .wjp-gcal-btn.primary:hover { transform: translateY(-1px) !important; box-shadow: 0 2px 4px rgba(31,122,74,0.35), 0 8px 18px rgba(31,122,74,0.25) !important; }',
+      '#wjp-gcal-card .wjp-gcal-btn.ghost { background: #fff !important; color: #0f1419 !important; border: 1px solid rgba(0,0,0,0.08) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important; }',
+      '#wjp-gcal-card .wjp-gcal-btn.ghost:hover { background: #f8f9fb !important; transform: translateY(-1px) !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-btn.ghost { background: rgba(255,255,255,0.05) !important; color: #f0f3f5 !important; border-color: rgba(255,255,255,0.1) !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-btn.ghost:hover { background: rgba(255,255,255,0.08) !important; }',
+
+      // Calendar view
+      '#wjp-gcal-card .wjp-gcal-calview { margin: 20px 0 8px !important; border: 1px solid rgba(0,0,0,0.06) !important; border-radius: 16px !important; padding: 20px !important; background: #fff !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-calview { background: #1a1f26 !important; border-color: rgba(255,255,255,0.08) !important; }',
+      '#wjp-gcal-card .wjp-gcal-monthtitle { font-size: 18px !important; font-weight: 800 !important; letter-spacing: -0.3px !important; color: #0f1419 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-monthtitle { color: #f0f3f5 !important; }',
+      '#wjp-gcal-card .wjp-gcal-navbtns { background: #f1f3f5 !important; border-radius: 10px !important; padding: 3px !important; border: 0 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-navbtns { background: rgba(255,255,255,0.05) !important; }',
+      '#wjp-gcal-card .wjp-gcal-navbtn { padding: 6px 12px !important; font-size: 12px !important; font-weight: 700 !important; border-radius: 7px !important; transition: all .12s ease !important; color: #5c6873 !important; }',
+      '#wjp-gcal-card .wjp-gcal-navbtn:hover { background: #fff !important; color: #1f7a4a !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-navbtn { color: #8b95a1 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-navbtn:hover { background: rgba(255,255,255,0.1) !important; color: #7fd1a4 !important; }',
+
+      // Grid + cells
+      '#wjp-gcal-card .wjp-gcal-grid { gap: 0 !important; border: 1px solid rgba(0,0,0,0.06) !important; border-radius: 12px !important; overflow: hidden !important; background: transparent !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-grid { border-color: rgba(255,255,255,0.08) !important; }',
+      '#wjp-gcal-card .wjp-gcal-dh { background: transparent !important; padding: 11px 4px 9px !important; font-size: 10px !important; font-weight: 700 !important; color: #8b95a1 !important; letter-spacing: 0.12em !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-dh { color: #6b7480 !important; border-bottom-color: rgba(255,255,255,0.08) !important; }',
+      '#wjp-gcal-card .wjp-gcal-cell { background: #fff !important; min-height: 90px !important; padding: 8px 8px 6px !important; gap: 3px !important; border-right: 1px solid rgba(0,0,0,0.04) !important; border-bottom: 1px solid rgba(0,0,0,0.04) !important; }',
+      '#wjp-gcal-card .wjp-gcal-cell:nth-child(7n) { border-right: 0 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-cell { background: #1a1f26 !important; border-color: rgba(255,255,255,0.05) !important; }',
+      '#wjp-gcal-card .wjp-gcal-cell:hover { background: #f8fafc !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-cell:hover { background: rgba(255,255,255,0.03) !important; }',
+      '#wjp-gcal-card .wjp-gcal-blank { background: #fafbfc !important; min-height: 90px !important; cursor: default !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-blank { background: rgba(0,0,0,0.15) !important; }',
+
+      // Day number + today badge
+      '#wjp-gcal-card .wjp-gcal-num { font-size: 12px !important; font-weight: 600 !important; color: #5c6873 !important; align-self: flex-start !important; margin-bottom: 1px !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-num { color: #8b95a1 !important; }',
+      '#wjp-gcal-card .wjp-gcal-today .wjp-gcal-num { background: #1a73e8 !important; color: #fff !important; border-radius: 999px !important; width: 22px !important; height: 22px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; font-size: 11.5px !important; font-weight: 700 !important; box-shadow: 0 1px 3px rgba(26,115,232,0.3) !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-today .wjp-gcal-num { background: #8ab4f8 !important; color: #1a1f26 !important; }',
+
+      // Event chips
+      '#wjp-gcal-card .wjp-gcal-chip { font-size: 10.5px !important; font-weight: 600 !important; padding: 3px 7px !important; background: rgba(26,115,232,0.12) !important; color: #1a73e8 !important; border-radius: 5px !important; line-height: 1.3 !important; transition: all .12s ease !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-chip { background: rgba(138,180,248,0.18) !important; color: #aecbfa !important; }',
+      '#wjp-gcal-card .wjp-gcal-chip:hover { background: #1a73e8 !important; color: #fff !important; transform: translateY(-1px) !important; box-shadow: 0 2px 6px rgba(26,115,232,0.3) !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-chip:hover { background: #8ab4f8 !important; color: #1a1f26 !important; }',
+      '#wjp-gcal-card .wjp-gcal-more { font-size: 10px !important; font-weight: 700 !important; color: #5c6873 !important; padding: 2px 7px !important; }',
+      '#wjp-gcal-card .wjp-gcal-calfoot { font-size: 11.5px !important; color: #5c6873 !important; margin-top: 14px !important; font-weight: 500 !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-calfoot { color: #8b95a1 !important; }',
+
+      // Hide the redundant upcoming list
+      '#wjp-gcal-card .wjp-gcal-list { display: none !important; }',
+
+      // Transactions Calendar label
+      '#wjp-gcal-tx-title { text-align: center !important; margin: 48px 0 28px !important; padding: 0 20px !important; }',
+      '#wjp-gcal-tx-title .wjp-gcal-tx-eyebrow { font-size: 11px !important; font-weight: 800 !important; letter-spacing: 0.18em !important; color: #1f7a4a !important; margin-bottom: 8px !important; text-transform: uppercase !important; }',
+      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-eyebrow { color: #7fd1a4 !important; }',
+      '#wjp-gcal-tx-title .wjp-gcal-tx-name { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.6px !important; color: #0f1419 !important; margin-bottom: 6px !important; line-height: 1.15 !important; }',
+      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-name { color: #f0f3f5 !important; }',
+      '#wjp-gcal-tx-title .wjp-gcal-tx-sub { font-size: 13px !important; color: #5c6873 !important; max-width: 460px !important; margin: 0 auto !important; line-height: 1.5 !important; }',
+      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-sub { color: #8b95a1 !important; }'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
+  }
   // ────────── card render ──────────
   function buildCard() {
     var card = document.createElement('div');
@@ -688,6 +783,7 @@
   // ────────── boot ──────────
   function boot() {
     injectStyle();
+    injectStyleV11Polish();
     inject();
     // Re-inject on data restore so the event list reflects pulled state
     window.addEventListener('wjp-data-restored', function () { setTimeout(inject, 400); });
@@ -778,7 +874,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 10,
+    version: 11,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
