@@ -5591,11 +5591,21 @@ function updateCreditProfile() {
     const card = document.getElementById('credit-profile-card');
     if (!card) return;
 
-    // Pull persisted state from the Credit Score tab
-    let cs = {};
-    let bureau = {};
-    try { cs     = JSON.parse(localStorage.getItem('wjp_credit_inputs') || '{}'); } catch(_) {}
-    try { bureau = JSON.parse(localStorage.getItem('wjp_credit_bureau') || '{}'); } catch(_) {}
+    // FIX 99: pull from user-scoped key first (where the Credit Health page
+    // saves data via window.WJP_UserScope.scopeKey). Fall back to un-scoped
+    // key for older state. Without this the widget always shows "Not Linked"
+    // because the un-scoped key is empty on accounts created post-FIX 44.
+    function _readScoped(k) {
+        try {
+            if (window.WJP_UserScope && typeof window.WJP_UserScope.scopeKey === 'function') {
+                var v = localStorage.getItem(window.WJP_UserScope.scopeKey(k));
+                if (v) return JSON.parse(v);
+            }
+        } catch(_) {}
+        try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch(_) { return {}; }
+    }
+    let cs     = _readScoped('wjp_credit_inputs');
+    let bureau = _readScoped('wjp_credit_bureau');
 
     // Resolve a usable score: bureau lastScore > cs.currentScore
     const rawScore = bureau.lastScore || cs.currentScore;
