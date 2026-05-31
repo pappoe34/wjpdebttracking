@@ -256,8 +256,37 @@ function loadState() {
 }
 
 function saveState() {
-    localStorage.setItem(getStateKey(), JSON.stringify(appState));
+    try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch (e) {
+        try { console.warn('[saveState] localStorage write failed', e); } catch (_) {}
+    }
+    // FIX 103: ALWAYS push to cloud after every local save. The hookSaveState
+    // wrapper only catches calls via `window.saveState()`. Internal callers
+    // using the bare `saveState()` symbol were bypassing cloud-push and losing
+    // data on tab close / device switch. By doing the push here, every path
+    // (wrapped or direct) syncs to Firestore.
+    try {
+        if (typeof window.cloudPushDebounced === 'function') {
+            window.cloudPushDebounced();
+        }
+    } catch (_) {}
 }
+
+// FIX 103: synchronous flush on tab close / hide so debounced pushes don't get
+// lost. Uses `pagehide` (more reliable than `beforeunload`) + `visibilitychange`
+// when going hidden. cloudPushNow returns a promise but we kick it off
+// synchronously and let it run — modern browsers honor short post-pagehide
+// work for outbound fetches via keepalive (Firestore SDK handles this).
+(function () {
+    function flush() {
+        try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
+    }
+    try {
+        window.addEventListener('pagehide', flush);
+        window.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') flush();
+        });
+    } catch (_) {}
+})();
 
 /** Render the user identity (sidebar avatar + name + every other surface
  *  that reflects "the current user") from appState.profile. Falls back to
