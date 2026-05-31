@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v4 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v5 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -386,14 +386,21 @@
     // calendar grid; placing our card as its first child puts it at the top
     // of the visible Calendar page.
     var calRoot = document.getElementById('wjp-cal-root');
-    var host = calRoot || page; // fall back to page if calRoot not built yet
-    if (document.getElementById(CARD_ID)) {
-      try {
-        var fresh = buildCard();
-        var existing = document.getElementById(CARD_ID);
-        existing.parentNode.replaceChild(fresh, existing);
-      } catch (_) {}
-      return true;
+    var host = calRoot || page;
+    var existing = document.getElementById(CARD_ID);
+    if (existing) {
+      // FIX 87 v5: if card is in the wrong parent (e.g. injected into
+      // #page-recurring before #wjp-cal-root existed), remove it. Otherwise
+      // refresh contents in place.
+      if (existing.parentNode !== host) {
+        try { existing.parentNode.removeChild(existing); } catch (_) {}
+      } else {
+        try {
+          var fresh1 = buildCard();
+          existing.parentNode.replaceChild(fresh1, existing);
+        } catch (_) {}
+        return true;
+      }
     }
     var card = buildCard();
     if (host.firstChild) host.insertBefore(card, host.firstChild);
@@ -457,7 +464,7 @@
   }
 
   window.WJP_GoogleCalendar = {
-    version: 4,
+    version: 5,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
