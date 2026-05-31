@@ -325,11 +325,16 @@
       page = document.createElement('div');
       page.id = PAGE_ID;
       page.className = 'page active';
-      page.style.cssText = 'padding:24px 24px 80px;max-width:1400px;margin:0 auto;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;';
       var ca = document.querySelector('.content-area, main, .main-area');
       if (ca) ca.appendChild(page);
       else document.body.appendChild(page);
     }
+    // FIX 98: previously this style.cssText was inside the `if (!page)` block,
+    // so it only ran when the module had to create the element. But the page
+    // already exists in index.html, so the styles never applied — body has
+    // overflow:hidden from style.css, the page had default visible overflow,
+    // and content got clipped with no scroller. Always apply the styles.
+    page.style.cssText = 'padding:24px 24px 80px;max-width:1400px;margin:0 auto;min-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;';
     page.style.display = 'block';
     page.classList.add('active');
     renderPage(page);
