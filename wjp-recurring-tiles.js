@@ -326,17 +326,80 @@
     var form = document.createElement('div');
     form.className = 'wjp-rt-edit-form';
     form.style.cssText = 'background:rgba(31,122,74,0.05);border:1px solid rgba(31,122,74,0.20);border-radius:10px;padding:12px;margin:0 14px 12px;font-family:var(--sans,Inter,system-ui,sans-serif);';
+    // FIX 101: type-aware fields. Credit cards get balance/limit/purchase APR/
+    // annual fee/late fee + auto-calculated utilization badge. Loans get
+    // balance/original amount/APR/term/late fee. Other recurring items keep
+    // the simple 3-field shape.
+    var dtype = String(d.type || '').toLowerCase();
+    var isCC = /credit\s*card|cc\b|visa|mastercard|amex|discover/.test(dtype);
+    var isLoan = /loan|mortgage|auto|student/.test(dtype);
+    if (!isCC && !isLoan) {
+      // Fall back to name heuristic so legacy debts with no `type` still split
+      var n = String(d.name || '').toLowerCase();
+      if (/visa|mastercard|amex|discover|cap\s*one|capital\s*one|chase|citi|barclay|cards?$|cc/.test(n)) isCC = true;
+      else if (/loan|mortgage|student|auto/.test(n)) isLoan = true;
+    }
+
+    function _esc(v) { return String(v == null ? '' : v).replace(/"/g, '&quot;'); }
+    function _v(k) { var v = d[k]; return (v === undefined || v === null) ? '' : v; }
+    var IN_STYLE = 'width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);';
+    var LBL_STYLE = 'font-size:11px;color:var(--ink-dim, #6b7280);';
+    function _input(label, field, type, step, hint) {
+      var stepAttr = step ? ' step="' + step + '"' : '';
+      var typeAttr = type || 'number';
+      var val = field === 'name' ? _esc(d.name || '') : _v(field);
+      var hintHtml = hint ? '<div style="font-size:10px;color:var(--text-3);margin-top:2px;">' + hint + '</div>' : '';
+      return '<label style="' + LBL_STYLE + '">' + label +
+             '<input type="' + typeAttr + '"' + stepAttr +
+             ' value="' + val + '" data-field="' + field + '" style="' + IN_STYLE + '">' +
+             hintHtml + '</label>';
+    }
+
+    var fieldsHtml = '';
+    if (isCC) {
+      // Credit Card field set + live utilization badge
+      var bal = parseFloat(d.balance || 0);
+      var lim = parseFloat(d.creditLimit || d.limit || 0);
+      var utilPct = (bal > 0 && lim > 0) ? Math.min(999, (bal / lim) * 100) : null;
+      var utilBadge = utilPct === null
+        ? '<span style="font-size:10px;color:var(--text-3);">Add a credit limit to see utilization</span>'
+        : '<span style="font-weight:800;color:' + (utilPct < 30 ? '#1f7a4a' : utilPct < 75 ? '#d97706' : '#c0594a') + ';">' + utilPct.toFixed(0) + '%</span>';
+      fieldsHtml =
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+            _input('Balance', 'balance', 'number', '0.01') +
+            _input('Credit limit', 'creditLimit', 'number', '0.01') +
+            _input('Purchase APR (%)', 'apr', 'number', '0.01') +
+            _input('Min/mo', 'minPayment', 'number', '0.01') +
+            _input('Annual fee', 'annualFee', 'number', '0.01') +
+            _input('Late payment fee', 'latePaymentFee', 'number', '0.01') +
+          '</div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(31,122,74,0.06);border:1px solid rgba(31,122,74,0.15);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11.5px;color:var(--ink-dim,#6b7280);">' +
+            '<span>Utilization (auto-calculated)</span>' + utilBadge +
+          '</div>';
+    } else if (isLoan) {
+      fieldsHtml =
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+            _input('Balance', 'balance', 'number', '0.01') +
+            _input('Original amount', 'originalAmount', 'number', '0.01', 'For progress bar (optional)') +
+            _input('Interest rate (APR %)', 'apr', 'number', '0.01') +
+            _input('Min/mo', 'minPayment', 'number', '0.01') +
+            _input('Term remaining (months)', 'termRemainingMonths', 'number', '1', 'Optional') +
+            _input('Late payment fee', 'latePaymentFee', 'number', '0.01') +
+          '</div>';
+    } else {
+      // Generic: simple 3-field shape, no utilization
+      fieldsHtml =
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+            _input('Balance', 'balance', 'number', '0.01') +
+            _input('APR (%)', 'apr', 'number', '0.01') +
+            _input('Min/mo', 'minPayment', 'number', '0.01') +
+          '</div>';
+    }
+
     form.innerHTML = ''
       + '<div style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:#1f7a4a;font-weight:800;margin-bottom:8px;">Edit data</div>'
-      // FIX 62 (Winston 2026-05-29): full-width Name input so user can
-      // rename Plaid-imported debts ("credit Account 2407" -> "CapOne Visa").
-      + '<label style="font-size:11px;color:var(--ink-dim, #6b7280);display:block;margin-bottom:10px;">Name<input type="text" value="' + String(d.name || '').replace(/"/g, '&quot;') + '" data-field="name" placeholder="Account name" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
-      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Balance<input type="number" step="0.01" value="' + (d.balance || '') + '" data-field="balance" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
-      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">APR (%)<input type="number" step="0.01" value="' + (d.apr || '') + '" data-field="apr" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
-      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Min/mo<input type="number" step="0.01" value="' + (d.minPayment || '') + '" data-field="minPayment" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
-      +   '<label style="font-size:11px;color:var(--ink-dim, #6b7280);">Utilization (%)<input type="number" step="0.01" value="' + (d.utilization || '') + '" data-field="utilization" style="width:100%;padding:6px 10px;border:1px solid var(--border, rgba(0,0,0,0.15));border-radius:6px;font-size:13px;font-family:inherit;margin-top:4px;color:var(--ink, #0a0a0a);background:var(--card, transparent);"></label>'
-      + '</div>'
+      + '<label style="font-size:11px;color:var(--ink-dim, #6b7280);display:block;margin-bottom:10px;">Name<input type="text" value="' + _esc(d.name || '') + '" data-field="name" placeholder="Account name" style="' + IN_STYLE + '"></label>'
+      + fieldsHtml
       + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
       +   '<button type="button" class="wjp-rt-cancel" style="background:transparent;color:var(--ink-dim, #6b7280);border:1px solid var(--border, rgba(0,0,0,0.15));padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>'
       +   '<button type="button" class="wjp-rt-save" style="background:#1f7a4a;color:#fff;border:0;padding:7px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Save</button>'
@@ -380,11 +443,20 @@
               || (x.name && d.name && x.name.toLowerCase() === d.name.toLowerCase());
           });
           if (debt) {
-            if ('name' in updates) debt.name = updates.name; // FIX 62: rename
+            if ('name' in updates) debt.name = updates.name;
             if ('balance' in updates) debt.balance = updates.balance;
             if ('apr' in updates) debt.apr = updates.apr;
             if ('minPayment' in updates) debt.minPayment = updates.minPayment;
-            if ('utilization' in updates) debt.utilization = updates.utilization;
+            // FIX 101: new type-aware fields
+            if ('creditLimit' in updates) debt.creditLimit = updates.creditLimit;
+            if ('annualFee' in updates) debt.annualFee = updates.annualFee;
+            if ('latePaymentFee' in updates) debt.latePaymentFee = updates.latePaymentFee;
+            if ('originalAmount' in updates) debt.originalAmount = updates.originalAmount;
+            if ('termRemainingMonths' in updates) debt.termRemainingMonths = updates.termRemainingMonths;
+            // Recompute + store utilization for credit cards (was a manual field)
+            if (debt.creditLimit > 0 && debt.balance >= 0) {
+              debt.utilization = +((debt.balance / debt.creditLimit) * 100).toFixed(2);
+            }
             debt.userEdited = true;
             debt.lastEditedAt = Date.now();
           }
