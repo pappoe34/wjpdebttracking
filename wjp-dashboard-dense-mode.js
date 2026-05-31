@@ -1,4 +1,4 @@
-/* wjp-dashboard-dense-mode.js v1 — Optional Dense mode for the dashboard:
+/* wjp-dashboard-dense-mode.js v2 — Optional Dense mode for the dashboard:
  * tighter card padding, smaller Exec Summary date font, smaller row gaps.
  * Goal: fit more cards above the fold on first open.
  *
@@ -70,30 +70,67 @@
     var st = document.createElement('style');
     st.id = STYLE_ID;
     st.textContent = [
-      // ───── Card padding (every reorderable card) ─────
-      'body.' + BODY_CLASS + ' #page-dashboard .card, body.' + BODY_CLASS + ' #page-dashboard .reorderable, body.' + BODY_CLASS + ' #page-dashboard .reorderable.card { padding: 14px 16px !important; }',
-      // ───── Inter-card gaps ─────
-      'body.' + BODY_CLASS + ' #page-dashboard { gap: 12px !important; }',
-      'body.' + BODY_CLASS + ' #page-dashboard .dash-grid { gap: 12px !important; }',
-      // ───── Executive Summary card — the giant ─────
-      'body.' + BODY_CLASS + ' #dfd-hero { padding: 16px 18px !important; }',
-      'body.' + BODY_CLASS + ' #dfd-date { font-size: clamp(36px, 4.2vw, 50px) !important; line-height: 1.05 !important; margin-bottom: 6px !important; }',
-      'body.' + BODY_CLASS + ' #dfd-eyebrow { font-size: 11px !important; margin-bottom: 2px !important; }',
-      'body.' + BODY_CLASS + ' .dfd-meta { font-size: 11.5px !important; margin-bottom: 10px !important; }',
-      'body.' + BODY_CLASS + ' .dfd-hero .section-label { margin-bottom: 4px !important; font-size: 10px !important; }',
-      'body.' + BODY_CLASS + ' .dfd-progress { margin-bottom: 6px !important; }',
-      'body.' + BODY_CLASS + ' .progress-bar-tall { height: 8px !important; }',
-      'body.' + BODY_CLASS + ' .dfd-labels { font-size: 10.5px !important; }',
-      // ───── Card titles ─────
-      'body.' + BODY_CLASS + ' #page-dashboard .card h3, body.' + BODY_CLASS + ' #page-dashboard .card-title { font-size: 14px !important; margin-bottom: 6px !important; }',
-      'body.' + BODY_CLASS + ' #page-dashboard .card-sub { margin-bottom: 8px !important; }',
-      // ───── Bank Balances / Linked Assets — collapse to first 3, keep "show more" cue ─────
+      // ───── FIX 88 v2: aggressive density across every card ─────
+      // Grid mode stretches cards to row height, so shrinking outer padding
+      // alone is invisible. We aggressively shrink CONTENT (titles, sub-text,
+      // list rows, internal paddings) so the tallest card in each row is
+      // physically shorter — that pulls the whole row down.
+
+      // ───── 1) Card shell padding — tight all-around ─────
+      'body.' + BODY_CLASS + ' #page-dashboard > .reorderable { padding: 12px 14px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .card, body.' + BODY_CLASS + ' #page-dashboard .reorderable.card { padding: 12px 14px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard { gap: 10px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .dash-grid { gap: 10px !important; }',
+      // Pull grid rows tighter
+      'body.dashboard-grid-slots.' + BODY_CLASS + ' #page-dashboard.active { gap: 10px !important; }',
+
+      // ───── 2) Section labels + card headers — shrink fonts ─────
+      'body.' + BODY_CLASS + ' #page-dashboard .reorderable .section-label { font-size: 9.5px !important; margin-bottom: 3px !important; letter-spacing: 0.08em !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .reorderable h1, body.' + BODY_CLASS + ' #page-dashboard .reorderable h2 { font-size: 16px !important; line-height: 1.2 !important; margin: 0 0 6px !important; letter-spacing: -0.2px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .reorderable h3, body.' + BODY_CLASS + ' #page-dashboard .reorderable .card-title { font-size: 13px !important; margin: 0 0 4px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .reorderable .card-sub { font-size: 11px !important; margin-bottom: 6px !important; }',
+
+      // ───── 3) Big dollar amounts (assets/bank balance/exec summary) ─────
+      'body.' + BODY_CLASS + ' #page-dashboard .reorderable .h-big, body.' + BODY_CLASS + ' #page-dashboard .reorderable [class*="-big"], body.' + BODY_CLASS + ' #page-dashboard .reorderable [style*="font-size:38px"], body.' + BODY_CLASS + ' #page-dashboard .reorderable [style*="font-size: 38px"], body.' + BODY_CLASS + ' #page-dashboard .reorderable [style*="font-size:32px"], body.' + BODY_CLASS + ' #page-dashboard .reorderable [style*="font-size: 32px"] { font-size: 24px !important; line-height: 1.15 !important; letter-spacing: -0.6px !important; }',
+
+      // ───── 4) Executive Summary card ─────
+      'body.' + BODY_CLASS + ' #dfd-hero { padding: 14px 16px !important; }',
+      'body.' + BODY_CLASS + ' #dfd-date { font-size: clamp(32px, 4vw, 44px) !important; line-height: 1.05 !important; margin-bottom: 4px !important; letter-spacing: -1px !important; }',
+      'body.' + BODY_CLASS + ' #dfd-eyebrow { font-size: 10px !important; margin-bottom: 2px !important; }',
+      'body.' + BODY_CLASS + ' .dfd-meta { font-size: 11px !important; margin-bottom: 8px !important; }',
+      'body.' + BODY_CLASS + ' .dfd-hero .section-label { margin-bottom: 4px !important; font-size: 9.5px !important; }',
+      'body.' + BODY_CLASS + ' .dfd-progress { margin-bottom: 4px !important; }',
+      'body.' + BODY_CLASS + ' .progress-bar-tall { height: 6px !important; }',
+      'body.' + BODY_CLASS + ' .dfd-labels { font-size: 10px !important; }',
+
+      // ───── 5) List rows (bank balances, assets, transactions, debts) ─────
+      'body.' + BODY_CLASS + ' #page-dashboard .bank-row, body.' + BODY_CLASS + ' #page-dashboard .row-item, body.' + BODY_CLASS + ' #linked-assets-body > div { padding: 6px 10px !important; min-height: 0 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .bank-row .row-name, body.' + BODY_CLASS + ' #page-dashboard .row-item .row-name { font-size: 12px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .bank-row .row-meta, body.' + BODY_CLASS + ' #page-dashboard .row-item .row-meta, body.' + BODY_CLASS + ' #page-dashboard .row-sub { font-size: 10px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .bank-row .row-amount, body.' + BODY_CLASS + ' #page-dashboard .row-item .row-amount { font-size: 13px !important; font-weight: 700 !important; }',
+      // Collapse to first 4 list items per card (was first 4-5)
       'body.' + BODY_CLASS + ' #wjp-dash-debit-balances .bank-row:nth-child(n+5), body.' + BODY_CLASS + ' #linked-assets-body > div:nth-child(n+4) { display: none !important; }',
-      // ───── Math Breakdown body — collapsible feel by default ─────
-      'body.' + BODY_CLASS + ' #math-breakdown { padding: 12px 14px !important; }',
-      'body.' + BODY_CLASS + ' #math-breakdown .math-breakdown-title { font-size: 15px !important; }',
-      // ───── Compact header gap to next card ─────
-      'body.' + BODY_CLASS + ' #wjp-compact-header { padding-top: 10px !important; }'
+
+      // ───── 6) Math breakdown / strategy details ─────
+      'body.' + BODY_CLASS + ' #math-breakdown { padding: 10px 12px !important; }',
+      'body.' + BODY_CLASS + ' #math-breakdown .math-breakdown-title { font-size: 13px !important; }',
+      'body.' + BODY_CLASS + ' #math-breakdown .math-row { padding: 4px 0 !important; font-size: 11px !important; }',
+
+      // ───── 7) Active Target / Snowball indicators ─────
+      'body.' + BODY_CLASS + ' #wjp-dashboard-hero h1, body.' + BODY_CLASS + ' #wjp-dashboard-hero .hero-title { font-size: 17px !important; line-height: 1.15 !important; }',
+      'body.' + BODY_CLASS + ' #wjp-dashboard-hero .hero-meta { font-size: 11px !important; }',
+      'body.' + BODY_CLASS + ' #wjp-dashboard-hero .hero-progress { height: 6px !important; }',
+
+      // ───── 8) Strategy / Spending / Math cards body trim ─────
+      'body.' + BODY_CLASS + ' #dash-strategy-card .card-body, body.' + BODY_CLASS + ' #dash-spending-card .card-body { padding: 10px 0 0 !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard p { line-height: 1.4 !important; margin: 0 0 4px !important; }',
+      'body.' + BODY_CLASS + ' #page-dashboard .card-footer, body.' + BODY_CLASS + ' #page-dashboard .row-footer { padding-top: 6px !important; font-size: 10.5px !important; }',
+
+      // ───── 9) Buttons inside cards — tighter padding ─────
+      'body.' + BODY_CLASS + ' #page-dashboard .reorderable button:not(.card-rc-btn):not(.wjp-gcal-btn):not(.wjp-card-slot-toolbar > *) { padding: 7px 12px !important; font-size: 12px !important; }',
+
+      // ───── 10) Compact header gap ─────
+      'body.' + BODY_CLASS + ' #wjp-compact-header { padding-top: 8px !important; padding-bottom: 4px !important; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -151,7 +188,7 @@
   }
 
   window.WJP_DashboardDense = {
-    version: 1,
+    version: 2,
     isEnabled: isDenseEnabled,
     setEnabled: setDenseEnabled,
     apply: apply
