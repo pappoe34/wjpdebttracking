@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v14 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v15 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -725,7 +725,16 @@
       '#wjp-gcal-detail-pop .wjp-gcal-info-warn .wjp-gcal-info-h { margin-bottom: 4px; }',
       '#wjp-gcal-detail-pop .wjp-gcal-info-warn .wjp-gcal-info-h i { color: #d97706; }',
       '#wjp-gcal-detail-pop .wjp-gcal-info-warn p { padding-left: 0; color: #5c6873; }',
-      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-warn p { color: #a8b1bb; }'
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-warn p { color: #a8b1bb; }',
+      // "Already added it?" affordance for migration users
+      '#wjp-gcal-card .wjp-gcal-already { text-align: center; margin: 12px 0 0; }',
+      '#wjp-gcal-card .wjp-gcal-alreadybtn { background: transparent; border: 0; padding: 6px 12px; cursor: pointer; font-family: inherit; font-size: 12px; color: #5c6873; transition: color .12s ease; }',
+      '#wjp-gcal-card .wjp-gcal-alreadybtn b { color: #1f7a4a; font-weight: 700; }',
+      '#wjp-gcal-card .wjp-gcal-alreadybtn:hover { color: #1f7a4a; }',
+      '#wjp-gcal-card .wjp-gcal-alreadybtn:hover b { text-decoration: underline; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-alreadybtn { color: #8b95a1; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-alreadybtn b { color: #7fd1a4; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-alreadybtn:hover { color: #7fd1a4; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -815,6 +824,7 @@
             '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-link-simple"></i> Copy auto-sync URL</button>' +
             '<button type="button" class="wjp-gcal-btn ghost" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
           '</div>' +
+          '<div class="wjp-gcal-already"><button type="button" class="wjp-gcal-alreadybtn" data-action="mark-connected">Already added it to Google Calendar? <b>Mark as connected \u2192</b></button></div>' +
           '<div class="wjp-gcal-status" id="wjp-gcal-status" style="font-size:11.5px; color:var(--text-3); margin: -4px 0 12px; min-height:16px;"></div>') +
       buildMonthGrid() +
       listHtml +
@@ -851,6 +861,7 @@
       }
       else if (act === 'close-detail') { _closeDetailPopover(); }
       else if (act === 'info') { e.stopPropagation(); showInfoModal(); }
+      else if (act === 'mark-connected') { e.stopPropagation(); markGoogleConnected(); }
       else if (act === 'toggle-manage') {
         var pop = document.getElementById('wjp-gcal-managepop');
         if (pop) pop.style.display = (pop.style.display === 'block' ? 'none' : 'block');
@@ -1028,7 +1039,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 14,
+    version: 15,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
