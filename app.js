@@ -24401,7 +24401,16 @@ window.showPrivacyHint = function showPrivacyHint() {
     var STATE_KEYS = ['debts','recurringPayments','recurring','budget','prefs','settings','balances','profile','creditScoreHistory','txnReviewQueue','household','subscription','lastRecurringSync','processedTxIds','mutedTxnIds','inbox','assets','netWorthHistory','categories'];  // FIX 44 (2026-05-26 Winston): added 'categories' so user-defined categories sync to cloud and survive device switches.
     var FB_BASE = 'https://www.gstatic.com/firebasejs/10.13.0/';
 
+    // FIX 109: sync indicator is admin-only. Regular users never see it.
+    function _wjpIsAdmin() {
+        try {
+            if (window.WJP_IS_ADMIN === true) return true;
+            if (typeof window.WJP_isAdmin === 'function') return !!window.WJP_isAdmin();
+            return false;
+        } catch (_) { return false; }
+    }
     function setIndicator(state) {
+        if (!_wjpIsAdmin()) return;
         try {
             var el = document.getElementById('wjp-sync-indicator');
             if (!el) return;
@@ -24418,12 +24427,19 @@ window.showPrivacyHint = function showPrivacyHint() {
     }
 
     function injectIndicator() {
+        // FIX 109: only inject for admins. Regular users never see this.
+        if (!_wjpIsAdmin()) {
+            setTimeout(function () {
+                if (_wjpIsAdmin() && !document.getElementById('wjp-sync-indicator')) injectIndicator();
+            }, 2000);
+            return;
+        }
         if (document.getElementById('wjp-sync-indicator')) return;
         var sb = document.querySelector('.sidebar') || document.body;
         var el = document.createElement('div');
         el.id = 'wjp-sync-indicator';
         el.style.cssText = 'position:fixed;bottom:8px;left:8px;font-size:10px;font-weight:700;padding:4px 8px;border-radius:10px;background:rgba(34,197,94,0.10);color:rgba(34,197,94,0.9);z-index:50;letter-spacing:0.02em;pointer-events:none;';
-        el.textContent = '\u22ef Connecting';
+        el.textContent = '\u22ef Connecting (admin)';
         document.body.appendChild(el);
     }
 
@@ -24622,13 +24638,51 @@ window.showPrivacyHint = function showPrivacyHint() {
             await _setDocFn(ref, payload, { merge: false });
             try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch(_){}
             clearDirty();
+            try { _wjpRegisterPushSuccess(); } catch (_) {}
             try { console.log('[cloud-sync] push ok @', attemptTs); } catch(_){}
         } catch (e) {
             console.warn('[cloud-sync] push error', e);
             setIndicator('offline');
-            // KEEP dirty flag — retry loop will pick it up
+            try { _wjpRegisterPushFailure(e); } catch (_) {}
         }
     }
+
+    // FIX 109: critical-alert trigger. Tracks consecutive push failures + dirty time.
+    // After 3 failures in a row OR dirty > 5 min, fires log-admin-alert which emails admin.
+    var _wjpFailCount = 0;
+    var _wjpLastAlertTs = 0;
+    var _wjpDirtySince = 0;
+    function _wjpRegisterPushFailure(err) {
+        _wjpFailCount += 1;
+        var now = Date.now();
+        if (_wjpFailCount >= 3 && (now - _wjpLastAlertTs) > 5 * 60 * 1000) {
+            _wjpLastAlertTs = now;
+            _wjpFireAdminAlert('push_failure', { failCount: _wjpFailCount, error: String(err && err.message || err).slice(0, 200) });
+        }
+    }
+    function _wjpRegisterPushSuccess() { _wjpFailCount = 0; _wjpDirtySince = 0; }
+    async function _wjpFireAdminAlert(type, details) {
+        try {
+            var fbUser = (window.firebase && firebase.auth && firebase.auth().currentUser) || window.__wjpUser;
+            if (!fbUser || typeof fbUser.getIdToken !== 'function') return;
+            var token = await fbUser.getIdToken();
+            await fetch('/.netlify/functions/log-admin-alert', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: type, source: 'cloud-sync-client', details: JSON.stringify(details).slice(0, 480), severity: 'critical' })
+            });
+        } catch (_) {}
+    }
+    setInterval(function () {
+        try {
+            if (!isDirty()) { _wjpDirtySince = 0; return; }
+            if (!_wjpDirtySince) _wjpDirtySince = Date.now();
+            if ((Date.now() - _wjpDirtySince) > 5 * 60 * 1000 && (Date.now() - _wjpLastAlertTs) > 5 * 60 * 1000) {
+                _wjpLastAlertTs = Date.now();
+                _wjpFireAdminAlert('dirty_stuck', { dirtyForMs: Date.now() - _wjpDirtySince });
+            }
+        } catch (_) {}
+    }, 60000);
 
     var _pullDone = false;
     function cloudPushDebounced() {
