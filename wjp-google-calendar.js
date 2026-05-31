@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v9 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v10 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -316,7 +316,43 @@
       '#' + CARD_ID + ' .wjp-gcal-chip { font-size: 9.5px; font-weight: 700; padding: 2px 5px; background: rgba(66,133,244,0.14); color: #1a73e8; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
       'body.dark #' + CARD_ID + ' .wjp-gcal-chip { background: rgba(66,133,244,0.22); color: #8ab4f8; }',
       '#' + CARD_ID + ' .wjp-gcal-more { font-size: 9px; font-weight: 700; color: var(--text-3); padding: 0 5px; }',
-      '#' + CARD_ID + ' .wjp-gcal-calfoot { font-size: 11px; color: var(--text-3); margin-top: 10px; text-align: center; }'
+      '#' + CARD_ID + ' .wjp-gcal-calfoot { font-size: 11px; color: var(--text-3); margin-top: 10px; text-align: center; }',
+      '#' + CARD_ID + ' .wjp-gcal-title { font-size: 22px; font-weight: 900; letter-spacing: -0.4px; text-align: center; margin: 0 0 4px; color: var(--ink, var(--text-1, #1a1a1a)); }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-title { color: var(--ink, var(--text-1, #e7e7e7)); }',
+      '#' + CARD_ID + ' .wjp-gcal-subtitle { font-size: 12px; color: var(--text-3); text-align: center; margin: 0 0 18px; }',
+      '#wjp-gcal-tx-title { text-align: center; margin: 32px 0 18px; }',
+      '#wjp-gcal-tx-title .wjp-gcal-tx-eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: #1f7a4a; margin-bottom: 4px; }',
+      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-eyebrow { color: #7fd1a4; }',
+      '#wjp-gcal-tx-title .wjp-gcal-tx-name { font-size: 22px; font-weight: 900; letter-spacing: -0.4px; color: var(--ink, var(--text-1, #1a1a1a)); margin-bottom: 4px; }',
+      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-name { color: var(--ink, var(--text-1, #e7e7e7)); }',
+      '#wjp-gcal-tx-title .wjp-gcal-tx-sub { font-size: 12px; color: var(--text-3); }',
+      '#' + CARD_ID + ' button.wjp-gcal-chip, #' + CARD_ID + ' button.wjp-gcal-more { border: 0; cursor: pointer; font-family: inherit; text-align: left; }',
+      '#' + CARD_ID + ' .wjp-gcal-chip:hover { background: rgba(66,133,244,0.26); }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-chip:hover { background: rgba(66,133,244,0.36); }',
+      '#' + CARD_ID + ' .wjp-gcal-cell { cursor: pointer; transition: background .12s ease; }',
+      '#' + CARD_ID + ' .wjp-gcal-cell:hover { background: rgba(31,122,74,0.06); }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-cell:hover { background: rgba(127,209,164,0.08); }',
+      '#wjp-gcal-detail-pop { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card, #fff); color: var(--ink, var(--text-1, #1a1a1a)); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; min-width: 320px; max-width: 460px; box-shadow: 0 18px 60px rgba(0,0,0,0.18); z-index: 9999; }',
+      'body.dark #wjp-gcal-detail-pop { background: var(--card-2, #1a2028); color: var(--ink, var(--text-1, #e7e7e7)); box-shadow: 0 18px 60px rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.10); }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-head { display:flex; align-items:flex-start; gap:10px; margin-bottom: 12px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-dot { width: 14px; height: 14px; border-radius: 999px; background: #1a73e8; margin-top: 4px; flex-shrink: 0; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-detail-dot { background: #8ab4f8; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-title { font-size: 16px; font-weight: 800; letter-spacing: -0.2px; margin-bottom: 2px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-date { font-size: 12px; color: var(--text-3); }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-body { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: 10px 0 14px; padding: 10px 12px; background: var(--bg, rgba(0,0,0,0.03)); border-radius: 8px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-detail-body { background: rgba(255,255,255,0.05); color: var(--text-2, #c0c5cb); }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-meta { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-meta i { color: #1f7a4a; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-detail-meta i { color: #7fd1a4; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-evrow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: transparent; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; cursor: pointer; text-align: left; color: inherit; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-evrow:hover { background: rgba(66,133,244,0.10); }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-detail-evrow:hover { background: rgba(66,133,244,0.16); }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-evtxt { font-size: 13px; font-weight: 600; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 14px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-close { position: absolute; top: 8px; right: 12px; background: transparent; border: 0; font-size: 22px; font-weight: 700; color: var(--text-3); cursor: pointer; line-height: 1; padding: 4px 8px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-detail-close:hover { color: var(--ink, var(--text-1, #1a1a1a)); }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-detail-close:hover { color: var(--ink, var(--text-1, #e7e7e7)); }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -429,12 +465,12 @@
 
     var cellHtml = cells.map(function (c) {
       if (c.blank) return '<div class="wjp-gcal-cell wjp-gcal-blank"></div>';
-      var chips = c.events.slice(0, 3).map(function (e) {
+      var chips = c.events.slice(0, 3).map(function (e, idx) {
         var label = (e.summary || '').replace(/ — \$[\d.]+$/, '');
-        return '<div class="wjp-gcal-chip" title="' + escapeHtml(e.summary) + '">' + escapeHtml(label) + '</div>';
+        return '<button type="button" class="wjp-gcal-chip" data-action="event-detail" data-day="' + c.key + '" data-idx="' + idx + '" title="' + escapeHtml(e.summary) + '">' + escapeHtml(label) + '</button>';
       }).join('');
-      var more = c.events.length > 3 ? '<div class="wjp-gcal-more">+' + (c.events.length - 3) + ' more</div>' : '';
-      return '<div class="wjp-gcal-cell' + (c.isToday ? ' wjp-gcal-today' : '') + (c.events.length ? ' wjp-gcal-has' : '') + '">' +
+      var more = c.events.length > 3 ? '<button type="button" class="wjp-gcal-more" data-action="day-detail" data-day="' + c.key + '">+' + (c.events.length - 3) + ' more</button>' : '';
+      return '<div class="wjp-gcal-cell' + (c.isToday ? ' wjp-gcal-today' : '') + (c.events.length ? ' wjp-gcal-has' : '') + '" data-action="day-detail" data-day="' + c.key + '">' +
         '<div class="wjp-gcal-num">' + c.day + '</div>' + chips + more + '</div>';
     }).join('');
 
@@ -452,6 +488,71 @@
       '<div class="wjp-gcal-grid">' + dayHeaders + cellHtml + '</div>' +
       '<div class="wjp-gcal-calfoot">' + totalThisMonth + ' synced event' + (totalThisMonth === 1 ? '' : 's') + ' this month · 1-day-before reminder set on each</div>' +
     '</div>';
+  }
+
+
+  // ────────── FIX 87 v10: event detail popover ──────────
+  function _openDetailPopover(html) {
+    _closeDetailPopover();
+    var pop = document.createElement('div');
+    pop.id = 'wjp-gcal-detail-pop';
+    pop.innerHTML = html + '<button type="button" class="wjp-gcal-detail-close" data-action="close-detail" aria-label="Close">\u00d7</button>';
+    document.body.appendChild(pop);
+    setTimeout(function () { document.addEventListener('click', _outsideClickClose, true); }, 0);
+  }
+  function _closeDetailPopover() {
+    var p = document.getElementById('wjp-gcal-detail-pop');
+    if (p) try { p.remove(); } catch (_) {}
+    document.removeEventListener('click', _outsideClickClose, true);
+  }
+  function _outsideClickClose(e) {
+    var p = document.getElementById('wjp-gcal-detail-pop');
+    if (!p) return;
+    if (p.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('[data-action="event-detail"], [data-action="day-detail"]')) return;
+    _closeDetailPopover();
+  }
+  function showEventDetail(dayKey, idx) {
+    var byDate = _eventsByDateMap(_viewMonth.y, _viewMonth.m);
+    var evs = byDate[dayKey] || [];
+    var ev = evs[idx];
+    if (!ev) return;
+    var d = _icsDateToLocal(dayKey.replace(/-/g, '').slice(0, 8));
+    var dateLabel = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    var rruleText = ev.rrule ? ev.rrule.replace(/^RRULE:/, '').replace(/FREQ=/, '').replace(/;INTERVAL=2/, ' (every 2)').replace(/;INTERVAL=3/, ' (every 3)').toLowerCase() : 'one-time';
+    _openDetailPopover(
+      '<div class="wjp-gcal-detail-head">' +
+        '<div class="wjp-gcal-detail-dot"></div>' +
+        '<div>' +
+          '<div class="wjp-gcal-detail-title">' + escapeHtml(ev.summary) + '</div>' +
+          '<div class="wjp-gcal-detail-date">' + escapeHtml(dateLabel) + ' \u00b7 all-day</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wjp-gcal-detail-body">' + escapeHtml(ev.description) + '</div>' +
+      '<div class="wjp-gcal-detail-meta"><i class="ph ph-repeat"></i> Recurrence: ' + escapeHtml(rruleText) + '</div>' +
+      '<div class="wjp-gcal-detail-meta"><i class="ph ph-bell"></i> Reminder 1 day before</div>'
+    );
+  }
+  function showDayDetail(dayKey) {
+    var byDate = _eventsByDateMap(_viewMonth.y, _viewMonth.m);
+    var evs = byDate[dayKey] || [];
+    var d = _icsDateToLocal(dayKey.replace(/-/g, '').slice(0, 8));
+    var dateLabel = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    var body = evs.length
+      ? evs.map(function (e, i) {
+          return '<button type="button" class="wjp-gcal-detail-evrow" data-action="event-detail" data-day="' + dayKey + '" data-idx="' + i + '">' +
+                   '<div class="wjp-gcal-detail-dot"></div>' +
+                   '<div class="wjp-gcal-detail-evtxt">' + escapeHtml(e.summary) + '</div>' +
+                 '</button>';
+        }).join('')
+      : '<div class="wjp-gcal-detail-empty">No payments on this day.</div>';
+    _openDetailPopover(
+      '<div class="wjp-gcal-detail-head"><div>' +
+        '<div class="wjp-gcal-detail-title">' + escapeHtml(dateLabel) + '</div>' +
+        '<div class="wjp-gcal-detail-date">' + evs.length + ' payment' + (evs.length === 1 ? '' : 's') + '</div>' +
+      '</div></div>' +
+      '<div class="wjp-gcal-detail-list">' + body + '</div>'
+    );
   }
 
   // ────────── card render ──────────
@@ -478,11 +579,13 @@
       : '<p style="font-size:12px; color:var(--text-3); margin:8px 0 0;">Add a recurring payment or set a due date on a debt — the file will pick them up automatically.</p>';
 
     card.innerHTML =
+      '<div class="wjp-gcal-title">Payments Calendar</div>' +
+      '<div class="wjp-gcal-subtitle">Bills + debt due dates — synced to Google Calendar with reminders 1 day before each.</div>' +
       '<div class="wjp-gcal-head">' +
         '<div class="wjp-gcal-logo">' + gcalLogoHtml() + '</div>' +
         '<div>' +
           '<h2>Sync to Google Calendar</h2>' +
-          '<p class="wjp-gcal-sub">' + events.length + ' event' + (events.length === 1 ? '' : 's') + ' ready — bills, debt due dates, and reminders 1 day before.</p>' +
+          '<p class="wjp-gcal-sub">' + events.length + ' event' + (events.length === 1 ? '' : 's') + ' ready</p>' +
         '</div>' +
       '</div>' +
       '<div class="wjp-gcal-actions">' +
@@ -512,6 +615,18 @@
       else if (act === 'prev-month') { _viewMonth.m -= 1; if (_viewMonth.m < 0) { _viewMonth.m = 11; _viewMonth.y -= 1; } inject(); }
       else if (act === 'next-month') { _viewMonth.m += 1; if (_viewMonth.m > 11) { _viewMonth.m = 0; _viewMonth.y += 1; } inject(); }
       else if (act === 'today') { var n = new Date(); _viewMonth.y = n.getFullYear(); _viewMonth.m = n.getMonth(); inject(); }
+      else if (act === 'event-detail') {
+        e.stopPropagation();
+        var dk = btn.getAttribute('data-day');
+        var ix = parseInt(btn.getAttribute('data-idx'), 10);
+        showEventDetail(dk, ix);
+      }
+      else if (act === 'day-detail') {
+        e.stopPropagation();
+        var dk2 = btn.getAttribute('data-day');
+        showDayDetail(dk2);
+      }
+      else if (act === 'close-detail') { _closeDetailPopover(); }
     });
 
     return card;
@@ -553,6 +668,20 @@
     var card = buildCard();
     if (host.firstChild) host.insertBefore(card, host.firstChild);
     else host.appendChild(card);
+
+    try {
+      var calRoot2 = document.getElementById('wjp-cal-root');
+      var existingTitle = document.getElementById('wjp-gcal-tx-title');
+      if (calRoot2 && !existingTitle) {
+        var t = document.createElement('div');
+        t.id = 'wjp-gcal-tx-title';
+        t.innerHTML = '<div class="wjp-gcal-tx-eyebrow">YOUR LEDGER</div>' +
+                      '<div class="wjp-gcal-tx-name">Transactions Calendar</div>' +
+                      '<div class="wjp-gcal-tx-sub">All bills, debts, income, transfers and one-off events.</div>';
+        host.insertBefore(t, calRoot2);
+      }
+    } catch (_) {}
+
     return true;
   }
 
@@ -649,7 +778,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 9,
+    version: 10,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
