@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v13 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v14 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -691,10 +691,80 @@
       'body.dark #wjp-gcal-card .wjp-gcal-managelink:hover { background: rgba(127,209,164,0.12); color: #7fd1a4; }',
       'body.dark #wjp-gcal-card .wjp-gcal-managelink.danger { color: #e08070; }',
       'body.dark #wjp-gcal-card .wjp-gcal-managelink.danger:hover { background: rgba(224,128,112,0.12); color: #e08070; }',
-      '#wjp-gcal-card .wjp-gcal-managelink i { font-size: 14px; }'
+      '#wjp-gcal-card .wjp-gcal-managelink i { font-size: 14px; }',
+      // Info icon next to title
+      '#wjp-gcal-card .wjp-gcal-titlerow { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 6px; }',
+      '#wjp-gcal-card .wjp-gcal-infobtn { background: transparent; border: 0; padding: 0; cursor: pointer; color: #8b95a1; transition: color .12s ease, transform .12s ease; line-height: 1; }',
+      '#wjp-gcal-card .wjp-gcal-infobtn i { font-size: 18px; }',
+      '#wjp-gcal-card .wjp-gcal-infobtn:hover { color: #1a73e8; transform: translateY(-1px); }',
+      'body.dark #wjp-gcal-card .wjp-gcal-infobtn { color: #6b7480; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-infobtn:hover { color: #8ab4f8; }',
+      // Info modal — clean sections
+      '#wjp-gcal-detail-pop .wjp-gcal-info { max-height: 70vh; overflow-y: auto; padding-right: 4px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-head { display: flex; align-items: center; gap: 12px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid rgba(0,0,0,0.06); }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-head { border-bottom-color: rgba(255,255,255,0.08); }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(26,115,232,0.12); color: #1a73e8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-icon i { font-size: 22px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-icon { background: rgba(138,180,248,0.18); color: #8ab4f8; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-title { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; color: #0f1419; margin-bottom: 2px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-title { color: #f0f3f5; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-sub { font-size: 12px; color: #5c6873; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-sub { color: #8b95a1; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-sect { margin-bottom: 16px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-sect:last-child { margin-bottom: 0; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-h { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; letter-spacing: -0.1px; color: #0f1419; margin-bottom: 6px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-h { color: #f0f3f5; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-h i { color: #1f7a4a; font-size: 16px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-h i { color: #7fd1a4; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-sect p { font-size: 12.5px; line-height: 1.55; color: #5c6873; margin: 0; padding-left: 24px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-sect p { color: #a8b1bb; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-sect p b { color: #0f1419; font-weight: 700; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-sect p b { color: #f0f3f5; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-warn { background: rgba(255,193,7,0.08); border: 1px solid rgba(255,193,7,0.20); border-radius: 10px; padding: 12px 14px; margin: 4px 0 16px; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-warn { background: rgba(255,193,7,0.10); border-color: rgba(255,193,7,0.25); }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-warn .wjp-gcal-info-h { margin-bottom: 4px; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-warn .wjp-gcal-info-h i { color: #d97706; }',
+      '#wjp-gcal-detail-pop .wjp-gcal-info-warn p { padding-left: 0; color: #5c6873; }',
+      'body.dark #wjp-gcal-detail-pop .wjp-gcal-info-warn p { color: #a8b1bb; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
+
+  // ────────── FIX 87 v14: privacy + sync info modal ──────────
+  function showInfoModal() {
+    _openDetailPopover(
+      '<div class="wjp-gcal-info">' +
+        '<div class="wjp-gcal-info-head">' +
+          '<div class="wjp-gcal-info-icon"><i class="ph ph-info"></i></div>' +
+          '<div>' +
+            '<div class="wjp-gcal-info-title">About this sync</div>' +
+            '<div class="wjp-gcal-info-sub">How your data flows and who can see it</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wjp-gcal-info-sect">' +
+          '<div class="wjp-gcal-info-h"><i class="ph ph-flow-arrow"></i> How it works</div>' +
+          '<p>Your bills and debt due dates are exported as a standards-compliant calendar feed (iCalendar). Google polls your personal URL every few hours and copies events into your Google Calendar. Reminders fire from Google, not from this app.</p>' +
+        '</div>' +
+        '<div class="wjp-gcal-info-sect">' +
+          '<div class="wjp-gcal-info-h"><i class="ph ph-users-three"></i> Other users of this app</div>' +
+          '<p><b>Completely isolated.</b> Each user gets a unique URL signed with a server-side secret. Another user\'s URL cannot read your data and vice versa — the function verifies the signature before any database read.</p>' +
+        '</div>' +
+        '<div class="wjp-gcal-info-sect">' +
+          '<div class="wjp-gcal-info-h"><i class="ph ph-google-logo"></i> What Google sees</div>' +
+          '<p>Google receives the events themselves: bill names, amounts, debt names, due dates, APRs, balances. They store this like any other calendar event. If you\'ve shared your Google Calendar with anyone (spouse, employer), they will see these events too — adjust visibility in Google Calendar settings.</p>' +
+        '</div>' +
+        '<div class="wjp-gcal-info-sect wjp-gcal-info-warn">' +
+          '<div class="wjp-gcal-info-h"><i class="ph ph-warning-circle"></i> Your sync URL is a credential</div>' +
+          '<p>Anyone with your URL can read your calendar (this is how Google polls anonymously). <b>Treat the URL like a password</b> — don\'t paste it in emails, chats, or screenshots. Same model as Apple, Outlook, Mint, and YNAB calendar feeds.</p>' +
+        '</div>' +
+        '<div class="wjp-gcal-info-sect">' +
+          '<div class="wjp-gcal-info-h"><i class="ph ph-arrow-counter-clockwise"></i> How to disconnect</div>' +
+          '<p>Open Google Calendar → Settings → click the "WJP Debt Tracker" calendar in the sidebar → <b>Unsubscribe</b>. Google stops polling instantly. The "Mark as disconnected" button in the Manage menu only clears the local badge.</p>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   // ────────── card render ──────────
   function buildCard() {
     var card = document.createElement('div');
@@ -719,7 +789,10 @@
       : '<p style="font-size:12px; color:var(--text-3); margin:8px 0 0;">Add a recurring payment or set a due date on a debt — the file will pick them up automatically.</p>';
 
     card.innerHTML =
-      '<div class="wjp-gcal-title">Payments Calendar</div>' +
+      '<div class="wjp-gcal-titlerow">' +
+        '<div class="wjp-gcal-title">Payments Calendar</div>' +
+        '<button type="button" class="wjp-gcal-infobtn" data-action="info" aria-label="About sync & privacy" title="About sync & privacy"><i class="ph ph-info"></i></button>' +
+      '</div>' +
       (isGoogleConnected()
         ? '<div class="wjp-gcal-connbar">' +
             '<span class="wjp-gcal-conn-badge"><span class="wjp-gcal-conn-dot"></span>Connected to Google Calendar</span>' +
@@ -777,6 +850,7 @@
         showDayDetail(dk2);
       }
       else if (act === 'close-detail') { _closeDetailPopover(); }
+      else if (act === 'info') { e.stopPropagation(); showInfoModal(); }
       else if (act === 'toggle-manage') {
         var pop = document.getElementById('wjp-gcal-managepop');
         if (pop) pop.style.display = (pop.style.display === 'block' ? 'none' : 'block');
@@ -954,7 +1028,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 13,
+    version: 14,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
