@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v11 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v12 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -188,6 +188,23 @@
   }
 
 
+
+  // ────────── FIX 87 v12: connection-state tracking ──────────
+  function isGoogleConnected() {
+    var s = getState();
+    return !!(s && s.prefs && s.prefs.googleCalConnected);
+  }
+  function markGoogleConnected() {
+    var s = getState();
+    if (!s) return;
+    if (!s.prefs) s.prefs = {};
+    s.prefs.googleCalConnected = true;
+    s.prefs.googleCalConnectedAt = new Date().toISOString();
+    try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+    try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
+    // Re-render the card so the badge appears immediately
+    inject();
+  }
   // ────────── Phase 2: fetch the personal auto-sync URL ──────────
   // Calls /.netlify/functions/calendar-sync-url with the user's Firebase ID
   // token, gets back a stable URL that Google Calendar can poll. The URL
@@ -233,10 +250,11 @@
       try {
         await navigator.clipboard.writeText(url);
         setStatus('Copied! Paste it in Google Calendar → Settings → Add calendar → From URL.');
+        markGoogleConnected();
       } catch (_) {
-        // Fallback: prompt the user
         try { window.prompt('Copy this URL into Google Calendar → Settings → Add calendar → From URL:', url); } catch (_) {}
         setStatus('URL ready in the prompt above.');
+        markGoogleConnected();
       }
     } catch (err) {
       setStatus('Error: ' + (err && err.message ? err.message : 'unknown'), true);
@@ -646,7 +664,18 @@
       '#wjp-gcal-tx-title .wjp-gcal-tx-name { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.6px !important; color: #0f1419 !important; margin-bottom: 6px !important; line-height: 1.15 !important; }',
       'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-name { color: #f0f3f5 !important; }',
       '#wjp-gcal-tx-title .wjp-gcal-tx-sub { font-size: 13px !important; color: #5c6873 !important; max-width: 460px !important; margin: 0 auto !important; line-height: 1.5 !important; }',
-      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-sub { color: #8b95a1 !important; }'
+      'body.dark #wjp-gcal-tx-title .wjp-gcal-tx-sub { color: #8b95a1 !important; }',
+      // Connection-status badge
+      '#wjp-gcal-card .wjp-gcal-conn-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; background: rgba(31,122,74,0.12); color: #1f7a4a; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: -0.1px; align-self: center; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-conn-badge { background: rgba(127,209,164,0.18); color: #7fd1a4; }',
+      '#wjp-gcal-card .wjp-gcal-conn-dot { width: 8px; height: 8px; border-radius: 999px; background: #1f7a4a; box-shadow: 0 0 0 3px rgba(31,122,74,0.25); animation: wjpGcalPulse 2.4s ease-in-out infinite; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-conn-dot { background: #7fd1a4; box-shadow: 0 0 0 3px rgba(127,209,164,0.30); }',
+      '@keyframes wjpGcalPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }',
+      // Link-style button for the soft "disconnect" action
+      '#wjp-gcal-card .wjp-gcal-btn.link { background: transparent !important; color: #5c6873 !important; padding: 11px 4px !important; font-weight: 600 !important; font-size: 12px !important; text-decoration: underline; text-decoration-color: rgba(0,0,0,0.15); text-underline-offset: 3px; box-shadow: none !important; border: 0 !important; }',
+      '#wjp-gcal-card .wjp-gcal-btn.link:hover { color: #c0594a !important; text-decoration-color: #c0594a !important; transform: none !important; }',
+      'body.dark #wjp-gcal-card .wjp-gcal-btn.link { color: #8b95a1 !important; text-decoration-color: rgba(255,255,255,0.20); }',
+      'body.dark #wjp-gcal-card .wjp-gcal-btn.link:hover { color: #e08070 !important; text-decoration-color: #e08070 !important; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -678,14 +707,22 @@
       '<div class="wjp-gcal-subtitle">Bills + debt due dates — synced to Google Calendar with reminders 1 day before each.</div>' +
       '<div class="wjp-gcal-head">' +
         '<div class="wjp-gcal-logo">' + gcalLogoHtml() + '</div>' +
-        '<div>' +
-          '<h2>Sync to Google Calendar</h2>' +
+        '<div style="flex:1;">' +
+          '<h2>' + (isGoogleConnected() ? 'Synced to Google Calendar' : 'Sync to Google Calendar') + '</h2>' +
           '<p class="wjp-gcal-sub">' + events.length + ' event' + (events.length === 1 ? '' : 's') + ' ready</p>' +
         '</div>' +
+        (isGoogleConnected()
+          ? '<div class="wjp-gcal-conn-badge"><span class="wjp-gcal-conn-dot"></span>Connected</div>'
+          : '') +
       '</div>' +
       '<div class="wjp-gcal-actions">' +
-        '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-link-simple"></i> Copy auto-sync URL</button>' +
+        (isGoogleConnected()
+          ? '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-copy-simple"></i> Re-copy sync URL</button>'
+          : '<button type="button" class="wjp-gcal-btn primary" data-action="sync-url"><i class="ph ph-link-simple"></i> Copy auto-sync URL</button>') +
         '<button type="button" class="wjp-gcal-btn ghost" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
+        (isGoogleConnected()
+          ? '<button type="button" class="wjp-gcal-btn link" data-action="disconnect" title="Mark as disconnected (does not remove from Google)">Mark as disconnected</button>'
+          : '') +
       '</div>' +
       '<div class="wjp-gcal-status" id="wjp-gcal-status" style="font-size:11.5px; color:var(--text-3); margin: -4px 0 12px; min-height:16px;"></div>' +
       buildMonthGrid() +
@@ -722,6 +759,17 @@
         showDayDetail(dk2);
       }
       else if (act === 'close-detail') { _closeDetailPopover(); }
+      else if (act === 'disconnect') {
+        if (!confirm('Mark Google Calendar as disconnected? This only removes the badge — to actually stop the sync you must delete the calendar in Google Calendar itself.')) return;
+        var s = getState();
+        if (s && s.prefs) {
+          delete s.prefs.googleCalConnected;
+          delete s.prefs.googleCalConnectedAt;
+          try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
+          try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
+        }
+        inject();
+      }
     });
 
     return card;
@@ -874,7 +922,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 11,
+    version: 12,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
