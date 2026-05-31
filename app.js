@@ -3531,18 +3531,21 @@ function initModal() {
             return;
         }
 
-        // mode === 'save-close' (default) — quick success flash then close
-        // FIX 102: 2s wait felt like the button was stuck. Drop to 700ms.
+        // mode === 'save-close' (default) — quick flash then close.
+        // FIX 110: 350ms (was 700ms); also reset BOTH submit buttons so neither
+        // gets stuck in green "Saved" state if user previously clicked the other.
         setTimeout(() => {
             closeModal();
             setTimeout(() => {
+                form.querySelectorAll('button[type="submit"]').forEach(function (b) {
+                    b.style.backgroundColor = '';
+                    b.style.color = '';
+                    b.style.pointerEvents = '';
+                    b.style.transform = '';
+                });
                 btn.innerHTML = originalText;
-                btn.style.backgroundColor = '';
-                btn.style.color = '';
-                btn.style.pointerEvents = '';
-                btn.style.transform = '';
-            }, 300);
-        }, 700);
+            }, 200);
+        }, 350);
     };
 
     btnNew.addEventListener('click', () => {
@@ -3847,7 +3850,11 @@ function initModal() {
 
                 saveState();
                 updateUI();
+                // FIX 110: also re-render the visible pages so the new debt
+                // populates instantly without a tab switch.
+                try { if (typeof window.renderDebts === 'function') window.renderDebts(); } catch (_) {}
                 try { if (typeof window.renderRecurringTab === 'function') window.renderRecurringTab(); } catch (_) {}
+                try { if (typeof window.renderMainCalendar === 'function') window.renderMainCalendar(); } catch (_) {}
                 try { if (typeof window.cloudPushNow === 'function') window.cloudPushNow(); } catch (_) {}
 
                 // FIX 108: belt-and-suspenders server-write. Runs in parallel
@@ -19814,6 +19821,15 @@ window.renderCashFlowChart = function() {
 // TOAST NOTIFICATION HELPER
 // ====================================================================
 function showToast(message) {
+    // FIX 110: de-dupe — if the same message fired within the last 1 second,
+    // skip it. Prevents stacking when multiple modules emit the same toast on
+    // the same event (e.g. wjp-recurring-tiles + debt-save both fire after
+    // user clicks Save).
+    try {
+        if (window._wjpLastToast && window._wjpLastToast.msg === message
+            && Date.now() - window._wjpLastToast.ts < 1000) return;
+        window._wjpLastToast = { msg: message, ts: Date.now() };
+    } catch (_) {}
     const existing = document.getElementById('budget-toast');
     if (existing) existing.remove();
     // PHASE 5b: announce via aria-live region for screen readers (sentinel: P5B_A11Y)
