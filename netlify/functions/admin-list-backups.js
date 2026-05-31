@@ -54,8 +54,10 @@ exports.handler = async function (event) {
   if (!targetUid) return json(400, { error: 'Missing uid query parameter' });
 
   try {
+    // Avoid Firestore composite index requirement by skipping orderBy.
+    // Sort in JS after fetch — there's at most ~60 backups per user.
     const snaps = await db.collection('userBackups').doc(targetUid)
-      .collection('snapshots').orderBy('__name__', 'desc').limit(60).get();
+      .collection('snapshots').get();
     const backups = [];
     snaps.forEach((doc) => {
       const data = doc.data() || {};
@@ -67,7 +69,8 @@ exports.handler = async function (event) {
         counts: meta.counts || {},
       });
     });
-    return json(200, { uid: targetUid, count: backups.length, backups });
+    backups.sort((a, b) => String(b.day).localeCompare(String(a.day)));
+    return json(200, { uid: targetUid, count: backups.length, backups: backups.slice(0, 60) });
   } catch (err) {
     console.error('[admin-list-backups]', err);
     return json(500, { error: 'List failed: ' + (err && err.message ? err.message : 'unknown') });
