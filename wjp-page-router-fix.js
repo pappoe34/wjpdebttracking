@@ -69,11 +69,19 @@
   var _enforcing = false;
   function enforce(reason) {
     if (_enforcing) return;
-    // FIX 74: honor a global pause flag so background page-pre-warmer can
-    // temporarily flip pages active without us undoing it.
     if (window._wjpRouterFixPaused) return;
     _enforcing = true;
     try {
+      // FIX 95: defensively clear body.overflow scroll-lock left over from
+      // onboarding flows / modals that didn't restore on close. Skip when
+      // onboarding is actually visible — it legitimately needs the lock.
+      try {
+        var ob = document.getElementById('onboarding-page');
+        var obVisible = ob && getComputedStyle(ob).display !== 'none';
+        if (!obVisible && document.body.style.overflow === 'hidden') {
+          document.body.style.overflow = '';
+        }
+      } catch (_) {}
       var wantId = resolveActivePageId();
       var pages = document.querySelectorAll('[id^="page-"]');
       pages.forEach(function (pg) {
@@ -215,7 +223,7 @@
   }
 
   window.WJP_PageRouterFix = {
-    version: 6,
+    version: 7,
     enforce: enforce,
     resolveActivePageId: resolveActivePageId
   };

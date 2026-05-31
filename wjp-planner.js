@@ -1,4 +1,4 @@
-/* wjp-planner.js v4 — centered finance-grade title + AI Coach assessment tab v1 — Consolidate Goals + Notes into a single "Planner" tab.
+/* wjp-planner.js v5 — centered finance-grade title + AI Coach assessment tab v1 — Consolidate Goals + Notes into a single "Planner" tab.
  *
  *   • Adds a "Planner" item to the sidebar (with a clipboard icon)
  *   • Hides the old "Goals" and "Notes" sidebar items
@@ -1036,4 +1036,28 @@
     show: showPlanner,
     version: 1
   };
+
+  // FIX 97: hide page-planner when navigating away. showPlanner sets inline
+  // display:block which beats the CSS .page:not(.active) hide rule, so
+  // without an explicit cleanup the Planner content bleeds onto AI Coach
+  // (page-advisor) and Financial Education (page-activity) until the page
+  // router-fix MutationObserver finally catches it ~12s later.
+  function _hidePlannerIfNotActive() {
+    try {
+      var h = (location.hash || '').replace(/^#/, '').toLowerCase();
+      if (h === 'planner') return;
+      var p = document.getElementById('page-planner');
+      if (!p) return;
+      if (p.style.display === 'block') p.style.display = 'none';
+      p.classList.remove('active');
+    } catch (_) {}
+  }
+  window.addEventListener('hashchange', _hidePlannerIfNotActive);
+  document.addEventListener('click', function (e) {
+    var navItem = e.target && e.target.closest && e.target.closest('.nav-item[data-page]');
+    if (!navItem) return;
+    var dp = navItem.getAttribute('data-page');
+    if (dp && dp !== 'planner') setTimeout(_hidePlannerIfNotActive, 50);
+  }, true);
+
 })();

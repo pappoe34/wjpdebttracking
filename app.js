@@ -25235,8 +25235,12 @@ window.showPrivacyHint = function showPrivacyHint() {
         var clearD = document.getElementById('btn-inbox-clear-dismissed');
         if (clearD && !clearD._wjpInboxWired) {
             clearD._wjpInboxWired = true;
+            // FIX 96: was a no-op for users who only used "Mark all read".
+            // Now clears anything the user has finished with (read OR dismissed).
             clearD.addEventListener('click', function(){
-                appState.inbox = ensureInbox().filter(function(x){ return x && !x.dismissed; });
+                appState.inbox = ensureInbox().filter(function(x){
+                    return x && !x.dismissed && !x.read;
+                });
                 try { saveState(); } catch(_){}
                 renderInbox(); updateInboxBadge();
             });
