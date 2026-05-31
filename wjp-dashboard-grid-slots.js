@@ -1,4 +1,4 @@
-/* wjp-dashboard-grid-slots.js v11 — Optional 12-column grid layout for the
+/* wjp-dashboard-grid-slots.js v12 — Optional 12-column grid layout for the
  * dashboard. Each card can declare a slot size of 1, 2, or 3 fit:
  *   • 1-fit  = full row    (grid-column span 12)
  *   • 2-fit  = half row    (grid-column span 6)
@@ -130,21 +130,47 @@
 
   // ───── slot heuristic ─────
   function inferSlotFromCard(card) {
-    if (!card) return 3;
+    // FIX 89: default to slot 2 (half-width). Slot 3 (third) was too narrow
+    // for content-heavy cards like Assets, Bank Balances, Active Target —
+    // headings wrapped, numbers overlapped. Only force slot 3 for cards that
+    // are clearly tiny widgets (single stat / badge / tip).
+    if (!card) return 2;
+
+    // 1) Explicit data-size always wins
     var sz = (card.getAttribute('data-size') || '').toLowerCase();
     if (sz === 'full' || sz === 'l' || sz === 'large') return 1;
     if (sz === 'm' || sz === 'medium') return 2;
     if (sz === 's' || sz === 'small') return 3;
-    // FIX 84 v9: pre-existing card-id overrides for cards that have natural
-    // content sizes. Resilience renders as a stat panel — slot 2 (half) gives
-    // it room for runway / DTI / liquid / monthly income side-by-side.
+
+    // 2) Specific card-id overrides
     var dataId = (card.getAttribute('data-card-id') || '').toLowerCase();
     if (dataId === 'resilience') return 2;
     if (dataId === 'wjp-edu-tip') return 3;
+    if (dataId === 'last-7-days') return 1;
+    if (dataId === 'exec-summary') return 1;
+    if (dataId === 'strategy-indicators') return 1;
+    if (dataId === 'spending') return 1;
+    if (dataId === 'wjp-debit-balances') return 2;
+    if (dataId === 'assets') return 2;
+    if (dataId === 'wjp-active-target') return 2;
+    if (dataId === 'upcoming') return 2;
+    if (dataId === 'math-breakdown') return 1;
+
+    // 3) ID-based heuristic — heroes and big-content cards
     var id = (card.id || '').toLowerCase();
     if (/hero|strategy|spending|breakdown|exec/.test(id)) return 1;
-    if (/credit|score|fact|bites|widget|tip|streak|last-?week/.test(id)) return 3;
-    return 3;
+    // Only tiny widget-style cards get slot 3 (third)
+    if (/credit-profile|score-card|fact-card|bites|debt-fact|edu-tip|streak|tip$/.test(id)) return 3;
+
+    // 4) Content-heavy detection: if the card has a list with 3+ rows or
+    // substantial inner structure, it deserves slot 2 (half) for readability.
+    try {
+      var rowCount = card.querySelectorAll(':scope .bank-row, :scope .row-item, :scope li, :scope [class*="row"]').length;
+      if (rowCount >= 3) return 2;
+    } catch (_) {}
+
+    // 5) Default: slot 2 (half). Better than slot 3 for unknown cards.
+    return 2;
   }
 
   function computeSlot(card) {
@@ -441,7 +467,7 @@
   }
 
   window.WJP_DashboardGridSlots = {
-    version: 11,
+    version: 12,
     isEnabled: isGridEnabled,
     setEnabled: setGridEnabled,
     isAutoFit: isAutoFit,
