@@ -22435,8 +22435,24 @@ function initAllButtonHandlers() {
             };
         });
 
+        // FIX 100: wire "New Schedule" to the global multi-option Add modal.
+        // The user picks the category (Credit Card / Loan / Recurring /
+        // Transaction / Income / Bank) and the existing entry flow handles
+        // the rest. Same UX as the top-right "+ Add" button.
         const btnRecAdd = document.getElementById('btn-rec-add');
-        if (btnRecAdd) btnRecAdd.onclick = () => showToast('Add Recurring Payment — coming soon.');
+        if (btnRecAdd) btnRecAdd.onclick = function () {
+            var btnNewEntry = document.getElementById('btn-new-entry');
+            if (btnNewEntry) { btnNewEntry.click(); return; }
+            // Fallback: try to directly open the entry modal and route to recurring
+            var modal = document.getElementById('entry-modal');
+            if (modal) {
+                modal.classList.add('active');
+                var recurringTile = document.querySelector('.entry-tile[data-route="recurring"]');
+                if (recurringTile) setTimeout(function () { recurringTile.click(); }, 50);
+                return;
+            }
+            if (typeof showToast === 'function') showToast('Add menu not loaded yet.');
+        };
     }
 
     // Initial render
