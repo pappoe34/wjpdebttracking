@@ -24452,11 +24452,15 @@ window.showPrivacyHint = function showPrivacyHint() {
             setIndicator('offline');
         } finally {
             _pulling = false;
-            _pullDone = true; // P8.1: unblock pushes
-            if (_pushPendingDuringPull) {
-                _pushPendingDuringPull = false;
-                try { cloudPushDebounced(); } catch(_){}
-            }
+            _pullDone = true;
+            // FIX 107: if dirty flag was set from a previous session (saves
+            // that never pushed because pull was in progress / app closed),
+            // push them NOW.
+            try {
+                if (isDirty()) {
+                    setTimeout(function(){ cloudPushNow(); }, 100);
+                }
+            } catch(_){}
         }
     }
 
@@ -24500,12 +24504,48 @@ window.showPrivacyHint = function showPrivacyHint() {
         return out;
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    // FIX 107: bulletproof dirty-flag + retry sync.
+    // Previously cloudPushDebounced silently returned if Firebase wasn't ready
+    // or pull hadn't finished, and cloudPushNow had no retry on failure. Data
+    // got dropped + the "Synced" indicator lied. New rules:
+    //   1. saveState → markDirty() always sets a localStorage flag with timestamp.
+    //   2. cloudPushDebounced/Now attempt the push. SUCCESS clears the flag.
+    //   3. Background retry every 3s drains the flag whenever ready+pulled.
+    //   4. Indicator strictly reflects dirty state (no false "synced").
+    //   5. On boot, if flag is set from a previous session, push immediately.
+    // ──────────────────────────────────────────────────────────────────
+    function _dirtyKey() { return 'wjp_cloud_dirty_' + (_uid || 'local'); }
+    function markDirty() {
+        try { localStorage.setItem(_dirtyKey(), String(Date.now())); } catch (_) {}
+        setIndicator('syncing');
+    }
+    function clearDirty() {
+        try { localStorage.removeItem(_dirtyKey()); } catch (_) {}
+        setIndicator('synced');
+    }
+    function isDirty() {
+        try { return !!localStorage.getItem(_dirtyKey()); } catch (_) { return false; }
+    }
+    window._wjpIsDirty = isDirty;
+
     async function cloudPushNow() {
+        // Track dirty timestamp at start so we know what we are pushing
+        var attemptTs = Date.now();
+        if (!appState || !appState.prefs || appState.prefs.cloudMode === false) return;
+        if (!_ready) {
+            try { console.warn('[cloud-sync] push skipped: not ready, will retry'); } catch(_){}
+            markDirty();
+            return;
+        }
+        if (!_pullDone) {
+            try { console.warn('[cloud-sync] push skipped: pull not done, will retry'); } catch(_){}
+            markDirty();
+            return;
+        }
         try {
             await ensureFirestore();
             var ref = _docFn(_db, 'users', _uid, 'state', 'main');
-            // FIX 53 v3: read existing cloud prefs.learnedCategories before push
-            // so we union instead of clobber across devices/tabs.
             var cloudLearned = null;
             try {
                 var existingSnap = await _getDocFn(ref);
@@ -24523,7 +24563,7 @@ window.showPrivacyHint = function showPrivacyHint() {
                     cloudLearned
                 );
             }
-            var realTxns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic; }).slice(-5000); // FIX 41 (2026-05-26 Winston): raised cap from 300 → 5000 so user category assignments + link state on older txns survive cloud-pull. Firestore doc limit is 1MB; 5000 tx * ~250 bytes avg = ~1.25MB which may exceed for ultra-heavy users. If hit, switch to subcollection per-txn.
+            var realTxns = (appState.transactions || []).filter(function(t){ return t && !t.synthetic; }).slice(-5000);
             var recentNotifs = (appState.notifications || []).slice(-100);
             var payload = {};
             STATE_KEYS.forEach(function(k){ if (appState[k] !== undefined) payload[k] = appState[k]; });
@@ -24532,35 +24572,38 @@ window.showPrivacyHint = function showPrivacyHint() {
             payload._cloudSyncTs = Date.now();
             payload._cloudSyncFrom = (navigator.userAgent || '').slice(0, 80);
             appState._cloudSyncTs = payload._cloudSyncTs;
-            // Firestore rejects undefined values (only accepts null). Walk the
-            // payload and convert any undefined → null so a stray field doesn't
-            // block all cloud pushes. See subscription.stripeSubscriptionId bug
-            // 2026-05-22 that silently broke cloud sync for everyone.
             payload = _wjpStripUndefined(payload);
             await _setDocFn(ref, payload, { merge: false });
             try { localStorage.setItem(getStateKey(), JSON.stringify(appState)); } catch(_){}
-            setIndicator('synced');
+            clearDirty();
+            try { console.log('[cloud-sync] push ok @', attemptTs); } catch(_){}
         } catch (e) {
             console.warn('[cloud-sync] push error', e);
             setIndicator('offline');
+            // KEEP dirty flag — retry loop will pick it up
         }
     }
 
     var _pullDone = false;
-    var _pushPendingDuringPull = false;
     function cloudPushDebounced() {
-        if (!_ready) return;
+        // Always mark dirty. Even if we can't push right now, the flag persists
+        // so the retry loop OR a fresh boot will eventually push.
         if (!appState || !appState.prefs || appState.prefs.cloudMode === false) return;
-        // P8.1 race fix: block push until pull completes, otherwise we overwrite cloud with stale local state
-        if (!_pullDone) {
-            _pushPendingDuringPull = true;
-            setIndicator('syncing');
-            return;
-        }
+        markDirty();
+        if (!_ready || !_pullDone) return;
         if (_pushTimer) clearTimeout(_pushTimer);
-        setIndicator('syncing');
-        _pushTimer = setTimeout(function(){ _pushTimer = null; cloudPushNow(); }, 400); // FIX 53 v4 (Winston 2026-05-28): users paid for real-time sync. 2s window dropped to 400ms.
+        _pushTimer = setTimeout(function(){ _pushTimer = null; cloudPushNow(); }, 400);
     }
+
+    // Retry loop: drain dirty flag every 3 seconds whenever ready+pulled.
+    setInterval(function () {
+        try {
+            if (!isDirty()) return;
+            if (!_ready || !_pullDone) return;
+            cloudPushNow();
+        } catch (_) {}
+    }, 3000);
+
     window.cloudPushNow = cloudPushNow;
     window.cloudPull = cloudPull;
 
