@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v7 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v8 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -270,7 +270,7 @@
     var st = document.createElement('style');
     st.id = STYLE_ID;
     st.textContent = [
-      '#page-recurring #' + CARD_ID + ', #' + CARD_ID + ' { display: block !important; background: linear-gradient(135deg, rgba(66,133,244,0.06), rgba(52,168,83,0.06)); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; }',
+      'html body #page-recurring > #' + CARD_ID + ', html body #page-recurring #' + CARD_ID + ', #' + CARD_ID + ' { display: block !important; visibility: visible !important; background: linear-gradient(135deg, rgba(66,133,244,0.06), rgba(52,168,83,0.06)); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; position: relative; z-index: 5; }',
       'body.dark #' + CARD_ID + ' { background: linear-gradient(135deg, rgba(66,133,244,0.12), rgba(52,168,83,0.10)); }',
       '#' + CARD_ID + ' .wjp-gcal-head { display:flex; align-items:center; gap:12px; margin-bottom: 14px; }',
       '#' + CARD_ID + ' .wjp-gcal-logo { width:36px; height:36px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }',
@@ -385,13 +385,13 @@
     // #page-recurring. wjp-cal-root is the visible container that owns the
     // calendar grid; placing our card as its first child puts it at the top
     // of the visible Calendar page.
-    var calRoot = document.getElementById('wjp-cal-root');
-    var host = calRoot || page;
+    // FIX 87 v8: pin to #page-recurring (sibling of #wjp-cal-root, not inside).
+    // Calendar module's render wipes calRoot.innerHTML, but it can't touch the
+    // card as a sibling. Higher-specificity CSS override (html body ...) beats
+    // the flicker-guard's display:none.
+    var host = page;
     var existing = document.getElementById(CARD_ID);
     if (existing) {
-      // FIX 87 v5: if card is in the wrong parent (e.g. injected into
-      // #page-recurring before #wjp-cal-root existed), remove it. Otherwise
-      // refresh contents in place.
       if (existing.parentNode !== host) {
         try { existing.parentNode.removeChild(existing); } catch (_) {}
       } else {
@@ -434,8 +434,8 @@
         _injectDebounce = 0;
         try {
           var have = document.getElementById(CARD_ID);
-          var calRoot = document.getElementById('wjp-cal-root');
-          if (!have || (calRoot && have.parentNode !== calRoot)) inject();
+          var page3 = document.getElementById('page-recurring');
+          if (!have || (page3 && have.parentNode !== page3)) inject();
         } catch (_) {}
       }, 400);
     }
@@ -480,10 +480,10 @@
     var iv = setInterval(function () {
       if (Date.now() > until) { clearInterval(iv); return; }
       try {
-        var calRoot = document.getElementById('wjp-cal-root');
-        if (!calRoot) return;
+        var page2 = document.getElementById('page-recurring');
+        if (!page2) return;
         var card = document.getElementById(CARD_ID);
-        if (!card || card.parentNode !== calRoot) inject();
+        if (!card || card.parentNode !== page2) inject();
       } catch (_) {}
     }, 2000);
   }
@@ -501,7 +501,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 7,
+    version: 8,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
