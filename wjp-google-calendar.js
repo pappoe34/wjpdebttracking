@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v6 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v7 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -471,14 +471,37 @@
     } catch (_) {}
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
+  // FIX 87 v7: MO doesn't reliably fire when the calendar module replaces
+  // calRoot's contents. Polling fallback: every 2s for 60s, ensure the card
+  // exists inside #wjp-cal-root. Triggered initially, and again whenever the
+  // user navigates to #recurring.
+  function startPolling(maxMs) {
+    var until = Date.now() + (maxMs || 60000);
+    var iv = setInterval(function () {
+      if (Date.now() > until) { clearInterval(iv); return; }
+      try {
+        var calRoot = document.getElementById('wjp-cal-root');
+        if (!calRoot) return;
+        var card = document.getElementById(CARD_ID);
+        if (!card || card.parentNode !== calRoot) inject();
+      } catch (_) {}
+    }, 2000);
   }
 
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { boot(); startPolling(60000); });
+  } else {
+    boot();
+    startPolling(60000);
+  }
+  // Re-arm polling when user navigates to the Calendar tab
+  window.addEventListener('hashchange', function () {
+    var h = (location.hash || '').replace(/^#/, '').toLowerCase();
+    if (h === 'recurring') startPolling(30000);
+  });
+
   window.WJP_GoogleCalendar = {
-    version: 6,
+    version: 7,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
