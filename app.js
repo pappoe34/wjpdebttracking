@@ -3432,7 +3432,8 @@ function initModal() {
             return;
         }
 
-        // mode === 'save-close' (default) — short success flash then close
+        // mode === 'save-close' (default) — quick success flash then close
+        // FIX 102: 2s wait felt like the button was stuck. Drop to 700ms.
         setTimeout(() => {
             closeModal();
             setTimeout(() => {
@@ -3442,7 +3443,7 @@ function initModal() {
                 btn.style.pointerEvents = '';
                 btn.style.transform = '';
             }, 300);
-        }, 2000);
+        }, 700);
     };
 
     btnNew.addEventListener('click', () => {
@@ -3720,9 +3721,13 @@ function initModal() {
                     } catch(_){}
                 }
 
-                // Recurring auto-pay reminder?
-                const recCB = document.getElementById('debt-recurring');
-                if (recCB && recCB.checked && newDebt.minPayment > 0) {
+                // FIX 102: ALWAYS create a recurring payment for a debt with a
+                // min payment so it appears in Bills Explained. Previously this
+                // only ran when the auto-pay-reminder checkbox was ticked, which
+                // is easy to miss in the form — so new credit cards / loans
+                // wouldn't appear in the Recurring Payments tab.
+                if (newDebt.minPayment > 0) {
+                    const recCB = document.getElementById('debt-recurring');
                     const day = parseInt(document.getElementById('debt-recurring-day')?.value, 10);
                     const today = new Date();
                     const next = new Date(today.getFullYear(), today.getMonth(), Math.min(day || newDebt.dueDate || 15, 28));
@@ -3730,10 +3735,14 @@ function initModal() {
                     addRecurringRecord({
                         name: `${newDebt.name} (min payment)`,
                         category: 'debt',
+                        debtType: typeVal,  // FIX 102: preserve 'credit card' vs 'loan' for badge labeling
                         amount: newDebt.minPayment,
                         frequency: document.getElementById('debt-recurring-freq')?.value || 'monthly',
                         nextDate: next.toISOString().slice(0,10),
-                        linkedDebtId: newDebt.id
+                        linkedDebtId: newDebt.id,
+                        // Honor explicit checkbox if user ticked it (sets autoPayReminder),
+                        // but still create the row either way.
+                        autoPayReminder: !!(recCB && recCB.checked)
                     });
                 }
 

@@ -510,10 +510,22 @@
     }, 50);
   }
 
-  function badgeForType(type) {
+  // FIX 102: prefer the linked debt's specific type (credit card / loan) over
+  // the generic 'debt' category so the badge reads CREDIT CARD or LOAN.
+  function badgeForType(type, debtType) {
     var t = (type || '').toLowerCase();
+    var dt = (debtType || '').toLowerCase();
     var color = '#9ca3af', bg = 'rgba(0,0,0,0.05)', label = (type || 'BILL').toUpperCase();
-    if (t.indexOf('debt') !== -1) { color = '#dc2626'; bg = 'rgba(220,38,38,0.10)'; label = 'DEBT'; }
+    if (t.indexOf('debt') !== -1) {
+      // Sub-classify: credit card vs loan vs generic debt
+      if (/credit\s*card|cc\b|visa|mastercard|amex|discover/.test(dt)) {
+        color = '#dc2626'; bg = 'rgba(220,38,38,0.10)'; label = 'CREDIT CARD';
+      } else if (/loan|mortgage|auto|student/.test(dt)) {
+        color = '#b45309'; bg = 'rgba(180,83,9,0.10)'; label = 'LOAN';
+      } else {
+        color = '#dc2626'; bg = 'rgba(220,38,38,0.10)'; label = 'DEBT';
+      }
+    }
     else if (t.indexOf('subscription') !== -1) { color = '#7c3aed'; bg = 'rgba(124,58,237,0.10)'; label = 'SUB'; }
     else if (t.indexOf('utility') !== -1) { color = '#0284c7'; bg = 'rgba(2,132,199,0.10)'; label = 'UTILITY'; }
     else if (t.indexOf('insurance') !== -1) { color = '#c99a2a'; bg = 'rgba(201,154,42,0.10)'; label = 'INSURE'; }
@@ -538,7 +550,15 @@
       'overflow:hidden'
     ].join(';');
 
-    var b = badgeForType(d.type);
+    // FIX 102: look up linked debt's type for sub-classification
+    var _linkedDebtType = d.debtType || '';
+    if (!_linkedDebtType && d.linkedDebtId && typeof appState !== 'undefined' && Array.isArray(appState.debts)) {
+      try {
+        var _ld = appState.debts.find(function(x){ return x && x.id === d.linkedDebtId; });
+        if (_ld && _ld.type) _linkedDebtType = _ld.type;
+      } catch(_){}
+    }
+    var b = badgeForType(d.type, _linkedDebtType);
     var amount = d.minPayment != null ? fmtUSD(d.minPayment) : (d.balance != null ? fmtUSD(d.balance) : '-');
 
     // Compact header
