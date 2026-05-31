@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v3 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v4 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -414,18 +414,39 @@
       if (h === 'recurring') setTimeout(inject, 200);
     });
     // Watch for the page-recurring element appearing late (pre-warm or SPA delay)
+    // FIX 87 v4: previous v3 used { childList:true, subtree:true } on
+    // document.body which fired on EVERY DOM mutation anywhere on the page
+    // and froze the renderer. Throttle + narrow scope:
+    //   - top-level observer only watches direct body children (cheap)
+    //   - a separate observer attaches to #page-recurring once it exists
+    //   - both share a 400ms debounce so we never re-inject more than 2x/sec
+    var _injectDebounce = 0;
+    function scheduleInject() {
+      if (_injectDebounce) return;
+      _injectDebounce = setTimeout(function () {
+        _injectDebounce = 0;
+        try {
+          var have = document.getElementById(CARD_ID);
+          var calRoot = document.getElementById('wjp-cal-root');
+          if (!have || (calRoot && have.parentNode !== calRoot)) inject();
+        } catch (_) {}
+      }, 400);
+    }
     try {
-      var mo = new MutationObserver(function () {
-        var have = document.getElementById(CARD_ID);
-        var calRoot = document.getElementById('wjp-cal-root');
-        // Re-inject if missing OR if it's outside #wjp-cal-root (lazy-built
-        // calRoot may have appeared after our first inject placed us on
-        // #page-recurring, which the flicker guard hides).
-        if (!have || (calRoot && have.parentNode !== calRoot)) {
-          inject();
-        }
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
+      var moBody = new MutationObserver(scheduleInject);
+      moBody.observe(document.body, { childList: true, subtree: false });
+
+      var _recObserver = null;
+      function watchPageRecurring() {
+        var page = document.getElementById('page-recurring');
+        if (!page || _recObserver) return;
+        _recObserver = new MutationObserver(scheduleInject);
+        _recObserver.observe(page, { childList: true, subtree: false });
+      }
+      watchPageRecurring();
+      // Re-check in case page-recurring builds late
+      setTimeout(watchPageRecurring, 2000);
+      setTimeout(watchPageRecurring, 6000);
     } catch (_) {}
   }
 
@@ -436,7 +457,7 @@
   }
 
   window.WJP_GoogleCalendar = {
-    version: 3,
+    version: 4,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
