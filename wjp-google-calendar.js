@@ -1,4 +1,4 @@
-/* wjp-google-calendar.js v8 — Sync wjpdebttracking → Google Calendar.
+/* wjp-google-calendar.js v9 — Sync wjpdebttracking → Google Calendar.
  *
  * Winston 2026-05-30: "is it possible to link a google calendar to the app...
  *   add a google calendar that updates and sends reminders on google for
@@ -295,7 +295,28 @@
       '#' + CARD_ID + ' details { margin-top: 14px; }',
       '#' + CARD_ID + ' summary { font-size:12px; color: var(--text-3); cursor:pointer; user-select:none; }',
       '#' + CARD_ID + ' .wjp-gcal-steps { font-size:12px; color: var(--text-2); margin: 8px 0 0; padding-left: 18px; }',
-      '#' + CARD_ID + ' .wjp-gcal-steps li { margin-bottom:4px; }'
+      '#' + CARD_ID + ' .wjp-gcal-steps li { margin-bottom:4px; }',
+      // ───── FIX 87 v9: month grid ─────
+      '#' + CARD_ID + ' .wjp-gcal-calview { margin: 8px 0 16px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--card, #fff); }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-calview { background: var(--card-2, rgba(255,255,255,0.04)); }',
+      '#' + CARD_ID + ' .wjp-gcal-calhead { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }',
+      '#' + CARD_ID + ' .wjp-gcal-monthtitle { font-size: 16px; font-weight: 800; letter-spacing: -0.2px; }',
+      '#' + CARD_ID + ' .wjp-gcal-navbtns { display:flex; gap:4px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }',
+      '#' + CARD_ID + ' .wjp-gcal-navbtn { background: transparent; border: 0; color: var(--text-2); padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; border-radius: 5px; font-family: inherit; }',
+      '#' + CARD_ID + ' .wjp-gcal-navbtn:hover { background: rgba(31,122,74,0.10); color: #1f7a4a; }',
+      '#' + CARD_ID + ' .wjp-gcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }',
+      '#' + CARD_ID + ' .wjp-gcal-dh { background: var(--card-2, #f7f7f7); padding: 8px 4px; text-align: center; font-size: 9.5px; font-weight: 800; color: var(--text-3); letter-spacing: 0.1em; }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-dh { background: rgba(255,255,255,0.04); }',
+      '#' + CARD_ID + ' .wjp-gcal-cell { background: var(--card, #fff); min-height: 78px; padding: 5px 6px; display: flex; flex-direction: column; gap: 2px; position: relative; }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-cell { background: var(--card-2, rgba(255,255,255,0.02)); }',
+      '#' + CARD_ID + ' .wjp-gcal-blank { background: transparent; min-height: 78px; }',
+      '#' + CARD_ID + ' .wjp-gcal-num { font-size: 11px; font-weight: 700; color: var(--text-2); }',
+      '#' + CARD_ID + ' .wjp-gcal-today .wjp-gcal-num { background: #1f7a4a; color: #fff; border-radius: 999px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-today .wjp-gcal-num { background: #7fd1a4; color: #0a0a0a; }',
+      '#' + CARD_ID + ' .wjp-gcal-chip { font-size: 9.5px; font-weight: 700; padding: 2px 5px; background: rgba(66,133,244,0.14); color: #1a73e8; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+      'body.dark #' + CARD_ID + ' .wjp-gcal-chip { background: rgba(66,133,244,0.22); color: #8ab4f8; }',
+      '#' + CARD_ID + ' .wjp-gcal-more { font-size: 9px; font-weight: 700; color: var(--text-3); padding: 0 5px; }',
+      '#' + CARD_ID + ' .wjp-gcal-calfoot { font-size: 11px; color: var(--text-3); margin-top: 10px; text-align: center; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -308,6 +329,129 @@
       '<text x="100" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="60" fill="#4285f4">31</text>' +
       '<circle cx="50" cy="40" r="8" fill="#34a853"/><circle cx="150" cy="40" r="8" fill="#fbbc04"/>' +
       '</svg>';
+  }
+
+
+  // ────────── FIX 87 v9: visual month-grid view ──────────
+  // Renders the events we send to Google as a proper calendar widget so the
+  // user can see exactly what their Google Calendar will show. Independent
+  // navigation state — doesn't affect the existing transactions calendar
+  // below.
+  var _viewMonth = (function () {
+    var n = new Date();
+    return { y: n.getFullYear(), m: n.getMonth() }; // m is 0-indexed
+  })();
+  function _monthName(m) {
+    return ['January','February','March','April','May','June','July','August','September','October','November','December'][m];
+  }
+  function _isoYmd(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  // Map ICS YYYYMMDD → JS Date (local time, no timezone shift)
+  function _icsDateToLocal(ics) {
+    var y = parseInt(ics.slice(0, 4), 10);
+    var m = parseInt(ics.slice(4, 6), 10) - 1;
+    var d = parseInt(ics.slice(6, 8), 10);
+    return new Date(y, m, d);
+  }
+  // Build the set of dates an event lands on within the visible month.
+  // Handles weekly/biweekly/monthly/quarterly/yearly RRULEs.
+  function _eventDatesInMonth(ev, viewY, viewM) {
+    var dates = [];
+    var first = _icsDateToLocal(ev.date);
+    var monthStart = new Date(viewY, viewM, 1);
+    var monthEnd = new Date(viewY, viewM + 1, 0); // last day of view month
+    if (!ev.rrule) {
+      if (first >= monthStart && first <= monthEnd) dates.push(_isoYmd(first));
+      return dates;
+    }
+    var rule = ev.rrule.replace(/^RRULE:/i, '');
+    // Walk occurrences. We bound iterations to avoid pathological loops.
+    var max = 400;
+    var cur = new Date(first.getTime());
+    while (cur <= monthEnd && max-- > 0) {
+      if (cur >= monthStart) dates.push(_isoYmd(cur));
+      if (/FREQ=WEEKLY/.test(rule)) {
+        var step = /INTERVAL=2/.test(rule) ? 14 : 7;
+        cur.setDate(cur.getDate() + step);
+      } else if (/FREQ=MONTHLY/.test(rule)) {
+        var mStep = /INTERVAL=3/.test(rule) ? 3 : 1;
+        cur.setMonth(cur.getMonth() + mStep);
+      } else if (/FREQ=YEARLY/.test(rule)) {
+        cur.setFullYear(cur.getFullYear() + 1);
+      } else {
+        break;
+      }
+    }
+    return dates;
+  }
+  function _eventsByDateMap(viewY, viewM) {
+    var events = gatherEvents();
+    var byDate = {};
+    events.forEach(function (e) {
+      _eventDatesInMonth(e, viewY, viewM).forEach(function (key) {
+        if (!byDate[key]) byDate[key] = [];
+        byDate[key].push(e);
+      });
+    });
+    return byDate;
+  }
+
+  // Render the visual 7×6 month grid
+  function buildMonthGrid() {
+    var viewY = _viewMonth.y, viewM = _viewMonth.m;
+    var byDate = _eventsByDateMap(viewY, viewM);
+    var first = new Date(viewY, viewM, 1);
+    var firstDow = first.getDay(); // 0=Sun
+    var daysInMonth = new Date(viewY, viewM + 1, 0).getDate();
+    var today = new Date();
+    var todayKey = _isoYmd(today);
+
+    var cells = [];
+    // Leading blanks
+    for (var i = 0; i < firstDow; i++) cells.push({ blank: true });
+    // Day cells
+    for (var d = 1; d <= daysInMonth; d++) {
+      var dateObj = new Date(viewY, viewM, d);
+      var key = _isoYmd(dateObj);
+      cells.push({
+        day: d,
+        key: key,
+        isToday: key === todayKey,
+        events: byDate[key] || []
+      });
+    }
+    // Trailing blanks to fill the grid to 42 cells (7×6)
+    while (cells.length % 7 !== 0) cells.push({ blank: true });
+
+    var dayHeaders = ['SUN','MON','TUE','WED','THU','FRI','SAT']
+      .map(function (h) { return '<div class="wjp-gcal-dh">' + h + '</div>'; }).join('');
+
+    var cellHtml = cells.map(function (c) {
+      if (c.blank) return '<div class="wjp-gcal-cell wjp-gcal-blank"></div>';
+      var chips = c.events.slice(0, 3).map(function (e) {
+        var label = (e.summary || '').replace(/ — \$[\d.]+$/, '');
+        return '<div class="wjp-gcal-chip" title="' + escapeHtml(e.summary) + '">' + escapeHtml(label) + '</div>';
+      }).join('');
+      var more = c.events.length > 3 ? '<div class="wjp-gcal-more">+' + (c.events.length - 3) + ' more</div>' : '';
+      return '<div class="wjp-gcal-cell' + (c.isToday ? ' wjp-gcal-today' : '') + (c.events.length ? ' wjp-gcal-has' : '') + '">' +
+        '<div class="wjp-gcal-num">' + c.day + '</div>' + chips + more + '</div>';
+    }).join('');
+
+    var totalThisMonth = Object.keys(byDate).reduce(function (sum, k) { return sum + byDate[k].length; }, 0);
+
+    return '<div class="wjp-gcal-calview">' +
+      '<div class="wjp-gcal-calhead">' +
+        '<div class="wjp-gcal-monthtitle">' + _monthName(viewM) + ' ' + viewY + '</div>' +
+        '<div class="wjp-gcal-navbtns">' +
+          '<button type="button" class="wjp-gcal-navbtn" data-action="prev-month" title="Previous month"><i class="ph ph-caret-left"></i></button>' +
+          '<button type="button" class="wjp-gcal-navbtn" data-action="today" title="Today">Today</button>' +
+          '<button type="button" class="wjp-gcal-navbtn" data-action="next-month" title="Next month"><i class="ph ph-caret-right"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wjp-gcal-grid">' + dayHeaders + cellHtml + '</div>' +
+      '<div class="wjp-gcal-calfoot">' + totalThisMonth + ' synced event' + (totalThisMonth === 1 ? '' : 's') + ' this month · 1-day-before reminder set on each</div>' +
+    '</div>';
   }
 
   // ────────── card render ──────────
@@ -346,6 +490,7 @@
         '<button type="button" class="wjp-gcal-btn ghost" data-action="download"><i class="ph ph-download-simple"></i> Download .ics file</button>' +
       '</div>' +
       '<div class="wjp-gcal-status" id="wjp-gcal-status" style="font-size:11.5px; color:var(--text-3); margin: -4px 0 12px; min-height:16px;"></div>' +
+      buildMonthGrid() +
       listHtml +
       '<details>' +
         '<summary>How to import into Google Calendar</summary>' +
@@ -364,6 +509,9 @@
       var act = btn.getAttribute('data-action');
       if (act === 'download') downloadIcs();
       else if (act === 'sync-url') fetchSyncUrl();
+      else if (act === 'prev-month') { _viewMonth.m -= 1; if (_viewMonth.m < 0) { _viewMonth.m = 11; _viewMonth.y -= 1; } inject(); }
+      else if (act === 'next-month') { _viewMonth.m += 1; if (_viewMonth.m > 11) { _viewMonth.m = 0; _viewMonth.y += 1; } inject(); }
+      else if (act === 'today') { var n = new Date(); _viewMonth.y = n.getFullYear(); _viewMonth.m = n.getMonth(); inject(); }
     });
 
     return card;
@@ -501,7 +649,7 @@
   });
 
   window.WJP_GoogleCalendar = {
-    version: 8,
+    version: 9,
     gatherEvents: gatherEvents,
     buildIcs: buildIcs,
     downloadIcs: downloadIcs,
